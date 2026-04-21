@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, ArrowLeft, Upload, Star, ImageIcon, X, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Upload, Star, ImageIcon, X, ChevronUp, ChevronDown, Search, Wand2, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 
 const SEASON_MAP: Record<string, string> = {
@@ -128,6 +128,34 @@ export default function PackageDetail() {
     onError: (e) => toast.error("순서 변경 실패: " + e.message),
   });
 
+  // Pixabay 검색
+  const [pixabayQuery, setPixabayQuery] = useState('');
+  const [pixabayInputValue, setPixabayInputValue] = useState('');
+  const [pixabayPage, setPixabayPage] = useState(1);
+  const [pixabayEnabled, setPixabayEnabled] = useState(false);
+  const { data: pixabayResults, isLoading: pixabayLoading } = trpc.packages.searchPixabay.useQuery(
+    { query: pixabayQuery, page: pixabayPage, perPage: 12 },
+    { enabled: pixabayEnabled && !!pixabayQuery }
+  );
+  const importPixabayMutation = trpc.packages.importPixabayImage.useMutation({
+    onSuccess: () => { toast.success('이미지가 추가되었습니다.'); refetchImages(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  // AI 이미지 생성
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const generateAIMutation = trpc.packages.generateAIImage.useMutation({
+    onSuccess: () => { setIsGeneratingAI(false); toast.success('AI 이미지가 생성되었습니다.'); refetchImages(); },
+    onError: (e) => { setIsGeneratingAI(false); toast.error(e.message); },
+  });
+
+  const handlePixabaySearch = () => {
+    if (!pixabayInputValue.trim()) return;
+    setPixabayQuery(pixabayInputValue.trim());
+    setPixabayPage(1);
+    setPixabayEnabled(true);
+  };
+
   const moveImage = (idx: number, direction: "up" | "down") => {
     if (!images) return;
     const arr = [...images];
@@ -221,6 +249,160 @@ export default function PackageDetail() {
                   className="hidden"
                   onChange={(e) => handleFileSelect(e.target.files)}
                 />
+              </CardContent>
+            </Card>
+
+            {/* Pixabay 이미지 검색 */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <Search size={16} className="text-blue-500" />
+                  <CardTitle className="text-base">Pixabay 무료 이미지 검색 (CC0)</CardTitle>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">저작권 무료(CC0) 이미지를 검색하여 바로 등록할 수 있습니다</p>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2 mb-4">
+                  <Input
+                    value={pixabayInputValue}
+                    onChange={(e) => setPixabayInputValue(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handlePixabaySearch()}
+                    placeholder="예: golf course, thailand golf, green fairway"
+                    className="h-9"
+                  />
+                  <Button
+                    onClick={handlePixabaySearch}
+                    disabled={!pixabayInputValue.trim() || pixabayLoading}
+                    className="h-9 bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                  >
+                    {pixabayLoading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                    <span className="ml-1">검색</span>
+                  </Button>
+                </div>
+
+                {pixabayResults && (
+                  <>
+                    <p className="text-xs text-slate-400 mb-3">전체 {pixabayResults.total.toLocaleString()}개 중 {pixabayResults.images.length}개 표시</p>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {pixabayResults.images.map((img: any) => (
+                        <div key={img.id} className="relative group rounded-xl overflow-hidden border border-slate-100 shadow-sm">
+                          <div className="aspect-[4/3] bg-slate-100">
+                            <img
+                              src={img.previewUrl}
+                              alt={img.tags}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <button
+                              onClick={() => importPixabayMutation.mutate({ packageId: id, imageUrl: img.largeImageUrl, altText: img.tags })}
+                              disabled={importPixabayMutation.isPending}
+                              className="bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+                            >
+                              {importPixabayMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                              등록
+                            </button>
+                          </div>
+                          <div className="px-2 py-1 bg-white">
+                            <p className="text-xs text-slate-400 truncate">{img.tags}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 페이지네이션 */}
+                    {pixabayResults.total > 12 && (
+                      <div className="flex items-center justify-center gap-2 mt-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPixabayPage((p) => Math.max(1, p - 1))}
+                          disabled={pixabayPage === 1 || pixabayLoading}
+                          className="h-8"
+                        >
+                          이전
+                        </Button>
+                        <span className="text-sm text-slate-500">{pixabayPage} 페이지</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPixabayPage((p) => p + 1)}
+                          disabled={pixabayPage * 12 >= pixabayResults.total || pixabayLoading}
+                          className="h-8"
+                        >
+                          다음
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {!pixabayResults && !pixabayLoading && (
+                  <div className="py-6 text-center">
+                    <Search size={32} className="mx-auto mb-2 text-slate-200" />
+                    <p className="text-slate-400 text-sm">검색어를 입력하고 검색 버튼을 누르세요</p>
+                    <p className="text-slate-300 text-xs mt-1">예: golf course, thailand golf, green fairway</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* AI 이미지 자동생성 */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <Wand2 size={16} className="text-purple-500" />
+                  <CardTitle className="text-base">AI 이미지 자동 생성</CardTitle>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">상품명 기반으로 AI가 골프 여행 이미지를 자동 생성합니다 (5~20초 소요)</p>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <p className="text-sm text-slate-600">
+                      <span className="font-medium">{data.title}</span>
+                      {data.country && <span className="text-slate-400"> · {data.country}</span>}
+                      {data.region && <span className="text-slate-400"> · {data.region}</span>}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">위 상품 정보를 기반으로 AI 이미지를 생성합니다</p>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      setIsGeneratingAI(true);
+                      generateAIMutation.mutate({
+                        packageId: id,
+                        packageTitle: data.title,
+                        country: data.country ?? undefined,
+                        region: data.region ?? undefined,
+                      });
+                    }}
+                    disabled={isGeneratingAI || generateAIMutation.isPending}
+                    className="bg-purple-600 hover:bg-purple-700 text-white shrink-0"
+                  >
+                    {(isGeneratingAI || generateAIMutation.isPending) ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin mr-2" />
+                        생성 중...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 size={14} className="mr-2" />
+                        AI 이미지 생성
+                      </>
+                    )}
+                  </Button>
+                </div>
+                {(isGeneratingAI || generateAIMutation.isPending) && (
+                  <div className="mt-4 p-4 bg-purple-50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <Loader2 size={20} className="animate-spin text-purple-500" />
+                      <div>
+                        <p className="text-sm font-medium text-purple-700">AI 이미지 생성 중...</p>
+                        <p className="text-xs text-purple-500 mt-0.5">상품명과 목적지 정보를 분석하여 골프 여행 이미지를 생성하고 있습니다. 5~20초 소요됩니다.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

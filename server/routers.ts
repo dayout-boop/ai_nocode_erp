@@ -12,6 +12,9 @@ import {
 import { eq, desc, and, gte, lte, like, sql, count, asc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { storagePut } from "./storage";
+import { optimizeImage, optimizeBase64Image } from "./imageOptimizer";
+import { generateImage } from "./_core/imageGeneration";
+import { ENV } from "./_core/env";
 
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "admin") {
@@ -267,12 +270,12 @@ const packagesRouter = router({
   })).mutation(async ({ input }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    // base64 → Buffer 변환
-    const base64 = input.base64Data.replace(/^data:[^;]+;base64,/, "");
-    const buffer = Buffer.from(base64, "base64");
-    // S3 업로드
-    const key = `packages/${input.packageId}/${Date.now()}_${input.fileName}`;
-    const { url, key: savedKey } = await storagePut(key, buffer, input.mimeType);
+    // base64 → Buffer 변환 후 최적화 (1200x800, WebP, 500KB 이하)
+    const { buffer: optimizedBuffer, mimeType: optimizedMime } = await optimizeBase64Image(input.base64Data);
+    // S3 업로드 (WebP로 변환됨)
+    const baseName = input.fileName.replace(/\.[^.]+$/, '');
+    const key = `packages/${input.packageId}/${Date.now()}_${baseName}.webp`;
+    const { url, key: savedKey } = await storagePut(key, optimizedBuffer, optimizedMime);
     // 현재 이미지 수 조회 (sortOrder 결정)
     const [{ cnt }] = await db.select({ cnt: count() }).from(packageImages).where(eq(packageImages.packageId, input.packageId));
     const sortOrder = Number(cnt);
@@ -342,6 +345,116 @@ const packagesRouter = router({
       )
     );
     return { success: true };
+  }),
+
+  // Pixabay 이미지 검색 (미리보기용 - 저장하지 않음)
+  searchPixabay: adminProcedure.input(z.object({
+    query: z.string(),
+    page: z.number().default(1),
+    perPage: z.number().default(12),
+  })).query(async ({ input }) => {
+    if (!ENV.pixabayApiKey) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Pixabay API 키가 설정되지 않았습니다." });
+    const q = encodeURIComponent(input.query);
+    const url = `https://pixabay.com/api/?key=${ENV.pixabayApiKey}&q=${q}&image_type=photo&orientation=horizontal&category=travel&per_page=${input.perPage}&page=${input.page}&safesearch=true&lang=ko`;
+    const res = await fetch(url);
+    if (!res.ok) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Pixabay 검색 실패" });
+    const data = await res.json() as { totalHits: number; hits: Array<{ id: number; webformatURL: string; largeImageURL: string; tags: string; user: string; pageURL: string }> };
+    return {
+      total: data.totalHits,
+      images: data.hits.map(h => ({
+        id: h.id,
+        previewUrl: h.webformatURL,
+        fullUrl: h.largeImageURL,
+        tags: h.tags,
+        author: h.user,
+        pageUrl: h.pageURL,
+        license: 'Pixabay License (상업적 무료 사용 가능)',
+      }))
+    };
+  }),
+
+  // Pixabay 이미지 가져와서 최적화 후 S3 저장
+  importPixabayImage: adminProcedure.input(z.object({
+    packageId: z.number(),
+    imageUrl: z.string(),
+    altText: z.string().optional(),
+    isCover: z.boolean().optional(),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    // URL에서 이미지 다운로드 후 최적화
+    const { buffer, mimeType } = await optimizeImage(input.imageUrl);
+    const key = `packages/${input.packageId}/pixabay_${Date.now()}.webp`;
+    const { url, key: savedKey } = await storagePut(key, buffer, mimeType);
+    const [{ cnt }] = await db.select({ cnt: count() }).from(packageImages).where(eq(packageImages.packageId, input.packageId));
+    const sortOrder = Number(cnt);
+    if (input.isCover) {
+      await db.update(packageImages).set({ isCover: false }).where(eq(packageImages.packageId, input.packageId));
+    }
+    await db.insert(packageImages).values({
+      packageId: input.packageId,
+      imageUrl: url,
+      imageKey: savedKey,
+      altText: input.altText ?? 'Pixabay 이미지',
+      sortOrder,
+      isCover: input.isCover ?? sortOrder === 0,
+    });
+    if (sortOrder === 0) {
+      await db.update(packages).set({ imageUrl: url }).where(eq(packages.id, input.packageId));
+    }
+    return { url, key: savedKey };
+  }),
+
+  // AI 이미지 자동생성 (상품명 기반 프롬프트)
+  generateAIImage: adminProcedure.input(z.object({
+    packageId: z.number(),
+    packageTitle: z.string(),
+    country: z.string().optional(),
+    region: z.string().optional(),
+    isCover: z.boolean().optional(),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    // 상품명 기반 영문 프롬프트 생성
+    const countryMap: Record<string, string> = {
+      '대한민국': 'South Korea', '태국': 'Thailand', '베트남': 'Vietnam',
+      '필리핀': 'Philippines', '중국': 'China', '일본': 'Japan',
+    };
+    const countryEn = input.country ? (countryMap[input.country] ?? input.country) : 'Asia';
+    const regionEn = input.region ?? '';
+    const prompt = `Luxury golf course in ${regionEn} ${countryEn}, beautiful green fairway, blue sky, professional golf photography, wide angle panoramic view, high quality travel brochure style, 4K ultra HD, no people, serene atmosphere`;
+    const { url: generatedUrl } = await generateImage({ prompt });
+    if (!generatedUrl) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "이미지 생성 실패" });
+    // 생성된 이미지 최적화 (이미 S3에 있으므로 URL로 다운로드)
+    const { buffer, mimeType } = await optimizeImage(generatedUrl);
+    const key = `packages/${input.packageId}/ai_${Date.now()}.webp`;
+    const { url, key: savedKey } = await storagePut(key, buffer, mimeType);
+    const [{ cnt }] = await db.select({ cnt: count() }).from(packageImages).where(eq(packageImages.packageId, input.packageId));
+    const sortOrder = Number(cnt);
+    if (input.isCover) {
+      await db.update(packageImages).set({ isCover: false }).where(eq(packageImages.packageId, input.packageId));
+    }
+    await db.insert(packageImages).values({
+      packageId: input.packageId,
+      imageUrl: url,
+      imageKey: savedKey,
+      altText: `AI 생성: ${input.packageTitle}`,
+      sortOrder,
+      isCover: input.isCover ?? sortOrder === 0,
+    });
+    if (sortOrder === 0) {
+      await db.update(packages).set({ imageUrl: url }).where(eq(packages.id, input.packageId));
+    }
+    return { url, key: savedKey, prompt };
+  }),
+
+  // 이미지 공개 조회 (프론트용)
+  publicImages: publicProcedure.input(z.object({ packageId: z.number() })).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) return [];
+    return db.select().from(packageImages)
+      .where(eq(packageImages.packageId, input.packageId))
+      .orderBy(asc(packageImages.sortOrder), asc(packageImages.id));
   }),
 });
 

@@ -46,3 +46,13 @@
 - [x] S3 이미지 업로드 tRPC API (uploadImage, deleteImage, setCover, listImages)
 - [x] ERP 상품 수정 화면에 이미지 업로드/삭제/대표설정 UI (드래그&드롭 지원)
 - [x] 프론트 상품 상세 페이지에 이미지 갤러리(주요이미지+썸네일+라이트박스) 표시
+
+## 상품 이미지 자동생성 및 최적화 기능
+- [x] AI 이미지 자동생성 tRPC API (generateAIImage) - 상품명 기반 프롬프트로 AI 이미지 생성
+- [x] ERP 이미지 탭에 "AI 자동생성" 섹션 UI 추가 (자동생성 버튼, 생성 중 로딩 표시)
+- [x] 생성된 이미지를 등록된 이미지 목록에 통합 표시
+- [x] 이미지 업로드/생성 시 자동 리사이즈 (1200x800 기준, 비율 유지)
+- [x] 이미지 용량 최적화 (WebP 변환, 품질 85%, 최대 500KB)
+- [x] 프론트 상품 상세 페이지 이미지 일관된 사이즈로 표시
+- [x] Pixabay CC0 무료 이미지 검색 tRPC API (searchPixabay, importPixabayImage) 추가
+- [x] ERP 이미지 탭에 Pixabay 검색 UI 추가 (검색어 입력, 결과 그리드, 페이지네이션, 등록 버튼)
