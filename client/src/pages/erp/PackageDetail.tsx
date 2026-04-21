@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, ArrowLeft, Upload, Star, ImageIcon, X } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Upload, Star, ImageIcon, X, ChevronUp, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
 
 const SEASON_MAP: Record<string, string> = {
@@ -123,6 +123,20 @@ export default function PackageDetail() {
     onError: (e) => toast.error(e.message),
   });
 
+  const reorderMutation = trpc.packages.reorderImages.useMutation({
+    onSuccess: () => { refetchImages(); },
+    onError: (e) => toast.error("순서 변경 실패: " + e.message),
+  });
+
+  const moveImage = (idx: number, direction: "up" | "down") => {
+    if (!images) return;
+    const arr = [...images];
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= arr.length) return;
+    [arr[idx], arr[swapIdx]] = [arr[swapIdx], arr[idx]];
+    reorderMutation.mutate({ packageId: id, orderedIds: arr.map((img: any) => img.id) });
+  };
+
   const handleFileSelect = (files: FileList | null) => {
     if (!files || files.length === 0) return;
     Array.from(files).forEach((file) => {
@@ -227,7 +241,7 @@ export default function PackageDetail() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {images.map((img: any) => (
+                    {images.map((img: any, idx: number) => (
                       <div key={img.id} className="relative group rounded-xl overflow-hidden border border-slate-100 shadow-sm">
                         <div className="aspect-[4/3] bg-slate-100">
                           <img
@@ -242,6 +256,25 @@ export default function PackageDetail() {
                             <Star size={10} fill="white" /> 대표
                           </div>
                         )}
+                        {/* 순서 이동 버튼 (항상 표시) */}
+                        <div className="absolute top-2 right-2 flex flex-col gap-0.5">
+                          <button
+                            onClick={() => moveImage(idx, "up")}
+                            disabled={idx === 0}
+                            className="w-6 h-6 bg-black/50 hover:bg-black/70 disabled:opacity-30 text-white rounded flex items-center justify-center transition-colors"
+                            title="위로 이동"
+                          >
+                            <ChevronUp size={12} />
+                          </button>
+                          <button
+                            onClick={() => moveImage(idx, "down")}
+                            disabled={idx === images.length - 1}
+                            className="w-6 h-6 bg-black/50 hover:bg-black/70 disabled:opacity-30 text-white rounded flex items-center justify-center transition-colors"
+                            title="아래로 이동"
+                          >
+                            <ChevronDown size={12} />
+                          </button>
+                        </div>
                         {/* 호버 액션 */}
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                           {!img.isCover && (
@@ -265,9 +298,10 @@ export default function PackageDetail() {
                             <X size={12} /> 삭제
                           </button>
                         </div>
-                        {/* 순서 표시 */}
-                        <div className="px-2 py-1.5 bg-white">
-                          <p className="text-xs text-slate-400 truncate">{img.altText || `이미지 ${img.sortOrder + 1}`}</p>
+                        {/* 순서 번호 표시 */}
+                        <div className="px-2 py-1.5 bg-white flex items-center justify-between">
+                          <p className="text-xs text-slate-400 truncate">{img.altText || `이미지 ${idx + 1}`}</p>
+                          <span className="text-xs text-slate-300 shrink-0 ml-1">#{idx + 1}</span>
                         </div>
                       </div>
                     ))}

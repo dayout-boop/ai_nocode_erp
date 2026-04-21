@@ -42,7 +42,7 @@
 - [x] Inquiry.tsx - 패키지 상세에서 넘어온 쿼리 파라미터(package, name) 자동 프리필 연동
 
 ## 상품 이미지 업로드 및 관리 기능
-- [ ] DB 스키마에 package_images 테이블 추가 및 마이그레이션
-- [ ] S3 이미지 업로드 tRPC API (uploadImage, deleteImage, reorderImages)
-- [ ] ERP 상품 수정 화면에 이미지 업로드/삭제/순서변경 UI
-- [ ] 프론트 상품 상세 페이지에 이미지 갤러리(슬라이더) 표시
+- [x] DB 스키마에 package_images 테이블 추가 및 마이그레이션
+- [x] S3 이미지 업로드 tRPC API (uploadImage, deleteImage, setCover, listImages)
+- [x] ERP 상품 수정 화면에 이미지 업로드/삭제/대표설정 UI (드래그&드롭 지원)
+- [x] 프론트 상품 상세 페이지에 이미지 갤러리(주요이미지+썸네일+라이트박스) 표시
