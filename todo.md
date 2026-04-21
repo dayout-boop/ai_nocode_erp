@@ -38,5 +38,5 @@
 - [x] App.tsx에 /packages/detail/:id 상세 라우트 추가
 
 ## 추가 개선 항목
-- [ ] Packages.tsx - 가격 정렬을 실제 packagePrices 기반으로 개선
-- [ ] Inquiry.tsx - 패키지 상세에서 넘어온 쿼리 파라미터(package, name) 자동 프리필 연동
+- [x] Packages.tsx - 가격 정렬을 실제 packagePrices 기반으로 개선
+- [x] Inquiry.tsx - 패키지 상세에서 넘어온 쿼리 파라미터(package, name) 자동 프리필 연동

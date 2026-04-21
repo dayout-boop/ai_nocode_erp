@@ -60,16 +60,12 @@ export default function Packages() {
 
   const filtered = useMemo(() => {
     const items = data?.items ?? [];
-    return [...items].sort((a, b) => {
+    return [...items].sort((a: any, b: any) => {
       if (sortBy === 'price_asc') {
-        const aPrice = Number(a.highlights ? JSON.parse(a.highlights as string)?.[0] : 0) || 0;
-        const bPrice = Number(b.highlights ? JSON.parse(b.highlights as string)?.[0] : 0) || 0;
-        return aPrice - bPrice;
+        return (a.minPrice ?? 0) - (b.minPrice ?? 0);
       }
       if (sortBy === 'price_desc') {
-        const aPrice = Number(a.highlights ? JSON.parse(a.highlights as string)?.[0] : 0) || 0;
-        const bPrice = Number(b.highlights ? JSON.parse(b.highlights as string)?.[0] : 0) || 0;
-        return bPrice - aPrice;
+        return (b.minPrice ?? 0) - (a.minPrice ?? 0);
       }
       // 인기순: isPopular → isFeatured → sortOrder → 최신순
       if (b.isPopular && !a.isPopular) return 1;
@@ -203,6 +199,7 @@ interface DBPkg {
   highlights: unknown;
   includes: unknown;
   viewCount: number | null;
+  minPrice?: number;
 }
 
 function DBPackageCard({ pkg }: { pkg: DBPkg }) {
@@ -290,7 +287,15 @@ function DBPackageCard({ pkg }: { pkg: DBPkg }) {
 
           {/* CTA */}
           <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-            <p className="text-xs text-gray-400 font-body">조회 {(pkg.viewCount ?? 0).toLocaleString()}</p>
+            <div>
+              {pkg.minPrice && pkg.minPrice > 0 ? (
+                <p className="text-sm font-bold text-dogolf-green font-number">
+                  {pkg.minPrice.toLocaleString()}원~
+                </p>
+              ) : (
+                <p className="text-xs text-gray-400 font-body">조회 {(pkg.viewCount ?? 0).toLocaleString()}</p>
+              )}
+            </div>
             <button className="px-3 py-1.5 bg-dogolf-green text-white text-xs font-semibold font-body rounded-lg hover:bg-dogolf-green-dark transition-colors">
               자세히 보기
             </button>

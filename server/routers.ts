@@ -212,7 +212,19 @@ const packagesRouter = router({
     if (input.popular) conditions.push(eq(packages.isPopular, true));
     if (input.search) conditions.push(like(packages.title, `%${input.search}%`));
     const items = await db.select().from(packages).where(and(...conditions)).orderBy(packages.sortOrder, desc(packages.createdAt)).limit(input.limit);
-    return { items };
+    // 각 상품의 최저가 조회
+    const itemsWithPrice = await Promise.all(
+      items.map(async (item) => {
+        const prices = await db.select({ price: packagePrices.pricePerPerson })
+          .from(packagePrices)
+          .where(eq(packagePrices.packageId, item.id));
+        const minPrice = prices.length > 0
+          ? Math.min(...prices.map((p) => Number(p.price)))
+          : 0;
+        return { ...item, minPrice };
+      })
+    );
+    return { items: itemsWithPrice };
   }),
   publicGet: publicProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
     const db = await getDb();
