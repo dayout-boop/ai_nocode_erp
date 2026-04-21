@@ -2,11 +2,12 @@
 // DOGOLF Package Detail Page — DB 연동 버전
 // ============================================================
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useParams, Link } from 'wouter';
 import {
   ArrowLeft, Clock, RotateCcw, MapPin, CheckCircle2, XCircle,
-  Calendar, Users, Phone, MessageCircle, Loader2, ChevronDown, ChevronUp
+  Calendar, Users, Phone, MessageCircle, Loader2, ChevronDown, ChevronUp,
+  ChevronLeft, ChevronRight, X, ZoomIn
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -102,38 +103,151 @@ export default function PackageDetail() {
   const shortDesc = descLines.slice(0, 8).join('\n');
   const hasMore = descLines.length > 8;
 
+  // 이미지 갤러리
+  const images: any[] = pkg.images ?? [];
+  const galleryImages = images.length > 0
+    ? images.map((img: any) => img.imageUrl)
+    : [image]; // 등록된 이미지 없으면 대표이미지 하나만
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIdx, setLightboxIdx] = useState(0);
+
+  const prevImage = useCallback(() => setActiveIdx((i) => (i - 1 + galleryImages.length) % galleryImages.length), [galleryImages.length]);
+  const nextImage = useCallback(() => setActiveIdx((i) => (i + 1) % galleryImages.length), [galleryImages.length]);
+  const openLightbox = (idx: number) => { setLightboxIdx(idx); setLightboxOpen(true); };
+  const closeLightbox = () => setLightboxOpen(false);
+  const prevLightbox = () => setLightboxIdx((i) => (i - 1 + galleryImages.length) % galleryImages.length);
+  const nextLightbox = () => setLightboxIdx((i) => (i + 1) % galleryImages.length);
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
 
-      {/* Hero */}
-      <section className="relative h-64 md:h-96 overflow-hidden">
-        <img src={image} alt={pkg.title} className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-        <div className="absolute inset-0 flex items-end">
-          <div className="container pb-8">
-            <Link href="/packages">
-              <button className="flex items-center gap-1 text-white/70 hover:text-white text-sm font-body mb-3 transition-colors">
-                <ArrowLeft size={14} /> 패키지 목록
+      {/* Hero Gallery */}
+      <section className="relative overflow-hidden bg-gray-900">
+        {/* 메인 이미지 */}
+        <div className="relative h-64 md:h-[480px]">
+          <img
+            src={galleryImages[activeIdx]}
+            alt={pkg.title}
+            className="w-full h-full object-cover transition-opacity duration-300"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+          {/* 이전/다음 버튼 (이미지 2장 이상일 때만) */}
+          {galleryImages.length > 1 && (
+            <>
+              <button
+                onClick={prevImage}
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center backdrop-blur-sm transition-colors"
+              >
+                <ChevronLeft size={18} />
               </button>
-            </Link>
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              {pkg.isPopular && (
-                <span className="bg-dogolf-red text-white text-xs px-2 py-0.5 rounded-full font-semibold">인기</span>
-              )}
-              {pkg.isFeatured && (
-                <span className="bg-dogolf-purple text-white text-xs px-2 py-0.5 rounded-full font-semibold">추천</span>
-              )}
-              <span className="bg-white/20 backdrop-blur-sm text-white text-xs px-2 py-0.5 rounded-full">
-                {flag} {countryName} {pkg.region ? `· ${pkg.region}` : ''}
-              </span>
+              <button
+                onClick={nextImage}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center backdrop-blur-sm transition-colors"
+              >
+                <ChevronRight size={18} />
+              </button>
+              {/* 이미지 카운터 */}
+              <div className="absolute top-4 right-4 bg-black/50 text-white text-xs px-2.5 py-1 rounded-full backdrop-blur-sm">
+                {activeIdx + 1} / {galleryImages.length}
+              </div>
+            </>
+          )}
+
+          {/* 라이트박스 버튼 */}
+          <button
+            onClick={() => openLightbox(activeIdx)}
+            className="absolute top-4 left-4 w-8 h-8 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center backdrop-blur-sm transition-colors"
+            title="크게 보기"
+          >
+            <ZoomIn size={14} />
+          </button>
+
+          {/* 타이틀 오버레이 */}
+          <div className="absolute inset-0 flex items-end">
+            <div className="container pb-6">
+              <Link href="/packages">
+                <button className="flex items-center gap-1 text-white/70 hover:text-white text-sm font-body mb-3 transition-colors">
+                  <ArrowLeft size={14} /> 패키지 목록
+                </button>
+              </Link>
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                {pkg.isPopular && (
+                  <span className="bg-dogolf-red text-white text-xs px-2 py-0.5 rounded-full font-semibold">인기</span>
+                )}
+                {pkg.isFeatured && (
+                  <span className="bg-dogolf-purple text-white text-xs px-2 py-0.5 rounded-full font-semibold">추천</span>
+                )}
+                <span className="bg-white/20 backdrop-blur-sm text-white text-xs px-2 py-0.5 rounded-full">
+                  {flag} {countryName} {pkg.region ? `· ${pkg.region}` : ''}
+                </span>
+              </div>
+              <h1 className="font-display-ko text-2xl md:text-4xl font-bold text-white leading-tight">
+                {pkg.title}
+              </h1>
             </div>
-            <h1 className="font-display-ko text-2xl md:text-4xl font-bold text-white leading-tight">
-              {pkg.title}
-            </h1>
           </div>
         </div>
+
+        {/* 썸네일 스트립 (이미지 2장 이상일 때만) */}
+        {galleryImages.length > 1 && (
+          <div className="bg-gray-900 px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
+            {galleryImages.map((src, idx) => (
+              <button
+                key={idx}
+                onClick={() => setActiveIdx(idx)}
+                className={`shrink-0 w-16 h-12 rounded-md overflow-hidden border-2 transition-all ${
+                  idx === activeIdx ? 'border-dogolf-green scale-105' : 'border-transparent opacity-60 hover:opacity-90'
+                }`}
+              >
+                <img src={src} alt={`썸네일 ${idx + 1}`} className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
       </section>
+
+      {/* 라이트박스 */}
+      {lightboxOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+          onClick={closeLightbox}
+        >
+          <button
+            className="absolute top-4 right-4 w-10 h-10 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center transition-colors"
+            onClick={closeLightbox}
+          >
+            <X size={20} />
+          </button>
+          {galleryImages.length > 1 && (
+            <>
+              <button
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center transition-colors"
+                onClick={(e) => { e.stopPropagation(); prevLightbox(); }}
+              >
+                <ChevronLeft size={22} />
+              </button>
+              <button
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 hover:bg-white/30 text-white rounded-full flex items-center justify-center transition-colors"
+                onClick={(e) => { e.stopPropagation(); nextLightbox(); }}
+              >
+                <ChevronRight size={22} />
+              </button>
+            </>
+          )}
+          <img
+            src={galleryImages[lightboxIdx]}
+            alt="확대 이미지"
+            className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <div className="absolute bottom-4 text-white/60 text-sm">
+            {lightboxIdx + 1} / {galleryImages.length}
+          </div>
+        </div>
+      )}
 
       {/* Main content */}
       <section className="py-10 bg-gray-50 flex-1">

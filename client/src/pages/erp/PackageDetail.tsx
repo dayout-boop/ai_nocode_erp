@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRoute } from "wouter";
 import ERPLayout from "@/components/ERPLayout";
 import { trpc } from "@/lib/trpc";
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, ArrowLeft } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Upload, Star, ImageIcon, X } from "lucide-react";
 import { Link } from "wouter";
 
 const SEASON_MAP: Record<string, string> = {
@@ -94,6 +94,61 @@ export default function PackageDetail() {
     onSuccess: () => { toast.success("출발일이 삭제되었습니다."); utils.packages.get.invalidate({ id }); },
   });
 
+  // Image management
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: images, refetch: refetchImages } = trpc.packages.listImages.useQuery(
+    { packageId: id },
+    { enabled: !!id }
+  );
+
+  const uploadImageMutation = trpc.packages.uploadImage.useMutation({
+    onSuccess: () => {
+      setUploadingCount((c) => c - 1);
+      refetchImages();
+      utils.packages.get.invalidate({ id });
+    },
+    onError: (e) => { setUploadingCount((c) => c - 1); toast.error("업로드 실패: " + e.message); },
+  });
+
+  const deleteImageMutation = trpc.packages.deleteImage.useMutation({
+    onSuccess: () => { toast.success("이미지가 삭제되었습니다."); refetchImages(); utils.packages.get.invalidate({ id }); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const setCoverMutation = trpc.packages.setCover.useMutation({
+    onSuccess: () => { toast.success("대표 이미지가 변경되었습니다."); refetchImages(); utils.packages.get.invalidate({ id }); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith("image/")) { toast.error(`${file.name}: 이미지 파일만 업로드 가능합니다.`); return; }
+      if (file.size > 10 * 1024 * 1024) { toast.error(`${file.name}: 10MB 이하 파일만 업로드 가능합니다.`); return; }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64Data = e.target?.result as string;
+        setUploadingCount((c) => c + 1);
+        uploadImageMutation.mutate({
+          packageId: id,
+          fileName: file.name,
+          mimeType: file.type,
+          base64Data,
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFileSelect(e.dataTransfer.files);
+  };
+
   if (isLoading) return <ERPLayout><div className="py-20 text-center text-slate-400">로딩 중...</div></ERPLayout>;
   if (!data) return <ERPLayout><div className="py-20 text-center text-slate-400">상품을 찾을 수 없습니다.</div></ERPLayout>;
 
@@ -112,12 +167,115 @@ export default function PackageDetail() {
           </div>
         </div>
 
-        <Tabs defaultValue="prices">
+        <Tabs defaultValue="images">
           <TabsList className="bg-slate-100">
+            <TabsTrigger value="images">이미지 관리</TabsTrigger>
             <TabsTrigger value="prices">인원별 요금</TabsTrigger>
             <TabsTrigger value="options">옵션 관리</TabsTrigger>
             <TabsTrigger value="slots">출발일/재고</TabsTrigger>
           </TabsList>
+
+          {/* IMAGES TAB */}
+          <TabsContent value="images" className="space-y-4">
+            {/* 업로드 영역 */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">상품 이미지 업로드</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div
+                  className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
+                    isDragging ? "border-indigo-400 bg-indigo-50" : "border-slate-200 hover:border-indigo-300 hover:bg-slate-50"
+                  }`}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={handleDrop}
+                >
+                  <Upload size={32} className="mx-auto mb-3 text-slate-400" />
+                  <p className="text-slate-600 font-medium mb-1">이미지를 드래그하거나 클릭하여 업로드</p>
+                  <p className="text-slate-400 text-sm">JPG, PNG, WEBP · 파일당 최대 10MB · 다중 선택 가능</p>
+                  {uploadingCount > 0 && (
+                    <p className="mt-3 text-indigo-600 text-sm font-medium">업로드 중... ({uploadingCount}개 남음)</p>
+                  )}
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => handleFileSelect(e.target.files)}
+                />
+              </CardContent>
+            </Card>
+
+            {/* 이미지 목록 */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">등록된 이미지 ({images?.length ?? 0}장)</CardTitle>
+                  <p className="text-xs text-slate-400">★ 단추 = 대표 이미지 설정</p>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {!images?.length ? (
+                  <div className="py-12 text-center">
+                    <ImageIcon size={40} className="mx-auto mb-3 text-slate-300" />
+                    <p className="text-slate-400 text-sm">등록된 이미지가 없습니다</p>
+                    <p className="text-slate-300 text-xs mt-1">위의 업로드 영역에서 이미지를 추가하세요</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {images.map((img: any) => (
+                      <div key={img.id} className="relative group rounded-xl overflow-hidden border border-slate-100 shadow-sm">
+                        <div className="aspect-[4/3] bg-slate-100">
+                          <img
+                            src={img.imageUrl}
+                            alt={img.altText ?? "상품 이미지"}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        {/* 커버 배지 */}
+                        {img.isCover && (
+                          <div className="absolute top-2 left-2 bg-amber-400 text-white text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Star size={10} fill="white" /> 대표
+                          </div>
+                        )}
+                        {/* 호버 액션 */}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          {!img.isCover && (
+                            <button
+                              onClick={() => setCoverMutation.mutate({ imageId: img.id, packageId: id })}
+                              className="bg-amber-400 hover:bg-amber-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+                              title="대표 이미지로 설정"
+                            >
+                              <Star size={12} /> 대표설정
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              if (confirm("이 이미지를 삭제하시겠습니까?")) {
+                                deleteImageMutation.mutate({ imageId: img.id });
+                              }
+                            }}
+                            className="bg-red-500 hover:bg-red-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+                            title="삭제"
+                          >
+                            <X size={12} /> 삭제
+                          </button>
+                        </div>
+                        {/* 순서 표시 */}
+                        <div className="px-2 py-1.5 bg-white">
+                          <p className="text-xs text-slate-400 truncate">{img.altText || `이미지 ${img.sortOrder + 1}`}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* PRICES TAB */}
           <TabsContent value="prices" className="space-y-4">

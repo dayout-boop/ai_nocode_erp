@@ -265,3 +265,19 @@ export const customerMemos = mysqlTable("customer_memos", {
 });
 
 export type CustomerMemo = typeof customerMemos.$inferSelect;
+
+// ============================================================
+// PACKAGE_IMAGES - 상품 이미지 (다중 이미지 관리)
+// ============================================================
+export const packageImages = mysqlTable("package_images", {
+  id: int("id").autoincrement().primaryKey(),
+  packageId: int("packageId").notNull(),
+  imageUrl: varchar("imageUrl", { length: 1000 }).notNull(),
+  imageKey: varchar("imageKey", { length: 500 }).notNull(),
+  altText: varchar("altText", { length: 200 }),
+  sortOrder: int("sortOrder").default(0),
+  isCover: boolean("isCover").default(false),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type PackageImage = typeof packageImages.$inferSelect;
+export type InsertPackageImage = typeof packageImages.$inferInsert;

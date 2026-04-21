@@ -128,7 +128,7 @@ export default function Header() {
             <div className="container py-4">
               <div className="flex flex-col gap-1">
                 {navItems.map((item) => (
-                  <Link key={item.href} href={item.href}>
+                  <Link key={`mobile-${item.href}`} href={item.href}>
                     <span
                       className={`block px-4 py-3 text-sm font-medium font-body rounded-lg cursor-pointer transition-colors ${
                         location === item.href || location.startsWith(item.href)

@@ -6,10 +6,12 @@ import { z } from "zod";
 import { getDb } from "./db";
 import {
   packages, packagePrices, packageOptions, packageSlots,
-  bookings, travelers, settlements, inquiries, notices, banners, customerMemos, users
+  bookings, travelers, settlements, inquiries, notices, banners, customerMemos, users,
+  packageImages
 } from "../drizzle/schema";
-import { eq, desc, and, gte, lte, like, sql, count } from "drizzle-orm";
+import { eq, desc, and, gte, lte, like, sql, count, asc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
+import { storagePut } from "./storage";
 
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "admin") {
@@ -238,7 +240,108 @@ const packagesRouter = router({
       .orderBy(packageSlots.departureDate);
     // increment view count
     await db.update(packages).set({ viewCount: sql`viewCount + 1` }).where(eq(packages.id, input.id));
-    return { ...pkg, prices, options, slots };
+    // 이미지 목록도 함께 반환
+    const images = await db.select().from(packageImages)
+      .where(eq(packageImages.packageId, input.id))
+      .orderBy(asc(packageImages.sortOrder), asc(packageImages.id));
+    return { ...pkg, prices, options, slots, images };
+  }),
+
+  // 이미지 목록 조회
+  listImages: adminProcedure.input(z.object({ packageId: z.number() })).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    return db.select().from(packageImages)
+      .where(eq(packageImages.packageId, input.packageId))
+      .orderBy(asc(packageImages.sortOrder), asc(packageImages.id));
+  }),
+
+  // 이미지 업로드 (base64 → S3 저장)
+  uploadImage: adminProcedure.input(z.object({
+    packageId: z.number(),
+    fileName: z.string(),
+    mimeType: z.string(),
+    base64Data: z.string(), // base64 인코딩된 이미지 데이터
+    altText: z.string().optional(),
+    isCover: z.boolean().optional(),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    // base64 → Buffer 변환
+    const base64 = input.base64Data.replace(/^data:[^;]+;base64,/, "");
+    const buffer = Buffer.from(base64, "base64");
+    // S3 업로드
+    const key = `packages/${input.packageId}/${Date.now()}_${input.fileName}`;
+    const { url, key: savedKey } = await storagePut(key, buffer, input.mimeType);
+    // 현재 이미지 수 조회 (sortOrder 결정)
+    const [{ cnt }] = await db.select({ cnt: count() }).from(packageImages).where(eq(packageImages.packageId, input.packageId));
+    const sortOrder = Number(cnt);
+    // isCover=true이면 기존 커버 해제
+    if (input.isCover) {
+      await db.update(packageImages).set({ isCover: false }).where(eq(packageImages.packageId, input.packageId));
+    }
+    // DB 저장
+    await db.insert(packageImages).values({
+      packageId: input.packageId,
+      imageUrl: url,
+      imageKey: savedKey,
+      altText: input.altText ?? null,
+      sortOrder,
+      isCover: input.isCover ?? sortOrder === 0,
+    });
+    // 첫 번째 이미지이면 packages.imageUrl도 업데이트
+    if (sortOrder === 0) {
+      await db.update(packages).set({ imageUrl: url }).where(eq(packages.id, input.packageId));
+    }
+    return { url, key: savedKey };
+  }),
+
+  // 이미지 삭제
+  deleteImage: adminProcedure.input(z.object({ imageId: z.number() })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const [img] = await db.select().from(packageImages).where(eq(packageImages.id, input.imageId));
+    if (!img) throw new TRPCError({ code: "NOT_FOUND" });
+    await db.delete(packageImages).where(eq(packageImages.id, input.imageId));
+    // 삭제된 이미지가 커버였으면 첫 번째 이미지를 커버로 설정
+    if (img.isCover) {
+      const remaining = await db.select().from(packageImages)
+        .where(eq(packageImages.packageId, img.packageId))
+        .orderBy(asc(packageImages.sortOrder)).limit(1);
+      if (remaining.length > 0) {
+        await db.update(packageImages).set({ isCover: true }).where(eq(packageImages.id, remaining[0].id));
+        await db.update(packages).set({ imageUrl: remaining[0].imageUrl }).where(eq(packages.id, img.packageId));
+      } else {
+        await db.update(packages).set({ imageUrl: null }).where(eq(packages.id, img.packageId));
+      }
+    }
+    return { success: true };
+  }),
+
+  // 커버 이미지 변경
+  setCover: adminProcedure.input(z.object({ imageId: z.number(), packageId: z.number() })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    await db.update(packageImages).set({ isCover: false }).where(eq(packageImages.packageId, input.packageId));
+    await db.update(packageImages).set({ isCover: true }).where(eq(packageImages.id, input.imageId));
+    const [img] = await db.select().from(packageImages).where(eq(packageImages.id, input.imageId));
+    if (img) await db.update(packages).set({ imageUrl: img.imageUrl }).where(eq(packages.id, input.packageId));
+    return { success: true };
+  }),
+
+  // 이미지 순서 변경
+  reorderImages: adminProcedure.input(z.object({
+    packageId: z.number(),
+    orderedIds: z.array(z.number()),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    await Promise.all(
+      input.orderedIds.map((id, idx) =>
+        db.update(packageImages).set({ sortOrder: idx }).where(eq(packageImages.id, id))
+      )
+    );
+    return { success: true };
   }),
 });
 
