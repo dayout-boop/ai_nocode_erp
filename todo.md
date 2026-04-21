@@ -29,3 +29,14 @@
 ## 테스트
 - [x] ERP 관리자 권한 접근 제어 테스트 (7개)
 - [x] 로그아웃 테스트 (1개)
+
+## 프론트 ↔ ERP DB 연동
+- [x] tRPC publicPackages 라우터 추가 (공개 상품 목록/상세 조회)
+- [x] Packages.tsx - 정적 데이터 → DB API 연동
+- [x] Home.tsx - 인기 패키지 섹션 DB 연동
+- [x] PackageDetail.tsx 페이지 신규 생성 (상품 상세 + 예약 문의)
+- [x] App.tsx에 /packages/detail/:id 상세 라우트 추가
+
+## 추가 개선 항목
+- [ ] Packages.tsx - 가격 정렬을 실제 packagePrices 기반으로 개선
+- [ ] Inquiry.tsx - 패키지 상세에서 넘어온 쿼리 파라미터(package, name) 자동 프리필 연동

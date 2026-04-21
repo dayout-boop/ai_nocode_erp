@@ -200,6 +200,8 @@ const packagesRouter = router({
   publicList: publicProcedure.input(z.object({
     country: z.string().optional(),
     featured: z.boolean().optional(),
+    popular: z.boolean().optional(),
+    search: z.string().optional(),
     limit: z.number().default(12),
   })).query(async ({ input }) => {
     const db = await getDb();
@@ -207,8 +209,24 @@ const packagesRouter = router({
     const conditions: any[] = [eq(packages.status, "active")];
     if (input.country) conditions.push(eq(packages.country, input.country));
     if (input.featured) conditions.push(eq(packages.isFeatured, true));
+    if (input.popular) conditions.push(eq(packages.isPopular, true));
+    if (input.search) conditions.push(like(packages.title, `%${input.search}%`));
     const items = await db.select().from(packages).where(and(...conditions)).orderBy(packages.sortOrder, desc(packages.createdAt)).limit(input.limit);
     return { items };
+  }),
+  publicGet: publicProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const [pkg] = await db.select().from(packages).where(and(eq(packages.id, input.id), eq(packages.status, "active")));
+    if (!pkg) throw new TRPCError({ code: "NOT_FOUND", message: "상품을 찾을 수 없습니다." });
+    const prices = await db.select().from(packagePrices).where(eq(packagePrices.packageId, input.id));
+    const options = await db.select().from(packageOptions).where(eq(packageOptions.packageId, input.id));
+    const slots = await db.select().from(packageSlots)
+      .where(and(eq(packageSlots.packageId, input.id), eq(packageSlots.status, "open")))
+      .orderBy(packageSlots.departureDate);
+    // increment view count
+    await db.update(packages).set({ viewCount: sql`view_count + 1` }).where(eq(packages.id, input.id));
+    return { ...pkg, prices, options, slots };
   }),
 });
 

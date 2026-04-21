@@ -8,7 +8,8 @@ import Home from "./pages/Home";
 import Packages from "./pages/Packages";
 import Gallery from "./pages/Gallery";
 import Notice from "./pages/Notice";
-import Inquiry from "./pages/Inquiry";
+import Inquiry from './pages/Inquiry';
+import PackageDetail from './pages/PackageDetail';
 
 // ERP Admin Pages
 import ERPDashboard from "./pages/erp/Dashboard";
@@ -29,6 +30,7 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/packages"} component={Packages} />
       <Route path={"/packages/:destination"} component={Packages} />
+      <Route path={"/packages/detail/:id"} component={PackageDetail} />
       <Route path={"/gallery"} component={Gallery} />
       <Route path={"/notice"} component={Notice} />
       <Route path={"/inquiry"} component={Inquiry} />

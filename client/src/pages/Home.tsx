@@ -9,9 +9,9 @@ import { Link } from 'wouter';
 import { ChevronLeft, ChevronRight, ArrowRight, Star, Phone } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import PackageCard from '@/components/PackageCard';
 import KakaoFloat from '@/components/KakaoFloat';
-import { heroSlides, packages, destinations, stats, reviews, notices } from '@/lib/data';
+import { heroSlides, destinations, stats, reviews, notices } from '@/lib/data';
+import { trpc } from '@/lib/trpc';
 
 // Animated counter hook
 function useCountUp(target: number, duration: number = 2000, start: boolean = false) {
@@ -79,11 +79,18 @@ export default function Home() {
   const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
   const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
 
-  const filteredPackages = activeDestination === 'all'
-    ? packages.slice(0, 8)
-    : packages.filter((p) => p.country === activeDestination).slice(0, 8);
+  // DB에서 패키지 목록 조회
+  const { data: pkgData } = trpc.packages.publicList.useQuery(
+    { country: activeDestination !== 'all' ? activeDestination : undefined, limit: 8 },
+    { keepPreviousData: true } as any
+  );
+  const { data: popularData } = trpc.packages.publicList.useQuery(
+    { popular: true, limit: 4 },
+    { staleTime: 60000 } as any
+  );
 
-  const popularPackages = packages.filter((p) => p.isPopular).slice(0, 4);
+  const filteredPackages = pkgData?.items ?? [];
+  const popularPackages = popularData?.items ?? [];
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -221,9 +228,13 @@ export default function Home() {
 
           {/* Package grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {filteredPackages.map((pkg) => (
-              <PackageCard key={pkg.id} pkg={pkg} />
-            ))}
+            {filteredPackages.length > 0 ? filteredPackages.map((pkg: any) => (
+              <DBHomeCard key={pkg.id} pkg={pkg} />
+            )) : (
+              <div className="col-span-4 text-center py-12">
+                <p className="text-gray-400 font-body text-sm">등록된 패키지가 없습니다</p>
+              </div>
+            )}
           </div>
 
           <div className="text-center mt-10">
@@ -327,9 +338,13 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {popularPackages.map((pkg) => (
-              <PackageCard key={pkg.id} pkg={pkg} />
-            ))}
+            {popularPackages.length > 0 ? popularPackages.map((pkg: any) => (
+              <DBHomeCard key={pkg.id} pkg={pkg} />
+            )) : (
+              <div className="col-span-4 text-center py-12">
+                <p className="text-gray-400 font-body text-sm">등록된 인기 패키지가 없습니다</p>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -508,5 +523,76 @@ export default function Home() {
       <Footer />
       <KakaoFloat />
     </div>
+  );
+}
+
+// ─── DB 패키지 홈 카드 컴포넌트 ──────────────────────────────────────
+const countryFlagMap: Record<string, string> = {
+  korea: '🇰🇷', thailand: '🇹🇭', vietnam: '🇻🇳',
+  philippines: '🇵🇭', china: '🇨🇳', japan: '🇯🇵',
+};
+const countryNameMap: Record<string, string> = {
+  korea: '대한민국', thailand: '태국', vietnam: '베트남',
+  philippines: '필리핀', china: '중국', japan: '일본',
+};
+
+function DBHomeCard({ pkg }: { pkg: any }) {
+  const flag = countryFlagMap[pkg.country] ?? '🌏';
+  const countryName = countryNameMap[pkg.country] ?? pkg.country;
+  const image = pkg.imageUrl || '/manus-storage/hero_main_aa4ec84e.jpg';
+
+  let firstHighlight = '';
+  try {
+    const hl = typeof pkg.highlights === 'string' ? JSON.parse(pkg.highlights) : pkg.highlights;
+    if (Array.isArray(hl) && hl.length > 0) firstHighlight = hl[0];
+  } catch {}
+
+  let includesList: string[] = [];
+  try {
+    const inc = typeof pkg.includes === 'string' ? JSON.parse(pkg.includes) : pkg.includes;
+    if (Array.isArray(inc)) includesList = inc.slice(0, 3);
+  } catch {}
+
+  return (
+    <Link href={`/packages/detail/${pkg.id}`}>
+      <div className="group relative bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer">
+        <div className="relative h-52 overflow-hidden">
+          <img src={image} alt={pkg.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+          <div className="absolute top-3 left-3 flex flex-col gap-1">
+            {pkg.isPopular && <span className="destination-badge bg-dogolf-red text-white text-xs px-2 py-0.5 rounded-full font-semibold">인기</span>}
+            {pkg.isFeatured && <span className="destination-badge bg-dogolf-purple text-white text-xs px-2 py-0.5 rounded-full font-semibold">추천</span>}
+          </div>
+          <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
+            <span className="text-sm">{flag}</span>
+            <span className="text-xs font-semibold text-gray-700 font-body">{countryName}</span>
+          </div>
+          <div className="absolute bottom-3 left-3 flex items-center gap-2 text-white text-xs">
+            {pkg.duration && <span>⏱ {pkg.duration}</span>}
+            {pkg.roundCount && <span>⛳ {pkg.roundCount}회</span>}
+          </div>
+        </div>
+        <div className="p-4">
+          {pkg.region && <p className="text-xs text-dogolf-purple font-semibold font-body mb-1">{pkg.region}</p>}
+          <h3 className="font-display-ko font-semibold text-gray-900 text-sm leading-snug mb-1 line-clamp-2">{pkg.title}</h3>
+          {firstHighlight && <p className="text-xs text-gray-500 font-body mb-3 line-clamp-1">{firstHighlight}</p>}
+          {includesList.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-3">
+              {includesList.map((item, i) => (
+                <span key={i} className="text-xs bg-green-50 text-dogolf-green px-2 py-0.5 rounded-full font-body">
+                  {item.length > 12 ? item.slice(0, 12) + '…' : item}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+            <p className="text-xs text-gray-400 font-body">조회 {(pkg.viewCount ?? 0).toLocaleString()}</p>
+            <button className="px-3 py-1.5 bg-dogolf-green text-white text-xs font-semibold font-body rounded-lg hover:bg-dogolf-green-dark transition-colors">
+              자세히 보기
+            </button>
+          </div>
+        </div>
+      </div>
+    </Link>
   );
 }

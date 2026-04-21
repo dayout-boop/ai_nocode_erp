@@ -2,7 +2,7 @@
 // DOGOLF Inquiry Page — "Verdant Journey" Design
 // ============================================================
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle, Phone, Mail, Clock, MapPin } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -29,6 +29,7 @@ const travelTypes = [
 
 export default function Inquiry() {
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [prefilledPackage, setPrefilledPackage] = useState<{ id: string; name: string } | null>(null);
   const [form, setForm] = useState({
     name: '',
     phone: '',
@@ -42,6 +43,20 @@ export default function Inquiry() {
     message: '',
     agreePrivacy: false,
   });
+
+  // 패키지 상세 페이지에서 넘어온 쿼리 파라미터 자동 프리필
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const pkgId = params.get('package');
+    const pkgName = params.get('name');
+    if (pkgName) {
+      setPrefilledPackage({ id: pkgId ?? '', name: decodeURIComponent(pkgName) });
+      setForm((prev) => ({
+        ...prev,
+        message: `[${decodeURIComponent(pkgName)}] 패키지에 대해 문의드립니다.`,
+      }));
+    }
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -131,6 +146,17 @@ export default function Inquiry() {
               ) : (
                 <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm p-6 md:p-8">
                   <h2 className="font-display-ko text-2xl font-bold text-gray-900 mb-6">문의 양식</h2>
+
+                  {/* 패키지 상세에서 넘어온 경우 배너 표시 */}
+                  {prefilledPackage && (
+                    <div className="mb-5 p-4 bg-green-50 border border-dogolf-green/30 rounded-xl flex items-center gap-3">
+                      <span className="text-2xl">⛳</span>
+                      <div>
+                        <p className="text-xs text-dogolf-green font-semibold font-body">선택된 패키지</p>
+                        <p className="text-sm font-bold text-gray-900 font-body">{prefilledPackage.name}</p>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {/* Name */}
