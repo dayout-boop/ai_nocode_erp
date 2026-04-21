@@ -4,6 +4,7 @@
 // ============================================================
 
 import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '@/_core/hooks/useAuth';
 import { Link } from 'wouter';
 import { ChevronLeft, ChevronRight, ArrowRight, Star, Phone } from 'lucide-react';
 import Header from '@/components/Header';
@@ -59,6 +60,10 @@ function StatCounter({ value, suffix, label, icon, start }: { value: number; suf
 }
 
 export default function Home() {
+  // The userAuth hooks provides authentication state
+  // To implement login/logout functionality, simply call logout() or redirect to getLoginUrl()
+  let { user, loading, error, isAuthenticated, logout } = useAuth();
+
   const [currentSlide, setCurrentSlide] = useState(0);
   const [activeDestination, setActiveDestination] = useState('all');
   const { ref: statsRef, inView: statsInView } = useInView();

@@ -7,6 +7,7 @@ import { CheckCircle, Phone, Mail, Clock, MapPin } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import KakaoFloat from '@/components/KakaoFloat';
+import { trpc } from '@/lib/trpc';
 
 const destinations = [
   { value: '', label: '목적지를 선택해 주세요' },
@@ -50,6 +51,15 @@ export default function Inquiry() {
     }));
   };
 
+  const createInquiryMutation = trpc.bookings.createInquiry.useMutation({
+    onSuccess: () => {
+      setIsSubmitted(true);
+    },
+    onError: (e) => {
+      alert('제출 중 오류가 발생했습니다: ' + e.message);
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.phone || !form.destination) {
@@ -60,7 +70,15 @@ export default function Inquiry() {
       alert('개인정보 수집 및 이용에 동의해 주세요.');
       return;
     }
-    setIsSubmitted(true);
+    createInquiryMutation.mutate({
+      name: form.name,
+      phone: form.phone,
+      email: form.email || undefined,
+      packageName: form.destination,
+      travelDate: form.departureDate || undefined,
+      peopleCount: form.people ? Number(form.people) : undefined,
+      message: form.message || undefined,
+    });
   };
 
   return (
