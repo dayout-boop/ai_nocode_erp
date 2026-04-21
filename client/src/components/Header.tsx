@@ -102,7 +102,7 @@ export default function Header() {
                 </button>
               </Link>
               <a
-                href="https://open.kakao.com/o/dogolf"
+                href="http://pf.kakao.com/_xbHHSV"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-4 py-2 text-sm font-semibold font-body bg-[#FEE500] text-[#3A1D1D] rounded-lg hover:bg-[#FFD700] transition-all duration-200 flex items-center gap-1"
@@ -147,7 +147,7 @@ export default function Header() {
                     </button>
                   </Link>
                   <a
-                    href="https://open.kakao.com/o/dogolf"
+                    href="http://pf.kakao.com/_xbHHSV"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 py-2.5 text-sm font-semibold font-body bg-[#FEE500] text-[#3A1D1D] rounded-lg hover:bg-[#FFD700] transition-all text-center"

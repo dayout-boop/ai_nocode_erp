@@ -38,7 +38,7 @@ export default function KakaoFloat() {
             골프 여행 패키지에 대해 궁금한 점이 있으시면 카카오톡으로 편하게 문의해 주세요.
           </p>
           <a
-            href="https://open.kakao.com/o/dogolf"
+            href="http://pf.kakao.com/_xbHHSV"
             target="_blank"
             rel="noopener noreferrer"
             className="block w-full py-2.5 bg-[#FEE500] text-[#3A1D1D] text-sm font-semibold font-body rounded-xl text-center hover:bg-[#FFD700] transition-colors"

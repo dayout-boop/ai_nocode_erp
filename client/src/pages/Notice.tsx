@@ -158,7 +158,7 @@ export default function Notice() {
                 <h4 className="font-display-ko font-bold text-lg mb-2">더 궁금한 점이 있으신가요?</h4>
                 <p className="text-white/80 text-sm font-body mb-4">전문 상담사가 친절하게 안내해 드립니다</p>
                 <a
-                  href="https://open.kakao.com/o/dogolf"
+                  href="http://pf.kakao.com/_xbHHSV"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block w-full py-2.5 bg-[#FEE500] text-[#3A1D1D] text-sm font-bold font-body rounded-xl text-center hover:bg-[#FFD700] transition-colors"

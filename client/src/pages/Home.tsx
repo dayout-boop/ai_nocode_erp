@@ -486,7 +486,7 @@ export default function Home() {
               </button>
             </Link>
             <a
-              href="https://open.kakao.com/o/dogolf"
+              href="http://pf.kakao.com/_xbHHSV"
               target="_blank"
               rel="noopener noreferrer"
               className="px-8 py-4 bg-[#FEE500] text-[#3A1D1D] font-bold font-body rounded-xl hover:bg-[#FFD700] transition-all text-lg shadow-lg"

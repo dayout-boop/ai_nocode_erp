@@ -24,7 +24,7 @@ export default function Footer() {
             </p>
             <div className="flex gap-3">
               <a
-                href="https://open.kakao.com/o/dogolf"
+                href="http://pf.kakao.com/_xbHHSV"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-9 h-9 bg-[#FEE500] rounded-full flex items-center justify-center hover:scale-110 transition-transform"

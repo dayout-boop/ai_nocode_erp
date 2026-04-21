@@ -95,7 +95,7 @@ export default function Inquiry() {
                   </p>
                   <div className="flex flex-wrap gap-3 justify-center">
                     <a
-                      href="https://open.kakao.com/o/dogolf"
+                      href="http://pf.kakao.com/_xbHHSV"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="px-6 py-3 bg-[#FEE500] text-[#3A1D1D] font-bold font-body rounded-xl hover:bg-[#FFD700] transition-colors"
@@ -356,7 +356,7 @@ export default function Inquiry() {
                   카카오톡으로 더 빠르게 상담받으세요!
                 </p>
                 <a
-                  href="https://open.kakao.com/o/dogolf"
+                  href="http://pf.kakao.com/_xbHHSV"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block w-full py-3 bg-[#3A1D1D] text-[#FEE500] text-sm font-bold font-body rounded-xl text-center hover:bg-[#2A1010] transition-colors"
