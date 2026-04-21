@@ -30,7 +30,7 @@ const dashboardRouter = router({
     const [newInquiries] = await db.select({ count: count() }).from(inquiries).where(eq(inquiries.status, "new"));
     const [totalUsers] = await db.select({ count: count() }).from(users);
     const revenueResult = await db.select({
-      total: sql<string>`COALESCE(SUM(total_amount), 0)`
+      total: sql<string>`COALESCE(SUM(totalAmount), 0)`
     }).from(bookings).where(eq(bookings.paymentStatus, "paid"));
     const recentBookings = await db.select().from(bookings).orderBy(desc(bookings.createdAt)).limit(5);
     const recentInquiries = await db.select().from(inquiries).orderBy(desc(inquiries.createdAt)).limit(5);
@@ -51,16 +51,16 @@ const dashboardRouter = router({
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
     const result = await db.select({
-      month: sql<string>`DATE_FORMAT(created_at, '%Y-%m')`,
-      revenue: sql<string>`COALESCE(SUM(total_amount), 0)`,
+      month: sql<string>`DATE_FORMAT(createdAt, '%Y-%m')`,
+      revenue: sql<string>`COALESCE(SUM(totalAmount), 0)`,
       bookingCount: count(),
     }).from(bookings)
       .where(and(
         eq(bookings.paymentStatus, "paid"),
         gte(bookings.createdAt, new Date(Date.now() - 180 * 24 * 60 * 60 * 1000))
       ))
-      .groupBy(sql`DATE_FORMAT(created_at, '%Y-%m')`)
-      .orderBy(sql`DATE_FORMAT(created_at, '%Y-%m')`);
+      .groupBy(sql`DATE_FORMAT(createdAt, '%Y-%m')`)
+      .orderBy(sql`DATE_FORMAT(createdAt, '%Y-%m')`);
     return result;
   }),
 });
@@ -237,7 +237,7 @@ const packagesRouter = router({
       .where(and(eq(packageSlots.packageId, input.id), eq(packageSlots.status, "open")))
       .orderBy(packageSlots.departureDate);
     // increment view count
-    await db.update(packages).set({ viewCount: sql`view_count + 1` }).where(eq(packages.id, input.id));
+    await db.update(packages).set({ viewCount: sql`viewCount + 1` }).where(eq(packages.id, input.id));
     return { ...pkg, prices, options, slots };
   }),
 });
