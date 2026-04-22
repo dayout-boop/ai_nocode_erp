@@ -3,9 +3,9 @@ import ERPLayout from "@/components/ERPLayout";
 import { AIChatBox, type Message } from "@/components/AIChatBox";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Info, Zap, Code2, Database, Globe } from "lucide-react";
+import { Sparkles, Info, Zap, Code2, Database, Globe, AlertTriangle } from "lucide-react";
 
 // Gemini 메시지 타입 (서버 API와 동일)
 type GeminiRole = "user" | "model";
@@ -61,6 +61,9 @@ const CAPABILITY_CARDS = [
 export default function GeminiAssistant() {
   const [geminiMessages, setGeminiMessages] = useState<GeminiMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // 마지막 응답에서 실제 사용된 모델 정보
+  const [lastModelUsed, setLastModelUsed] = useState<string | null>(null);
+  const [lastWasFallback, setLastWasFallback] = useState(false);
 
   const askMutation = trpc.gemini.ask.useMutation({
     onError: (err) => {
@@ -84,6 +87,10 @@ export default function GeminiAssistant() {
         const result = await askMutation.mutateAsync({
           messages: updatedMessages,
         });
+
+        // 실제 사용 모델 정보 업데이트
+        setLastModelUsed(result.modelUsed);
+        setLastWasFallback(result.wasFallback);
 
         // 폴백 모델 사용 시 응답 앞에 안내 메시지 추가
         const responseContent = result.wasFallback
@@ -114,7 +121,17 @@ export default function GeminiAssistant() {
     [geminiMessages, isLoading, askMutation, createLogMutation]
   );
 
+  const handleReset = useCallback(() => {
+    setGeminiMessages([]);
+    setLastModelUsed(null);
+    setLastWasFallback(false);
+  }, []);
+
   const displayMessages = toDisplayMessages(geminiMessages);
+
+  // 현재 표시할 모델 배지 정보
+  const displayModel = lastModelUsed ?? "gemini-2.5-flash";
+  const isFallback = lastWasFallback;
 
   return (
     <ERPLayout>
@@ -125,11 +142,24 @@ export default function GeminiAssistant() {
             <Sparkles size={22} className="text-white" />
           </div>
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <h1 className="text-2xl font-bold text-slate-800">Gemini AI 어시스턴트</h1>
-              <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 text-xs">
-                gemini-2.5-flash
-              </Badge>
+              {/* 실제 사용 모델 배지 - 폴백 여부에 따라 색상 변경 */}
+              {isFallback ? (
+                <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-xs flex items-center gap-1">
+                  <AlertTriangle size={10} />
+                  {displayModel} (폴백)
+                </Badge>
+              ) : (
+                <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 text-xs">
+                  {displayModel}
+                </Badge>
+              )}
+              {isLoading && (
+                <Badge className="bg-slate-100 text-slate-500 border-slate-200 text-xs animate-pulse">
+                  응답 중...
+                </Badge>
+              )}
             </div>
             <p className="text-slate-500 text-sm">
               두골프 ERP 시스템 전체를 이해하는 AI 어시스턴트입니다. 개발 요청, 운영 질문, 기능 제안 등 무엇이든 물어보세요.
@@ -161,10 +191,21 @@ export default function GeminiAssistant() {
               <CardTitle className="text-base font-semibold text-slate-700 flex items-center gap-2">
                 <Sparkles size={16} className="text-indigo-500" />
                 대화
+                {/* 대화 중 실제 모델 표시 */}
+                {geminiMessages.length > 0 && (
+                  <span className={`text-xs font-normal px-2 py-0.5 rounded-full border ${
+                    isFallback
+                      ? "bg-amber-50 text-amber-600 border-amber-200"
+                      : "bg-indigo-50 text-indigo-500 border-indigo-100"
+                  }`}>
+                    {isFallback && <AlertTriangle size={9} className="inline mr-0.5" />}
+                    {displayModel}
+                  </span>
+                )}
               </CardTitle>
               {geminiMessages.length > 0 && (
                 <button
-                  onClick={() => setGeminiMessages([])}
+                  onClick={handleReset}
                   className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   대화 초기화
@@ -193,6 +234,7 @@ export default function GeminiAssistant() {
             <div className="text-xs text-amber-700 space-y-1">
               <p className="font-semibold">Gemini 어시스턴트 사용 안내</p>
               <p>이 어시스턴트는 두골프 ERP의 전체 시스템 구조(DB 스키마, API 목록, 기능 설명)를 컨텍스트로 가지고 있습니다.</p>
+              <p>기본 모델: <strong>gemini-2.5-flash</strong>. 과부하 시 자동으로 <strong>gemini-1.5-flash</strong>로 전환됩니다.</p>
               <p>개발 요청 시 Gemini가 제안하는 코드나 방법을 확인한 후, 실제 구현은 Manus에게 요청하세요.</p>
               <p>대화 내용은 자동으로 DB에 저장되며, ERP &gt; AI 로그 메뉴에서 이전 대화를 다시 확인할 수 있습니다.</p>
             </div>
