@@ -4,7 +4,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import {
   LayoutDashboard, Package, Calendar, CreditCard, Users, Megaphone, Image, MessageSquare,
-  ChevronDown, ChevronRight, Menu, X, LogOut, Bell, Settings, ExternalLink
+  ChevronDown, ChevronRight, Menu, X, LogOut, Bell, Settings, ExternalLink, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -65,6 +65,7 @@ const navItems: NavItem[] = [
       { label: "배너 관리", href: "/erp/cms/banners" },
     ],
   },
+  { label: "Gemini AI", icon: <Sparkles size={18} />, href: "/erp/gemini" },
 ];
 
 function NavItemComponent({ item, collapsed }: { item: NavItem; collapsed: boolean }) {

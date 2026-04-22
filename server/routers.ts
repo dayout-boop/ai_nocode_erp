@@ -15,6 +15,7 @@ import { storagePut, storageGetSignedUrl } from "./storage";
 import { optimizeImage, optimizeBase64Image } from "./imageOptimizer";
 import { generateImage } from "./_core/imageGeneration";
 import { ENV } from "./_core/env";
+import { geminiChat, DOGOLF_SYSTEM_CONTEXT, type GeminiMessage } from "./_core/gemini";
 
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "admin") {
@@ -854,6 +855,43 @@ const crmRouter = router({
   }),
 });
 
+// ────────────────────────────────────────────────────────────────────────────
+// Gemini AI 어시스턴트 라우터
+// ────────────────────────────────────────────────────────────────────────────
+const geminiRouter = router({
+  /**
+   * Gemini에게 명령을 보내고 분석/제안을 받는다.
+   * 관리자가 명령을 입력하면 Gemini가 실행 계획을 제안하고,
+   * 관리자가 승인/거절을 결정한다.
+   */
+  ask: adminProcedure.input(z.object({
+    messages: z.array(z.object({
+      role: z.enum(["user", "model"]),
+      content: z.string(),
+    })),
+    // 추가 컨텍스트 (현재 페이지, 선택된 상품 등)
+    extraContext: z.string().optional(),
+  })).mutation(async ({ input }) => {
+    const systemContext = input.extraContext
+      ? `${DOGOLF_SYSTEM_CONTEXT}\n\n## 현재 컨텍스트\n${input.extraContext}`
+      : DOGOLF_SYSTEM_CONTEXT;
+
+    const response = await geminiChat({
+      messages: input.messages as GeminiMessage[],
+      systemContext,
+    });
+
+    return { response };
+  }),
+
+  /**
+   * 시스템 구조 요약을 반환한다 (Gemini가 현재 시스템을 파악하는 데 사용)
+   */
+  getSystemContext: adminProcedure.query(() => {
+    return { context: DOGOLF_SYSTEM_CONTEXT };
+  }),
+});
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -871,6 +909,7 @@ export const appRouter = router({
   inquiries: inquiriesRouter,
   cms: cmsRouter,
   crm: crmRouter,
+  gemini: geminiRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -78,3 +78,11 @@
 - [x] /packages/detail/:id 오류 원인 파악 및 수정
 - [x] ERP 등록 이미지가 홈페이지 상품 상세/목록에 반영
 - [x] ERP-홈페이지 연동 전반 점검 (API, 라우트, 데이터 구조)
+
+## Gemini AI 어시스턴트 연동
+- [x] GEMINI_API_KEY 환경변수 등록
+- [x] server/_core/gemini.ts 헬퍼 모듈 작성 (시스템 컨텍스트 자동 주입)
+- [x] server/routers.ts에 gemini.ask tRPC API 추가 (adminProcedure)
+- [x] ERP 사이드바에 Gemini AI 메뉴 추가 (/erp/gemini 페이지)
+- [x] 명령 입력 → Gemini 응답 → 대화 이어가기 플로우 구현
+- [x] 시스템 구조(DB 스키마, API 목록) 자동 컨텍스트 주입 (DOGOLF_SYSTEM_CONTEXT)
