@@ -226,3 +226,190 @@ n8n 워크플로우가 30초 이내에 응답을 반환하도록 구성하세요
 ---
 
 *문서 최종 수정: 2026-04-23*
+
+---
+
+## 8. 출발 D-1 알림톡 자동 발송 (스케줄 파이프라인)
+
+### 8.1 개요
+
+출발 전날 고객에게 자동으로 알림톡을 발송하는 파이프라인입니다.
+n8n의 **Schedule Trigger** 노드를 사용하여 매일 특정 시간에 두골프 ERP API를 호출하고, 내일 출발하는 예약자 목록을 조회한 뒤 카카오 알림톡을 발송합니다.
+
+### 8.2 n8n 워크플로우 구성
+
+```
+[Schedule Trigger: 매일 오전 10시]
+    │
+    ▼
+[HTTP Request: 내일 출발 예약 목록 조회]
+  POST https://your-dogolf.manus.space/api/trpc/bookings.getDepartureTomorrow
+    │
+    ▼
+[IF: 예약 목록이 비어있지 않은 경우]
+    │
+    ▼
+[Loop Over Items: 각 예약에 대해]
+    │
+    ▼
+[HTTP Request: 카카오 알림톡 발송]
+  POST https://your-dogolf.manus.space/api/trpc/kakao.sendDepartureReminder
+    │
+    ▼
+[Slack: 발송 완료 요약 알림]
+```
+
+### 8.3 Schedule Trigger 설정
+
+n8n에서 **Schedule Trigger** 노드를 추가하고 다음과 같이 설정합니다.
+
+| 설정 항목 | 값 | 설명 |
+|-----------|-----|------|
+| Trigger Interval | Days | 매일 실행 |
+| Hour | 10 | 오전 10시 실행 |
+| Minute | 0 | 정각 실행 |
+| Timezone | Asia/Seoul | 한국 시간 기준 |
+
+### 8.4 내일 출발 예약 조회 API
+
+두골프 ERP에서 내일 출발 예약을 조회하는 tRPC API를 호출합니다.
+
+**HTTP Request 노드 설정:**
+```
+Method: GET
+URL: https://your-dogolf.manus.space/api/trpc/bookings.getDepartureTomorrow
+Headers:
+  Content-Type: application/json
+  Cookie: {session_cookie}  ← 관리자 세션 쿠키 필요
+```
+
+**응답 예시:**
+```json
+{
+  "result": {
+    "data": [
+      {
+        "bookingId": 101,
+        "bookingNumber": "BK-20260423-0001",
+        "customerName": "홍길동",
+        "customerPhone": "010-1234-5678",
+        "packageTitle": "태국 파타야 3박 5일 골프 패키지",
+        "departureDate": "2026-04-24",
+        "totalPeople": 4,
+        "meetingPoint": "인천국제공항 제1터미널 3층 F카운터"
+      }
+    ]
+  }
+}
+```
+
+### 8.5 알림톡 메시지 템플릿
+
+```
+[두골프] 내일 출발 안내
+
+안녕하세요, {{customerName}}님!
+내일 출발하는 골프 여행 일정을 안내드립니다.
+
+📋 예약번호: {{bookingNumber}}
+🏌️ 패키지: {{packageTitle}}
+📅 출발일: {{departureDate}}
+👥 인원: {{totalPeople}}명
+📍 집결장소: {{meetingPoint}}
+
+준비물을 꼭 확인하시고, 즐거운 골프 여행 되세요! ⛳
+
+문의: 1668-1739 (평일 09:00~17:30)
+```
+
+### 8.6 n8n 워크플로우 JSON 템플릿
+
+아래 JSON을 n8n에서 **Import from JSON** 기능으로 가져와 사용할 수 있습니다.
+
+```json
+{
+  "name": "두골프 D-1 알림톡 자동 발송",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24,
+              "triggerAtHour": 10,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://your-dogolf.manus.space/api/trpc/bookings.getDepartureTomorrow",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "내일 출발 예약 조회",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.result.data.length }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "name": "예약 있는 경우",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "result.data",
+        "options": {}
+      },
+      "name": "예약별 처리",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [900, 200]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [[ { "node": "내일 출발 예약 조회", "type": "main", "index": 0 } ]]
+    },
+    "내일 출발 예약 조회": {
+      "main": [[ { "node": "예약 있는 경우", "type": "main", "index": 0 } ]]
+    },
+    "예약 있는 경우": {
+      "main": [[ { "node": "예약별 처리", "type": "main", "index": 0 } ]]
+    }
+  }
+}
+```
+
+### 8.7 구현 시 주의사항
+
+1. **인증 처리:** 두골프 ERP API는 관리자 인증이 필요합니다. n8n의 **Credentials** 기능을 사용하여 세션 쿠키 또는 API 토큰을 안전하게 관리하세요.
+2. **중복 발송 방지:** 같은 예약에 대해 알림톡이 중복 발송되지 않도록 `kakao_notifications` 테이블에서 당일 발송 이력을 확인하는 로직을 추가하세요.
+3. **발송 실패 처리:** 알림톡 발송 실패 시 슬랙으로 알림을 받도록 Error Trigger 노드를 추가하세요.
+4. **테스트 모드:** 처음 설정 시 실제 고객 번호 대신 테스트 번호로 발송하여 동작을 확인하세요.
+
+---
+
+*문서 최종 수정: 2026-04-23*

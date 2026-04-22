@@ -677,6 +677,37 @@ const bookingsRouter = router({
     }
     return { success: true };
   }),
+  /** D-1 알림톡 n8n 파이프라인용: 내일 출발 예약 목록 조회 */
+  getDepartureTomorrow: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0]; // YYYY-MM-DD
+    const results = await db.select({
+      bookingId: bookings.id,
+      bookingNumber: bookings.bookingNumber,
+      customerName: bookings.leaderName,
+      customerPhone: bookings.leaderPhone,
+      departureDate: bookings.departureDate,
+      adultCount: bookings.adultCount,
+      childCount: bookings.childCount,
+      packageTitle: packages.title,
+    })
+    .from(bookings)
+    .leftJoin(packages, eq(bookings.packageId, packages.id))
+    .where(
+      and(
+        eq(bookings.status, "confirmed"),
+        sql`DATE(${bookings.departureDate}) = ${tomorrowStr}`
+      )
+    );
+    return results.map(r => ({
+      ...r,
+      totalPeople: (r.adultCount ?? 0) + (r.childCount ?? 0),
+    }));
+  }),
+
   createInquiry: publicProcedure.input(z.object({
     name: z.string().min(1),
     phone: z.string().min(1),
