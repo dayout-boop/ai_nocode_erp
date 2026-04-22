@@ -7,7 +7,7 @@ import { getDb } from "./db";
 import {
   packages, packagePrices, packageOptions, packageSlots,
   bookings, travelers, settlements, inquiries, notices, banners, customerMemos, users,
-  packageImages
+  packageImages, aiInteractionLogs
 } from "../drizzle/schema";
 import { eq, desc, and, gte, lte, like, sql, count, asc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
@@ -892,6 +892,67 @@ const geminiRouter = router({
   }),
 });
 
+const aiLogsRouter = router({
+  /**
+   * AI 대화 로그 저장 (Gemini 대화 완료 시 자동 호용)
+   */
+  create: adminProcedure.input(z.object({
+    query: z.string(),
+    response: z.string(),
+  })).mutation(async ({ input, ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    await db.insert(aiInteractionLogs).values({
+      userId: ctx.user.id,
+      userName: ctx.user.name ?? "",
+      query: input.query,
+      response: input.response,
+      modelName: "gemini-2.5-flash",
+    });
+    return { success: true };
+  }),
+
+  /**
+   * AI 대화 로그 목록 조회 (페이지네이션 + 검색)
+   */
+  list: adminProcedure.input(z.object({
+    page: z.number().default(1),
+    limit: z.number().default(20),
+    search: z.string().optional(),
+  })).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const offset = (input.page - 1) * input.limit;
+    const conditions = input.search
+      ? like(aiInteractionLogs.query, `%${input.search}%`)
+      : undefined;
+    const [logs, totalResult] = await Promise.all([
+      db.select().from(aiInteractionLogs)
+        .where(conditions)
+        .orderBy(desc(aiInteractionLogs.createdAt))
+        .limit(input.limit)
+        .offset(offset),
+      db.select({ count: sql<number>`count(*)` }).from(aiInteractionLogs).where(conditions),
+    ]);
+    return {
+      logs,
+      total: Number(totalResult[0]?.count ?? 0),
+      page: input.page,
+      limit: input.limit,
+    };
+  }),
+
+  /**
+   * AI 로그 단건 삭제
+   */
+  delete: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    await db.delete(aiInteractionLogs).where(eq(aiInteractionLogs.id, input.id));
+    return { success: true };
+  }),
+});
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -910,6 +971,7 @@ export const appRouter = router({
   cms: cmsRouter,
   crm: crmRouter,
   gemini: geminiRouter,
+  aiLogs: aiLogsRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -86,3 +86,11 @@
 - [x] ERP 사이드바에 Gemini AI 메뉴 추가 (/erp/gemini 페이지)
 - [x] 명령 입력 → Gemini 응답 → 대화 이어가기 플로우 구현
 - [x] 시스템 구조(DB 스키마, API 목록) 자동 컨텍스트 주입 (DOGOLF_SYSTEM_CONTEXT)
+
+## Gemini AI 대화 로그 저장 및 조회
+- [x] DB 스키마에 aiInteractionLogs 테이블 추가 (userId, query, response, createdAt)
+- [x] pnpm db:push로 마이그레이션 실행
+- [x] tRPC aiLogsRouter 구현 (create, list, delete - 페이지네이션, 검색)
+- [x] GeminiAssistant.tsx에서 대화 완료 시 자동 로그 저장
+- [x] /erp/ai-logs 페이지 구현 (목록, 검색, 페이지네이션, 로그 삭제)
+- [x] ERPLayout 사이드바 Gemini AI 그룹에 AI 대화 로그 메뉴 추가

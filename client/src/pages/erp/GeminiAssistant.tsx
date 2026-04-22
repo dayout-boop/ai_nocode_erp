@@ -69,6 +69,8 @@ export default function GeminiAssistant() {
     },
   });
 
+  const createLogMutation = trpc.aiLogs.create.useMutation();
+
   const handleSendMessage = useCallback(
     async (content: string) => {
       if (!content.trim() || isLoading) return;
@@ -88,13 +90,19 @@ export default function GeminiAssistant() {
           content: result.response,
         };
         setGeminiMessages([...updatedMessages, modelMessage]);
+
+        // 대화 내용을 DB에 자동 저장 (오류가 나도 대화는 계속)
+        createLogMutation.mutate({
+          query: content,
+          response: result.response,
+        });
       } catch {
         // onError에서 처리
       } finally {
         setIsLoading(false);
       }
     },
-    [geminiMessages, isLoading, askMutation]
+    [geminiMessages, isLoading, askMutation, createLogMutation]
   );
 
   const displayMessages = toDisplayMessages(geminiMessages);
@@ -177,7 +185,7 @@ export default function GeminiAssistant() {
               <p className="font-semibold">Gemini 어시스턴트 사용 안내</p>
               <p>이 어시스턴트는 두골프 ERP의 전체 시스템 구조(DB 스키마, API 목록, 기능 설명)를 컨텍스트로 가지고 있습니다.</p>
               <p>개발 요청 시 Gemini가 제안하는 코드나 방법을 확인한 후, 실제 구현은 Manus에게 요청하세요.</p>
-              <p>대화 내용은 서버에 저장되지 않으며, 페이지를 새로고침하면 초기화됩니다.</p>
+              <p>대화 내용은 자동으로 DB에 저장되며, ERP &gt; AI 로그 메뉴에서 이전 대화를 다시 확인할 수 있습니다.</p>
             </div>
           </CardContent>
         </Card>

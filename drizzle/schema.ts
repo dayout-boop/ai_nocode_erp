@@ -281,3 +281,19 @@ export const packageImages = mysqlTable("package_images", {
 });
 export type PackageImage = typeof packageImages.$inferSelect;
 export type InsertPackageImage = typeof packageImages.$inferInsert;
+
+// ============================================================
+// AI_INTERACTION_LOGS - Gemini AI 대화 로그
+// ============================================================
+export const aiInteractionLogs = mysqlTable("ai_interaction_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId"),
+  userName: varchar("userName", { length: 100 }),
+  query: text("query").notNull(),
+  response: text("response").notNull(),
+  modelName: varchar("modelName", { length: 50 }).default("gemini-2.5-flash"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AiInteractionLog = typeof aiInteractionLogs.$inferSelect;
+export type InsertAiInteractionLog = typeof aiInteractionLogs.$inferInsert;

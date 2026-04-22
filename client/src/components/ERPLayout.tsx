@@ -65,7 +65,14 @@ const navItems: NavItem[] = [
       { label: "배너 관리", href: "/erp/cms/banners" },
     ],
   },
-  { label: "Gemini AI", icon: <Sparkles size={18} />, href: "/erp/gemini" },
+  {
+    label: "Gemini AI",
+    icon: <Sparkles size={18} />,
+    children: [
+      { label: "AI 어시스턴트", href: "/erp/gemini" },
+      { label: "AI 대화 로그", href: "/erp/ai-logs" },
+    ],
+  },
 ];
 
 function NavItemComponent({ item, collapsed }: { item: NavItem; collapsed: boolean }) {

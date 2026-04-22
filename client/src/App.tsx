@@ -22,6 +22,7 @@ import ERPCRMCustomers from "./pages/erp/CRMCustomers";
 import ERPCMSNotices from "./pages/erp/CMSNotices";
 import ERPCMSBanners from "./pages/erp/CMSBanners";
 import GeminiAssistant from "./pages/erp/GeminiAssistant";
+import AILogs from "./pages/erp/AILogs";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -48,6 +49,7 @@ function Router() {
       <Route path={"/erp/cms/notices"} component={ERPCMSNotices} />
       <Route path={"/erp/cms/banners"} component={ERPCMSBanners} />
       <Route path={"/erp/gemini"} component={GeminiAssistant} />
+      <Route path={"/erp/ai-logs"} component={AILogs} />
 
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
