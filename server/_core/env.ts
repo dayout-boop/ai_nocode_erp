@@ -9,4 +9,9 @@ export const ENV = {
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
   pixabayApiKey: process.env.PIXABAY_API_KEY ?? "",
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
+  // Vertex AI (서비스 계정 인증)
+  googleServiceAccountJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON ?? "",
+  googleCloudProjectId: process.env.GOOGLE_CLOUD_PROJECT_ID ?? "",
+  // Slack Webhook (두골프 개발AI 연동)
+  slackWebhookUrl: process.env.SLACK_WEBHOOK_URL ?? "",
 };

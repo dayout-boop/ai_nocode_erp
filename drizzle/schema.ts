@@ -292,8 +292,85 @@ export const aiInteractionLogs = mysqlTable("ai_interaction_logs", {
   query: text("query").notNull(),
   response: text("response").notNull(),
   modelName: varchar("modelName", { length: 50 }).default("gemini-2.5-flash"),
+  /** 실제 응답에 사용된 리전 (예: us-central1, europe-west4, global, none) */
+  regionUsed: varchar("regionUsed", { length: 50 }).default("global"),
+  /** 사용된 백엔드 (vertex | studio) */
+  backend: varchar("backend", { length: 20 }).default("studio"),
+  /** 성공 여부 */
+  isSuccess: boolean("isSuccess").default(true),
+  /** 에러 유형 (overload | auth | network | unknown) */
+  errorType: varchar("errorType", { length: 50 }),
+  /** 응답 시간 (ms) */
+  responseTimeMs: int("responseTimeMs"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 export type AiInteractionLog = typeof aiInteractionLogs.$inferSelect;
 export type InsertAiInteractionLog = typeof aiInteractionLogs.$inferInsert;
+
+// ============================================================
+// DEV_REQUESTS - 두골프 개발AI 요청 관리
+// ============================================================
+export const devRequests = mysqlTable("dev_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 200 }).notNull(),
+  description: text("description").notNull(),
+  /** pending | in_progress | completed | rejected */
+  status: varchar("status", { length: 30 }).default("pending").notNull(),
+  /** high | medium | low */
+  priority: varchar("priority", { length: 20 }).default("medium").notNull(),
+  /** Slack 메시지 타임스탬프 (ts) */
+  slackMessageTs: varchar("slackMessageTs", { length: 50 }),
+  /** Slack 채널 ID */
+  slackChannelId: varchar("slackChannelId", { length: 50 }),
+  /** 결과물 설명 */
+  result: text("result"),
+  /** 관련 기능 ID */
+  featureId: int("featureId"),
+  createdBy: int("createdBy"),
+  createdByName: varchar("createdByName", { length: 100 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type DevRequest = typeof devRequests.$inferSelect;
+export type InsertDevRequest = typeof devRequests.$inferInsert;
+
+// ============================================================
+// DEV_FEATURES - 두골프 개발AI 기능 목록
+// ============================================================
+export const devFeatures = mysqlTable("dev_features", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  /** 현재 버전 */
+  currentVersion: varchar("currentVersion", { length: 20 }).default("1.0.0"),
+  /** active | deprecated | experimental */
+  status: varchar("status", { length: 30 }).default("active").notNull(),
+  /** 카테고리 (ai | booking | package | crm | cms | finance | system) */
+  category: varchar("category", { length: 50 }).default("system"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type DevFeature = typeof devFeatures.$inferSelect;
+export type InsertDevFeature = typeof devFeatures.$inferInsert;
+
+// ============================================================
+// DEV_VERSIONS - 두골프 개발AI 기능별 버전 이력 (롤백 관리)
+// ============================================================
+export const devVersions = mysqlTable("dev_versions", {
+  id: int("id").autoincrement().primaryKey(),
+  featureId: int("featureId").notNull(),
+  version: varchar("version", { length: 20 }).notNull(),
+  description: text("description").notNull(),
+  /** 변경 유형 (feature | bugfix | refactor | hotfix) */
+  changeType: varchar("changeType", { length: 30 }).default("feature"),
+  /** 체크포인트 ID (롤백 시 사용) */
+  checkpointId: varchar("checkpointId", { length: 100 }),
+  /** 롤백 가능 여부 */
+  isRollbackable: boolean("isRollbackable").default(true),
+  createdBy: int("createdBy"),
+  createdByName: varchar("createdByName", { length: 100 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type DevVersion = typeof devVersions.$inferSelect;
+export type InsertDevVersion = typeof devVersions.$inferInsert;

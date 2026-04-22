@@ -118,3 +118,41 @@
 - [x] 모든 리전 실패 후 gemini-1.5-flash 폴백 모델로 전환 (폴백도 전체 리전 순환)
 - [x] 사용된 리전 정보를 GeminiChatResult에 포함 (regionUsed 필드)
 - [x] 마 리전 우회 로직 단위 테스트 추가 (12개 단위테스트 + 3개 통합테스트)
+
+## Vertex AI SDK 전환 및 서비스 계정 인증
+- [x] @google-cloud/vertexai 패키지 설치
+- [x] GOOGLE_SERVICE_ACCOUNT_JSON 시크릿 등록 및 인증 로직 구현
+- [x] gemini.ts를 Vertex AI SDK 기반으로 전환 (공식 리전 엔드포인트 사용)
+- [x] 기존 Google AI Studio 폴백 유지 (Vertex AI 인증 실패 시)
+
+## 서킷 브레이커 로직
+- [x] 리전별 실패 횟수/타임스탬프 인메모리 상태 관리
+- [x] N분(기본 5분) 내 실패 리전을 우선순위 후순위로 동적 조정
+- [x] 서킷 브레이커 상태 초기화 엔드포인트 추가 (관리자용)
+
+## AI 로그 DB 스키마 및 리전 통계 API
+- [x] aiInteractionLogs 테이블에 regionUsed, isSuccess, errorType 컨럼 추가
+- [x] pnpm db:push 실행
+- [x] 리전별 성공/실패 통계 API 추가 (aiLogs.regionStats)
+- [x] 시간대별 리전 성능 추이 API 추가
+
+## AI 로그 페이지 리전 통계 시각화
+- [x] 리전별 성공/실패 바차트 추가
+- [x] 시간대별 리전 응답 성능 라인차트 추가 (최근 30일)
+- [x] 서킷 브레이커 현재 상태 표시 패널 추가
+
+## 두골프 개발AI 페이지 (DevAI)
+- [x] Slack Webhook URL 시크릿 등록
+- [x] 개발 요청 DB 테이블 생성 (devRequests)
+- [x] 개발 요청 작성 → Slack 전송 → 결과물 등록 플로우 구현
+- [x] 개발 요청 목록 대시보드 (상태별 필터: 대기/진행중/완료/반려)
+- [x] 기능별 버전/롤백 관리 테이블 (devFeatures, devVersions)
+- [x] 롤백 관리 UI (버전 목록, 롤백 안내 버튼, 체크포인트 ID 연결)
+- [x] 추천 대시보드 위젯 (미완료 요청, 최근 배포, 서킷 브레이커 상태)
+- [x] ERP 사이드바에 "두골프 개발AI" 메뉴 추가
+
+## DevAI 페이지 보완 항목
+- [x] DevAI 대시보드에 서킷 브레이커 상태 위젯 추가 (aiLogs.circuitBreakerStatus 재활용)
+- [x] DevAI 대시보드에 최근 배포 이력(버전 목록) 위젯 추가 (체크포인트 ID 클릭 시 클립보드 복사)
+- [x] 개발 요청 등록 시 Slack 자동 전송 (등록 성공 후 onSuccess에서 sendSlackMutation 자동 호출)
+- [x] 버전 이력 페이지에서 체크포인트 ID 클릭 시 클립보드 복사 + 대시보드 위젯에서도 동일 기능 제공

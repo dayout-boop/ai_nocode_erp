@@ -4,7 +4,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import {
   LayoutDashboard, Package, Calendar, CreditCard, Users, Megaphone, Image, MessageSquare,
-  ChevronDown, ChevronRight, Menu, X, LogOut, Bell, Settings, ExternalLink, Sparkles
+  ChevronDown, ChevronRight, Menu, X, LogOut, Bell, Settings, ExternalLink, Sparkles, Code2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -71,6 +71,16 @@ const navItems: NavItem[] = [
     children: [
       { label: "AI 어시스턴트", href: "/erp/gemini" },
       { label: "AI 대화 로그", href: "/erp/ai-logs" },
+    ],
+  },
+  {
+    label: "두골프 개발AI",
+    icon: <Code2 size={18} />,
+    children: [
+      { label: "대시보드", href: "/erp/dev-ai" },
+      { label: "개발 요청", href: "/erp/dev-ai?tab=requests" },
+      { label: "기능 목록", href: "/erp/dev-ai?tab=features" },
+      { label: "버전 이력", href: "/erp/dev-ai?tab=versions" },
     ],
   },
 ];

@@ -7,7 +7,8 @@ import { getDb } from "./db";
 import {
   packages, packagePrices, packageOptions, packageSlots,
   bookings, travelers, settlements, inquiries, notices, banners, customerMemos, users,
-  packageImages, aiInteractionLogs
+  packageImages, aiInteractionLogs,
+  devRequests, devFeatures, devVersions
 } from "../drizzle/schema";
 import { eq, desc, and, gte, lte, like, sql, count, asc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
@@ -15,7 +16,7 @@ import { storagePut, storageGetSignedUrl } from "./storage";
 import { optimizeImage, optimizeBase64Image } from "./imageOptimizer";
 import { generateImage } from "./_core/imageGeneration";
 import { ENV } from "./_core/env";
-import { geminiChat, DOGOLF_SYSTEM_CONTEXT, type GeminiMessage } from "./_core/gemini";
+import { geminiChat, DOGOLF_SYSTEM_CONTEXT, type GeminiMessage, getCircuitBreakerStatus, resetCircuitBreaker, GEMINI_REGION_ENDPOINTS } from "./_core/gemini";
 
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "admin") {
@@ -956,6 +957,255 @@ const aiLogsRouter = router({
     await db.delete(aiInteractionLogs).where(eq(aiInteractionLogs.id, input.id));
     return { success: true };
   }),
+  /**
+   * 리전별 성공/실패 통계 (차트 시각화용)
+   */
+  regionStats: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const stats = await db
+      .select({
+        regionUsed: aiInteractionLogs.regionUsed,
+        backend: aiInteractionLogs.backend,
+        total: sql<number>`count(*)`,
+        success: sql<number>`sum(case when ${aiInteractionLogs.isSuccess} = 1 then 1 else 0 end)`,
+        failure: sql<number>`sum(case when ${aiInteractionLogs.isSuccess} = 0 then 1 else 0 end)`,
+        avgResponseMs: sql<number>`avg(${aiInteractionLogs.responseTimeMs})`,
+      })
+      .from(aiInteractionLogs)
+      .groupBy(aiInteractionLogs.regionUsed, aiInteractionLogs.backend);
+    const circuitStatus = getCircuitBreakerStatus();
+    return {
+      stats: stats.map(s => ({
+        regionUsed: s.regionUsed ?? "global",
+        backend: s.backend ?? "studio",
+        total: Number(s.total),
+        success: Number(s.success),
+        failure: Number(s.failure),
+        avgResponseMs: s.avgResponseMs ? Math.round(Number(s.avgResponseMs)) : null,
+        successRate: Number(s.total) > 0 ? Math.round((Number(s.success) / Number(s.total)) * 100) : 0,
+        circuitOpen: circuitStatus[s.regionUsed ?? "global"]?.isOpen ?? false,
+      })),
+      circuitBreaker: circuitStatus,
+      regions: GEMINI_REGION_ENDPOINTS,
+    };
+  }),
+  circuitBreakerStatus: adminProcedure.query(() => {
+    return { status: getCircuitBreakerStatus(), regions: GEMINI_REGION_ENDPOINTS };
+  }),
+  resetCircuitBreaker: adminProcedure.input(z.object({
+    regionName: z.string().optional(),
+  })).mutation(({ input }) => {
+    resetCircuitBreaker(input.regionName);
+    return { success: true };
+  }),
+  modelStats: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const stats = await db
+      .select({
+        modelName: aiInteractionLogs.modelName,
+        total: sql<number>`count(*)`,
+        success: sql<number>`sum(case when ${aiInteractionLogs.isSuccess} = 1 then 1 else 0 end)`,
+        failure: sql<number>`sum(case when ${aiInteractionLogs.isSuccess} = 0 then 1 else 0 end)`,
+      })
+      .from(aiInteractionLogs)
+      .groupBy(aiInteractionLogs.modelName);
+    return stats.map(s => ({ modelName: s.modelName, total: Number(s.total), success: Number(s.success), failure: Number(s.failure) }));
+  }),
+  dailyStats: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const stats = await db
+      .select({
+        date: sql<string>`DATE(${aiInteractionLogs.createdAt})`,
+        total: sql<number>`count(*)`,
+        success: sql<number>`sum(case when ${aiInteractionLogs.isSuccess} = 1 then 1 else 0 end)`,
+      })
+      .from(aiInteractionLogs)
+      .where(gte(aiInteractionLogs.createdAt, thirtyDaysAgo))
+      .groupBy(sql`DATE(${aiInteractionLogs.createdAt})`)
+      .orderBy(sql`DATE(${aiInteractionLogs.createdAt})`);
+    return stats.map(s => ({ date: s.date, total: Number(s.total), success: Number(s.success), failure: Number(s.total) - Number(s.success) }));
+  }),
+});
+
+// ============================================================
+// DEV AI ROUTER - 두골프 개발AI 관리
+// ============================================================
+const devAIRouter = router({
+  listRequests: adminProcedure.input(z.object({
+    page: z.number().default(1),
+    limit: z.number().default(20),
+    status: z.string().optional(),
+    priority: z.string().optional(),
+  })).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const offset = (input.page - 1) * input.limit;
+    const conditions: ReturnType<typeof eq>[] = [];
+    if (input.status) conditions.push(eq(devRequests.status, input.status));
+    if (input.priority) conditions.push(eq(devRequests.priority, input.priority));
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const [items, totalResult] = await Promise.all([
+      db.select().from(devRequests).where(where).orderBy(desc(devRequests.createdAt)).limit(input.limit).offset(offset),
+      db.select({ count: sql<number>`count(*)` }).from(devRequests).where(where),
+    ]);
+    return { items, total: Number(totalResult[0]?.count ?? 0) };
+  }),
+  createRequest: adminProcedure.input(z.object({
+    title: z.string().min(1),
+    description: z.string().min(1),
+    priority: z.enum(["high", "medium", "low"]).default("medium"),
+    featureId: z.number().optional(),
+  })).mutation(async ({ input, ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const [result] = await db.insert(devRequests).values({
+      title: input.title,
+      description: input.description,
+      priority: input.priority,
+      featureId: input.featureId,
+      createdBy: ctx.user.id,
+      createdByName: ctx.user.name ?? "",
+    });
+    return { id: (result as any).insertId, success: true };
+  }),
+  updateRequest: adminProcedure.input(z.object({
+    id: z.number(),
+    title: z.string().optional(),
+    description: z.string().optional(),
+    status: z.enum(["pending", "in_progress", "completed", "rejected"]).optional(),
+    priority: z.enum(["high", "medium", "low"]).optional(),
+    result: z.string().optional(),
+    slackMessageTs: z.string().optional(),
+    slackChannelId: z.string().optional(),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const { id, ...data } = input;
+    await db.update(devRequests).set(data).where(eq(devRequests.id, id));
+    return { success: true };
+  }),
+  deleteRequest: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    await db.delete(devRequests).where(eq(devRequests.id, input.id));
+    return { success: true };
+  }),
+  sendToSlack: adminProcedure.input(z.object({
+    requestId: z.number(),
+    webhookUrl: z.string().url().optional(),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const [req] = await db.select().from(devRequests).where(eq(devRequests.id, input.requestId));
+    if (!req) throw new TRPCError({ code: "NOT_FOUND", message: "요청을 찾을 수 없습니다." });
+    const webhookUrl = input.webhookUrl ?? ENV.slackWebhookUrl;
+    if (!webhookUrl) throw new TRPCError({ code: "BAD_REQUEST", message: "Slack Webhook URL이 설정되지 않았습니다. 설정 페이지에서 Slack Webhook URL을 입력해 주세요." });
+    const priorityEmoji: Record<string, string> = { high: "🔴", medium: "🟡", low: "🟢" };
+    const statusEmoji: Record<string, string> = { pending: "⏳", in_progress: "🔧", completed: "✅", rejected: "❌" };
+    const payload = {
+      blocks: [
+        { type: "header", text: { type: "plain_text", text: `🔧 두골프 개발요청 #${req.id}`, emoji: true } },
+        {
+          type: "section",
+          fields: [
+            { type: "mrkdwn", text: `*제목:*\n${req.title}` },
+            { type: "mrkdwn", text: `*우선순위:*\n${priorityEmoji[req.priority] ?? "⚪"} ${req.priority}` },
+            { type: "mrkdwn", text: `*상태:*\n${statusEmoji[req.status] ?? "❓"} ${req.status}` },
+            { type: "mrkdwn", text: `*요청자:*\n${req.createdByName ?? "알 수 없음"}` },
+          ],
+        },
+        { type: "section", text: { type: "mrkdwn", text: `*내용:*\n${req.description}` } },
+        ...(req.result ? [{ type: "section", text: { type: "mrkdwn", text: `*결과물:*\n${req.result}` } }] : []),
+        { type: "context", elements: [{ type: "mrkdwn", text: `등록일: ${new Date(req.createdAt).toLocaleString("ko-KR")}` }] },
+      ],
+    };
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Slack 전송 실패: ${response.status}` });
+    return { success: true };
+  }),
+  listFeatures: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    return db.select().from(devFeatures).orderBy(asc(devFeatures.category), asc(devFeatures.name));
+  }),
+  createFeature: adminProcedure.input(z.object({
+    name: z.string().min(1),
+    description: z.string().optional(),
+    category: z.string().default("system"),
+    currentVersion: z.string().default("1.0.0"),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const [result] = await db.insert(devFeatures).values(input);
+    return { id: (result as any).insertId, success: true };
+  }),
+  updateFeature: adminProcedure.input(z.object({
+    id: z.number(),
+    name: z.string().optional(),
+    description: z.string().optional(),
+    currentVersion: z.string().optional(),
+    status: z.enum(["active", "deprecated", "experimental"]).optional(),
+    category: z.string().optional(),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const { id, ...data } = input;
+    await db.update(devFeatures).set(data).where(eq(devFeatures.id, id));
+    return { success: true };
+  }),
+  listVersions: adminProcedure.input(z.object({
+    featureId: z.number().optional(),
+  })).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const where = input.featureId ? eq(devVersions.featureId, input.featureId) : undefined;
+    return db.select().from(devVersions).where(where).orderBy(desc(devVersions.createdAt));
+  }),
+  createVersion: adminProcedure.input(z.object({
+    featureId: z.number(),
+    version: z.string().min(1),
+    description: z.string().min(1),
+    changeType: z.enum(["feature", "bugfix", "refactor", "hotfix"]).default("feature"),
+    checkpointId: z.string().optional(),
+    isRollbackable: z.boolean().default(true),
+  })).mutation(async ({ input, ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const [result] = await db.insert(devVersions).values({
+      ...input,
+      createdBy: ctx.user.id,
+      createdByName: ctx.user.name ?? "",
+    });
+    await db.update(devFeatures).set({ currentVersion: input.version }).where(eq(devFeatures.id, input.featureId));
+    return { id: (result as any).insertId, success: true };
+  }),
+  dashboardStats: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const [reqStats, featureStats, versionStats] = await Promise.all([
+      db.select({ status: devRequests.status, count: sql<number>`count(*)` }).from(devRequests).groupBy(devRequests.status),
+      db.select({ count: sql<number>`count(*)` }).from(devFeatures).where(eq(devFeatures.status, "active")),
+      db.select({ count: sql<number>`count(*)` }).from(devVersions),
+    ]);
+    const reqByStatus = Object.fromEntries(reqStats.map(r => [r.status, Number(r.count)]));
+    return {
+      totalRequests: Object.values(reqByStatus).reduce((a, b) => a + b, 0),
+      pendingRequests: reqByStatus["pending"] ?? 0,
+      inProgressRequests: reqByStatus["in_progress"] ?? 0,
+      completedRequests: reqByStatus["completed"] ?? 0,
+      activeFeatures: Number(featureStats[0]?.count ?? 0),
+      totalVersions: Number(versionStats[0]?.count ?? 0),
+    };
+  }),
 });
 
 export const appRouter = router({
@@ -977,6 +1227,7 @@ export const appRouter = router({
   crm: crmRouter,
   gemini: geminiRouter,
   aiLogs: aiLogsRouter,
+  devAI: devAIRouter,
 });
 
 export type AppRouter = typeof appRouter;
