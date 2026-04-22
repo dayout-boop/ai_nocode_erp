@@ -13,7 +13,7 @@ describe("Gemini API", () => {
   }, 30_000);
 
   it("두골프 시스템 컨텍스트로 채팅이 가능해야 한다", async () => {
-    const response = await geminiChat({
+    const result = await geminiChat({
       messages: [
         {
           role: "user",
@@ -21,8 +21,10 @@ describe("Gemini API", () => {
         },
       ],
     });
-    expect(response).toBeTruthy();
-    expect(typeof response).toBe("string");
-    expect(response.length).toBeGreaterThan(10);
+    expect(result).toBeTruthy();
+    expect(typeof result.text).toBe("string");
+    expect(result.text.length).toBeGreaterThan(10);
+    expect(typeof result.modelUsed).toBe("string");
+    expect(typeof result.wasFallback).toBe("boolean");
   }, 30_000);
 });

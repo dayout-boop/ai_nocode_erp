@@ -876,12 +876,11 @@ const geminiRouter = router({
       ? `${DOGOLF_SYSTEM_CONTEXT}\n\n## 현재 컨텍스트\n${input.extraContext}`
       : DOGOLF_SYSTEM_CONTEXT;
 
-    const response = await geminiChat({
+    const result = await geminiChat({
       messages: input.messages as GeminiMessage[],
       systemContext,
     });
-
-    return { response };
+    return { response: result.text, modelUsed: result.modelUsed, wasFallback: result.wasFallback };
   }),
 
   /**

@@ -85,9 +85,18 @@ export default function GeminiAssistant() {
           messages: updatedMessages,
         });
 
+        // 폴백 모델 사용 시 응답 앞에 안내 메시지 추가
+        const responseContent = result.wasFallback
+          ? `> ⚠️ *기본 모델(gemini-2.5-flash) 과부하로 대체 모델(${result.modelUsed})을 사용했습니다.*\n\n${result.response}`
+          : result.response;
+
+        if (result.wasFallback) {
+          toast.warning(`서버 과부하로 ${result.modelUsed} 모델로 전환하여 응답했습니다.`);
+        }
+
         const modelMessage: GeminiMessage = {
           role: "model",
-          content: result.response,
+          content: responseContent,
         };
         setGeminiMessages([...updatedMessages, modelMessage]);
 

@@ -2,13 +2,20 @@
  * Gemini AI 어시스턴트 헬퍼
  * - 두골프 ERP 시스템 컨텍스트를 자동으로 주입
  * - 관리자 명령을 분석하고 실행 계획을 제안
- * - 스트리밍 응답 지원
+ * - 503 오류 시 최대 2회 재시도 (지수 백오프)
+ * - 2회 재시도 후에도 실패 시 gemini-1.5-flash로 자동 폴백
  */
 
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
 import { ENV } from "./env";
 
-// ENV를 통해 중앙화된 환경변수 접근 (process.env 직접 접근 방지)
+// ────────────────────────────────────────────────────────────────────────────
+// 모델 설정
+// ────────────────────────────────────────────────────────────────────────────
+const PRIMARY_MODEL = "gemini-2.5-flash";
+const FALLBACK_MODEL = "gemini-1.5-flash";
+const MAX_RETRIES = 2;
+const RETRY_BASE_DELAY_MS = 1000; // 1초, 지수 백오프: 1s → 2s
 
 // ────────────────────────────────────────────────────────────────────────────
 // 시스템 컨텍스트 - Gemini가 두골프 ERP를 이해하는 데 필요한 구조 정보
@@ -39,6 +46,7 @@ export const DOGOLF_SYSTEM_CONTEXT = `
 | banners | 홈페이지 배너 | title, imageUrl, linkUrl, position, isActive, sortOrder |
 | customer_memos | CRM 고객 메모 | userId, content, category |
 | package_images | 상품 이미지 | packageId, imageUrl, isCover, sortOrder |
+| ai_interaction_logs | AI 대화 로그 | userId, query, response, modelUsed, createdAt |
 
 ## tRPC API 구조 (server/routers.ts)
 ### dashboard.*
@@ -81,6 +89,13 @@ export const DOGOLF_SYSTEM_CONTEXT = `
 ### crm.*
 - searchCustomers / getMemos / addMemo / deleteMemo: CRM
 
+### gemini.*
+- ask(messages): Gemini AI 채팅 (adminProcedure)
+
+### aiLogs.*
+- list(page, limit, search): AI 대화 로그 목록
+- create / delete: 로그 생성/삭제
+
 ### public.* (홈페이지용 공개 API)
 - publicList: 활성 상품 목록 (홈페이지 노출)
 - publicGet(id): 상품 상세 (이미지 포함)
@@ -99,6 +114,8 @@ export const DOGOLF_SYSTEM_CONTEXT = `
 - ERP CRM: /home/ubuntu/dogolf/client/src/pages/erp/CRM.tsx
 - ERP CMS: /home/ubuntu/dogolf/client/src/pages/erp/CMS.tsx
 - ERP 문의관리: /home/ubuntu/dogolf/client/src/pages/erp/Inquiries.tsx
+- ERP Gemini AI: /home/ubuntu/dogolf/client/src/pages/erp/GeminiAssistant.tsx
+- ERP AI 로그: /home/ubuntu/dogolf/client/src/pages/erp/AILogs.tsx
 
 ## 응답 형식 가이드라인
 1. 관리자 명령을 분석하여 **실행 계획**을 먼저 제시하세요.
@@ -129,13 +146,45 @@ export interface GeminiChatOptions {
   temperature?: number;
 }
 
+export interface GeminiChatResult {
+  text: string;
+  modelUsed: string;
+  wasFallback: boolean;
+}
+
 // ────────────────────────────────────────────────────────────────────────────
-// 일반 채팅 (비스트리밍)
+// 503 / 과부하 오류 판별
 // ────────────────────────────────────────────────────────────────────────────
-export async function geminiChat(options: GeminiChatOptions): Promise<string> {
+function isRetryableError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const msg = error.message.toLowerCase();
+  return (
+    msg.includes("503") ||
+    msg.includes("service unavailable") ||
+    msg.includes("high demand") ||
+    msg.includes("overloaded") ||
+    msg.includes("429") ||
+    msg.includes("resource_exhausted")
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 지수 백오프 대기
+// ────────────────────────────────────────────────────────────────────────────
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 단일 모델로 채팅 시도 (재시도 없음)
+// ────────────────────────────────────────────────────────────────────────────
+async function tryChatWithModel(
+  modelName: string,
+  options: GeminiChatOptions
+): Promise<string> {
   const genAI = getGeminiClient();
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: modelName,
     systemInstruction: options.systemContext ?? DOGOLF_SYSTEM_CONTEXT,
     safetySettings: [
       { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -147,7 +196,6 @@ export async function geminiChat(options: GeminiChatOptions): Promise<string> {
     },
   });
 
-  // 대화 히스토리 변환 (마지막 메시지 제외)
   const history = options.messages.slice(0, -1).map((msg) => ({
     role: msg.role,
     parts: [{ text: msg.content }],
@@ -162,37 +210,72 @@ export async function geminiChat(options: GeminiChatOptions): Promise<string> {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 스트리밍 채팅 (Server-Sent Events용)
+// 재시도 + 폴백 로직을 포함한 채팅 실행
+// 1. PRIMARY_MODEL(gemini-2.5-flash)로 최대 MAX_RETRIES(2)회 재시도
+// 2. 모두 실패 시 FALLBACK_MODEL(gemini-1.5-flash)로 1회 추가 시도
+// ────────────────────────────────────────────────────────────────────────────
+async function chatWithRetryAndFallback(
+  options: GeminiChatOptions
+): Promise<GeminiChatResult> {
+  let lastError: unknown;
+
+  // 1단계: 기본 모델로 최대 MAX_RETRIES회 시도
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      if (attempt > 0) {
+        const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+        console.log(`[Gemini] ${PRIMARY_MODEL} 재시도 ${attempt}/${MAX_RETRIES} (${delay}ms 대기)`);
+        await sleep(delay);
+      }
+      const text = await tryChatWithModel(PRIMARY_MODEL, options);
+      return { text, modelUsed: PRIMARY_MODEL, wasFallback: false };
+    } catch (err) {
+      lastError = err;
+      if (!isRetryableError(err)) {
+        // 재시도 불가 오류 (인증 실패 등)는 즉시 throw
+        throw err;
+      }
+      console.warn(`[Gemini] ${PRIMARY_MODEL} 시도 ${attempt + 1} 실패:`, (err as Error).message);
+    }
+  }
+
+  // 2단계: 폴백 모델(gemini-1.5-flash)로 1회 시도
+  console.log(`[Gemini] 기본 모델 ${MAX_RETRIES + 1}회 실패 → ${FALLBACK_MODEL}으로 폴백`);
+  try {
+    const text = await tryChatWithModel(FALLBACK_MODEL, options);
+    console.log(`[Gemini] 폴백 모델 ${FALLBACK_MODEL} 성공`);
+    return { text, modelUsed: FALLBACK_MODEL, wasFallback: true };
+  } catch (fallbackErr) {
+    console.error(`[Gemini] 폴백 모델 ${FALLBACK_MODEL}도 실패:`, (fallbackErr as Error).message);
+    // 폴백도 실패하면 원래 오류를 throw
+    throw lastError;
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 일반 채팅 (비스트리밍) - 재시도 + 폴백 포함
+// ────────────────────────────────────────────────────────────────────────────
+export async function geminiChat(options: GeminiChatOptions): Promise<GeminiChatResult> {
+  return chatWithRetryAndFallback(options);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 스트리밍 채팅 - 재시도 + 폴백 후 전체 텍스트를 청크로 yield
+// (스트리밍은 재시도 중 부분 응답 처리가 복잡하므로 폴백 후 전체 응답을 청크로 분할)
 // ────────────────────────────────────────────────────────────────────────────
 export async function* geminiChatStream(options: GeminiChatOptions): AsyncGenerator<string> {
-  const genAI = getGeminiClient();
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
-    systemInstruction: options.systemContext ?? DOGOLF_SYSTEM_CONTEXT,
-    safetySettings: [
-      { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-      { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-    ],
-    generationConfig: {
-      temperature: options.temperature ?? 0.7,
-      maxOutputTokens: 4096,
-    },
-  });
+  // 먼저 재시도/폴백 로직으로 전체 응답을 받은 뒤 청크로 나눠 yield
+  const result = await chatWithRetryAndFallback(options);
 
-  const history = options.messages.slice(0, -1).map((msg) => ({
-    role: msg.role,
-    parts: [{ text: msg.content }],
-  }));
+  // 폴백 사용 시 첫 청크에 알림 메시지 포함
+  if (result.wasFallback) {
+    yield `> ⚠️ *기본 모델(${PRIMARY_MODEL}) 과부하로 인해 대체 모델(${FALLBACK_MODEL})을 사용했습니다.*\n\n`;
+  }
 
-  const lastMessage = options.messages[options.messages.length - 1];
-  if (!lastMessage) throw new Error("메시지가 없습니다.");
-
-  const chat = model.startChat({ history });
-  const result = await chat.sendMessageStream(lastMessage.content);
-
-  for await (const chunk of result.stream) {
-    const text = chunk.text();
-    if (text) yield text;
+  // 응답을 200자씩 청크로 나눠 스트리밍 효과 제공
+  const chunkSize = 200;
+  for (let i = 0; i < result.text.length; i += chunkSize) {
+    yield result.text.slice(i, i + chunkSize);
   }
 }
 
@@ -201,12 +284,12 @@ export async function* geminiChatStream(options: GeminiChatOptions): AsyncGenera
 // ────────────────────────────────────────────────────────────────────────────
 export async function validateGeminiApiKey(): Promise<boolean> {
   try {
-    const response = await geminiChat({
+    const result = await geminiChat({
       messages: [{ role: "user", content: "ping" }],
       systemContext: "You are a test assistant. Reply with 'pong' only.",
       temperature: 0,
     });
-    return response.toLowerCase().includes("pong");
+    return result.text.toLowerCase().includes("pong");
   } catch {
     return false;
   }
