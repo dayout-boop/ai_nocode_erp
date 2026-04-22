@@ -81,6 +81,7 @@ const navItems: NavItem[] = [
       { label: "개발 요청", href: "/erp/dev-ai?tab=requests" },
       { label: "기능 목록", href: "/erp/dev-ai?tab=features" },
       { label: "버전 이력", href: "/erp/dev-ai?tab=versions" },
+      { label: "AI 오케스트레이터", href: "/erp/orchestrator" },
     ],
   },
 ];

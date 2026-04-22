@@ -374,3 +374,42 @@ export const devVersions = mysqlTable("dev_versions", {
 });
 export type DevVersion = typeof devVersions.$inferSelect;
 export type InsertDevVersion = typeof devVersions.$inferInsert;
+
+// ────────────────────────────────────────────────────────────────────────────
+// AI 오케스트레이터 비용 로그
+// ────────────────────────────────────────────────────────────────────────────
+
+export const aiCostLogs = mysqlTable("ai_cost_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 사용된 모델 ID (예: openai/gpt-4o-mini) */
+  model: varchar("model", { length: 100 }).notNull(),
+  /** 모델 표시명 */
+  modelName: varchar("modelName", { length: 100 }),
+  /** 작업 복잡도 */
+  complexity: varchar("complexity", { length: 20 }).notNull(),
+  /** 작업 유형 */
+  taskType: varchar("taskType", { length: 50 }).notNull(),
+  /** 입력 토큰 수 */
+  inputTokens: int("inputTokens").default(0),
+  /** 출력 토큰 수 */
+  outputTokens: int("outputTokens").default(0),
+  /** 예상 비용 (USD) */
+  costUsd: decimal("costUsd", { precision: 12, scale: 8 }).default("0"),
+  /** 캐시 절약 비용 (USD) */
+  cacheSavedUsd: decimal("cacheSavedUsd", { precision: 12, scale: 8 }).default("0"),
+  /** 캐시 히트 여부 */
+  cacheHit: boolean("cacheHit").default(false),
+  /** 응답 시간 (ms) */
+  durationMs: int("durationMs").default(0),
+  /** 성공 여부 */
+  isSuccess: boolean("isSuccess").default(true),
+  /** 에러 메시지 (실패 시) */
+  errorMessage: text("errorMessage"),
+  /** 요청한 사용자 ID */
+  userId: int("userId"),
+  /** 요청 프롬프트 앞 200자 (디버깅용) */
+  promptPreview: varchar("promptPreview", { length: 200 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type AiCostLog = typeof aiCostLogs.$inferSelect;
+export type InsertAiCostLog = typeof aiCostLogs.$inferInsert;

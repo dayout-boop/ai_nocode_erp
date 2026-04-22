@@ -8,7 +8,8 @@ import {
   packages, packagePrices, packageOptions, packageSlots,
   bookings, travelers, settlements, inquiries, notices, banners, customerMemos, users,
   packageImages, aiInteractionLogs,
-  devRequests, devFeatures, devVersions
+  devRequests, devFeatures, devVersions,
+  aiCostLogs
 } from "../drizzle/schema";
 import { eq, desc, and, gte, lte, like, sql, count, asc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
@@ -17,6 +18,7 @@ import { optimizeImage, optimizeBase64Image } from "./imageOptimizer";
 import { generateImage } from "./_core/imageGeneration";
 import { ENV } from "./_core/env";
 import { geminiChat, DOGOLF_SYSTEM_CONTEXT, type GeminiMessage, getCircuitBreakerStatus, resetCircuitBreaker, GEMINI_REGION_ENDPOINTS } from "./_core/gemini";
+import { orchestrate, getModelPricing, getCacheStats, clearCache, detectComplexity, MODEL_CATALOG, type TaskType, type TaskComplexity } from "./_core/orchestrator";
 
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "admin") {
@@ -1208,6 +1210,185 @@ const devAIRouter = router({
   }),
 });
 
+// ────────────────────────────────────────────────────────────────────────────
+// 오케스트레이터 라우터
+// ────────────────────────────────────────────────────────────────────────────
+
+const orchestratorRouter = router({
+  /** 오케스트레이터를 통한 AI 질의 */
+  ask: adminProcedure.input(z.object({
+    message: z.string().min(1).max(5000),
+    taskType: z.enum(["text_summary", "hashtag_gen", "data_classify", "price_analysis", "schedule_optimize", "report_gen", "content_create", "layout_design", "code_review", "auto"]).default("auto"),
+    complexity: z.enum(["SIMPLE", "MODERATE", "COMPLEX"]).optional(),
+    systemPrompt: z.string().optional(),
+    maxTokens: z.number().min(100).max(8192).optional(),
+    temperature: z.number().min(0).max(2).optional(),
+    useCache: z.boolean().default(true),
+  })).mutation(async ({ input, ctx }) => {
+    const db = await getDb();
+    const startTime = Date.now();
+    let result: Awaited<ReturnType<typeof orchestrate>> | null = null;
+    let errorMessage: string | null = null;
+
+    try {
+      result = await orchestrate(input.message, {
+        taskType: input.taskType as TaskType,
+        complexity: input.complexity as TaskComplexity | undefined,
+        systemPrompt: input.systemPrompt,
+        maxTokens: input.maxTokens,
+        temperature: input.temperature,
+        useCache: input.useCache,
+      });
+    } catch (err: unknown) {
+      errorMessage = err instanceof Error ? err.message : String(err);
+    }
+
+    // 비용 로그 저장
+    if (db) {
+      try {
+        await db.insert(aiCostLogs).values({
+          model: result?.model ?? input.complexity ?? "unknown",
+          modelName: result?.model?.split("/")[1] ?? "unknown",
+          complexity: result?.complexity ?? input.complexity ?? "MODERATE",
+          taskType: result?.taskType ?? input.taskType,
+          inputTokens: result?.inputTokens ?? 0,
+          outputTokens: result?.outputTokens ?? 0,
+          costUsd: String(result?.costUsd ?? 0),
+          cacheSavedUsd: String(result?.cacheSavedUsd ?? 0),
+          cacheHit: result?.cacheHit ?? false,
+          durationMs: result?.durationMs ?? (Date.now() - startTime),
+          isSuccess: !errorMessage,
+          errorMessage: errorMessage ?? undefined,
+          userId: ctx.user.id,
+          promptPreview: input.message.slice(0, 200),
+        });
+      } catch (logErr) {
+        console.error("[Orchestrator] 비용 로그 저장 실패:", logErr);
+      }
+    }
+
+    if (errorMessage) {
+      return {
+        success: false,
+        errorMessage: `현재 AI 서비스에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해 주세요. (${errorMessage.slice(0, 100)})`,
+        text: null,
+        model: null,
+        complexity: null,
+        taskType: input.taskType,
+        inputTokens: 0,
+        outputTokens: 0,
+        costUsd: 0,
+        cacheHit: false,
+        cacheSavedUsd: 0,
+        durationMs: Date.now() - startTime,
+      };
+    }
+
+    return {
+      success: true,
+      errorMessage: null,
+      text: result!.text,
+      model: result!.model,
+      complexity: result!.complexity,
+      taskType: result!.taskType,
+      inputTokens: result!.inputTokens,
+      outputTokens: result!.outputTokens,
+      costUsd: result!.costUsd,
+      cacheHit: result!.cacheHit,
+      cacheSavedUsd: result!.cacheSavedUsd,
+      durationMs: result!.durationMs,
+    };
+  }),
+
+  /** 비용 통계 조회 */
+  getCostStats: adminProcedure.input(z.object({
+    days: z.number().min(1).max(90).default(30),
+  })).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+    const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
+
+    const [totalStats, byModel, byComplexity, byDay, cacheStats] = await Promise.all([
+      // 전체 합계
+      db.select({
+        totalCost: sql<string>`COALESCE(SUM(costUsd), 0)`,
+        totalCacheSaved: sql<string>`COALESCE(SUM(cacheSavedUsd), 0)`,
+        totalRequests: count(),
+        cacheHits: sql<number>`SUM(CASE WHEN cacheHit = 1 THEN 1 ELSE 0 END)`,
+        successCount: sql<number>`SUM(CASE WHEN isSuccess = 1 THEN 1 ELSE 0 END)`,
+        avgDuration: sql<number>`AVG(durationMs)`,
+      }).from(aiCostLogs).where(gte(aiCostLogs.createdAt, since)),
+
+      // 모델별 통계
+      db.select({
+        model: aiCostLogs.model,
+        modelName: aiCostLogs.modelName,
+        requests: count(),
+        totalCost: sql<string>`COALESCE(SUM(costUsd), 0)`,
+        totalTokens: sql<number>`SUM(inputTokens + outputTokens)`,
+      }).from(aiCostLogs).where(gte(aiCostLogs.createdAt, since)).groupBy(aiCostLogs.model, aiCostLogs.modelName),
+
+      // 복잡도별 통계
+      db.select({
+        complexity: aiCostLogs.complexity,
+        requests: count(),
+        totalCost: sql<string>`COALESCE(SUM(costUsd), 0)`,
+      }).from(aiCostLogs).where(gte(aiCostLogs.createdAt, since)).groupBy(aiCostLogs.complexity),
+
+      // 일별 비용 추이
+      db.select({
+        date: sql<string>`DATE(createdAt)`,
+        totalCost: sql<string>`COALESCE(SUM(costUsd), 0)`,
+        requests: count(),
+        cacheHits: sql<number>`SUM(CASE WHEN cacheHit = 1 THEN 1 ELSE 0 END)`,
+      }).from(aiCostLogs).where(gte(aiCostLogs.createdAt, since)).groupBy(sql`DATE(createdAt)`).orderBy(sql`DATE(createdAt)`),
+
+      // 캐시 통계
+      db.select({
+        totalRequests: count(),
+        cacheHits: sql<number>`SUM(CASE WHEN cacheHit = 1 THEN 1 ELSE 0 END)`,
+        totalSaved: sql<string>`COALESCE(SUM(cacheSavedUsd), 0)`,
+      }).from(aiCostLogs).where(gte(aiCostLogs.createdAt, since)),
+    ]);
+
+    return {
+      summary: totalStats[0],
+      byModel,
+      byComplexity,
+      byDay,
+      cacheStats: cacheStats[0],
+      inMemoryCacheStats: getCacheStats(),
+    };
+  }),
+
+  /** 모델 가격 정보 */
+  getModelPricing: adminProcedure.query(() => getModelPricing()),
+
+  /** 인메모리 캐시 초기화 */
+  clearCache: adminProcedure.mutation(() => {
+    clearCache();
+    return { success: true };
+  }),
+
+  /** 복잡도 자동 감지 미리보기 */
+  detectComplexity: adminProcedure.input(z.object({
+    prompt: z.string().min(1),
+  })).query(({ input }) => ({
+    complexity: detectComplexity(input.prompt),
+    model: MODEL_CATALOG[detectComplexity(input.prompt)],
+  })),
+
+  /** 최근 비용 로그 */
+  getRecentLogs: adminProcedure.input(z.object({
+    limit: z.number().min(1).max(100).default(20),
+  })).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    return db.select().from(aiCostLogs).orderBy(desc(aiCostLogs.createdAt)).limit(input.limit);
+  }),
+});
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -1228,6 +1409,7 @@ export const appRouter = router({
   gemini: geminiRouter,
   aiLogs: aiLogsRouter,
   devAI: devAIRouter,
+  orchestrator: orchestratorRouter,
 });
 
 export type AppRouter = typeof appRouter;

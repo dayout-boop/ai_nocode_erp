@@ -14,4 +14,6 @@ export const ENV = {
   googleCloudProjectId: process.env.GOOGLE_CLOUD_PROJECT_ID ?? "",
   // Slack Webhook (두골프 개발AI 연동)
   slackWebhookUrl: process.env.SLACK_WEBHOOK_URL ?? "",
+  // OpenRouter (중앙 AI 오케스트레이터)
+  openrouterApiKey: process.env.OPENROUTER_API_KEY ?? "",
 };

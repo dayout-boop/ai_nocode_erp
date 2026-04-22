@@ -156,3 +156,21 @@
 - [x] DevAI 대시보드에 최근 배포 이력(버전 목록) 위젯 추가 (체크포인트 ID 클릭 시 클립보드 복사)
 - [x] 개발 요청 등록 시 Slack 자동 전송 (등록 성공 후 onSuccess에서 sendSlackMutation 자동 호출)
 - [x] 버전 이력 페이지에서 체크포인트 ID 클릭 시 클립보드 복사 + 대시보드 위젯에서도 동일 기능 제공
+
+## 중앙 AI 오케스트레이터 (OpenRouter 기반)
+- [ ] OpenRouter API 키 시크릿 등록 (OPENROUTER_API_KEY)
+- [ ] server/_core/orchestrator.ts 구현
+  - [ ] 작업 복잡도 분류 로직 (SIMPLE / MODERATE / COMPLEX)
+  - [ ] 모델 라우팅 테이블 (SIMPLE→GPT-4o mini, MODERATE→Gemini 1.5 Pro, COMPLEX→Claude 3.5 Sonnet)
+  - [ ] 프롬프트 캐싱 (시스템 프롬프트 해시 기반 인메모리 캐시)
+  - [ ] OpenRouter API 호출 함수 (에러 핸들링, 재시도 2회)
+  - [ ] 비용 계산 로직 (입력/출력 토큰 × 모델별 단가)
+  - [ ] 비용 로그 DB 저장
+- [ ] drizzle/schema.ts - ai_cost_logs 테이블 추가 (model, inputTokens, outputTokens, costUsd, taskType, cacheHit)
+- [ ] pnpm db:push 실행
+- [ ] server/routers.ts - orchestrator 라우터 추가 (ask, getCostStats, getModelPricing)
+- [ ] DevAI.tsx - 오케스트레이터 탭 추가
+  - [ ] 모델 자동 선택 채팅 UI (작업 유형 선택 드롭다운)
+  - [ ] 비용 대시보드 (일별/모델별 비용 차트)
+  - [ ] 캐시 히트율 통계
+  - [ ] 모델별 단가 테이블

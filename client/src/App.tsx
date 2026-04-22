@@ -24,6 +24,7 @@ import ERPCMSBanners from "./pages/erp/CMSBanners";
 import GeminiAssistant from "./pages/erp/GeminiAssistant";
 import AILogs from "./pages/erp/AILogs";
 import DevAI from "./pages/erp/DevAI";
+import DevAIOrchestrator from "./pages/erp/DevAIOrchestrator";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -52,6 +53,7 @@ function Router() {
       <Route path={"/erp/gemini"} component={GeminiAssistant} />
       <Route path={"/erp/ai-logs"} component={AILogs} />
       <Route path={"/erp/dev-ai"} component={DevAI} />
+      <Route path={"/erp/orchestrator"} component={DevAIOrchestrator} />
 
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
