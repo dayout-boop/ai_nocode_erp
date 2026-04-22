@@ -9,7 +9,8 @@ import {
   bookings, travelers, settlements, inquiries, notices, banners, customerMemos, users,
   packageImages, aiInteractionLogs,
   devRequests, devFeatures, devVersions,
-  aiCostLogs
+  aiCostLogs,
+  payments, kakaoNotifications, packageVideos, automationLogs
 } from "../drizzle/schema";
 import { eq, desc, and, gte, lte, like, sql, count, asc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
@@ -19,6 +20,13 @@ import { generateImage } from "./_core/imageGeneration";
 import { ENV } from "./_core/env";
 import { geminiChat, DOGOLF_SYSTEM_CONTEXT, type GeminiMessage, getCircuitBreakerStatus, resetCircuitBreaker, GEMINI_REGION_ENDPOINTS } from "./_core/gemini";
 import { orchestrate, getModelPricing, getCacheStats, clearCache, detectComplexity, MODEL_CATALOG, type TaskType, type TaskComplexity } from "./_core/orchestrator";
+import { createPaymentIntent, getPaymentStatus } from "./stripe";
+import {
+  sendBookingConfirmedNotification,
+  sendBookingCancelledNotification,
+} from "./_core/kakao";
+import { generateGolfVideo, getVideoGenerationStatus } from "./_core/runway";
+import { triggerPackagePublishPipeline } from "./_core/n8n";
 
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "admin") {
@@ -619,6 +627,54 @@ const bookingsRouter = router({
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
     const { id, ...data } = input;
     await db.update(bookings).set(data).where(eq(bookings.id, id));
+
+    // 카카오 알림톡 자동 발송 (확정/취소 시)
+    if (input.status === "confirmed" || input.status === "cancelled") {
+      try {
+        const [booking] = await db.select().from(bookings).where(eq(bookings.id, id));
+        const [pkg] = booking?.packageId
+          ? await db.select().from(packages).where(eq(packages.id, booking.packageId))
+          : [undefined];
+        if (booking?.leaderPhone) {
+          const messageType = input.status === "confirmed" ? "booking_confirmed" : "booking_cancelled";
+          let kakaoResult;
+          if (input.status === "confirmed") {
+            kakaoResult = await sendBookingConfirmedNotification({
+              phone: booking.leaderPhone,
+              customerName: booking.leaderName,
+              bookingNumber: booking.bookingNumber,
+              packageTitle: pkg?.title ?? "알 수 없음",
+              departureDate: booking.departureDate
+                ? new Date(booking.departureDate).toLocaleDateString("ko-KR")
+                : "예정",
+              totalAmount: booking.totalAmount?.toString() ?? "0",
+              totalPeople: (booking.adultCount ?? 0) + (booking.childCount ?? 0),
+            });
+          } else {
+            kakaoResult = await sendBookingCancelledNotification({
+              phone: booking.leaderPhone,
+              customerName: booking.leaderName,
+              bookingNumber: booking.bookingNumber,
+              packageTitle: pkg?.title ?? "알 수 없음",
+              cancelReason: input.cancelReason,
+            });
+          }
+          // 알림톡 발송 이력 저장
+          await db.insert(kakaoNotifications).values({
+            bookingId: id,
+            recipientPhone: booking.leaderPhone,
+            templateCode: input.status === "confirmed" ? "DOGOLF_BOOKING_CONFIRMED" : "DOGOLF_BOOKING_CANCELLED",
+            messageType,
+            status: kakaoResult.success ? "sent" : "failed",
+            errorMessage: kakaoResult.error,
+            sentAt: kakaoResult.success ? new Date() : undefined,
+          });
+        }
+      } catch (kakaoErr) {
+        console.error("[Kakao] 알림톡 발송 실패:", kakaoErr);
+        // 알림톡 실패는 예약 상태 변경을 실패시키지 않음
+      }
+    }
     return { success: true };
   }),
   createInquiry: publicProcedure.input(z.object({
@@ -1389,6 +1445,206 @@ const orchestratorRouter = router({
   }),
 });
 
+// ─── Payment Router ─────────────────────────────────────────────
+const paymentRouter = router({
+  /** PaymentIntent 생성 (예약금 결제 시작) */
+  createIntent: protectedProcedure
+    .input(z.object({
+      bookingId: z.number().int().positive(),
+      amountKrw: z.number().int().positive(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      // 예약 존재 여부 확인
+      const [booking] = await db.select().from(bookings).where(eq(bookings.id, input.bookingId));
+      if (!booking) throw new TRPCError({ code: "NOT_FOUND", message: "예약을 찾을 수 없습니다." });
+      const result = await createPaymentIntent(
+        input.bookingId,
+        input.amountKrw,
+        ctx.user.email ?? undefined,
+        ctx.user.name ?? undefined,
+      );
+      return result;
+    }),
+
+  /** 결제 상태 조회 */
+  getStatus: protectedProcedure
+    .input(z.object({ paymentIntentId: z.string() }))
+    .query(async ({ input }) => {
+      return getPaymentStatus(input.paymentIntentId);
+    }),
+
+  /** 예약별 결제 이력 조회 */
+  getHistory: protectedProcedure
+    .input(z.object({ bookingId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      return db.select().from(payments)
+        .where(eq(payments.bookingId, input.bookingId))
+        .orderBy(desc(payments.createdAt));
+    }),
+
+  /** 관리자: 전체 결제 이력 조회 */
+  listAll: adminProcedure
+    .input(z.object({
+      limit: z.number().min(1).max(100).default(20),
+      offset: z.number().min(0).default(0),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const rows = await db.select().from(payments)
+        .orderBy(desc(payments.createdAt))
+        .limit(input.limit)
+        .offset(input.offset);
+      const [total] = await db.select({ count: count() }).from(payments);
+      return { rows, total: total.count };
+    }),
+});
+
+// ─── Runway ML 동영상 생성 Router ───────────────────────────
+const videoRouter = router({
+  /** 동영상 생성 시작 */
+  generate: adminProcedure
+    .input(z.object({
+      packageId: z.number().int().positive(),
+      imageUrl: z.string().url(),
+      durationSec: z.union([z.literal(5), z.literal(10)]).default(10),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [pkg] = await db.select().from(packages).where(eq(packages.id, input.packageId));
+      if (!pkg) throw new TRPCError({ code: "NOT_FOUND", message: "패키지를 찾을 수 없습니다." });
+
+      const result = await generateGolfVideo({
+        imageUrl: input.imageUrl,
+        packageTitle: pkg.title,
+        country: pkg.country,
+        region: pkg.region ?? undefined,
+        durationSec: input.durationSec,
+      });
+
+      if (!result.success) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: result.error });
+      }
+
+      // DB에 동영상 레코드 생성
+      const [inserted] = await db.insert(packageVideos).values({
+        packageId: input.packageId,
+        videoUrl: "", // 완료 시 업데이트
+        title: `${pkg.title} 홈보 영상`,
+        durationSec: input.durationSec,
+        generatedBy: "runway",
+        status: "processing",
+      }).$returningId();
+
+      return {
+        videoId: inserted.id,
+        taskId: result.taskId,
+        status: result.status,
+      };
+    }),
+
+  /** 동영상 생성 상태 조회 */
+  checkStatus: adminProcedure
+    .input(z.object({
+      taskId: z.string(),
+      videoId: z.number().int().positive(),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const status = await getVideoGenerationStatus(input.taskId);
+
+      // 완료 시 DB 업데이트
+      if (status.status === "succeeded" && status.output?.[0]) {
+        await db.update(packageVideos)
+          .set({ videoUrl: status.output[0], status: "ready" })
+          .where(eq(packageVideos.id, input.videoId));
+      } else if (status.status === "failed") {
+        await db.update(packageVideos)
+          .set({ status: "failed" })
+          .where(eq(packageVideos.id, input.videoId));
+      }
+
+      return status;
+    }),
+
+  /** 패키지별 동영상 목록 */
+  listByPackage: adminProcedure
+    .input(z.object({ packageId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      return db.select().from(packageVideos)
+        .where(eq(packageVideos.packageId, input.packageId))
+        .orderBy(desc(packageVideos.createdAt));
+    }),
+});
+
+// ─── n8n 자동화 Router ────────────────────────────────────
+const automationRouter = router({
+  /** n8n 웹훅 트리거 (상품 등록 시 SNS 자동 배포) */
+  triggerPackagePublish: adminProcedure
+    .input(z.object({
+      packageId: z.number().int().positive(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [pkg] = await db.select().from(packages).where(eq(packages.id, input.packageId));
+      if (!pkg) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const result = await triggerPackagePublishPipeline({
+        id: pkg.id,
+        title: pkg.title,
+        country: pkg.country,
+        region: pkg.region,
+        imageUrl: pkg.imageUrl,
+      });
+      const { durationMs, responseStatus, error: errorMessage } = result;
+      // 자동화 실행 이력 저장
+      await db.insert(automationLogs).values({
+        pipelineName: "package_sns_publish",
+        triggerType: "manual",
+        triggerEntityId: input.packageId,
+        status: errorMessage ? "failed" : "success",
+        webhookUrl: ENV.n8nWebhookUrl || "dev_mode",
+        requestPayload: { packageId: pkg.id, title: pkg.title },
+        responseStatus,
+        errorMessage,
+        durationMs,
+      });
+
+      if (errorMessage) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: errorMessage });
+      }
+      return { success: true, durationMs };
+    }),
+
+  /** 자동화 실행 이력 조회 */
+  getLogs: adminProcedure
+    .input(z.object({
+      limit: z.number().min(1).max(100).default(20),
+      packageId: z.number().int().positive().optional(),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const conditions = input.packageId
+        ? [eq(automationLogs.triggerEntityId, input.packageId)]
+        : [];
+      return db.select().from(automationLogs)
+        .where(conditions.length ? and(...conditions) : undefined)
+        .orderBy(desc(automationLogs.createdAt))
+        .limit(input.limit);
+    }),
+});
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -1410,6 +1666,9 @@ export const appRouter = router({
   aiLogs: aiLogsRouter,
   devAI: devAIRouter,
   orchestrator: orchestratorRouter,
+  payment: paymentRouter,
+  video: videoRouter,
+  automation: automationRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRoute } from "wouter";
 import ERPLayout from "@/components/ERPLayout";
 import { trpc } from "@/lib/trpc";
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, ArrowLeft, Upload, Star, ImageIcon, X, ChevronUp, ChevronDown, Search, Wand2, Loader2 } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Upload, Star, ImageIcon, X, ChevronUp, ChevronDown, Search, Wand2, Loader2, Video, Zap, CheckCircle, XCircle, Clock } from "lucide-react";
 import { Link } from "wouter";
 
 const SEASON_MAP: Record<string, string> = {
@@ -257,6 +257,8 @@ export default function PackageDetail() {
             <TabsTrigger value="prices">인원별 요금</TabsTrigger>
             <TabsTrigger value="options">옵션 관리</TabsTrigger>
             <TabsTrigger value="slots">출발일/재고</TabsTrigger>
+            <TabsTrigger value="video">동영상 생성</TabsTrigger>
+            <TabsTrigger value="automation">자동화</TabsTrigger>
           </TabsList>
 
           {/* IMAGES TAB */}
@@ -1013,8 +1015,258 @@ export default function PackageDetail() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* ─── 동영상 생성 탭 ─── */}
+          <TabsContent value="video" className="space-y-4">
+            <VideoGenerationTab packageId={id} packageData={data} />
+          </TabsContent>
+
+          {/* ─── 자동화 탭 ─── */}
+          <TabsContent value="automation" className="space-y-4">
+            <AutomationTab packageId={id} packageData={data} />
+          </TabsContent>
         </Tabs>
       </div>
     </ERPLayout>
+  );
+}
+
+// ─── 동영상 생성 탭 컴포넌트 ────────────────────────────────────
+function VideoGenerationTab({ packageId, packageData }: { packageId: number; packageData: any }) {
+  const utils = trpc.useUtils();
+  const [imageUrl, setImageUrl] = useState("");
+  const [durationSec, setDurationSec] = useState<5 | 10>(10);
+  const [activeTask, setActiveTask] = useState<{ taskId: string; videoId: number } | null>(null);
+
+  const { data: videos, isLoading: videosLoading } = trpc.video.listByPackage.useQuery({ packageId });
+
+  const generateMutation = trpc.video.generate.useMutation({
+    onSuccess: (result) => {
+      toast.success("동영상 생성이 시작되었습니다. 완료까지 약 2~5분 소요됩니다.");
+      setActiveTask({ taskId: result.taskId!, videoId: result.videoId });
+      utils.video.listByPackage.invalidate({ packageId });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const { data: taskStatus } = trpc.video.checkStatus.useQuery(
+    activeTask ? { taskId: activeTask.taskId, videoId: activeTask.videoId } : { taskId: "", videoId: 0 },
+    {
+      enabled: !!activeTask,
+      refetchInterval: activeTask ? 5000 : false, // 5초마다 폴링
+    }
+  );
+
+  // 완료 시 폴링 중단 - useEffect로 안전하게 처리
+  useEffect(() => {
+    if (taskStatus?.status === "succeeded" || taskStatus?.status === "failed") {
+      setActiveTask(null);
+      utils.video.listByPackage.invalidate({ packageId });
+      if (taskStatus.status === "succeeded") {
+        toast.success("동영상 생성이 완료되었습니다!");
+      } else {
+        toast.error("동영상 생성에 실패했습니다.");
+      }
+    }
+  }, [taskStatus?.status]);
+
+  // 첫 번째 이미지 URL 자동 설정
+  const firstImageUrl = packageData?.images?.[0]?.imageUrl ?? packageData?.imageUrl ?? "";
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Video size={16} className="text-indigo-600" />
+            Runway ML 동영상 생성
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 text-xs text-indigo-700">
+            <p className="font-medium mb-1">AI 홍보 동영상 자동 생성</p>
+            <p>패키지 이미지를 기반으로 10초 골프여행 홍보 동영상을 자동 생성합니다.</p>
+            <p className="mt-1">RUNWAY_API_KEY 미설정 시 개발 모드로 동작합니다.</p>
+          </div>
+          <div>
+            <Label>입력 이미지 URL</Label>
+            <Input
+              value={imageUrl || firstImageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="https://example.com/golf-image.jpg"
+              className="mt-1 h-9"
+            />
+            {firstImageUrl && !imageUrl && (
+              <p className="text-xs text-slate-400 mt-1">패키지 첫 번째 이미지 자동 선택됨</p>
+            )}
+          </div>
+          <div>
+            <Label>동영상 길이</Label>
+            <div className="flex gap-2 mt-1">
+              {([5, 10] as const).map((sec) => (
+                <Button
+                  key={sec}
+                  variant={durationSec === sec ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDurationSec(sec)}
+                  className={durationSec === sec ? "bg-indigo-600 text-white" : ""}
+                >
+                  {sec}초
+                </Button>
+              ))}
+            </div>
+          </div>
+          <Button
+            onClick={() => generateMutation.mutate({
+              packageId,
+              imageUrl: imageUrl || firstImageUrl,
+              durationSec,
+            })}
+            disabled={generateMutation.isPending || !!activeTask || !(imageUrl || firstImageUrl)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white w-full"
+          >
+            {generateMutation.isPending || activeTask ? (
+              <><Loader2 size={14} className="animate-spin mr-2" />생성 중...</>
+            ) : (
+              <><Video size={14} className="mr-2" />동영상 생성 시작</>
+            )}
+          </Button>
+
+          {activeTask && taskStatus && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm">
+              <div className="flex items-center gap-2">
+                <Loader2 size={14} className="animate-spin text-amber-600" />
+                <span className="text-amber-700 font-medium">생성 중... {taskStatus.progress ? `${Math.round(taskStatus.progress * 100)}%` : ""}</span>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 생성된 동영상 목록 */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">생성된 동영상 목록</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {videosLoading ? (
+            <p className="text-sm text-slate-400">로딩 중...</p>
+          ) : !videos?.length ? (
+            <p className="text-sm text-slate-400">생성된 동영상이 없습니다.</p>
+          ) : (
+            <div className="space-y-2">
+              {videos.map((v: any) => (
+                <div key={v.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    {v.status === "ready" ? <CheckCircle size={14} className="text-green-500" /> :
+                     v.status === "failed" ? <XCircle size={14} className="text-red-500" /> :
+                     <Clock size={14} className="text-amber-500" />}
+                    <span className="text-sm text-slate-700">{v.title || "동영상"}</span>
+                    <Badge className="text-xs bg-slate-100 text-slate-600">{v.durationSec}초</Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {v.videoUrl && (
+                      <a href={v.videoUrl} target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-indigo-600 hover:text-indigo-800 underline">재생</a>
+                    )}
+                    <span className="text-xs text-slate-400">
+                      {new Date(v.createdAt).toLocaleDateString("ko-KR")}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── 자동화 탭 컴포넌트 ─────────────────────────────────────────
+function AutomationTab({ packageId, packageData }: { packageId: number; packageData: any }) {
+  const utils = trpc.useUtils();
+  const { data: logs, isLoading: logsLoading } = trpc.automation.getLogs.useQuery({ limit: 10, packageId });
+
+  const triggerMutation = trpc.automation.triggerPackagePublish.useMutation({
+    onSuccess: (result) => {
+      toast.success(`SNS 배포 완료 (${result.durationMs}ms)`);
+      utils.automation.getLogs.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Zap size={16} className="text-amber-500" />
+            n8n 자동화 파이프라인
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 text-xs text-amber-700">
+            <p className="font-medium mb-1">자동화 파이프라인 안내</p>
+            <p>n8n 웹훅을 통해 패키지 정보를 SNS(인스타그램, 카카오채널 등)에 자동 배포합니다.</p>
+            <p className="mt-1">N8N_WEBHOOK_URL 환경변수 설정 시 실제 배포됩니다.</p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3">
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="font-medium text-slate-700 text-sm">SNS 자동 배포</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{packageData?.title} 패키지를 SNS에 배포합니다</p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => triggerMutation.mutate({ packageId })}
+                  disabled={triggerMutation.isPending}
+                  className="bg-amber-500 hover:bg-amber-600 text-white"
+                >
+                  {triggerMutation.isPending ? (
+                    <><Loader2 size={12} className="animate-spin mr-1" />실행 중...</>
+                  ) : (
+                    <><Zap size={12} className="mr-1" />배포 실행</>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 자동화 실행 이력 */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">최근 실행 이력</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {logsLoading ? (
+            <p className="text-sm text-slate-400">로딩 중...</p>
+          ) : !logs?.length ? (
+            <p className="text-sm text-slate-400">실행 이력이 없습니다.</p>
+          ) : (
+            <div className="space-y-2">
+              {logs.map((log: any) => (
+                <div key={log.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    {log.status === "success" ? <CheckCircle size={14} className="text-green-500" /> :
+                     log.status === "failed" ? <XCircle size={14} className="text-red-500" /> :
+                     <Clock size={14} className="text-amber-500" />}
+                    <span className="text-slate-700">{log.pipelineName}</span>
+                    {log.durationMs && <span className="text-xs text-slate-400">{log.durationMs}ms</span>}
+                  </div>
+                  <span className="text-xs text-slate-400">
+                    {new Date(log.createdAt).toLocaleDateString("ko-KR")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

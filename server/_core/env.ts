@@ -16,4 +16,14 @@ export const ENV = {
   slackWebhookUrl: process.env.SLACK_WEBHOOK_URL ?? "",
   // OpenRouter (중앙 AI 오케스트레이터)
   openrouterApiKey: process.env.OPENROUTER_API_KEY ?? "",
+  // Stripe 결제
+  stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? "",
+  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
+  // 카카오 알림톡
+  kakaoApiKey: process.env.KAKAO_API_KEY ?? "",
+  kakaoSenderKey: process.env.KAKAO_SENDER_KEY ?? "",
+  // Runway ML 동영상 생성
+  runwayApiKey: process.env.RUNWAY_API_KEY ?? "",
+  // n8n 자동화
+  n8nWebhookUrl: process.env.N8N_WEBHOOK_URL ?? "",
 };

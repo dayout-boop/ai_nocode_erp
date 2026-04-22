@@ -413,3 +413,66 @@ export const aiCostLogs = mysqlTable("ai_cost_logs", {
 });
 export type AiCostLog = typeof aiCostLogs.$inferSelect;
 export type InsertAiCostLog = typeof aiCostLogs.$inferInsert;
+
+// ─── Stripe 결제 ───────────────────────────────────────────────
+export const payments = mysqlTable("payments", {
+  id: int("id").autoincrement().primaryKey(),
+  bookingId: int("bookingId").notNull(),
+  stripePaymentIntentId: varchar("stripePaymentIntentId", { length: 255 }).unique(),
+  stripeCustomerId: varchar("stripeCustomerId", { length: 255 }),
+  amount: decimal("amount", { precision: 12, scale: 0 }).notNull(),
+  currency: varchar("currency", { length: 10 }).default("krw").notNull(),
+  status: mysqlEnum("status", ["pending", "succeeded", "failed", "refunded", "cancelled"]).default("pending").notNull(),
+  paymentMethod: varchar("paymentMethod", { length: 50 }),
+  receiptUrl: varchar("receiptUrl", { length: 500 }),
+  metadata: json("metadata"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = typeof payments.$inferInsert;
+
+// ─── 카카오 알림톡 발송 이력 ────────────────────────────────────
+export const kakaoNotifications = mysqlTable("kakao_notifications", {
+  id: int("id").autoincrement().primaryKey(),
+  bookingId: int("bookingId"),
+  recipientPhone: varchar("recipientPhone", { length: 20 }).notNull(),
+  templateCode: varchar("templateCode", { length: 50 }).notNull(),
+  messageType: mysqlEnum("messageType", ["booking_confirmed", "booking_cancelled", "departure_reminder", "custom"]).notNull(),
+  status: mysqlEnum("status", ["sent", "failed", "pending"]).default("pending").notNull(),
+  errorMessage: text("errorMessage"),
+  sentAt: timestamp("sentAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type KakaoNotification = typeof kakaoNotifications.$inferSelect;
+
+// ─── 자동화 파이프라인 실행 이력 ────────────────────────────────
+export const automationLogs = mysqlTable("automation_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  pipelineName: varchar("pipelineName", { length: 100 }).notNull(),
+  triggerType: varchar("triggerType", { length: 50 }).notNull(),
+  triggerEntityId: int("triggerEntityId"),
+  status: mysqlEnum("status", ["success", "failed", "pending"]).default("pending").notNull(),
+  webhookUrl: varchar("webhookUrl", { length: 500 }),
+  requestPayload: json("requestPayload"),
+  responseStatus: int("responseStatus"),
+  errorMessage: text("errorMessage"),
+  durationMs: int("durationMs"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type AutomationLog = typeof automationLogs.$inferSelect;
+
+// ─── 상품 동영상 ────────────────────────────────────────────────
+export const packageVideos = mysqlTable("package_videos", {
+  id: int("id").autoincrement().primaryKey(),
+  packageId: int("packageId").notNull(),
+  videoUrl: varchar("videoUrl", { length: 500 }).notNull(),
+  videoKey: varchar("videoKey", { length: 255 }),
+  thumbnailUrl: varchar("thumbnailUrl", { length: 500 }),
+  title: varchar("title", { length: 200 }),
+  durationSec: int("durationSec"),
+  generatedBy: mysqlEnum("generatedBy", ["runway", "manual", "ai"]).default("manual"),
+  status: mysqlEnum("status", ["processing", "ready", "failed"]).default("processing"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type PackageVideo = typeof packageVideos.$inferSelect;

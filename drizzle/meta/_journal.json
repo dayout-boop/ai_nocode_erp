@@ -43,6 +43,13 @@
       "when": 1776868605298,
       "tag": "0005_tense_zuras",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1776880441907,
+      "tag": "0006_silky_silhouette",
+      "breakpoints": true
     }
   ]
 }

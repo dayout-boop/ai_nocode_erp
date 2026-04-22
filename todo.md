@@ -158,19 +158,58 @@
 - [x] 버전 이력 페이지에서 체크포인트 ID 클릭 시 클립보드 복사 + 대시보드 위젯에서도 동일 기능 제공
 
 ## 중앙 AI 오케스트레이터 (OpenRouter 기반)
-- [ ] OpenRouter API 키 시크릿 등록 (OPENROUTER_API_KEY)
-- [ ] server/_core/orchestrator.ts 구현
-  - [ ] 작업 복잡도 분류 로직 (SIMPLE / MODERATE / COMPLEX)
-  - [ ] 모델 라우팅 테이블 (SIMPLE→GPT-4o mini, MODERATE→Gemini 1.5 Pro, COMPLEX→Claude 3.5 Sonnet)
-  - [ ] 프롬프트 캐싱 (시스템 프롬프트 해시 기반 인메모리 캐시)
-  - [ ] OpenRouter API 호출 함수 (에러 핸들링, 재시도 2회)
-  - [ ] 비용 계산 로직 (입력/출력 토큰 × 모델별 단가)
-  - [ ] 비용 로그 DB 저장
-- [ ] drizzle/schema.ts - ai_cost_logs 테이블 추가 (model, inputTokens, outputTokens, costUsd, taskType, cacheHit)
-- [ ] pnpm db:push 실행
-- [ ] server/routers.ts - orchestrator 라우터 추가 (ask, getCostStats, getModelPricing)
-- [ ] DevAI.tsx - 오케스트레이터 탭 추가
-  - [ ] 모델 자동 선택 채팅 UI (작업 유형 선택 드롭다운)
-  - [ ] 비용 대시보드 (일별/모델별 비용 차트)
-  - [ ] 캐시 히트율 통계
-  - [ ] 모델별 단가 테이블
+- [x] OpenRouter API 키 시크릿 등록 (OPENROUTER_API_KEY)
+- [x] server/_core/orchestrator.ts 구현
+  - [x] 작업 복잡도 분류 로직 (SIMPLE / MODERATE / COMPLEX)
+  - [x] 모델 라우팅 테이블 (SIMPLE→GPT-4o mini, MODERATE→Gemini 1.5 Pro, COMPLEX→Claude 3.5 Sonnet)
+  - [x] 프롬프트 캐싱 (시스템 프롬프트 해시 기반 인메모리 캐시, TTL 10분, 최대 200개)
+  - [x] OpenRouter API 호출 함수 (에러 핸들링, 재시도 2회)
+  - [x] 비용 계산 로직 (입력/출력 토큰 × 모델별 단가)
+  - [x] 비용 로그 DB 저장 (ai_cost_logs)
+- [x] drizzle/schema.ts - ai_cost_logs 테이블 추가 (model, inputTokens, outputTokens, costUsd, taskType, cacheHit)
+- [x] pnpm db:push 실행
+- [x] server/routers.ts - orchestrator 라우터 추가 (ask, getCostStats, getModelPricing)
+- [x] DevAIOrchestrator.tsx - 오케스트레이터 전용 페이지 (/erp/orchestrator)
+  - [x] 모델 자동 선택 채팅 UI (작업 유형 선택 드롭다운)
+  - [x] 비용 대시보드 (일별/모델별/복잡도별 비용 차트)
+  - [x] 캐시 히트율 통계
+  - [x] 모델별 단가 테이블
+
+## AI 자개발 엔진 확장 로드맵
+
+### 1단계: Stripe 결제 연동
+- [x] Stripe 패키지 설치 및 시크릿 등록 (STRIPE_SECRET_KEY, VITE_STRIPE_PUBLISHABLE_KEY)
+- [x] DB 스키마 - payments 테이블 추가 (bookingId, stripePaymentIntentId, amount, status)
+- [x] tRPC - payments 라우터 (createIntent, getStatus, getHistory, listAll)
+- [x] 예약 상세 페이지에 결제 버튼 및 결제 이력 UI 추가
+- [x] 결제 완료 시 예약 상태 자동 확정 처리 (Stripe 웹훅)
+- [x] ERP 예약관리에 결제 상태 컬럼 및 결제 요청 다이얼로그 추가
+
+### 2단계: 오케스트레이터 Llama 3.1 8B 무료 모델 추가
+- [ ] orchestrator.ts SIMPLE 등급에 meta-llama/llama-3.1-8b-instruct 추가 (무료)
+- [ ] 모델 단가 테이블 업데이트 (Llama 3.1 8B = $0)
+- [ ] DevAIOrchestrator.tsx 모델 목록 UI 업데이트
+
+### 3단계: 카카오 알림톡 연동
+- [x] KAKAO_API_KEY, KAKAO_SENDER_KEY 시크릿 등록 (env.ts에 추가)
+- [x] server/_core/kakao.ts 알림톡 발송 헬퍼 구현 (Solapi API 호환)
+- [x] 예약 확정 시 알림톡 자동 발송 (예약번호, 상품명, 출발일, 결제금액)
+- [x] 예약 취소 시 알림톡 자동 발송 (취소사유 포함)
+- [ ] 출발 D-1 알림톡 스케줄러 구현 (추후 구현)
+- [x] 알림톡 발송 이력 DB 저장 (kakao_notifications 테이블)
+
+### 4단계: Runway ML 동영상 자동생성
+- [x] RUNWAY_API_KEY 시크릿 등록 (env.ts에 추가)
+- [x] server/_core/runway.ts 동영상 생성 헬퍼 구현 (Gen-3 Alpha Turbo)
+- [x] tRPC - video 라우터 추가 (generate, checkStatus, listByPackage)
+- [x] ERP 상품 상세 페이지에 "동영상 생성" 탭 추가 (5초/10초 선택, 폴링)
+- [x] 생성된 영상 DB 저장 (package_videos 테이블)
+- [ ] 프론트 상품 상세 페이지에 영상 플레이어 추가 (추후 구현)
+
+### 5단계: n8n 자동화 파이프라인
+- [x] n8n Webhook URL 시크릿 등록 (N8N_WEBHOOK_URL, env.ts에 추가)
+- [x] n8n Webhook 트리거 로직 automationRouter에 구현
+- [x] 상품 SNS 자동배포 파이프라인 트리거 (triggerPackagePublish)
+- [x] 자동화 실행 이력 DB 저장 (automation_logs 테이블)
+- [x] ERP 상품 상세 페이지에 "자동화" 탭 추가 (n8n 트리거 버튼 + 실행 이력)
+- [ ] n8n 연동 가이드 문서 작성 (추후 구현)
