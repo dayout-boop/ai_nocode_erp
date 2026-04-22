@@ -2,8 +2,10 @@
  * Gemini AI 어시스턴트 헬퍼
  * - 두골프 ERP 시스템 컨텍스트를 자동으로 주입
  * - 관리자 명령을 분석하고 실행 계획을 제안
- * - 503 오류 시 최대 2회 재시도 (지수 백오프)
+ * - API 호출 타임아웃: 30초
+ * - 503/429 오류 시 최대 2회 재시도 (지수 백오프: 1s → 2s)
  * - 2회 재시도 후에도 실패 시 gemini-1.5-flash로 자동 폴백
+ * - 폴백도 실패 시 사용자 친화적 에러 메시지 반환 (throw 대신 errorMessage 필드)
  */
 
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
@@ -16,6 +18,7 @@ const PRIMARY_MODEL = "gemini-2.5-flash";
 const FALLBACK_MODEL = "gemini-1.5-flash";
 const MAX_RETRIES = 2;
 const RETRY_BASE_DELAY_MS = 1000; // 1초, 지수 백오프: 1s → 2s
+const API_TIMEOUT_MS = 30_000;    // 30초 타임아웃
 
 // ────────────────────────────────────────────────────────────────────────────
 // 시스템 컨텍스트 - Gemini가 두골프 ERP를 이해하는 데 필요한 구조 정보
@@ -150,6 +153,8 @@ export interface GeminiChatResult {
   text: string;
   modelUsed: string;
   wasFallback: boolean;
+  /** 모든 재시도/폴백이 실패했을 때 사용자에게 보여줄 메시지. 정상 응답 시 undefined. */
+  errorMessage?: string;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -164,7 +169,20 @@ function isRetryableError(error: unknown): boolean {
     msg.includes("high demand") ||
     msg.includes("overloaded") ||
     msg.includes("429") ||
-    msg.includes("resource_exhausted")
+    msg.includes("resource_exhausted") ||
+    msg.includes("타임아웃") // 30초 타임아웃도 재시도 대상
+  );
+}
+
+function isOverloadError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const msg = error.message.toLowerCase();
+  return (
+    msg.includes("503") ||
+    msg.includes("service unavailable") ||
+    msg.includes("high demand") ||
+    msg.includes("overloaded") ||
+    msg.includes("타임아웃")
   );
 }
 
@@ -176,7 +194,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 단일 모델로 채팅 시도 (재시도 없음)
+// 단일 모델로 채팅 시도 (재시도 없음, 30초 타임아웃)
 // ────────────────────────────────────────────────────────────────────────────
 async function tryChatWithModel(
   modelName: string,
@@ -205,7 +223,14 @@ async function tryChatWithModel(
   if (!lastMessage) throw new Error("메시지가 없습니다.");
 
   const chat = model.startChat({ history });
-  const result = await chat.sendMessage(lastMessage.content);
+
+  // 30초 타임아웃 적용
+  const sendPromise = chat.sendMessage(lastMessage.content);
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("API 호출 타임아웃 (30초 초과)")), API_TIMEOUT_MS)
+  );
+
+  const result = await Promise.race([sendPromise, timeoutPromise]);
   return result.response.text();
 }
 
@@ -232,8 +257,14 @@ async function chatWithRetryAndFallback(
     } catch (err) {
       lastError = err;
       if (!isRetryableError(err)) {
-        // 재시도 불가 오류 (인증 실패 등)는 즉시 throw
-        throw err;
+        // 재시도 불가 오류 (인증 실패 등)는 즉시 사용자 메시지로 변환
+        console.error(`[Gemini] 재시도 불가 오류:`, (err as Error).message);
+        return {
+          text: "",
+          modelUsed: PRIMARY_MODEL,
+          wasFallback: false,
+          errorMessage: "AI 응답 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+        };
       }
       console.warn(`[Gemini] ${PRIMARY_MODEL} 시도 ${attempt + 1} 실패:`, (err as Error).message);
     }
@@ -247,8 +278,19 @@ async function chatWithRetryAndFallback(
     return { text, modelUsed: FALLBACK_MODEL, wasFallback: true };
   } catch (fallbackErr) {
     console.error(`[Gemini] 폴백 모델 ${FALLBACK_MODEL}도 실패:`, (fallbackErr as Error).message);
-    // 폴백도 실패하면 원래 오류를 throw
-    throw lastError;
+
+    // 폴백도 실패 → throw 대신 사용자 친화적 에러 메시지 반환
+    const isOverloaded = isOverloadError(fallbackErr) || isOverloadError(lastError);
+    const errorMessage = isOverloaded
+      ? "현재 구글 서버 부하로 인해 처리가 지연되고 있습니다. 잠시 후 다시 시도해 주세요."
+      : "AI 응답 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+
+    return {
+      text: "",
+      modelUsed: FALLBACK_MODEL,
+      wasFallback: true,
+      errorMessage,
+    };
   }
 }
 
@@ -266,6 +308,12 @@ export async function geminiChat(options: GeminiChatOptions): Promise<GeminiChat
 export async function* geminiChatStream(options: GeminiChatOptions): AsyncGenerator<string> {
   // 먼저 재시도/폴백 로직으로 전체 응답을 받은 뒤 청크로 나눠 yield
   const result = await chatWithRetryAndFallback(options);
+
+  // 에러 발생 시 에러 메시지를 스트림으로 전달
+  if (result.errorMessage) {
+    yield result.errorMessage;
+    return;
+  }
 
   // 폴백 사용 시 첫 청크에 알림 메시지 포함
   if (result.wasFallback) {
@@ -289,6 +337,7 @@ export async function validateGeminiApiKey(): Promise<boolean> {
       systemContext: "You are a test assistant. Reply with 'pong' only.",
       temperature: 0,
     });
+    if (result.errorMessage) return false;
     return result.text.toLowerCase().includes("pong");
   } catch {
     return false;

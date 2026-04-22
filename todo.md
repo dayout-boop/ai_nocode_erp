@@ -104,3 +104,9 @@
 - [x] GeminiAssistant UI 헤더에 실제 사용 모델명(modelUsed) 동적 배지 추가 (폴백 시 주황색 배지 + AlertTriangle 아이콘)
 - [x] 대화 카드 헤더에도 현재 사용 모델 인라인 표시
 - [x] 대화 초기화 시 모델 배지 상태도 초기화
+
+## Gemini 503 에러 처리 개선
+- [x] gemini.ts API 호출 타임아웃 30초 설정 (Promise.race + setTimeout)
+- [x] 재시도/폴백 모두 실패 시 사용자 친화적 에러 메시지 반환 (throw 대신 errorMessage 필드 반환)
+- [x] GeminiAssistant UI에서 503 에러를 AI 말풍선(assistant 메시지)으로 표시 (toast 대신 대화 흐름 안에 표시)
+- [x] 에러 말풍선에 "다시 시도" 버튼 추가

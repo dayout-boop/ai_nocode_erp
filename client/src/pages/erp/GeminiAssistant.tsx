@@ -1,11 +1,12 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import ERPLayout from "@/components/ERPLayout";
 import { AIChatBox, type Message } from "@/components/AIChatBox";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Info, Zap, Code2, Database, Globe, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Sparkles, Info, Zap, Code2, Database, Globe, AlertTriangle, RefreshCw } from "lucide-react";
 
 // Gemini 메시지 타입 (서버 API와 동일)
 type GeminiRole = "user" | "model";
@@ -14,12 +15,9 @@ interface GeminiMessage {
   content: string;
 }
 
-// AIChatBox의 "assistant" ↔ Gemini의 "model" 변환
-function toDisplayMessages(geminiMessages: GeminiMessage[]): Message[] {
-  return geminiMessages.map((m) => ({
-    role: m.role === "model" ? "assistant" : "user",
-    content: m.content,
-  }));
+// 에러 상태를 대화 흐름에 포함시키기 위한 확장 메시지 타입
+interface DisplayMessage extends Message {
+  isError?: boolean;
 }
 
 const SUGGESTED_PROMPTS = [
@@ -58,56 +56,130 @@ const CAPABILITY_CARDS = [
   },
 ];
 
+// 에러 말풍선 컴포넌트 - 대화 흐름 하단에 자연스럽게 표시
+function ErrorBubble({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <div className="flex gap-3 px-4 py-3">
+      <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
+        <AlertTriangle size={14} className="text-red-500" />
+      </div>
+      <div className="flex-1">
+        <div className="bg-red-50 border border-red-200 rounded-2xl rounded-tl-sm px-4 py-3 max-w-lg">
+          <p className="text-sm text-red-700 leading-relaxed">{message}</p>
+          {onRetry && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRetry}
+              className="mt-2 h-7 text-xs border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700 gap-1.5"
+            >
+              <RefreshCw size={11} />
+              다시 시도
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function GeminiAssistant() {
+  // geminiMessages: 서버로 보낼 실제 대화 기록 (에러 메시지 제외)
   const [geminiMessages, setGeminiMessages] = useState<GeminiMessage[]>([]);
+  // displayMessages: 화면에 표시할 메시지 (에러 말풍선 포함)
+  const [displayMessages, setDisplayMessages] = useState<DisplayMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   // 마지막 응답에서 실제 사용된 모델 정보
   const [lastModelUsed, setLastModelUsed] = useState<string | null>(null);
   const [lastWasFallback, setLastWasFallback] = useState(false);
+  // 에러 발생 시 재시도를 위한 마지막 사용자 메시지 보관 (ref로 최신값 보장)
+  const lastUserContentRef = useRef<string | null>(null);
+  // 에러 발생 직전의 geminiMessages 스냅샷 (재시도 시 사용)
+  const preErrorGeminiMessagesRef = useRef<GeminiMessage[]>([]);
 
   const askMutation = trpc.gemini.ask.useMutation({
     onError: (err) => {
-      toast.error(err.message || "잠시 후 다시 시도해 주세요.");
+      // tRPC 레벨 에러 (네트워크 오류 등) - 에러 말풍선으로 표시
+      const errorMsg = err.message || "AI 응답 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+      // 에러 말풍선을 displayMessages에 추가 (geminiMessages는 에러 전 상태 유지)
+      setDisplayMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: errorMsg, isError: true },
+      ]);
+      setGeminiMessages(preErrorGeminiMessagesRef.current);
       setIsLoading(false);
     },
   });
 
   const createLogMutation = trpc.aiLogs.create.useMutation();
 
-  const handleSendMessage = useCallback(
+  const sendMessage = useCallback(
     async (content: string) => {
       if (!content.trim() || isLoading) return;
 
+      // 에러 전 상태 스냅샷 저장 (재시도용)
+      preErrorGeminiMessagesRef.current = geminiMessages;
+      lastUserContentRef.current = content;
+
       const userMessage: GeminiMessage = { role: "user", content };
-      const updatedMessages = [...geminiMessages, userMessage];
-      setGeminiMessages(updatedMessages);
+      const updatedGeminiMessages = [...geminiMessages, userMessage];
+
+      // 화면에 사용자 메시지 즉시 표시 (에러 말풍선 제거 후 새 메시지 추가)
+      const cleanDisplayMessages = displayMessages.filter((m) => !m.isError);
+      setGeminiMessages(updatedGeminiMessages);
+      setDisplayMessages([
+        ...cleanDisplayMessages,
+        { role: "user", content },
+      ]);
       setIsLoading(true);
 
       try {
         const result = await askMutation.mutateAsync({
-          messages: updatedMessages,
+          messages: updatedGeminiMessages,
         });
 
         // 실제 사용 모델 정보 업데이트
         setLastModelUsed(result.modelUsed);
         setLastWasFallback(result.wasFallback);
 
-        // 폴백 모델 사용 시 응답 앞에 안내 메시지 추가
-        const responseContent = result.wasFallback
-          ? `> ⚠️ *기본 모델(gemini-2.5-flash) 과부하로 대체 모델(${result.modelUsed})을 사용했습니다.*\n\n${result.response}`
-          : result.response;
+        // 서버에서 errorMessage를 반환한 경우 → 에러 말풍선으로 표시
+        if (result.errorMessage) {
+          // geminiMessages에서 방금 추가한 사용자 메시지를 제거 (재시도 시 깨끗하게)
+          setGeminiMessages(preErrorGeminiMessagesRef.current);
+          setDisplayMessages([
+            ...cleanDisplayMessages,
+            { role: "user", content },
+            { role: "assistant", content: result.errorMessage, isError: true },
+          ]);
+          return;
+        }
 
+        // 폴백 모델 사용 시 toast 알림
         if (result.wasFallback) {
           toast.warning(`서버 과부하로 ${result.modelUsed} 모델로 전환하여 응답했습니다.`);
         }
 
-        const modelMessage: GeminiMessage = {
-          role: "model",
-          content: responseContent,
-        };
-        setGeminiMessages([...updatedMessages, modelMessage]);
+        // 정상 응답 - 폴백 사용 시 응답 앞에 안내 메시지 추가
+        const responseContent = result.wasFallback
+          ? `> ⚠️ *기본 모델(gemini-2.5-flash) 과부하로 대체 모델(${result.modelUsed})을 사용했습니다.*\n\n${result.response}`
+          : result.response;
 
-        // 대화 내용을 DB에 자동 저장 (오류가 나도 대화는 계속)
+        const modelMessage: GeminiMessage = { role: "model", content: responseContent };
+        const finalGeminiMessages = [...updatedGeminiMessages, modelMessage];
+        setGeminiMessages(finalGeminiMessages);
+        setDisplayMessages([
+          ...cleanDisplayMessages,
+          { role: "user", content },
+          { role: "assistant", content: responseContent },
+        ]);
+
+        // 대화 내용을 DB에 자동 저장
         createLogMutation.mutate({
           query: content,
           response: result.response,
@@ -118,20 +190,40 @@ export default function GeminiAssistant() {
         setIsLoading(false);
       }
     },
-    [geminiMessages, isLoading, askMutation, createLogMutation]
+    [geminiMessages, displayMessages, isLoading, askMutation, createLogMutation]
   );
+
+  // "다시 시도" 버튼 핸들러 - 에러 말풍선 제거 후 마지막 사용자 메시지 재전송
+  const handleRetry = useCallback(() => {
+    const content = lastUserContentRef.current;
+    if (!content) return;
+    // 에러 말풍선 제거 후 재전송
+    setDisplayMessages((prev) => prev.filter((m) => !m.isError));
+    setGeminiMessages(preErrorGeminiMessagesRef.current);
+    // 약간의 딜레이 후 재전송 (상태 업데이트 완료 후)
+    setTimeout(() => sendMessage(content), 50);
+  }, [sendMessage]);
 
   const handleReset = useCallback(() => {
     setGeminiMessages([]);
+    setDisplayMessages([]);
     setLastModelUsed(null);
     setLastWasFallback(false);
+    lastUserContentRef.current = null;
+    preErrorGeminiMessagesRef.current = [];
   }, []);
-
-  const displayMessages = toDisplayMessages(geminiMessages);
 
   // 현재 표시할 모델 배지 정보
   const displayModel = lastModelUsed ?? "gemini-2.5-flash";
   const isFallback = lastWasFallback;
+
+  // 에러 말풍선이 마지막에 있는지 확인
+  const lastMsg = displayMessages[displayMessages.length - 1];
+  const hasErrorAtEnd = lastMsg?.isError === true;
+  // AIChatBox에 넘길 메시지 (에러 말풍선 제외)
+  const chatMessages: Message[] = displayMessages
+    .filter((m) => !m.isError)
+    .map(({ role, content }) => ({ role, content }));
 
   return (
     <ERPLayout>
@@ -144,7 +236,6 @@ export default function GeminiAssistant() {
           <div>
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <h1 className="text-2xl font-bold text-slate-800">Gemini AI 어시스턴트</h1>
-              {/* 실제 사용 모델 배지 - 폴백 여부에 따라 색상 변경 */}
               {isFallback ? (
                 <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-xs flex items-center gap-1">
                   <AlertTriangle size={10} />
@@ -168,7 +259,7 @@ export default function GeminiAssistant() {
         </div>
 
         {/* 기능 카드 */}
-        {geminiMessages.length === 0 && (
+        {displayMessages.length === 0 && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {CAPABILITY_CARDS.map((card) => (
               <Card key={card.title} className={`border ${card.color}`}>
@@ -191,8 +282,7 @@ export default function GeminiAssistant() {
               <CardTitle className="text-base font-semibold text-slate-700 flex items-center gap-2">
                 <Sparkles size={16} className="text-indigo-500" />
                 대화
-                {/* 대화 중 실제 모델 표시 */}
-                {geminiMessages.length > 0 && (
+                {displayMessages.length > 0 && (
                   <span className={`text-xs font-normal px-2 py-0.5 rounded-full border ${
                     isFallback
                       ? "bg-amber-50 text-amber-600 border-amber-200"
@@ -203,7 +293,7 @@ export default function GeminiAssistant() {
                   </span>
                 )}
               </CardTitle>
-              {geminiMessages.length > 0 && (
+              {displayMessages.length > 0 && (
                 <button
                   onClick={handleReset}
                   className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
@@ -215,15 +305,24 @@ export default function GeminiAssistant() {
           </CardHeader>
           <CardContent className="p-0">
             <AIChatBox
-              messages={displayMessages}
-              onSendMessage={handleSendMessage}
+              messages={chatMessages}
+              onSendMessage={sendMessage}
               isLoading={isLoading}
               placeholder="두골프 ERP에 대해 무엇이든 물어보세요... (Shift+Enter로 줄바꿈)"
-              height={520}
+              height={hasErrorAtEnd ? 460 : 520}
               emptyStateMessage="아직 대화가 없습니다. 아래 제안된 질문을 클릭하거나 직접 입력해 보세요."
               suggestedPrompts={SUGGESTED_PROMPTS}
               className="border-0 rounded-none shadow-none"
             />
+            {/* 에러 말풍선 - AIChatBox 바로 아래 대화 흐름에 이어서 표시 */}
+            {hasErrorAtEnd && lastMsg && (
+              <div className="border-t border-slate-100">
+                <ErrorBubble
+                  message={lastMsg.content}
+                  onRetry={lastUserContentRef.current ? handleRetry : undefined}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -234,7 +333,7 @@ export default function GeminiAssistant() {
             <div className="text-xs text-amber-700 space-y-1">
               <p className="font-semibold">Gemini 어시스턴트 사용 안내</p>
               <p>이 어시스턴트는 두골프 ERP의 전체 시스템 구조(DB 스키마, API 목록, 기능 설명)를 컨텍스트로 가지고 있습니다.</p>
-              <p>기본 모델: <strong>gemini-2.5-flash</strong>. 과부하 시 자동으로 <strong>gemini-1.5-flash</strong>로 전환됩니다.</p>
+              <p>기본 모델: <strong>gemini-2.5-flash</strong>. 구글 서버 과부하 시 자동으로 <strong>gemini-1.5-flash</strong>로 전환됩니다. 두 모델 모두 응답 불가 시 에러 메시지와 함께 다시 시도 버튼이 표시됩니다.</p>
               <p>개발 요청 시 Gemini가 제안하는 코드나 방법을 확인한 후, 실제 구현은 Manus에게 요청하세요.</p>
               <p>대화 내용은 자동으로 DB에 저장되며, ERP &gt; AI 로그 메뉴에서 이전 대화를 다시 확인할 수 있습니다.</p>
             </div>

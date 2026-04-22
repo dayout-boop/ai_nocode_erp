@@ -880,7 +880,12 @@ const geminiRouter = router({
       messages: input.messages as GeminiMessage[],
       systemContext,
     });
-    return { response: result.text, modelUsed: result.modelUsed, wasFallback: result.wasFallback };
+    return {
+      response: result.text,
+      modelUsed: result.modelUsed,
+      wasFallback: result.wasFallback,
+      errorMessage: result.errorMessage,
+    };
   }),
 
   /**
