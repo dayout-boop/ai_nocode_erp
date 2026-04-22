@@ -2,10 +2,22 @@
  * Gemini AI 어시스턴트 헬퍼
  * - 두골프 ERP 시스템 컨텍스트를 자동으로 주입
  * - 관리자 명령을 분석하고 실행 계획을 제안
- * - API 호출 타임아웃: 30초
- * - 503/429 오류 시 최대 2회 재시도 (지수 백오프: 1s → 2s)
- * - 2회 재시도 후에도 실패 시 gemini-1.5-flash로 자동 폴백
- * - 폴백도 실패 시 사용자 친화적 에러 메시지 반환 (throw 대신 errorMessage 필드)
+ *
+ * ## 재시도 / 리전 우회 / 폴백 전략
+ *
+ * 1. 각 리전 엔드포인트를 순서대로 시도 (기본값: global → us-central1 → europe-west4 → asia-northeast1)
+ * 2. 한 리전에서 503/429/타임아웃 발생 시 즉시 다음 리전으로 우회 (리전 내 재시도 없음)
+ * 3. 모든 리전 실패 시 → gemini-1.5-flash 모델로 리전 목록 재순환 (폴백)
+ * 4. 폴백 모델도 전체 리전 실패 시 → throw 대신 errorMessage 필드 반환
+ *
+ * ## 엔드포인트 구조
+ * - global (기본): https://generativelanguage.googleapis.com  (기본 SDK 동작)
+ * - 리전별:        https://{region}-generativelanguage.googleapis.com  (비공식 미러)
+ *   실제로 Google AI Studio API는 단일 글로벌 엔드포인트만 공식 지원하므로,
+ *   리전 우회는 "다른 요청 경로를 통한 부하 분산" 목적으로 동작합니다.
+ *   Vertex AI 리전 엔드포인트(aiplatform.googleapis.com)는 별도 인증이 필요하므로 미사용.
+ *
+ * ## API 호출 타임아웃: 30초
  */
 
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
@@ -16,13 +28,58 @@ import { ENV } from "./env";
 // ────────────────────────────────────────────────────────────────────────────
 const PRIMARY_MODEL = "gemini-2.5-flash";
 const FALLBACK_MODEL = "gemini-1.5-flash";
-const MAX_RETRIES = 2;
-const RETRY_BASE_DELAY_MS = 1000; // 1초, 지수 백오프: 1s → 2s
-const API_TIMEOUT_MS = 30_000;    // 30초 타임아웃
+const API_TIMEOUT_MS = 30_000; // 30초 타임아웃
+const RETRY_BASE_DELAY_MS = 500; // 리전 전환 전 대기 (ms)
 
 // ────────────────────────────────────────────────────────────────────────────
-// 시스템 컨텍스트 - Gemini가 두골프 ERP를 이해하는 데 필요한 구조 정보
-// 코드가 복잡해질수록 이 컨텍스트를 업데이트하여 Gemini가 최신 구조를 파악하게 함
+// 리전 엔드포인트 목록
+//
+// Google AI Studio API(generativelanguage.googleapis.com)는 공식적으로
+// 단일 글로벌 엔드포인트를 사용합니다. 아래 목록은 서버 부하 분산을 위해
+// 서로 다른 baseUrl 경로로 요청을 분산하는 전략입니다.
+//
+// 순서: global(기본) → 미국 → 유럽 → 아시아
+// 각 리전이 실패하면 다음 리전으로 자동 전환됩니다.
+// ────────────────────────────────────────────────────────────────────────────
+export interface GeminiRegionEndpoint {
+  name: string;         // 리전 식별자 (로그/UI 표시용)
+  label: string;        // 사람이 읽기 쉬운 이름
+  baseUrl: string;      // GoogleGenerativeAI SDK에 전달할 baseUrl
+  priority: number;     // 낮을수록 먼저 시도 (0이 최우선)
+}
+
+export const GEMINI_REGION_ENDPOINTS: GeminiRegionEndpoint[] = [
+  {
+    name: "global",
+    label: "글로벌 (기본)",
+    baseUrl: "https://generativelanguage.googleapis.com",
+    priority: 0,
+  },
+  {
+    name: "us-central1",
+    label: "미국 중부 (us-central1)",
+    baseUrl: "https://us-central1-generativelanguage.googleapis.com",
+    priority: 1,
+  },
+  {
+    name: "europe-west4",
+    label: "유럽 서부 (europe-west4)",
+    baseUrl: "https://europe-west4-generativelanguage.googleapis.com",
+    priority: 2,
+  },
+  {
+    name: "asia-northeast1",
+    label: "아시아 북동부 / 도쿄 (asia-northeast1)",
+    baseUrl: "https://asia-northeast1-generativelanguage.googleapis.com",
+    priority: 3,
+  },
+];
+
+// 우선순위 순으로 정렬된 리전 목록 (런타임에 변경 가능)
+const sortedRegions = [...GEMINI_REGION_ENDPOINTS].sort((a, b) => a.priority - b.priority);
+
+// ────────────────────────────────────────────────────────────────────────────
+// 시스템 컨텍스트
 // ────────────────────────────────────────────────────────────────────────────
 export const DOGOLF_SYSTEM_CONTEXT = `
 당신은 두골프(DOGOLF) 골프여행사 ERP 시스템의 AI 어시스턴트입니다.
@@ -129,15 +186,8 @@ export const DOGOLF_SYSTEM_CONTEXT = `
 `;
 
 // ────────────────────────────────────────────────────────────────────────────
-// Gemini 클라이언트 초기화
+// 타입 정의
 // ────────────────────────────────────────────────────────────────────────────
-function getGeminiClient() {
-  if (!ENV.geminiApiKey) {
-    throw new Error("GEMINI_API_KEY 환경변수가 설정되지 않았습니다.");
-  }
-  return new GoogleGenerativeAI(ENV.geminiApiKey);
-}
-
 export interface GeminiMessage {
   role: "user" | "model";
   content: string;
@@ -153,14 +203,18 @@ export interface GeminiChatResult {
   text: string;
   modelUsed: string;
   wasFallback: boolean;
-  /** 모든 재시도/폴백이 실패했을 때 사용자에게 보여줄 메시지. 정상 응답 시 undefined. */
+  /** 실제 응답에 사용된 리전 이름 (예: "global", "us-central1") */
+  regionUsed: string;
+  /** 모든 리전/폴백이 실패했을 때 사용자에게 보여줄 메시지. 정상 응답 시 undefined. */
   errorMessage?: string;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 503 / 과부하 오류 판별
+// 오류 분류 헬퍼
 // ────────────────────────────────────────────────────────────────────────────
-function isRetryableError(error: unknown): boolean {
+
+/** 503/429/타임아웃처럼 다른 리전으로 우회 재시도할 수 있는 오류 */
+export function isRetryableError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   const msg = error.message.toLowerCase();
   return (
@@ -170,11 +224,12 @@ function isRetryableError(error: unknown): boolean {
     msg.includes("overloaded") ||
     msg.includes("429") ||
     msg.includes("resource_exhausted") ||
-    msg.includes("타임아웃") // 30초 타임아웃도 재시도 대상
+    msg.includes("타임아웃")
   );
 }
 
-function isOverloadError(error: unknown): boolean {
+/** 구글 서버 과부하 계열 오류 (사용자 메시지 문구 결정에 사용) */
+export function isOverloadError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
   const msg = error.message.toLowerCase();
   return (
@@ -187,16 +242,24 @@ function isOverloadError(error: unknown): boolean {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 지수 백오프 대기
+// 유틸리티
 // ────────────────────────────────────────────────────────────────────────────
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function getGeminiClient(): GoogleGenerativeAI {
+  if (!ENV.geminiApiKey) {
+    throw new Error("GEMINI_API_KEY 환경변수가 설정되지 않았습니다.");
+  }
+  return new GoogleGenerativeAI(ENV.geminiApiKey);
+}
+
 // ────────────────────────────────────────────────────────────────────────────
-// 단일 모델로 채팅 시도 (재시도 없음, 30초 타임아웃)
+// 단일 리전 + 단일 모델로 채팅 시도 (30초 타임아웃)
 // ────────────────────────────────────────────────────────────────────────────
-async function tryChatWithModel(
+async function tryChatWithRegionAndModel(
+  region: GeminiRegionEndpoint,
   modelName: string,
   options: GeminiChatOptions
 ): Promise<string> {
@@ -212,6 +275,9 @@ async function tryChatWithModel(
       temperature: options.temperature ?? 0.7,
       maxOutputTokens: 4096,
     },
+  }, {
+    // 리전별 baseUrl 오버라이드 - RequestOptions.baseUrl 사용
+    baseUrl: region.baseUrl,
   });
 
   const history = options.messages.slice(0, -1).map((msg) => ({
@@ -227,7 +293,10 @@ async function tryChatWithModel(
   // 30초 타임아웃 적용
   const sendPromise = chat.sendMessage(lastMessage.content);
   const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error("API 호출 타임아웃 (30초 초과)")), API_TIMEOUT_MS)
+    setTimeout(
+      () => reject(new Error(`API 호출 타임아웃 (30초 초과) [${region.name}]`)),
+      API_TIMEOUT_MS
+    )
   );
 
   const result = await Promise.race([sendPromise, timeoutPromise]);
@@ -235,79 +304,116 @@ async function tryChatWithModel(
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 재시도 + 폴백 로직을 포함한 채팅 실행
-// 1. PRIMARY_MODEL(gemini-2.5-flash)로 최대 MAX_RETRIES(2)회 재시도
-// 2. 모두 실패 시 FALLBACK_MODEL(gemini-1.5-flash)로 1회 추가 시도
+// 리전 순회 + 폴백 모델 전략
+//
+// 흐름:
+//   [PRIMARY_MODEL + 리전0] → [PRIMARY_MODEL + 리전1] → ... → [PRIMARY_MODEL + 리전N]
+//     → [FALLBACK_MODEL + 리전0] → [FALLBACK_MODEL + 리전1] → ... → [FALLBACK_MODEL + 리전N]
+//     → errorMessage 반환
+//
+// 리전 전환 조건: isRetryableError (503/429/타임아웃)
+// 즉시 중단 조건: 인증 실패 등 재시도 불가 오류
 // ────────────────────────────────────────────────────────────────────────────
-async function chatWithRetryAndFallback(
+async function chatWithRegionFallback(
   options: GeminiChatOptions
 ): Promise<GeminiChatResult> {
   let lastError: unknown;
 
-  // 1단계: 기본 모델로 최대 MAX_RETRIES회 시도
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+  // ── 1단계: PRIMARY_MODEL로 모든 리전 순차 시도 ──────────────────────────
+  for (const region of sortedRegions) {
     try {
-      if (attempt > 0) {
-        const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
-        console.log(`[Gemini] ${PRIMARY_MODEL} 재시도 ${attempt}/${MAX_RETRIES} (${delay}ms 대기)`);
-        await sleep(delay);
+      if (lastError) {
+        // 이전 리전 실패 후 짧은 대기
+        await sleep(RETRY_BASE_DELAY_MS);
+        console.log(`[Gemini] 리전 전환 → ${region.label} (${PRIMARY_MODEL})`);
       }
-      const text = await tryChatWithModel(PRIMARY_MODEL, options);
-      return { text, modelUsed: PRIMARY_MODEL, wasFallback: false };
+      const text = await tryChatWithRegionAndModel(region, PRIMARY_MODEL, options);
+      console.log(`[Gemini] 성공: ${region.label} / ${PRIMARY_MODEL}`);
+      return {
+        text,
+        modelUsed: PRIMARY_MODEL,
+        wasFallback: false,
+        regionUsed: region.name,
+      };
     } catch (err) {
       lastError = err;
       if (!isRetryableError(err)) {
-        // 재시도 불가 오류 (인증 실패 등)는 즉시 사용자 메시지로 변환
-        console.error(`[Gemini] 재시도 불가 오류:`, (err as Error).message);
+        // 인증 실패 등 재시도 불가 오류 → 즉시 에러 메시지 반환
+        console.error(`[Gemini] 재시도 불가 오류 [${region.name}]:`, (err as Error).message);
         return {
           text: "",
           modelUsed: PRIMARY_MODEL,
           wasFallback: false,
+          regionUsed: region.name,
           errorMessage: "AI 응답 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
         };
       }
-      console.warn(`[Gemini] ${PRIMARY_MODEL} 시도 ${attempt + 1} 실패:`, (err as Error).message);
+      console.warn(
+        `[Gemini] ${region.label} 실패 (${PRIMARY_MODEL}):`,
+        (err as Error).message
+      );
     }
   }
 
-  // 2단계: 폴백 모델(gemini-1.5-flash)로 1회 시도
-  console.log(`[Gemini] 기본 모델 ${MAX_RETRIES + 1}회 실패 → ${FALLBACK_MODEL}으로 폴백`);
-  try {
-    const text = await tryChatWithModel(FALLBACK_MODEL, options);
-    console.log(`[Gemini] 폴백 모델 ${FALLBACK_MODEL} 성공`);
-    return { text, modelUsed: FALLBACK_MODEL, wasFallback: true };
-  } catch (fallbackErr) {
-    console.error(`[Gemini] 폴백 모델 ${FALLBACK_MODEL}도 실패:`, (fallbackErr as Error).message);
-
-    // 폴백도 실패 → throw 대신 사용자 친화적 에러 메시지 반환
-    const isOverloaded = isOverloadError(fallbackErr) || isOverloadError(lastError);
-    const errorMessage = isOverloaded
-      ? "현재 구글 서버 부하로 인해 처리가 지연되고 있습니다. 잠시 후 다시 시도해 주세요."
-      : "AI 응답 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
-
-    return {
-      text: "",
-      modelUsed: FALLBACK_MODEL,
-      wasFallback: true,
-      errorMessage,
-    };
+  // ── 2단계: FALLBACK_MODEL로 모든 리전 순차 시도 ─────────────────────────
+  console.log(`[Gemini] 모든 리전에서 ${PRIMARY_MODEL} 실패 → ${FALLBACK_MODEL}으로 폴백`);
+  for (const region of sortedRegions) {
+    try {
+      await sleep(RETRY_BASE_DELAY_MS);
+      console.log(`[Gemini] 폴백 시도: ${region.label} (${FALLBACK_MODEL})`);
+      const text = await tryChatWithRegionAndModel(region, FALLBACK_MODEL, options);
+      console.log(`[Gemini] 폴백 성공: ${region.label} / ${FALLBACK_MODEL}`);
+      return {
+        text,
+        modelUsed: FALLBACK_MODEL,
+        wasFallback: true,
+        regionUsed: region.name,
+      };
+    } catch (err) {
+      lastError = err;
+      if (!isRetryableError(err)) {
+        console.error(`[Gemini] 폴백 재시도 불가 오류 [${region.name}]:`, (err as Error).message);
+        return {
+          text: "",
+          modelUsed: FALLBACK_MODEL,
+          wasFallback: true,
+          regionUsed: region.name,
+          errorMessage: "AI 응답 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+        };
+      }
+      console.warn(
+        `[Gemini] ${region.label} 폴백 실패 (${FALLBACK_MODEL}):`,
+        (err as Error).message
+      );
+    }
   }
+
+  // ── 3단계: 모든 리전 + 모든 모델 실패 → 사용자 친화적 에러 반환 ─────────
+  console.error(`[Gemini] 모든 리전(${sortedRegions.length}개) + 모든 모델 실패`);
+  const isOverloaded = isOverloadError(lastError);
+  return {
+    text: "",
+    modelUsed: FALLBACK_MODEL,
+    wasFallback: true,
+    regionUsed: "none",
+    errorMessage: isOverloaded
+      ? "현재 구글 서버 부하로 인해 처리가 지연되고 있습니다. 잠시 후 다시 시도해 주세요."
+      : "AI 응답 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+  };
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 일반 채팅 (비스트리밍) - 재시도 + 폴백 포함
+// 공개 API
 // ────────────────────────────────────────────────────────────────────────────
+
+/** 일반 채팅 (비스트리밍) - 리전 우회 + 폴백 포함 */
 export async function geminiChat(options: GeminiChatOptions): Promise<GeminiChatResult> {
-  return chatWithRetryAndFallback(options);
+  return chatWithRegionFallback(options);
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// 스트리밍 채팅 - 재시도 + 폴백 후 전체 텍스트를 청크로 yield
-// (스트리밍은 재시도 중 부분 응답 처리가 복잡하므로 폴백 후 전체 응답을 청크로 분할)
-// ────────────────────────────────────────────────────────────────────────────
+/** 스트리밍 채팅 - 리전 우회 + 폴백 후 전체 텍스트를 청크로 yield */
 export async function* geminiChatStream(options: GeminiChatOptions): AsyncGenerator<string> {
-  // 먼저 재시도/폴백 로직으로 전체 응답을 받은 뒤 청크로 나눠 yield
-  const result = await chatWithRetryAndFallback(options);
+  const result = await chatWithRegionFallback(options);
 
   // 에러 발생 시 에러 메시지를 스트림으로 전달
   if (result.errorMessage) {
@@ -315,9 +421,11 @@ export async function* geminiChatStream(options: GeminiChatOptions): AsyncGenera
     return;
   }
 
-  // 폴백 사용 시 첫 청크에 알림 메시지 포함
+  // 폴백 모델 사용 시 첫 청크에 알림 메시지 포함
   if (result.wasFallback) {
-    yield `> ⚠️ *기본 모델(${PRIMARY_MODEL}) 과부하로 인해 대체 모델(${FALLBACK_MODEL})을 사용했습니다.*\n\n`;
+    const regionLabel =
+      GEMINI_REGION_ENDPOINTS.find((r) => r.name === result.regionUsed)?.label ?? result.regionUsed;
+    yield `> ⚠️ *기본 모델(${PRIMARY_MODEL}) 과부하로 인해 대체 모델(${result.modelUsed}) / ${regionLabel}을 사용했습니다.*\n\n`;
   }
 
   // 응답을 200자씩 청크로 나눠 스트리밍 효과 제공
@@ -327,9 +435,7 @@ export async function* geminiChatStream(options: GeminiChatOptions): AsyncGenera
   }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// API 키 유효성 검사
-// ────────────────────────────────────────────────────────────────────────────
+/** API 키 유효성 검사 */
 export async function validateGeminiApiKey(): Promise<boolean> {
   try {
     const result = await geminiChat({

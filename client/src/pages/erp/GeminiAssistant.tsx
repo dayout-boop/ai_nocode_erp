@@ -95,9 +95,10 @@ export default function GeminiAssistant() {
   // displayMessages: 화면에 표시할 메시지 (에러 말풍선 포함)
   const [displayMessages, setDisplayMessages] = useState<DisplayMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  // 마지막 응답에서 실제 사용된 모델 정보
+  // 마지막 응답에서 실제 사용된 모델/리전 정보
   const [lastModelUsed, setLastModelUsed] = useState<string | null>(null);
   const [lastWasFallback, setLastWasFallback] = useState(false);
+  const [lastRegionUsed, setLastRegionUsed] = useState<string | null>(null);
   // 에러 발생 시 재시도를 위한 마지막 사용자 메시지 보관 (ref로 최신값 보장)
   const lastUserContentRef = useRef<string | null>(null);
   // 에러 발생 직전의 geminiMessages 스냅샷 (재시도 시 사용)
@@ -144,9 +145,10 @@ export default function GeminiAssistant() {
           messages: updatedGeminiMessages,
         });
 
-        // 실제 사용 모델 정보 업데이트
+        // 실제 사용 모델/리전 정보 업데이트
         setLastModelUsed(result.modelUsed);
         setLastWasFallback(result.wasFallback);
+        setLastRegionUsed(result.regionUsed ?? null);
 
         // 서버에서 errorMessage를 반환한 경우 → 에러 말풍선으로 표시
         if (result.errorMessage) {
@@ -209,13 +211,18 @@ export default function GeminiAssistant() {
     setDisplayMessages([]);
     setLastModelUsed(null);
     setLastWasFallback(false);
+    setLastRegionUsed(null);
     lastUserContentRef.current = null;
     preErrorGeminiMessagesRef.current = [];
   }, []);
 
-  // 현재 표시할 모델 배지 정보
+  // 현재 표시할 모델/리전 배지 정보
   const displayModel = lastModelUsed ?? "gemini-2.5-flash";
   const isFallback = lastWasFallback;
+  // 리전 레이블 (global이면 표시 생략, 우회 리전이면 표시)
+  const regionLabel = lastRegionUsed && lastRegionUsed !== "global" && lastRegionUsed !== "none"
+    ? lastRegionUsed
+    : null;
 
   // 에러 말풍선이 마지막에 있는지 확인
   const lastMsg = displayMessages[displayMessages.length - 1];
@@ -244,6 +251,11 @@ export default function GeminiAssistant() {
               ) : (
                 <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 text-xs">
                   {displayModel}
+                </Badge>
+              )}
+              {regionLabel && (
+                <Badge className="bg-slate-100 text-slate-500 border-slate-200 text-xs">
+                  {regionLabel}
                 </Badge>
               )}
               {isLoading && (

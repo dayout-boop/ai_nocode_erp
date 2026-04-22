@@ -884,6 +884,7 @@ const geminiRouter = router({
       response: result.text,
       modelUsed: result.modelUsed,
       wasFallback: result.wasFallback,
+      regionUsed: result.regionUsed,
       errorMessage: result.errorMessage,
     };
   }),
