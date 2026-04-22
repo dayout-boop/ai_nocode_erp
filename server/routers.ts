@@ -453,6 +453,80 @@ const packagesRouter = router({
     return { url, key: savedKey, prompt };
   }),
 
+  // AI 이미지 다중 생성 (미리보기용 - DB 저장 안 함, 임시 URL 반환)
+  generateAIImages: adminProcedure.input(z.object({
+    packageId: z.number(),
+    packageTitle: z.string(),
+    country: z.string().optional(),
+    region: z.string().optional(),
+    keywords: z.array(z.string()).optional(),
+    count: z.number().min(1).max(4).default(3),
+  })).mutation(async ({ input }) => {
+    const countryMap: Record<string, string> = {
+      '대한민국': 'South Korea', '태국': 'Thailand', '베트남': 'Vietnam',
+      '필리핀': 'Philippines', '중국': 'China', '일본': 'Japan',
+    };
+    const countryEn = input.country ? (countryMap[input.country] ?? input.country) : 'Asia';
+    const regionEn = input.region ?? '';
+    const keywordStr = input.keywords && input.keywords.length > 0
+      ? `, ${input.keywords.join(', ')}`
+      : '';
+    // 장수만큼 병렬 생성 (각각 약간 다른 프롬프트 변형)
+    const promptVariants = [
+      `Luxury golf course in ${regionEn} ${countryEn}, beautiful green fairway, blue sky, professional golf photography, wide angle panoramic view, high quality travel brochure style, 4K ultra HD, no people, serene atmosphere${keywordStr}`,
+      `Premium golf resort in ${regionEn} ${countryEn}, lush green course, golden hour lighting, aerial view, elegant clubhouse, travel magazine cover quality, ultra realistic${keywordStr}`,
+      `Scenic golf course in ${regionEn} ${countryEn}, morning mist over fairway, dramatic landscape, professional sports photography, vibrant colors, luxury travel destination${keywordStr}`,
+      `Golf course in ${regionEn} ${countryEn}, sunset panorama, manicured greens, water hazard reflection, cinematic photography, premium travel brochure${keywordStr}`,
+    ];
+    const selectedPrompts = promptVariants.slice(0, input.count);
+    // 병렬 생성 후 S3 임시 저장 (temp/ 경로)
+    const results = await Promise.allSettled(
+      selectedPrompts.map(async (prompt, i) => {
+        const { url: generatedUrl } = await generateImage({ prompt });
+        if (!generatedUrl) throw new Error('이미지 생성 실패');
+        const { buffer, mimeType } = await optimizeImage(generatedUrl);
+        const key = `packages/${input.packageId}/ai_temp_${Date.now()}_${i}.webp`;
+        const { url, key: savedKey } = await storagePut(key, buffer, mimeType);
+        return { url, key: savedKey, prompt };
+      })
+    );
+    const images = results
+      .filter((r): r is PromiseFulfilledResult<{ url: string; key: string; prompt: string }> => r.status === 'fulfilled')
+      .map((r) => r.value);
+    if (images.length === 0) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: '이미지 생성에 실패했습니다.' });
+    return { images };
+  }),
+
+  // 선택한 AI 이미지를 상품 이미지로 등록 (DB 저장)
+  saveSelectedAIImages: adminProcedure.input(z.object({
+    packageId: z.number(),
+    packageTitle: z.string(),
+    selectedImages: z.array(z.object({
+      url: z.string(),
+      key: z.string(),
+    })),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+    const [{ cnt }] = await db.select({ cnt: count() }).from(packageImages).where(eq(packageImages.packageId, input.packageId));
+    let sortOrder = Number(cnt);
+    for (const img of input.selectedImages) {
+      await db.insert(packageImages).values({
+        packageId: input.packageId,
+        imageUrl: img.url,
+        imageKey: img.key,
+        altText: `AI 생성: ${input.packageTitle}`,
+        sortOrder,
+        isCover: sortOrder === 0,
+      });
+      if (sortOrder === 0) {
+        await db.update(packages).set({ imageUrl: img.url }).where(eq(packages.id, input.packageId));
+      }
+      sortOrder++;
+    }
+    return { saved: input.selectedImages.length };
+  }),
+
   // 이미지 공개 조회 (프론트용)
   publicImages: publicProcedure.input(z.object({ packageId: z.number() })).query(async ({ input }) => {
     const db = await getDb();

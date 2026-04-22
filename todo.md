@@ -62,3 +62,10 @@
 - [x] generateAIImage API에 keywords 파라미터 추가 (z.array(z.string()).optional())
 - [x] generateAIImage 프롬프트에 키워드 자동 반영
 - [x] ERP AI 이미지 생성 섹션에 키워드 태그 입력/삭제 UI 추가 (Enter 또는 + 버튼으로 추가, X 버튼으로 삭제, 전체 삭제)
+
+## AI 이미지 다중 생성 및 선택 기능
+- [x] generateAIImages API 추가 - 1~4장 동시 생성, 임시 URL 배열 반환
+- [x] ERP AI 이미지 섹션에 생성 장수 선택 UI (1/2/3/4장)
+- [x] 생성된 이미지 미리보기 그리드 표시 (체크박스 선택)
+- [x] 선택한 이미지만 상품 이미지로 등록하는 버튼
+- [x] 선택 등록 후 미리보기 초기화

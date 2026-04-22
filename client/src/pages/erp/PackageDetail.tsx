@@ -142,13 +142,31 @@ export default function PackageDetail() {
     onError: (e) => toast.error(e.message),
   });
 
-  // AI 이미지 생성
-  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  // AI 이미지 다중 생성 및 선택
   const [aiKeywords, setAiKeywords] = useState<string[]>([]);
   const [aiKeywordInput, setAiKeywordInput] = useState('');
-  const generateAIMutation = trpc.packages.generateAIImage.useMutation({
-    onSuccess: () => { setIsGeneratingAI(false); toast.success('AI 이미지가 생성되었습니다.'); refetchImages(); },
-    onError: (e) => { setIsGeneratingAI(false); toast.error(e.message); },
+  const [aiGenerateCount, setAiGenerateCount] = useState<number>(3);
+  const [aiPreviewImages, setAiPreviewImages] = useState<{ url: string; key: string; prompt: string }[]>([]);
+  const [aiSelectedKeys, setAiSelectedKeys] = useState<Set<string>>(new Set());
+
+  const generateAIImagesMutation = trpc.packages.generateAIImages.useMutation({
+    onSuccess: (result) => {
+      setAiPreviewImages(result.images);
+      // 기본적으로 전체 선택
+      setAiSelectedKeys(new Set(result.images.map((img) => img.key)));
+      toast.success(`${result.images.length}장의 AI 이미지가 생성되었습니다. 원하는 이미지를 선택하세요.`);
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const saveSelectedAIImagesMutation = trpc.packages.saveSelectedAIImages.useMutation({
+    onSuccess: (result) => {
+      toast.success(`${result.saved}장의 이미지가 등록되었습니다.`);
+      setAiPreviewImages([]);
+      setAiSelectedKeys(new Set());
+      refetchImages();
+    },
+    onError: (e) => toast.error(e.message),
   });
 
   const handleAddAiKeyword = () => {
@@ -161,6 +179,15 @@ export default function PackageDetail() {
 
   const handleRemoveAiKeyword = (kw: string) => {
     setAiKeywords((prev) => prev.filter((k) => k !== kw));
+  };
+
+  const toggleAiImageSelect = (key: string) => {
+    setAiSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   };
 
   const handlePixabaySearch = () => {
@@ -368,7 +395,7 @@ export default function PackageDetail() {
                   <Wand2 size={16} className="text-purple-500" />
                   <CardTitle className="text-base">AI 이미지 자동 생성</CardTitle>
                 </div>
-                <p className="text-xs text-slate-400 mt-1">상품명 기반으로 AI가 골프 여행 이미지를 자동 생성합니다 (5~20초 소요)</p>
+                <p className="text-xs text-slate-400 mt-1">여러 장을 한 번에 생성하고 원하는 이미지만 선택하여 등록할 수 있습니다</p>
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* 상품 기본 정보 */}
@@ -392,13 +419,13 @@ export default function PackageDetail() {
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddAiKeyword(); } }}
                       placeholder="예: sunrise, ocean view, luxury resort, morning fog"
                       className="h-9"
-                      disabled={isGeneratingAI || generateAIMutation.isPending}
+                      disabled={generateAIImagesMutation.isPending}
                     />
                     <Button
                       type="button"
                       variant="outline"
                       onClick={handleAddAiKeyword}
-                      disabled={!aiKeywordInput.trim() || isGeneratingAI || generateAIMutation.isPending}
+                      disabled={!aiKeywordInput.trim() || generateAIImagesMutation.isPending}
                       className="h-9 shrink-0 border-purple-300 text-purple-600 hover:bg-purple-50"
                     >
                       <Plus size={14} />
@@ -417,7 +444,7 @@ export default function PackageDetail() {
                           <button
                             type="button"
                             onClick={() => handleRemoveAiKeyword(kw)}
-                            disabled={isGeneratingAI || generateAIMutation.isPending}
+                            disabled={generateAIImagesMutation.isPending}
                             className="hover:text-purple-900 disabled:opacity-50 transition-colors"
                           >
                             <X size={12} />
@@ -427,7 +454,7 @@ export default function PackageDetail() {
                       <button
                         type="button"
                         onClick={() => setAiKeywords([])}
-                        disabled={isGeneratingAI || generateAIMutation.isPending}
+                        disabled={generateAIImagesMutation.isPending}
                         className="text-xs text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
                       >
                         전체 삭제
@@ -439,23 +466,46 @@ export default function PackageDetail() {
                   )}
                 </div>
 
-                {/* 생성 버튼 */}
-                <div className="flex justify-end">
+                {/* 생성 장수 선택 + 생성 버튼 */}
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-slate-700">생성 장수</span>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setAiGenerateCount(n)}
+                          disabled={generateAIImagesMutation.isPending}
+                          className={`w-8 h-8 rounded-lg text-sm font-semibold transition-all ${
+                            aiGenerateCount === n
+                              ? 'bg-purple-600 text-white shadow-sm'
+                              : 'bg-slate-100 text-slate-600 hover:bg-purple-100 hover:text-purple-700'
+                          } disabled:opacity-50`}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-xs text-slate-400">장</span>
+                  </div>
                   <Button
                     onClick={() => {
-                      setIsGeneratingAI(true);
-                      generateAIMutation.mutate({
+                      setAiPreviewImages([]);
+                      setAiSelectedKeys(new Set());
+                      generateAIImagesMutation.mutate({
                         packageId: id,
                         packageTitle: data.title,
                         country: data.country ?? undefined,
                         region: data.region ?? undefined,
                         keywords: aiKeywords.length > 0 ? aiKeywords : undefined,
+                        count: aiGenerateCount,
                       });
                     }}
-                    disabled={isGeneratingAI || generateAIMutation.isPending}
+                    disabled={generateAIImagesMutation.isPending}
                     className="bg-purple-600 hover:bg-purple-700 text-white"
                   >
-                    {(isGeneratingAI || generateAIMutation.isPending) ? (
+                    {generateAIImagesMutation.isPending ? (
                       <>
                         <Loader2 size={14} className="animate-spin mr-2" />
                         생성 중...
@@ -470,16 +520,116 @@ export default function PackageDetail() {
                 </div>
 
                 {/* 로딩 상태 */}
-                {(isGeneratingAI || generateAIMutation.isPending) && (
+                {generateAIImagesMutation.isPending && (
                   <div className="p-4 bg-purple-50 rounded-xl">
                     <div className="flex items-center gap-3">
                       <Loader2 size={20} className="animate-spin text-purple-500" />
                       <div>
-                        <p className="text-sm font-medium text-purple-700">AI 이미지 생성 중...</p>
-                        <p className="text-xs text-purple-500 mt-0.5">상품 정보와 키워드를 분석하여 골프 여행 이미지를 생성하고 있습니다. 5~20초 소요됩니다.</p>
+                        <p className="text-sm font-medium text-purple-700">AI 이미지 {aiGenerateCount}장 생성 중...</p>
+                        <p className="text-xs text-purple-500 mt-0.5">병렬 생성 중입니다. 장수에 따라 10~60초 소요될 수 있습니다.</p>
                         {aiKeywords.length > 0 && (
                           <p className="text-xs text-purple-400 mt-1">적용 키워드: {aiKeywords.join(', ')}</p>
                         )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 생성 결과 미리보기 그리드 */}
+                {aiPreviewImages.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-slate-700">
+                        생성 결과 ({aiPreviewImages.length}장) — 등록할 이미지를 선택하세요
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAiSelectedKeys(new Set(aiPreviewImages.map((img) => img.key)))}
+                          className="text-xs text-purple-600 hover:text-purple-800 font-medium"
+                        >
+                          전체 선택
+                        </button>
+                        <span className="text-slate-300">|</span>
+                        <button
+                          type="button"
+                          onClick={() => setAiSelectedKeys(new Set())}
+                          className="text-xs text-slate-400 hover:text-slate-600"
+                        >
+                          선택 해제
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {aiPreviewImages.map((img) => {
+                        const isSelected = aiSelectedKeys.has(img.key);
+                        return (
+                          <div
+                            key={img.key}
+                            onClick={() => toggleAiImageSelect(img.key)}
+                            className={`relative rounded-xl overflow-hidden cursor-pointer transition-all ${
+                              isSelected
+                                ? 'ring-2 ring-purple-500 ring-offset-2'
+                                : 'ring-1 ring-slate-200 opacity-60 hover:opacity-80'
+                            }`}
+                          >
+                            <img
+                              src={img.url}
+                              alt="AI 생성 이미지"
+                              className="w-full aspect-[4/3] object-cover"
+                            />
+                            {/* 선택 체크 표시 */}
+                            <div className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+                              isSelected ? 'bg-purple-600' : 'bg-white/80 border border-slate-300'
+                            }`}>
+                              {isSelected && (
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                  <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* 등록 버튼 */}
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                      <p className="text-xs text-slate-500">
+                        {aiSelectedKeys.size}장 선택됨
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => { setAiPreviewImages([]); setAiSelectedKeys(new Set()); }}
+                          className="text-slate-500"
+                        >
+                          초기화
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            const selected = aiPreviewImages.filter((img) => aiSelectedKeys.has(img.key));
+                            if (selected.length === 0) { toast.error('선택된 이미지가 없습니다.'); return; }
+                            saveSelectedAIImagesMutation.mutate({
+                              packageId: id,
+                              packageTitle: data.title,
+                              selectedImages: selected.map((img) => ({ url: img.url, key: img.key })),
+                            });
+                          }}
+                          disabled={aiSelectedKeys.size === 0 || saveSelectedAIImagesMutation.isPending}
+                          className="bg-purple-600 hover:bg-purple-700 text-white"
+                        >
+                          {saveSelectedAIImagesMutation.isPending ? (
+                            <><Loader2 size={12} className="animate-spin mr-1" />등록 중...</>
+                          ) : (
+                            `선택한 ${aiSelectedKeys.size}장 등록`
+                          )}
+                        </Button>
                       </div>
                     </div>
                   </div>
