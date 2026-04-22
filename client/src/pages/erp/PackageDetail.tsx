@@ -144,10 +144,24 @@ export default function PackageDetail() {
 
   // AI 이미지 생성
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiKeywords, setAiKeywords] = useState<string[]>([]);
+  const [aiKeywordInput, setAiKeywordInput] = useState('');
   const generateAIMutation = trpc.packages.generateAIImage.useMutation({
     onSuccess: () => { setIsGeneratingAI(false); toast.success('AI 이미지가 생성되었습니다.'); refetchImages(); },
     onError: (e) => { setIsGeneratingAI(false); toast.error(e.message); },
   });
+
+  const handleAddAiKeyword = () => {
+    const kw = aiKeywordInput.trim();
+    if (!kw) return;
+    if (aiKeywords.includes(kw)) { toast.error('이미 추가된 키워드입니다.'); return; }
+    setAiKeywords((prev) => [...prev, kw]);
+    setAiKeywordInput('');
+  };
+
+  const handleRemoveAiKeyword = (kw: string) => {
+    setAiKeywords((prev) => prev.filter((k) => k !== kw));
+  };
 
   const handlePixabaySearch = () => {
     if (!pixabayInputValue.trim()) return;
@@ -356,16 +370,77 @@ export default function PackageDetail() {
                 </div>
                 <p className="text-xs text-slate-400 mt-1">상품명 기반으로 AI가 골프 여행 이미지를 자동 생성합니다 (5~20초 소요)</p>
               </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <p className="text-sm text-slate-600">
-                      <span className="font-medium">{data.title}</span>
-                      {data.country && <span className="text-slate-400"> · {data.country}</span>}
-                      {data.region && <span className="text-slate-400"> · {data.region}</span>}
-                    </p>
-                    <p className="text-xs text-slate-400 mt-0.5">위 상품 정보를 기반으로 AI 이미지를 생성합니다</p>
+              <CardContent className="space-y-4">
+                {/* 상품 기본 정보 */}
+                <div className="p-3 bg-slate-50 rounded-lg">
+                  <p className="text-xs text-slate-500 mb-1">기본 상품 정보 (자동 적용)</p>
+                  <p className="text-sm text-slate-700 font-medium">{data.title}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {[data.country, data.region].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+
+                {/* 키워드 입력 */}
+                <div>
+                  <label className="text-sm font-medium text-slate-700 mb-2 block">
+                    핵심 키워드 <span className="text-slate-400 font-normal text-xs">(Enter 또는 + 버튼으로 추가)</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={aiKeywordInput}
+                      onChange={(e) => setAiKeywordInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddAiKeyword(); } }}
+                      placeholder="예: sunrise, ocean view, luxury resort, morning fog"
+                      className="h-9"
+                      disabled={isGeneratingAI || generateAIMutation.isPending}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleAddAiKeyword}
+                      disabled={!aiKeywordInput.trim() || isGeneratingAI || generateAIMutation.isPending}
+                      className="h-9 shrink-0 border-purple-300 text-purple-600 hover:bg-purple-50"
+                    >
+                      <Plus size={14} />
+                    </Button>
                   </div>
+
+                  {/* 키워드 태그 목록 */}
+                  {aiKeywords.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {aiKeywords.map((kw) => (
+                        <span
+                          key={kw}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-100 text-purple-700 text-sm rounded-full font-medium"
+                        >
+                          {kw}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAiKeyword(kw)}
+                            disabled={isGeneratingAI || generateAIMutation.isPending}
+                            className="hover:text-purple-900 disabled:opacity-50 transition-colors"
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setAiKeywords([])}
+                        disabled={isGeneratingAI || generateAIMutation.isPending}
+                        className="text-xs text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                      >
+                        전체 삭제
+                      </button>
+                    </div>
+                  )}
+                  {aiKeywords.length === 0 && (
+                    <p className="text-xs text-slate-400 mt-2">키워드가 없으면 상품명과 목적지 정보만으로 AI 이미지를 생성합니다</p>
+                  )}
+                </div>
+
+                {/* 생성 버튼 */}
+                <div className="flex justify-end">
                   <Button
                     onClick={() => {
                       setIsGeneratingAI(true);
@@ -374,10 +449,11 @@ export default function PackageDetail() {
                         packageTitle: data.title,
                         country: data.country ?? undefined,
                         region: data.region ?? undefined,
+                        keywords: aiKeywords.length > 0 ? aiKeywords : undefined,
                       });
                     }}
                     disabled={isGeneratingAI || generateAIMutation.isPending}
-                    className="bg-purple-600 hover:bg-purple-700 text-white shrink-0"
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
                   >
                     {(isGeneratingAI || generateAIMutation.isPending) ? (
                       <>
@@ -392,13 +468,18 @@ export default function PackageDetail() {
                     )}
                   </Button>
                 </div>
+
+                {/* 로딩 상태 */}
                 {(isGeneratingAI || generateAIMutation.isPending) && (
-                  <div className="mt-4 p-4 bg-purple-50 rounded-xl">
+                  <div className="p-4 bg-purple-50 rounded-xl">
                     <div className="flex items-center gap-3">
                       <Loader2 size={20} className="animate-spin text-purple-500" />
                       <div>
                         <p className="text-sm font-medium text-purple-700">AI 이미지 생성 중...</p>
-                        <p className="text-xs text-purple-500 mt-0.5">상품명과 목적지 정보를 분석하여 골프 여행 이미지를 생성하고 있습니다. 5~20초 소요됩니다.</p>
+                        <p className="text-xs text-purple-500 mt-0.5">상품 정보와 키워드를 분석하여 골프 여행 이미지를 생성하고 있습니다. 5~20초 소요됩니다.</p>
+                        {aiKeywords.length > 0 && (
+                          <p className="text-xs text-purple-400 mt-1">적용 키워드: {aiKeywords.join(', ')}</p>
+                        )}
                       </div>
                     </div>
                   </div>

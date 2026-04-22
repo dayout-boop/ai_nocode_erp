@@ -56,7 +56,7 @@ export default function Footer() {
                 { label: '중국 골프', href: '/packages/china' },
                 { label: '일본 골프', href: '/packages/japan' },
               ].map((item) => (
-                <li key={item.href}>
+                <li key={item.label}>
                   <Link href={item.href}>
                     <span className="text-white/70 hover:text-white text-sm font-body transition-colors cursor-pointer">
                       {item.label}
@@ -75,9 +75,9 @@ export default function Footer() {
                 { label: '예약 문의', href: '/inquiry' },
                 { label: '공지사항', href: '/notice' },
                 { label: '여행 갤러리', href: '/gallery' },
-                { label: '자주 묻는 질문', href: '/notice' },
+                { label: '자주 묻는 질문', href: '/notice?tab=faq' },
               ].map((item) => (
-                <li key={item.href}>
+                <li key={item.label}>
                   <Link href={item.href}>
                     <span className="text-white/70 hover:text-white text-sm font-body transition-colors cursor-pointer">
                       {item.label}

@@ -411,6 +411,7 @@ const packagesRouter = router({
     packageTitle: z.string(),
     country: z.string().optional(),
     region: z.string().optional(),
+    keywords: z.array(z.string()).optional(),
     isCover: z.boolean().optional(),
   })).mutation(async ({ input }) => {
     const db = await getDb();
@@ -422,7 +423,11 @@ const packagesRouter = router({
     };
     const countryEn = input.country ? (countryMap[input.country] ?? input.country) : 'Asia';
     const regionEn = input.region ?? '';
-    const prompt = `Luxury golf course in ${regionEn} ${countryEn}, beautiful green fairway, blue sky, professional golf photography, wide angle panoramic view, high quality travel brochure style, 4K ultra HD, no people, serene atmosphere`;
+    // 키워드가 있으면 프롬프트에 추가
+    const keywordStr = input.keywords && input.keywords.length > 0
+      ? `, ${input.keywords.join(', ')}`
+      : '';
+    const prompt = `Luxury golf course in ${regionEn} ${countryEn}, beautiful green fairway, blue sky, professional golf photography, wide angle panoramic view, high quality travel brochure style, 4K ultra HD, no people, serene atmosphere${keywordStr}`;
     const { url: generatedUrl } = await generateImage({ prompt });
     if (!generatedUrl) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "이미지 생성 실패" });
     // 생성된 이미지 최적화 (이미 S3에 있으므로 URL로 다운로드)

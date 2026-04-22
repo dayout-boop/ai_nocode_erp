@@ -56,3 +56,9 @@
 - [x] 프론트 상품 상세 페이지 이미지 일관된 사이즈로 표시
 - [x] Pixabay CC0 무료 이미지 검색 tRPC API (searchPixabay, importPixabayImage) 추가
 - [x] ERP 이미지 탭에 Pixabay 검색 UI 추가 (검색어 입력, 결과 그리드, 페이지네이션, 등록 버튼)
+
+## 에러 수정 및 키워드 기능 추가
+- [x] Footer.tsx 중복 key 에러 수정 (자주 묻는 질문 href 변경, key를 label 기반으로 변경)
+- [x] generateAIImage API에 keywords 파라미터 추가 (z.array(z.string()).optional())
+- [x] generateAIImage 프롬프트에 키워드 자동 반영
+- [x] ERP AI 이미지 생성 섹션에 키워드 태그 입력/삭제 UI 추가 (Enter 또는 + 버튼으로 추가, X 버튼으로 삭제, 전체 삭제)
