@@ -344,6 +344,15 @@ const packagesRouter = router({
         db.update(packageImages).set({ sortOrder: idx }).where(eq(packageImages.id, id))
       )
     );
+    // 첫 번째 이미지를 커버로 동기화 (홈페이지 대표 이미지 업데이트)
+    if (input.orderedIds.length > 0) {
+      const [firstImg] = await db.select().from(packageImages).where(eq(packageImages.id, input.orderedIds[0]));
+      if (firstImg) {
+        await db.update(packageImages).set({ isCover: false }).where(eq(packageImages.packageId, input.packageId));
+        await db.update(packageImages).set({ isCover: true }).where(eq(packageImages.id, input.orderedIds[0]));
+        await db.update(packages).set({ imageUrl: firstImg.imageUrl }).where(eq(packages.id, input.packageId));
+      }
+    }
     return { success: true };
   }),
 

@@ -29,8 +29,8 @@ function Router() {
       {/* 프론트 사이트 */}
       <Route path={"/"} component={Home} />
       <Route path={"/packages"} component={Packages} />
-      <Route path={"/packages/:destination"} component={Packages} />
       <Route path={"/packages/detail/:id"} component={PackageDetail} />
+      <Route path={"/packages/:destination"} component={Packages} />
       <Route path={"/gallery"} component={Gallery} />
       <Route path={"/notice"} component={Notice} />
       <Route path={"/inquiry"} component={Inquiry} />

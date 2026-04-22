@@ -1,5 +1,5 @@
 // ============================================================
-// DOGOLF Package Detail Page — DB 연동 버전
+// DOGOLF Package Detail Page — DB 연동 버전 (훅 규칙 준수)
 // ============================================================
 
 import { useState, useCallback } from 'react';
@@ -27,16 +27,53 @@ const optionTypeLabel: Record<string, string> = {
   meal: '식사', insurance: '보험', other: '기타',
 };
 
+// JSON 파싱 헬퍼
+function parseJsonArray(val: unknown): string[] {
+  if (!val) return [];
+  try {
+    const parsed = typeof val === 'string' ? JSON.parse(val) : val;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+
 export default function PackageDetail() {
   const params = useParams<{ id: string }>();
   const id = parseInt(params.id ?? '0', 10);
+
+  // ✅ 모든 훅을 최상단에 선언 (조건부 return 이전)
   const [showFullDesc, setShowFullDesc] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIdx, setLightboxIdx] = useState(0);
 
   const { data, isLoading, isError } = trpc.packages.publicGet.useQuery(
     { id },
     { enabled: id > 0 }
   );
 
+  // 갤러리 이미지 배열 (데이터 없으면 빈 배열)
+  const defaultImage = '/manus-storage/hero_main_aa4ec84e.jpg';
+  const registeredImages: string[] = data?.images && data.images.length > 0
+    ? (data.images as any[]).map((img: any) => img.imageUrl).filter(Boolean)
+    : [];
+  const galleryImages = registeredImages.length > 0
+    ? registeredImages
+    : (data?.imageUrl ? [data.imageUrl] : [defaultImage]);
+
+  const prevImage = useCallback(() =>
+    setActiveIdx((i) => (i - 1 + galleryImages.length) % galleryImages.length),
+    [galleryImages.length]
+  );
+  const nextImage = useCallback(() =>
+    setActiveIdx((i) => (i + 1) % galleryImages.length),
+    [galleryImages.length]
+  );
+  const openLightbox = (idx: number) => { setLightboxIdx(idx); setLightboxOpen(true); };
+  const closeLightbox = () => setLightboxOpen(false);
+  const prevLightbox = () => setLightboxIdx((i) => (i - 1 + galleryImages.length) % galleryImages.length);
+  const nextLightbox = () => setLightboxIdx((i) => (i + 1) % galleryImages.length);
+
+  // ✅ 조건부 return은 모든 훅 선언 이후에만 사용
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -71,20 +108,10 @@ export default function PackageDetail() {
   const pkg = data;
   const flag = countryFlagMap[pkg.country] ?? '🌏';
   const countryName = countryNameMap[pkg.country] ?? pkg.country;
-  const image = pkg.imageUrl || '/manus-storage/hero_main_aa4ec84e.jpg';
 
-  // JSON 파싱 헬퍼
-  const parseJson = (val: unknown): string[] => {
-    if (!val) return [];
-    try {
-      const parsed = typeof val === 'string' ? JSON.parse(val) : val;
-      return Array.isArray(parsed) ? parsed : [];
-    } catch { return []; }
-  };
-
-  const highlights = parseJson(pkg.highlights);
-  const includesList = parseJson(pkg.includes);
-  const excludesList = parseJson(pkg.excludes);
+  const highlights = parseJsonArray(pkg.highlights);
+  const includesList = parseJsonArray(pkg.includes);
+  const excludesList = parseJsonArray(pkg.excludes);
 
   // 최저가 계산
   const prices = pkg.prices ?? [];
@@ -103,22 +130,6 @@ export default function PackageDetail() {
   const shortDesc = descLines.slice(0, 8).join('\n');
   const hasMore = descLines.length > 8;
 
-  // 이미지 갤러리
-  const images: any[] = pkg.images ?? [];
-  const galleryImages = images.length > 0
-    ? images.map((img: any) => img.imageUrl)
-    : [image]; // 등록된 이미지 없으면 대표이미지 하나만
-  const [activeIdx, setActiveIdx] = useState(0);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIdx, setLightboxIdx] = useState(0);
-
-  const prevImage = useCallback(() => setActiveIdx((i) => (i - 1 + galleryImages.length) % galleryImages.length), [galleryImages.length]);
-  const nextImage = useCallback(() => setActiveIdx((i) => (i + 1) % galleryImages.length), [galleryImages.length]);
-  const openLightbox = (idx: number) => { setLightboxIdx(idx); setLightboxOpen(true); };
-  const closeLightbox = () => setLightboxOpen(false);
-  const prevLightbox = () => setLightboxIdx((i) => (i - 1 + galleryImages.length) % galleryImages.length);
-  const nextLightbox = () => setLightboxIdx((i) => (i + 1) % galleryImages.length);
-
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -128,7 +139,7 @@ export default function PackageDetail() {
         {/* 메인 이미지 */}
         <div className="relative h-64 md:h-[480px]">
           <img
-            src={galleryImages[activeIdx]}
+            src={galleryImages[activeIdx] ?? defaultImage}
             alt={pkg.title}
             className="w-full h-full object-cover transition-opacity duration-300"
           />
@@ -238,7 +249,7 @@ export default function PackageDetail() {
             </>
           )}
           <img
-            src={galleryImages[lightboxIdx]}
+            src={galleryImages[lightboxIdx] ?? defaultImage}
             alt="확대 이미지"
             className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl"
             onClick={(e) => e.stopPropagation()}
