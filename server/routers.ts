@@ -19,7 +19,7 @@ import { optimizeImage, optimizeBase64Image } from "./imageOptimizer";
 import { generateImage } from "./_core/imageGeneration";
 import { ENV } from "./_core/env";
 import { geminiChat, DOGOLF_SYSTEM_CONTEXT, type GeminiMessage, getCircuitBreakerStatus, resetCircuitBreaker, GEMINI_REGION_ENDPOINTS } from "./_core/gemini";
-import { orchestrate, getModelPricing, getCacheStats, clearCache, detectComplexity, MODEL_CATALOG, type TaskType, type TaskComplexity } from "./_core/orchestrator";
+import { orchestrate, getModelPricing, getCacheStats, clearCache, detectComplexity, MODEL_CATALOG, LLAMA_FREE_MODEL, type TaskType, type TaskComplexity } from "./_core/orchestrator";
 import { createPaymentIntent, getPaymentStatus } from "./stripe";
 import {
   sendBookingConfirmedNotification,
@@ -1280,6 +1280,7 @@ const orchestratorRouter = router({
     maxTokens: z.number().min(100).max(8192).optional(),
     temperature: z.number().min(0).max(2).optional(),
     useCache: z.boolean().default(true),
+    useFreeModel: z.boolean().default(false),
   })).mutation(async ({ input, ctx }) => {
     const db = await getDb();
     const startTime = Date.now();
@@ -1294,6 +1295,7 @@ const orchestratorRouter = router({
         maxTokens: input.maxTokens,
         temperature: input.temperature,
         useCache: input.useCache,
+        useFreeModel: input.useFreeModel,
       });
     } catch (err: unknown) {
       errorMessage = err instanceof Error ? err.message : String(err);
@@ -1575,13 +1577,19 @@ const videoRouter = router({
     }),
 
   /** 패키지별 동영상 목록 */
-  listByPackage: adminProcedure
+  listByPackage: publicProcedure
     .input(z.object({ packageId: z.number().int().positive() }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      // 공개 API: ready 상태인 영상만 반환
       return db.select().from(packageVideos)
-        .where(eq(packageVideos.packageId, input.packageId))
+        .where(
+          and(
+            eq(packageVideos.packageId, input.packageId),
+            eq(packageVideos.status, "ready")
+          )
+        )
         .orderBy(desc(packageVideos.createdAt));
     }),
 });

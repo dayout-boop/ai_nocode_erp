@@ -27,6 +27,53 @@ const optionTypeLabel: Record<string, string> = {
   meal: '식사', insurance: '보험', other: '기타',
 };
 
+// ─── 홍보 영상 플레이어 컴포넌트 ─────────────────────────────────────────
+function PackageVideoSection({ packageId }: { packageId: number }) {
+  const { data: videos, isLoading } = trpc.video.listByPackage.useQuery(
+    { packageId },
+    { enabled: packageId > 0 }
+  );
+
+  const completedVideos = (videos ?? []).filter((v: any) => v.videoUrl);
+
+  if (isLoading) return null;
+  if (completedVideos.length === 0) return null;
+
+  return (
+    <div className="bg-white rounded-2xl p-6 shadow-sm">
+      <h2 className="font-display-ko text-lg font-bold text-gray-900 mb-4">🎬 홍보 영상</h2>
+      <div className="space-y-4">
+        {completedVideos.map((v: any) => (
+          <div key={v.id} className="rounded-xl overflow-hidden bg-gray-900">
+            <video
+              src={v.videoUrl}
+              controls
+              playsInline
+              className="w-full max-h-64 object-contain"
+              poster={v.thumbnailUrl ?? undefined}
+            />
+            <div className="px-4 py-2 bg-gray-50 flex items-center justify-between">
+              <span className="text-xs text-gray-500 font-body">
+                {v.durationSeconds ? `${v.durationSeconds}초` : ''}
+                {v.createdAt ? ` · ${new Date(v.createdAt).toLocaleDateString('ko-KR')}` : ''}
+              </span>
+              <a
+                href={v.videoUrl}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-dogolf-green font-semibold hover:underline"
+              >
+                다운로드
+              </a>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // JSON 파싱 헬퍼
 function parseJsonArray(val: unknown): string[] {
   if (!val) return [];
@@ -378,6 +425,9 @@ export default function PackageDetail() {
                   </div>
                 </div>
               )}
+
+              {/* 홍보 영상 섹션 */}
+              <PackageVideoSection packageId={id} />
 
               {/* Options (캐디피, 카트비 등) */}
               {(requiredOptions.length > 0 || optionalOptions.length > 0) && (

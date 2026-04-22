@@ -106,6 +106,7 @@ function OrchestratorChat() {
   const [input, setInput] = useState("");
   const [taskType, setTaskType] = useState("auto");
   const [useCache, setUseCache] = useState(true);
+  const [useFreeModel, setUseFreeModel] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -139,6 +140,7 @@ function OrchestratorChat() {
         message: prompt,
         taskType: taskType as any,
         useCache,
+        useFreeModel,
       });
 
       if (!result.success || !result.text) {
@@ -234,6 +236,19 @@ function OrchestratorChat() {
         >
           <Database size={12} />
           캐시 {useCache ? "ON" : "OFF"}
+        </button>
+
+        <button
+          onClick={() => setUseFreeModel(!useFreeModel)}
+          title="Llama 3.1 8B 무료 모델 사용 (SIMPLE 등급 작업에만 적용)"
+          className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${
+            useFreeModel
+              ? "bg-green-50 border-green-200 text-green-700"
+              : "bg-slate-50 border-slate-200 text-slate-500"
+          }`}
+        >
+          <span className="text-xs">🦙</span>
+          무료모델 {useFreeModel ? "ON" : "OFF"}
         </button>
 
         {messages.length > 0 && (
@@ -620,7 +635,7 @@ function CostDashboard() {
                 {(pricing ?? []).map((m) => {
                   const cfg = COMPLEXITY_CONFIG[m.complexity as keyof typeof COMPLEXITY_CONFIG];
                   return (
-                    <tr key={m.id} className="border-b border-slate-50 hover:bg-slate-50">
+                    <tr key={m.id ?? m.name} className="border-b border-slate-50 hover:bg-slate-50">
                       <td className="py-2.5 px-3">
                         <Badge className={`text-[10px] px-1.5 py-0 ${cfg?.color}`}>
                           {cfg?.icon} {m.complexity}

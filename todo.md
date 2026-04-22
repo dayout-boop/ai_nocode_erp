@@ -186,16 +186,16 @@
 - [x] ERP 예약관리에 결제 상태 컬럼 및 결제 요청 다이얼로그 추가
 
 ### 2단계: 오케스트레이터 Llama 3.1 8B 무료 모델 추가
-- [ ] orchestrator.ts SIMPLE 등급에 meta-llama/llama-3.1-8b-instruct 추가 (무료)
-- [ ] 모델 단가 테이블 업데이트 (Llama 3.1 8B = $0)
-- [ ] DevAIOrchestrator.tsx 모델 목록 UI 업데이트
+- [x] orchestrator.ts SIMPLE 등급에 meta-llama/llama-3.1-8b-instruct:free 추가 (LLAMA_FREE_MODEL)
+- [x] 모델 단가 테이블 업데이트 (Llama 3.1 8B = $0, getModelPricing에 포함)
+- [x] DevAIOrchestrator.tsx 무료모델 ON/OFF 토글 버튼 추가
 
 ### 3단계: 카카오 알림톡 연동
 - [x] KAKAO_API_KEY, KAKAO_SENDER_KEY 시크릿 등록 (env.ts에 추가)
 - [x] server/_core/kakao.ts 알림톡 발송 헬퍼 구현 (Solapi API 호환)
 - [x] 예약 확정 시 알림톡 자동 발송 (예약번호, 상품명, 출발일, 결제금액)
 - [x] 예약 취소 시 알림톡 자동 발송 (취소사유 포함)
-- [ ] 출발 D-1 알림톡 스케줄러 구현 (추후 구현)
+- [ ] 출발 D-1 알림톡 스케줄러 구현 (시스템 스케줄러 미지원으로 향후 n8n 워크플로우로 대체 권장)
 - [x] 알림톡 발송 이력 DB 저장 (kakao_notifications 테이블)
 
 ### 4단계: Runway ML 동영상 자동생성
@@ -204,7 +204,7 @@
 - [x] tRPC - video 라우터 추가 (generate, checkStatus, listByPackage)
 - [x] ERP 상품 상세 페이지에 "동영상 생성" 탭 추가 (5초/10초 선택, 폴링)
 - [x] 생성된 영상 DB 저장 (package_videos 테이블)
-- [ ] 프론트 상품 상세 페이지에 영상 플레이어 추가 (추후 구현)
+- [x] 프론트 상품 상세 페이지에 영상 플레이어 추가 (PackageVideoSection 컴포넌트 - 완료된 영상만 표시)
 
 ### 5단계: n8n 자동화 파이프라인
 - [x] n8n Webhook URL 시크릿 등록 (N8N_WEBHOOK_URL, env.ts에 추가)
@@ -212,4 +212,4 @@
 - [x] 상품 SNS 자동배포 파이프라인 트리거 (triggerPackagePublish)
 - [x] 자동화 실행 이력 DB 저장 (automation_logs 테이블)
 - [x] ERP 상품 상세 페이지에 "자동화" 탭 추가 (n8n 트리거 버튼 + 실행 이력)
-- [ ] n8n 연동 가이드 문서 작성 (추후 구현)
+- [x] n8n 연동 가이드 문서 작성 (docs/n8n-integration-guide.md)

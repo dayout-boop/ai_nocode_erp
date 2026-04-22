@@ -44,6 +44,8 @@ export interface OrchestratorOptions {
   temperature?: number;
   /** 프롬프트 캐싱 사용 여부 (기본: true) */
   useCache?: boolean;
+  /** Llama 3.1 8B 무료 모델 사용 (비용 절감용, SIMPLE 등급에만 적용) */
+  useFreeModel?: boolean;
 }
 
 export interface OrchestratorResult {
@@ -78,6 +80,16 @@ interface ModelConfig {
   cachedInputPricePerMillion?: number;
   description: string;
 }
+
+/** SIMPLE 등급 폴백 모델 (무료) */
+export const LLAMA_FREE_MODEL: ModelConfig = {
+  id: "meta-llama/llama-3.1-8b-instruct:free",
+  name: "Llama 3.1 8B (Free)",
+  complexity: "SIMPLE",
+  inputPricePerMillion: 0,
+  outputPricePerMillion: 0,
+  description: "무료 모델 - 간단한 요약/분류 작업에 활용",
+};
 
 export const MODEL_CATALOG: Record<TaskComplexity, ModelConfig> = {
   SIMPLE: {
@@ -352,7 +364,10 @@ export async function orchestrate(
   }
 
   const taskType: TaskType = options.taskType ?? "auto";
-  const modelConfig = MODEL_CATALOG[complexity];
+  // useFreeModel=true이고 SIMPLE 등급일 때 Llama 3.1 8B 무료 모델 사용
+  const modelConfig = (options.useFreeModel && complexity === "SIMPLE")
+    ? LLAMA_FREE_MODEL
+    : MODEL_CATALOG[complexity];
 
   // 2. 시스템 프롬프트
   const systemPrompt =
@@ -440,5 +455,5 @@ export async function orchestrate(
 // ────────────────────────────────────────────────────────────────────────────
 
 export function getModelPricing(): ModelConfig[] {
-  return Object.values(MODEL_CATALOG);
+  return [...Object.values(MODEL_CATALOG), LLAMA_FREE_MODEL];
 }
