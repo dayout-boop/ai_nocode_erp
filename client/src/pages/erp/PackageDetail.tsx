@@ -146,7 +146,7 @@ export default function PackageDetail() {
   const [aiKeywords, setAiKeywords] = useState<string[]>([]);
   const [aiKeywordInput, setAiKeywordInput] = useState('');
   const [aiGenerateCount, setAiGenerateCount] = useState<number>(3);
-  const [aiPreviewImages, setAiPreviewImages] = useState<{ url: string; key: string; prompt: string }[]>([]);
+  const [aiPreviewImages, setAiPreviewImages] = useState<{ url: string; key: string; storageUrl: string; prompt: string }[]>([]);
   const [aiSelectedKeys, setAiSelectedKeys] = useState<Set<string>>(new Set());
 
   const generateAIImagesMutation = trpc.packages.generateAIImages.useMutation({
@@ -165,8 +165,9 @@ export default function PackageDetail() {
       setAiPreviewImages([]);
       setAiSelectedKeys(new Set());
       refetchImages();
+      utils.packages.get.invalidate({ id });
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error('등록 실패: ' + e.message),
   });
 
   const handleAddAiKeyword = () => {
@@ -618,7 +619,7 @@ export default function PackageDetail() {
                             saveSelectedAIImagesMutation.mutate({
                               packageId: id,
                               packageTitle: data.title,
-                              selectedImages: selected.map((img) => ({ url: img.url, key: img.key })),
+                              selectedImages: selected.map((img) => ({ storageUrl: img.storageUrl, key: img.key })),
                             });
                           }}
                           disabled={aiSelectedKeys.size === 0 || saveSelectedAIImagesMutation.isPending}

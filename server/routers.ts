@@ -11,7 +11,7 @@ import {
 } from "../drizzle/schema";
 import { eq, desc, and, gte, lte, like, sql, count, asc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { storagePut } from "./storage";
+import { storagePut, storageGetSignedUrl } from "./storage";
 import { optimizeImage, optimizeBase64Image } from "./imageOptimizer";
 import { generateImage } from "./_core/imageGeneration";
 import { ENV } from "./_core/env";
@@ -428,12 +428,12 @@ const packagesRouter = router({
       ? `, ${input.keywords.join(', ')}`
       : '';
     const prompt = `Luxury golf course in ${regionEn} ${countryEn}, beautiful green fairway, blue sky, professional golf photography, wide angle panoramic view, high quality travel brochure style, 4K ultra HD, no people, serene atmosphere${keywordStr}`;
-    const { url: generatedUrl } = await generateImage({ prompt });
-    if (!generatedUrl) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "이미지 생성 실패" });
-    // 생성된 이미지 최적화 (이미 S3에 있으므로 URL로 다운로드)
-    const { buffer, mimeType } = await optimizeImage(generatedUrl);
-    const key = `packages/${input.packageId}/ai_${Date.now()}.webp`;
-    const { url, key: savedKey } = await storagePut(key, buffer, mimeType);
+    const { url: storageUrl } = await generateImage({ prompt });
+    if (!storageUrl) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "이미지 생성 실패" });
+    // generateImage가 이미 S3에 저장하므로 중복 저장 안 함
+    // storageUrl = /manus-storage/{key} 형식
+    const savedKey = storageUrl.replace(/^\/manus-storage\//, '');
+    const url = storageUrl;
     const [{ cnt }] = await db.select({ cnt: count() }).from(packageImages).where(eq(packageImages.packageId, input.packageId));
     const sortOrder = Number(cnt);
     if (input.isCover) {
@@ -479,19 +479,20 @@ const packagesRouter = router({
       `Golf course in ${regionEn} ${countryEn}, sunset panorama, manicured greens, water hazard reflection, cinematic photography, premium travel brochure${keywordStr}`,
     ];
     const selectedPrompts = promptVariants.slice(0, input.count);
-    // 병렬 생성 후 S3 임시 저장 (temp/ 경로)
+    // 병렬 생성 - generateImage가 이미 S3에 저장하므로 중복 저장 안 함
     const results = await Promise.allSettled(
-      selectedPrompts.map(async (prompt, i) => {
-        const { url: generatedUrl } = await generateImage({ prompt });
-        if (!generatedUrl) throw new Error('이미지 생성 실패');
-        const { buffer, mimeType } = await optimizeImage(generatedUrl);
-        const key = `packages/${input.packageId}/ai_temp_${Date.now()}_${i}.webp`;
-        const { url, key: savedKey } = await storagePut(key, buffer, mimeType);
-        return { url, key: savedKey, prompt };
+      selectedPrompts.map(async (prompt) => {
+        const { url: storageUrl } = await generateImage({ prompt });
+        if (!storageUrl) throw new Error('이미지 생성 실패');
+        // storageUrl은 /manus-storage/{key} 형식이므로 key 추출
+        const key = storageUrl.replace(/^\/manus-storage\//, '');
+        // 프론트에서 이미지 표시를 위해 presigned URL 반환
+        const signedUrl = await storageGetSignedUrl(key);
+        return { url: signedUrl, key, storageUrl, prompt };
       })
     );
     const images = results
-      .filter((r): r is PromiseFulfilledResult<{ url: string; key: string; prompt: string }> => r.status === 'fulfilled')
+      .filter((r): r is PromiseFulfilledResult<{ url: string; key: string; storageUrl: string; prompt: string }> => r.status === 'fulfilled')
       .map((r) => r.value);
     if (images.length === 0) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: '이미지 생성에 실패했습니다.' });
     return { images };
@@ -502,7 +503,7 @@ const packagesRouter = router({
     packageId: z.number(),
     packageTitle: z.string(),
     selectedImages: z.array(z.object({
-      url: z.string(),
+      storageUrl: z.string(), // /manus-storage/{key} 형식 - DB에 저장할 URL
       key: z.string(),
     })),
   })).mutation(async ({ input }) => {
@@ -513,14 +514,14 @@ const packagesRouter = router({
     for (const img of input.selectedImages) {
       await db.insert(packageImages).values({
         packageId: input.packageId,
-        imageUrl: img.url,
+        imageUrl: img.storageUrl, // presigned URL 아닌 /manus-storage/ 경로 저장
         imageKey: img.key,
         altText: `AI 생성: ${input.packageTitle}`,
         sortOrder,
         isCover: sortOrder === 0,
       });
       if (sortOrder === 0) {
-        await db.update(packages).set({ imageUrl: img.url }).where(eq(packages.id, input.packageId));
+        await db.update(packages).set({ imageUrl: img.storageUrl }).where(eq(packages.id, input.packageId));
       }
       sortOrder++;
     }
