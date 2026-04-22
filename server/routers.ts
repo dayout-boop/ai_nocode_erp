@@ -428,8 +428,21 @@ const packagesRouter = router({
       ? `, ${input.keywords.join(', ')}`
       : '';
     const prompt = `Luxury golf course in ${regionEn} ${countryEn}, beautiful green fairway, blue sky, professional golf photography, wide angle panoramic view, high quality travel brochure style, 4K ultra HD, no people, serene atmosphere${keywordStr}`;
-    const { url: storageUrl } = await generateImage({ prompt });
-    if (!storageUrl) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "이미지 생성 실패" });
+    let storageUrl: string;
+    try {
+      const result = await generateImage({ prompt });
+      if (!result.url) throw new Error('이미지 URL이 비어있습니다');
+      storageUrl = result.url;
+    } catch (err) {
+      const rawMsg = err instanceof Error ? err.message : String(err);
+      let userMsg = rawMsg;
+      if (rawMsg.includes('usage exhausted') || rawMsg.includes('usage_exhausted')) {
+        userMsg = 'AI 이미지 생성 한도를 초과했습니다. 잠시 후 다시 시도하거나 Pixabay 검색을 이용해 주세요.';
+      } else if (rawMsg.includes('400') || rawMsg.includes('failed_precondition')) {
+        userMsg = 'AI 이미지 생성 서비스에 문제가 발생했습니다. Pixabay 검색을 대신 이용해 주세요.';
+      }
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: userMsg });
+    }
     // generateImage가 이미 S3에 저장하므로 중복 저장 안 함
     // storageUrl = /manus-storage/{key} 형식
     const savedKey = storageUrl.replace(/^\/manus-storage\//, '');
@@ -479,22 +492,40 @@ const packagesRouter = router({
       `Golf course in ${regionEn} ${countryEn}, sunset panorama, manicured greens, water hazard reflection, cinematic photography, premium travel brochure${keywordStr}`,
     ];
     const selectedPrompts = promptVariants.slice(0, input.count);
-    // 병렬 생성 - generateImage가 이미 S3에 저장하므로 중복 저장 안 함
-    const results = await Promise.allSettled(
-      selectedPrompts.map(async (prompt) => {
+    // 순차 생성 - 병렬 시 서버 부하 및 타임아웃 문제 방지
+    const images: { url: string; key: string; storageUrl: string; prompt: string }[] = [];
+    const errors: string[] = [];
+    for (let i = 0; i < selectedPrompts.length; i++) {
+      const prompt = selectedPrompts[i];
+      try {
+        console.log(`[AI Image] 생성 시작 ${i + 1}/${selectedPrompts.length}`);
         const { url: storageUrl } = await generateImage({ prompt });
-        if (!storageUrl) throw new Error('이미지 생성 실패');
+        if (!storageUrl) throw new Error('이미지 URL이 비어있습니다');
         // storageUrl은 /manus-storage/{key} 형식이므로 key 추출
         const key = storageUrl.replace(/^\/manus-storage\//, '');
         // 프론트에서 이미지 표시를 위해 presigned URL 반환
         const signedUrl = await storageGetSignedUrl(key);
-        return { url: signedUrl, key, storageUrl, prompt };
-      })
-    );
-    const images = results
-      .filter((r): r is PromiseFulfilledResult<{ url: string; key: string; storageUrl: string; prompt: string }> => r.status === 'fulfilled')
-      .map((r) => r.value);
-    if (images.length === 0) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: '이미지 생성에 실패했습니다.' });
+        images.push({ url: signedUrl, key, storageUrl, prompt });
+        console.log(`[AI Image] 생성 완료 ${i + 1}/${selectedPrompts.length}: ${storageUrl}`);
+      } catch (err) {
+        const rawMsg = err instanceof Error ? err.message : String(err);
+        // 사용량 초과 에러 사용자 친화적 메시지로 변환
+        let msg = rawMsg;
+        if (rawMsg.includes('usage exhausted') || rawMsg.includes('usage_exhausted')) {
+          msg = 'AI 이미지 생성 한도를 초과했습니다. 잠시 후 다시 시도하거나 Pixabay 검색을 이용해 주세요.';
+        } else if (rawMsg.includes('quota') || rawMsg.includes('rate limit') || rawMsg.includes('429')) {
+          msg = 'AI 이미지 생성 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.';
+        } else if (rawMsg.includes('400') || rawMsg.includes('failed_precondition')) {
+          msg = 'AI 이미지 생성 서비스에 문제가 발생했습니다. Pixabay 검색을 대신 이용해 주세요.';
+        }
+        console.error(`[AI Image] 생성 실패 ${i + 1}/${selectedPrompts.length}:`, rawMsg);
+        errors.push(msg);
+      }
+    }
+    if (images.length === 0) {
+      const reason = errors.length > 0 ? errors[0] : '알 수 없는 오류';
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: `이미지 생성에 실패했습니다: ${reason}` });
+    }
     return { images };
   }),
 
