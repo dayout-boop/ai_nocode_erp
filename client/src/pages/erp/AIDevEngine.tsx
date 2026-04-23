@@ -19,8 +19,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, Bug, CheckCircle, Clock, Code, Search, Shield, Wrench, XCircle, Zap, RefreshCw, Eye, ThumbsUp, ThumbsDown } from "lucide-react";
+import { AlertTriangle, Bug, CheckCircle, Clock, Code, Search, Shield, Wrench, XCircle, Zap, RefreshCw, Eye, ThumbsUp, ThumbsDown, SplitSquareHorizontal, AlignJustify } from "lucide-react";
 import { toast } from "sonner";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 
 // ─── 상태 배지 색상 매핑 ──────────────────────────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
@@ -175,13 +176,23 @@ function FixRequestDetailDialog({ requestId, onClose }: { requestId: number; onC
   const runReview = trpc.aiDevEngine.runReview.useMutation({ onSuccess: () => refetch() });
   const approveRequest = trpc.aiDevEngine.approveFixRequest.useMutation({ onSuccess: () => { refetch(); onClose(); } });
   const [feedback, setFeedback] = useState("");
-  
+  const [diffMode, setDiffMode] = useState<"split" | "unified">("split");
+  const [showRawCode, setShowRawCode] = useState(false);
 
   if (isLoading || !data) return null;
   const { request, reviews } = data;
 
   const isCritical = request.isCritical;
   const canApprove = ["in_review", "pending"].includes(request.status);
+
+  // AI 수정 코드에서 실제 코드 블록 추출 (```typescript ... ``` 형식)
+  const extractCodeBlock = (text: string): string => {
+    const match = text.match(/```(?:typescript|tsx|ts|javascript|jsx|js)?\n([\s\S]*?)```/);
+    return match ? match[1].trim() : text;
+  };
+
+  const originalCode = request.originalCode ?? "";
+  const suggestedCode = request.aiFixCode ? extractCodeBlock(request.aiFixCode) : "";
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -219,15 +230,87 @@ function FixRequestDetailDialog({ requestId, onClose }: { requestId: number; onC
             <div className="bg-gray-50 rounded p-3 text-sm text-gray-600 whitespace-pre-wrap">{request.description}</div>
           </div>
 
-          {/* AI 수정 코드 */}
+          {/* AI 수정 코드 - Diff 비교 뷰어 */}
           {request.aiFixCode ? (
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
-                <Code className="w-4 h-4" /> AI 수정 제안
-              </p>
-              <div className="bg-gray-900 text-gray-100 rounded p-3 text-xs font-mono whitespace-pre-wrap max-h-60 overflow-y-auto">
-                {request.aiFixCode}
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                  <Code className="w-4 h-4" /> 코드 변경 비교 (Diff)
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm" variant={diffMode === "split" ? "default" : "outline"}
+                    onClick={() => setDiffMode("split")}
+                    className="h-7 px-2 text-xs gap-1"
+                  >
+                    <SplitSquareHorizontal className="w-3 h-3" /> 좌우 분할
+                  </Button>
+                  <Button
+                    size="sm" variant={diffMode === "unified" ? "default" : "outline"}
+                    onClick={() => setDiffMode("unified")}
+                    className="h-7 px-2 text-xs gap-1"
+                  >
+                    <AlignJustify className="w-3 h-3" /> 통합
+                  </Button>
+                  <Button
+                    size="sm" variant="ghost"
+                    onClick={() => setShowRawCode(!showRawCode)}
+                    className="h-7 px-2 text-xs"
+                  >
+                    {showRawCode ? "📊 Diff 보기" : "📝 원문 보기"}
+                  </Button>
+                </div>
               </div>
+
+              {showRawCode ? (
+                /* 원문 AI 응답 보기 */
+                <div className="bg-gray-900 text-gray-100 rounded p-3 text-xs font-mono whitespace-pre-wrap max-h-72 overflow-y-auto">
+                  {request.aiFixCode}
+                </div>
+              ) : originalCode ? (
+                /* Diff 비교 뷰어 */
+                <div className="rounded-lg overflow-hidden border border-gray-200 text-xs max-h-96 overflow-y-auto">
+                  <ReactDiffViewer
+                    oldValue={originalCode}
+                    newValue={suggestedCode}
+                    splitView={diffMode === "split"}
+                    compareMethod={DiffMethod.LINES}
+                    leftTitle={diffMode === "split" ? "현재 코드 (수정 전)" : undefined}
+                    rightTitle={diffMode === "split" ? "AI 수정 제안 (수정 후)" : undefined}
+                    styles={{
+                      variables: {
+                        light: {
+                          diffViewerBackground: "#fafafa",
+                          addedBackground: "#e6ffed",
+                          addedColor: "#24292e",
+                          removedBackground: "#ffeef0",
+                          removedColor: "#24292e",
+                          wordAddedBackground: "#acf2bd",
+                          wordRemovedBackground: "#fdb8c0",
+                          codeFoldBackground: "#f1f8ff",
+                          codeFoldGutterBackground: "#dbedff",
+                        },
+                      },
+                      line: { fontSize: "11px", fontFamily: "'JetBrains Mono', 'Fira Code', monospace" },
+                    }}
+                    useDarkTheme={false}
+                    hideLineNumbers={false}
+                    showDiffOnly={true}
+                    extraLinesSurroundingDiff={3}
+                  />
+                </div>
+              ) : (
+                /* originalCode가 없는 경우: AI 응답 원문 표시 */
+                <div>
+                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded p-2 mb-2">
+                    ⚠️ 수정 전 원본 코드가 없습니다. AI 수정 제안만 표시됩니다.
+                    (다음 수정 요청부터 대상 파일을 지정하면 diff가 자동 생성됩니다.)
+                  </p>
+                  <div className="bg-gray-900 text-gray-100 rounded p-3 text-xs font-mono whitespace-pre-wrap max-h-72 overflow-y-auto">
+                    {request.aiFixCode}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <Button onClick={() => generateFix.mutate({ fixRequestId: requestId })}

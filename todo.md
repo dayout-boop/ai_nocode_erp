@@ -247,3 +247,12 @@
 - [x] 핵심 기능 수정 요청 시 사용자 확인 다이얼로그 (AIDevEngine.tsx - 승인 전 피드백 입력 강제)
 - [x] 승인 전 변경사항 diff 미리보기 (suggestedCode 코드 평 표시)
 - [x] 거부 시 원래 상태 유지 로직 (rejectFix 프로시저 - 상태 rejected로 변경만)
+
+## 코드 Diff 시각화 기능 추가
+
+- [x] react-diff-viewer-continued 패키지 설치 (v4.2.0)
+- [x] aiFixRequests 테이블에 originalCode 컨럼 추가 및 DB 마이그레이션 (0008_tough_loa.sql)
+- [x] generateFix 프로시저에서 originalCode 저장 로직 추가 (autoFixer.ts)
+- [x] AIDevEngine.tsx 수정 요청 상세 다이얼로그에 DiffViewer 컴포넌트 구현 (Split/Unified 모드 전환)
+- [x] 수정 요청 상세 다이얼로그에 before/after 코드 diff 표시 (원문 보기 토글 포함)
+- [x] 핵심 기능 수정 승인 다이얼로그에도 diff 미리보기 포함 (originalCode 없을 시 경고 메시지 표시)

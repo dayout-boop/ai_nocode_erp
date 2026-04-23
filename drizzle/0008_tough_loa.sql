@@ -1,0 +1,1 @@
+ALTER TABLE `ai_fix_requests` ADD `originalCode` text;

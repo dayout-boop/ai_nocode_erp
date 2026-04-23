@@ -523,6 +523,8 @@ export const aiFixRequests = mysqlTable("ai_fix_requests", {
   isCritical: boolean("isCritical").default(false).notNull(),
   /** 처리 상태 */
   status: mysqlEnum("status", ["pending", "in_review", "approved", "rejected", "applied", "failed"]).default("pending").notNull(),
+  /** 수정 전 원본 코드 (diff 비교용) */
+  originalCode: text("originalCode"),
   /** AI가 생성한 수정 코드 제안 */
   aiFixCode: text("aiFixCode"),
   /** AI 수정 설명 */
