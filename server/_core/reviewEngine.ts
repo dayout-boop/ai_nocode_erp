@@ -216,9 +216,35 @@ export async function runFullReview(fixRequestId: number): Promise<{
       durationMs: result.durationMs,
     }).catch(() => {});
 
-    // 보안 검토에서 fail이면 즉시 중단
+    // 보안 검토에서 fail이면 critical 수정 요청 자동 생성 후 즉시 중단
     if (stage === "security" && result.result === "fail") {
       console.warn(`[ReviewEngine] 보안 검토 실패 - fixRequestId=${fixRequestId}`);
+      // 보안 취약점 발견 시 critical 우선순위 수정 요청 자동 생성
+      try {
+        const securityIssues = result.issues
+          .filter((i) => i.severity === "error" || i.severity === "warning")
+          .map((i) => i.message)
+          .join("; ");
+        await db.insert(aiFixRequests).values({
+          title: `[보안취약점] ${request.title} 보안 재검토 필요`,
+          description: `보안 검토 단계에서 취약점이 발견되었습니다.
+
+원본 수정 요청 ID: ${fixRequestId}
+발견된 이슈:
+${securityIssues || result.details}`,
+          targetFile: request.targetFile ?? undefined,
+          targetFunction: request.targetFunction ?? undefined,
+          priority: "critical",
+          isCritical: true,
+          requestSource: "auto",
+          aiCategory: "SECURITY",
+          aiSuggestedPriority: "critical",
+          errorLogId: request.errorLogId ?? undefined,
+        });
+        console.warn(`[ReviewEngine] 보안 취약점 critical 수정 요청 자동 생성 완료 - fixRequestId=${fixRequestId}`);
+      } catch (insertErr) {
+        console.error(`[ReviewEngine] critical 수정 요청 생성 실패:`, insertErr);
+      }
       break;
     }
   }

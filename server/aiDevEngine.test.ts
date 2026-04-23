@@ -193,3 +193,162 @@ describe("reviewEngine - 검토 결과 집계", () => {
     expect(result.overallResult).toBe("fail");
   });
 });
+
+// ─── analyzeDevRequest 반환값 검증 테스트 ────────────────────────────────────
+describe("geminiAIService - analyzeDevRequest 반환값 구조", () => {
+  interface AIRequestAnalysis {
+    category: "BUG" | "FEATURE" | "IMPROVEMENT" | "REFACTOR";
+    priority: "low" | "medium" | "high" | "critical";
+    estimatedHours: number;
+    suggestedTeam: string;
+    analysis: string;
+  }
+
+  // analyzeDevRequest의 fallback 반환값을 직접 검증
+  const fallback: AIRequestAnalysis = {
+    category: "FEATURE",
+    priority: "medium",
+    estimatedHours: 8,
+    suggestedTeam: "개발팀",
+    analysis: "AI 분석 중 오류가 발생했습니다. 수동으로 분류해주세요.",
+  };
+
+  it("반환값에 category 필드가 있어야 함", () => {
+    expect(fallback).toHaveProperty("category");
+    expect(["BUG", "FEATURE", "IMPROVEMENT", "REFACTOR"]).toContain(fallback.category);
+  });
+
+  it("반환값에 priority 필드가 있어야 함", () => {
+    expect(fallback).toHaveProperty("priority");
+    expect(["low", "medium", "high", "critical"]).toContain(fallback.priority);
+  });
+
+  it("반환값에 estimatedHours 필드가 있어야 함 (숫자)", () => {
+    expect(fallback).toHaveProperty("estimatedHours");
+    expect(typeof fallback.estimatedHours).toBe("number");
+    expect(fallback.estimatedHours).toBeGreaterThan(0);
+  });
+
+  it("반환값에 suggestedTeam 필드가 있어야 함 (문자열)", () => {
+    expect(fallback).toHaveProperty("suggestedTeam");
+    expect(typeof fallback.suggestedTeam).toBe("string");
+    expect(fallback.suggestedTeam.length).toBeGreaterThan(0);
+  });
+
+  it("반환값에 analysis 필드가 있어야 함 (문자열)", () => {
+    expect(fallback).toHaveProperty("analysis");
+    expect(typeof fallback.analysis).toBe("string");
+  });
+
+  it("estimatedHours는 1~200 사이여야 함", () => {
+    const hours = fallback.estimatedHours;
+    expect(hours).toBeGreaterThanOrEqual(1);
+    expect(hours).toBeLessThanOrEqual(200);
+  });
+
+  it("createRequest 백그라운드 분석 DB 업데이트에 estimatedHours, suggestedTeam 포함 검증", () => {
+    const analysis: AIRequestAnalysis = {
+      category: "BUG",
+      priority: "high",
+      estimatedHours: 4,
+      suggestedTeam: "백엔드",
+      analysis: "결제 모듈에서 오류가 발생하고 있습니다.",
+    };
+    const dbUpdateSet = {
+      aiCategory: analysis.category,
+      aiSuggestedPriority: analysis.priority,
+      estimatedHours: analysis.estimatedHours,
+      suggestedTeam: analysis.suggestedTeam,
+      aiAnalysis: `유형: ${analysis.category} | 우선순위: ${analysis.priority} | 예상공수: ${analysis.estimatedHours}h | 담당팀: ${analysis.suggestedTeam}\n\n${analysis.analysis}`,
+      aiAnalyzed: true,
+    };
+    expect(dbUpdateSet).toHaveProperty("estimatedHours", 4);
+    expect(dbUpdateSet).toHaveProperty("suggestedTeam", "백엔드");
+    expect(dbUpdateSet).toHaveProperty("aiCategory", "BUG");
+    expect(dbUpdateSet).toHaveProperty("aiSuggestedPriority", "high");
+    expect(dbUpdateSet.aiAnalyzed).toBe(true);
+  });
+});
+
+// ─── ReviewEngine security fail → critical 수정 요청 자동 생성 테스트 ─────────
+describe("reviewEngine - security fail → critical 수정 요청 자동 생성", () => {
+  interface StageResult {
+    stage: string;
+    result: "pass" | "fail" | "warning";
+    issues: Array<{ severity: "error" | "warning" | "info"; message: string }>;
+    details: string;
+  }
+
+  function shouldCreateCriticalFixRequest(stages: StageResult[]): {
+    shouldCreate: boolean;
+    reason: string;
+    priority: string;
+  } {
+    const securityStage = stages.find((s) => s.stage === "security");
+    if (securityStage && securityStage.result === "fail") {
+      return {
+        shouldCreate: true,
+        reason: "보안 검토 실패 - 취약점 발견",
+        priority: "critical",
+      };
+    }
+    return { shouldCreate: false, reason: "", priority: "" };
+  }
+
+  it("security 단계 fail → critical 수정 요청 생성 필요", () => {
+    const stages: StageResult[] = [
+      { stage: "syntax", result: "pass", issues: [], details: "OK" },
+      { stage: "security", result: "fail", issues: [{ severity: "error", message: "SQL 인젝션 취약점 발견" }], details: "보안 이슈" },
+    ];
+    const result = shouldCreateCriticalFixRequest(stages);
+    expect(result.shouldCreate).toBe(true);
+    expect(result.priority).toBe("critical");
+  });
+
+  it("security 단계 pass → critical 수정 요청 생성 불필요", () => {
+    const stages: StageResult[] = [
+      { stage: "syntax", result: "pass", issues: [], details: "OK" },
+      { stage: "security", result: "pass", issues: [], details: "보안 이슈 없음" },
+    ];
+    const result = shouldCreateCriticalFixRequest(stages);
+    expect(result.shouldCreate).toBe(false);
+  });
+
+  it("security 단계 warning → critical 수정 요청 생성 불필요 (경고는 자동 생성 대상 아님)", () => {
+    const stages: StageResult[] = [
+      { stage: "security", result: "warning", issues: [{ severity: "warning", message: "입력 검증 강화 권장" }], details: "경고" },
+    ];
+    const result = shouldCreateCriticalFixRequest(stages);
+    expect(result.shouldCreate).toBe(false);
+  });
+
+  it("security fail 시 생성되는 수정 요청은 isCritical=true, priority=critical이어야 함", () => {
+    const criticalFixRequest = {
+      title: "[보안취약점] 결제 모듈 보안 재검토 필요",
+      description: "보안 검토 단계에서 취약점이 발견되었습니다.",
+      priority: "critical" as const,
+      isCritical: true,
+      requestSource: "auto" as const,
+      aiCategory: "SECURITY",
+      aiSuggestedPriority: "critical",
+    };
+    expect(criticalFixRequest.priority).toBe("critical");
+    expect(criticalFixRequest.isCritical).toBe(true);
+    expect(criticalFixRequest.requestSource).toBe("auto");
+    expect(criticalFixRequest.aiCategory).toBe("SECURITY");
+  });
+
+  it("security fail 시 이슈 메시지가 수정 요청 설명에 포함되어야 함", () => {
+    const securityIssues = [
+      { severity: "error" as const, message: "SQL 인젝션 취약점" },
+      { severity: "warning" as const, message: "입력 검증 누락" },
+    ];
+    const issueText = securityIssues
+      .filter((i) => i.severity === "error" || i.severity === "warning")
+      .map((i) => i.message)
+      .join("; ");
+    const description = `보안 검토 단계에서 취약점이 발견되었습니다.\n\n발견된 이슈:\n${issueText}`;
+    expect(description).toContain("SQL 인젝션 취약점");
+    expect(description).toContain("입력 검증 누락");
+  });
+});

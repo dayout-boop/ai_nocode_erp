@@ -1176,6 +1176,8 @@ const devAIRouter = router({
           await dbInner.update(devRequests).set({
             aiCategory: analysis.category,
             aiSuggestedPriority: analysis.priority,
+            estimatedHours: analysis.estimatedHours,
+            suggestedTeam: analysis.suggestedTeam,
             aiAnalysis: `유형: ${analysis.category} | 우선순위: ${analysis.priority} | 예상공수: ${analysis.estimatedHours}h | 담당팀: ${analysis.suggestedTeam}\n\n${analysis.analysis}`,
             aiAnalyzed: true,
           }).where(eq(devRequests.id, newId));

@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, Bug, CheckCircle, Clock, Code, Search, Shield, Wrench, XCircle, Zap, RefreshCw, Eye, ThumbsUp, ThumbsDown, SplitSquareHorizontal, AlignJustify, Lightbulb, FileText, Sparkles, GitBranch } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bug, CheckCircle, Clock, Code, Search, Shield, Wrench, XCircle, Zap, RefreshCw, Eye, ThumbsUp, ThumbsDown, SplitSquareHorizontal, AlignJustify, Lightbulb, FileText, Sparkles, GitBranch } from "lucide-react";
 import { toast } from "sonner";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 
@@ -939,6 +939,157 @@ function AutoDocTab() {
   );
 }
 
+// ─── 파이프라인 단계형 다이어그램 ──────────────────────────────────────────────
+function PipelineDiagram() {
+  const { data: stats } = trpc.aiDevEngine.getDashboardStats.useQuery(undefined, {
+    refetchInterval: 30000, // 30초마다 자동 갱신
+  });
+
+  const stages = [
+    {
+      id: "detect",
+      label: "오류 감지",
+      sublabel: "ErrorWatcher",
+      icon: Bug,
+      color: "text-red-600",
+      bg: "bg-red-50",
+      border: "border-red-200",
+      badge: stats?.newErrors ?? 0,
+      badgeLabel: "신규",
+      badgeColor: "bg-red-500",
+      description: "런타임 오류 자동 감지 및 분류",
+    },
+    {
+      id: "analyze",
+      label: "AI 분석",
+      sublabel: "geminiAIService",
+      icon: Zap,
+      color: "text-yellow-600",
+      bg: "bg-yellow-50",
+      border: "border-yellow-200",
+      badge: null,
+      badgeLabel: "",
+      badgeColor: "",
+      description: "유형·우선순위·공수 자동 예측",
+    },
+    {
+      id: "fix",
+      label: "수정 제안",
+      sublabel: "AutoFixer",
+      icon: Code,
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+      border: "border-blue-200",
+      badge: stats?.pendingFixes ?? 0,
+      badgeLabel: "대기",
+      badgeColor: "bg-blue-500",
+      description: "AI 코드 수정 제안 생성",
+    },
+    {
+      id: "review",
+      label: "5단계 검토",
+      sublabel: "ReviewEngine",
+      icon: Shield,
+      color: "text-purple-600",
+      bg: "bg-purple-50",
+      border: "border-purple-200",
+      badge: null,
+      badgeLabel: "",
+      badgeColor: "",
+      description: "문법·논리·보안·성능·호환성",
+    },
+    {
+      id: "approve",
+      label: "사용자 승인",
+      sublabel: "피드백 필수",
+      icon: AlertTriangle,
+      color: "text-orange-600",
+      bg: "bg-orange-50",
+      border: "border-orange-200",
+      badge: null,
+      badgeLabel: "",
+      badgeColor: "",
+      description: "핵심 기능 수정 시 5자 이상 검토 의견",
+    },
+    {
+      id: "apply",
+      label: "적용 완료",
+      sublabel: "Applied",
+      icon: CheckCircle,
+      color: "text-green-600",
+      bg: "bg-green-50",
+      border: "border-green-200",
+      badge: stats?.approvedFixes ?? 0,
+      badgeLabel: "완료",
+      badgeColor: "bg-green-500",
+      description: "승인된 수정 사항 코드베이스 반영",
+    },
+  ];
+
+  return (
+    <div className="mb-6">
+      <div className="bg-gradient-to-r from-gray-50 to-blue-50 border border-gray-200 rounded-xl p-4">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">AI 자동화 파이프라인</p>
+        {/* 데스크탑: 가로 레이아웃 */}
+        <div className="hidden md:flex items-stretch gap-0">
+          {stages.map((stage, idx) => (
+            <div key={stage.id} className="flex items-center flex-1">
+              <div className={`flex-1 ${stage.bg} ${stage.border} border rounded-lg p-3 relative`}>
+                {/* 배지 */}
+                {stage.badge !== null && stage.badge > 0 && (
+                  <span className={`absolute -top-2 -right-2 ${stage.badgeColor} text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center shadow`}>
+                    {stage.badge > 99 ? "99+" : stage.badge}
+                  </span>
+                )}
+                <div className="flex flex-col items-center text-center gap-1">
+                  <stage.icon className={`w-5 h-5 ${stage.color}`} />
+                  <p className={`text-xs font-bold ${stage.color}`}>{stage.label}</p>
+                  <p className="text-[10px] text-gray-400 font-mono">{stage.sublabel}</p>
+                  <p className="text-[10px] text-gray-500 leading-tight hidden lg:block">{stage.description}</p>
+                </div>
+              </div>
+              {idx < stages.length - 1 && (
+                <ArrowRight className="w-4 h-4 text-gray-400 shrink-0 mx-1" />
+              )}
+            </div>
+          ))}
+        </div>
+        {/* 모바일: 세로 레이아웃 */}
+        <div className="flex md:hidden flex-col gap-2">
+          {stages.map((stage, idx) => (
+            <div key={stage.id}>
+              <div className={`flex items-center gap-3 ${stage.bg} ${stage.border} border rounded-lg p-3 relative`}>
+                {stage.badge !== null && stage.badge > 0 && (
+                  <span className={`${stage.badgeColor} text-white text-xs font-bold px-1.5 py-0.5 rounded-full shrink-0`}>
+                    {stage.badge}
+                  </span>
+                )}
+                <stage.icon className={`w-4 h-4 ${stage.color} shrink-0`} />
+                <div>
+                  <p className={`text-xs font-bold ${stage.color}`}>{stage.label}</p>
+                  <p className="text-[10px] text-gray-400">{stage.description}</p>
+                </div>
+              </div>
+              {idx < stages.length - 1 && (
+                <div className="flex justify-center py-1">
+                  <div className="w-0.5 h-3 bg-gray-300" />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        {/* 요약 수치 */}
+        <div className="mt-3 pt-3 border-t border-gray-200 flex flex-wrap gap-4 text-xs text-gray-500">
+          <span>전체 로그: <strong className="text-gray-700">{stats?.totalLogs ?? 0}건</strong></span>
+          <span>신규 오류: <strong className="text-red-600">{stats?.newErrors ?? 0}건</strong></span>
+          <span>대기 수정: <strong className="text-blue-600">{stats?.pendingFixes ?? 0}건</strong></span>
+          <span>승인 완료: <strong className="text-green-600">{stats?.approvedFixes ?? 0}건</strong></span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── 메인 페이지 ──────────────────────────────────────────────────────────────
 export default function AIDevEngine() {
   return (
@@ -956,31 +1107,7 @@ export default function AIDevEngine() {
         </div>
 
         {/* 파이프라인 흐름 표시 */}
-        <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 rounded-lg p-3 flex-wrap">
-          <span className="flex items-center gap-1 bg-red-100 text-red-600 px-2 py-1 rounded">
-            <Bug className="w-3 h-3" /> 오류 감지
-          </span>
-          <span>→</span>
-          <span className="flex items-center gap-1 bg-yellow-100 text-yellow-600 px-2 py-1 rounded">
-            <Zap className="w-3 h-3" /> AI 분석
-          </span>
-          <span>→</span>
-          <span className="flex items-center gap-1 bg-blue-100 text-blue-600 px-2 py-1 rounded">
-            <Code className="w-3 h-3" /> 수정 제안
-          </span>
-          <span>→</span>
-          <span className="flex items-center gap-1 bg-purple-100 text-purple-600 px-2 py-1 rounded">
-            <Shield className="w-3 h-3" /> 5단계 검토
-          </span>
-          <span>→</span>
-          <span className="flex items-center gap-1 bg-orange-100 text-orange-600 px-2 py-1 rounded">
-            <AlertTriangle className="w-3 h-3" /> 사용자 승인
-          </span>
-          <span>→</span>
-          <span className="flex items-center gap-1 bg-green-100 text-green-600 px-2 py-1 rounded">
-            <CheckCircle className="w-3 h-3" /> 적용
-          </span>
-        </div>
+        <PipelineDiagram />
       </div>
 
       {/* 통계 대시보드 */}
