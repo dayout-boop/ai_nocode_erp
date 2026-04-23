@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, Bug, CheckCircle, Clock, Code, Search, Shield, Wrench, XCircle, Zap, RefreshCw, Eye, ThumbsUp, ThumbsDown, SplitSquareHorizontal, AlignJustify } from "lucide-react";
+import { AlertTriangle, Bug, CheckCircle, Clock, Code, Search, Shield, Wrench, XCircle, Zap, RefreshCw, Eye, ThumbsUp, ThumbsDown, SplitSquareHorizontal, AlignJustify, Lightbulb, FileText, Sparkles, GitBranch } from "lucide-react";
 import { toast } from "sonner";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 
@@ -590,6 +590,334 @@ function SearchTab() {
   );
 }
 
+// ─── 지능형 개발 요청 탭 ────────────────────────────────────────────────────────
+function IntelligentRequestTab() {
+  const [naturalInput, setNaturalInput] = useState("");
+  const [analysisText, setAnalysisText] = useState("");
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [pipelineError, setPipelineError] = useState("");
+  const [pipelineModules, setPipelineModules] = useState("");
+  const [pipelineResult, setPipelineResult] = useState<any>(null);
+
+  const createFromNL = trpc.devAI.createRequestFromNaturalLanguage.useMutation({
+    onSuccess: (data) => {
+      toast.success("자연어 요청이 개발 요청으로 등록되었습니다.");
+      setNaturalInput("");
+      setAnalysisResult(data.analysis);
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const analyzeReq = trpc.devAI.analyzeRequest.useMutation({
+    onSuccess: (data) => setAnalysisResult(data),
+    onError: (e) => toast.error(e.message),
+  });
+
+  const recommendPipeline = trpc.devAI.recommendPipeline.useMutation({
+    onSuccess: (data) => setPipelineResult(data),
+    onError: (e) => toast.error(e.message),
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* 자연어 요청 생성 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Sparkles className="w-4 h-4 text-purple-500" />
+            자연어로 개발 요청 생성
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-gray-500">예: "새로운 해외 패키지 상품 등록 시, AI가 이미지와 설명을 자동으로 생성해주는 기능 추가 요청해줘"</p>
+          <Textarea
+            placeholder="자연어로 개발 요청을 입력하세요..."
+            value={naturalInput}
+            onChange={(e) => setNaturalInput(e.target.value)}
+            rows={3}
+            className="text-sm"
+          />
+          <Button
+            onClick={() => createFromNL.mutate({ userInput: naturalInput })}
+            disabled={!naturalInput.trim() || createFromNL.isPending}
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            <Sparkles className="w-4 h-4 mr-1" />
+            {createFromNL.isPending ? "AI 분석 중..." : "AI 요청 생성"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* 요청 설명 분석 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Lightbulb className="w-4 h-4 text-yellow-500" />
+            요청 설명 AI 분석 (유형·우선순위·공수 예측)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Textarea
+            placeholder="분석할 요청 설명을 입력하세요..."
+            value={analysisText}
+            onChange={(e) => setAnalysisText(e.target.value)}
+            rows={3}
+            className="text-sm"
+          />
+          <Button
+            onClick={() => analyzeReq.mutate({ description: analysisText })}
+            disabled={!analysisText.trim() || analyzeReq.isPending}
+            variant="outline"
+          >
+            <Lightbulb className="w-4 h-4 mr-1" />
+            {analyzeReq.isPending ? "분석 중..." : "AI 분석 실행"}
+          </Button>
+
+          {analysisResult && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 space-y-2 text-sm">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-white rounded p-2 border">
+                  <p className="text-xs text-gray-400">유형</p>
+                  <p className="font-semibold text-gray-800">{analysisResult.category}</p>
+                </div>
+                <div className="bg-white rounded p-2 border">
+                  <p className="text-xs text-gray-400">우선순위</p>
+                  <p className="font-semibold text-orange-600">{analysisResult.priority}</p>
+                </div>
+                <div className="bg-white rounded p-2 border">
+                  <p className="text-xs text-gray-400">예상 공수</p>
+                  <p className="font-semibold text-blue-600">{analysisResult.estimatedHours}h</p>
+                </div>
+                <div className="bg-white rounded p-2 border">
+                  <p className="text-xs text-gray-400">담당 팀</p>
+                  <p className="font-semibold text-gray-800">{analysisResult.suggestedTeam}</p>
+                </div>
+              </div>
+              <div className="bg-white rounded p-3 border">
+                <p className="text-xs text-gray-400 mb-1">AI 분석 내용</p>
+                <p className="text-gray-700 leading-relaxed">{analysisResult.analysis}</p>
+              </div>
+              {analysisResult.relatedFeatures?.length > 0 && (
+                <div className="bg-white rounded p-3 border">
+                  <p className="text-xs text-gray-400 mb-1">연관 기능</p>
+                  <div className="flex flex-wrap gap-1">
+                    {analysisResult.relatedFeatures.map((f: string) => (
+                      <span key={f} className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">{f}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 추천 파이프라인 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <GitBranch className="w-4 h-4 text-green-500" />
+            오류 기반 추천 파이프라인 생성
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Input
+            placeholder="오류 설명 (예: 결제 시 500 에러 발생)"
+            value={pipelineError}
+            onChange={(e) => setPipelineError(e.target.value)}
+            className="text-sm"
+          />
+          <Input
+            placeholder="영향 모듈 (쉼표 구분, 예: stripe, booking, kakao)"
+            value={pipelineModules}
+            onChange={(e) => setPipelineModules(e.target.value)}
+            className="text-sm"
+          />
+          <Button
+            onClick={() => recommendPipeline.mutate({
+              errorDescription: pipelineError,
+              affectedModules: pipelineModules.split(",").map(s => s.trim()).filter(Boolean),
+            })}
+            disabled={!pipelineError.trim() || recommendPipeline.isPending}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            <GitBranch className="w-4 h-4 mr-1" />
+            {recommendPipeline.isPending ? "파이프라인 생성 중..." : "추천 파이프라인 생성"}
+          </Button>
+
+          {pipelineResult && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3 text-sm">
+              <div>
+                <p className="text-xs text-gray-400 mb-1">원인 분석</p>
+                <p className="text-gray-700">{pipelineResult.rootCause}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 mb-1">추천 해결 단계</p>
+                <ol className="space-y-1">
+                  {pipelineResult.steps?.map((step: string, i: number) => (
+                    <li key={i} className="flex gap-2">
+                      <span className="w-5 h-5 bg-green-600 text-white rounded-full flex items-center justify-center text-xs shrink-0">{i + 1}</span>
+                      <span className="text-gray-700">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+              {pipelineResult.estimatedTime && (
+                <div className="flex gap-4">
+                  <span className="text-xs text-gray-400">예상 해결 시간: <strong className="text-gray-700">{pipelineResult.estimatedTime}</strong></span>
+                  <span className="text-xs text-gray-400">비용 절감 방안: <strong className="text-green-600">{pipelineResult.costOptimization}</strong></span>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── 자동 문서화 탭 ──────────────────────────────────────────────────────────────
+function AutoDocTab() {
+  const [selectedVersionId, setSelectedVersionId] = useState<string>("");
+  const [selectedFeatureId, setSelectedFeatureId] = useState<string>("");
+  const [releaseNotes, setReleaseNotes] = useState<any>(null);
+  const [featureDoc, setFeatureDoc] = useState<any>(null);
+
+  const { data: versions } = trpc.devAI.listVersions.useQuery({ featureId: undefined });
+  const { data: features } = trpc.devAI.listFeatures.useQuery();
+
+  const genReleaseNotes = trpc.devAI.generateReleaseNotes.useMutation({
+    onSuccess: (data) => setReleaseNotes(data),
+    onError: (e) => toast.error(e.message),
+  });
+
+  const genFeatureDoc = trpc.devAI.generateFeatureDoc.useMutation({
+    onSuccess: (data) => setFeatureDoc(data),
+    onError: (e) => toast.error(e.message),
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* 릴리즈 노트 생성 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <FileText className="w-4 h-4 text-blue-500" />
+            릴리즈 노트 자동 생성
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Select value={selectedVersionId} onValueChange={setSelectedVersionId}>
+            <SelectTrigger className="text-sm">
+              <SelectValue placeholder="버전 선택..." />
+            </SelectTrigger>
+            <SelectContent>
+              {versions?.map((v) => (
+                <SelectItem key={v.id} value={String(v.id)}>
+                  v{v.version} — {v.description.slice(0, 40)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            onClick={() => genReleaseNotes.mutate({ versionId: Number(selectedVersionId) })}
+            disabled={!selectedVersionId || genReleaseNotes.isPending}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <FileText className="w-4 h-4 mr-1" />
+            {genReleaseNotes.isPending ? "생성 중..." : "릴리즈 노트 생성"}
+          </Button>
+
+          {releaseNotes && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+              <h3 className="font-bold text-blue-800">{releaseNotes.title}</h3>
+              <p className="text-sm text-gray-600">{releaseNotes.summary}</p>
+              {["features", "bugfixes", "improvements", "breaking"].map((section) =>
+                releaseNotes[section]?.length > 0 && (
+                  <div key={section}>
+                    <p className="text-xs font-semibold text-gray-500 uppercase mt-2">{section}</p>
+                    <ul className="space-y-0.5">
+                      {releaseNotes[section].map((item: string, i: number) => (
+                        <li key={i} className="text-sm text-gray-700 flex gap-1"><span>•</span>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )
+              )}
+              {releaseNotes.upgradeGuide && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded p-2 text-xs text-yellow-800">
+                  <strong>업그레이드 가이드:</strong> {releaseNotes.upgradeGuide}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 기술 문서 초안 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Code className="w-4 h-4 text-purple-500" />
+            기능 기술 문서 초안 자동 생성
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Select value={selectedFeatureId} onValueChange={setSelectedFeatureId}>
+            <SelectTrigger className="text-sm">
+              <SelectValue placeholder="기능 선택..." />
+            </SelectTrigger>
+            <SelectContent>
+              {features?.map((f) => (
+                <SelectItem key={f.id} value={String(f.id)}>
+                  {f.name} ({f.category})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            onClick={() => genFeatureDoc.mutate({ featureId: Number(selectedFeatureId) })}
+            disabled={!selectedFeatureId || genFeatureDoc.isPending}
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            <Code className="w-4 h-4 mr-1" />
+            {genFeatureDoc.isPending ? "생성 중..." : "기술 문서 초안 생성"}
+          </Button>
+
+          {featureDoc && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 space-y-3 text-sm">
+              <h3 className="font-bold text-purple-800 text-base">{featureDoc.title}</h3>
+              <p className="text-gray-600">{featureDoc.overview}</p>
+              {featureDoc.usage && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">사용 방법</p>
+                  <p className="text-gray-700 whitespace-pre-wrap">{featureDoc.usage}</p>
+                </div>
+              )}
+              {featureDoc.apiEndpoints?.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">API 엔드포인트</p>
+                  <ul className="space-y-0.5">
+                    {featureDoc.apiEndpoints.map((ep: string, i: number) => (
+                      <li key={i} className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{ep}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {featureDoc.configuration && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">설정 방법</p>
+                  <p className="text-gray-700">{featureDoc.configuration}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ─── 메인 페이지 ──────────────────────────────────────────────────────────────
 export default function AIDevEngine() {
   return (
@@ -639,7 +967,7 @@ export default function AIDevEngine() {
 
       {/* 탭 */}
       <Tabs defaultValue="logs">
-        <TabsList className="mb-4">
+        <TabsList className="mb-4 flex flex-wrap gap-1">
           <TabsTrigger value="logs" className="flex items-center gap-1">
             <Bug className="w-4 h-4" /> 오류 로그
           </TabsTrigger>
@@ -649,11 +977,19 @@ export default function AIDevEngine() {
           <TabsTrigger value="search" className="flex items-center gap-1">
             <Search className="w-4 h-4" /> 기능 검색
           </TabsTrigger>
+          <TabsTrigger value="intelligent" className="flex items-center gap-1">
+            <Sparkles className="w-4 h-4" /> 지능형 요청
+          </TabsTrigger>
+          <TabsTrigger value="docs" className="flex items-center gap-1">
+            <FileText className="w-4 h-4" /> 자동 문서화
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="logs"><ErrorLogsTab /></TabsContent>
         <TabsContent value="fixes"><FixRequestsTab /></TabsContent>
         <TabsContent value="search"><SearchTab /></TabsContent>
+        <TabsContent value="intelligent"><IntelligentRequestTab /></TabsContent>
+        <TabsContent value="docs"><AutoDocTab /></TabsContent>
       </Tabs>
     </div>
   );

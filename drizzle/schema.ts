@@ -329,6 +329,19 @@ export const devRequests = mysqlTable("dev_requests", {
   featureId: int("featureId"),
   createdBy: int("createdBy"),
   createdByName: varchar("createdByName", { length: 100 }),
+  // ── AI 자동 분석 필드 ──────────────────────────────────────────
+  /** AI 분류: BUG | FEATURE | IMPROVEMENT | REFACTOR */
+  aiCategory: varchar("aiCategory", { length: 30 }),
+  /** AI 제안 우선순위: high | medium | low | critical */
+  aiSuggestedPriority: varchar("aiSuggestedPriority", { length: 20 }),
+  /** AI 예상 개발 시간 (시간 단위) */
+  estimatedHours: int("estimatedHours"),
+  /** AI 제안 담당 팀 */
+  suggestedTeam: varchar("suggestedTeam", { length: 100 }),
+  /** AI 분석 요약 */
+  aiAnalysis: text("aiAnalysis"),
+  /** AI 분석 완료 여부 */
+  aiAnalyzed: boolean("aiAnalyzed").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

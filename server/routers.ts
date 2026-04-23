@@ -1165,7 +1165,26 @@ const devAIRouter = router({
       createdBy: ctx.user.id,
       createdByName: ctx.user.name ?? "",
     });
-    return { id: (result as any).insertId, success: true };
+    const newId = (result as any).insertId;
+    // 백그라운드 AI 자동 분석 (응답 지연 없이 비동기 실행)
+    setImmediate(async () => {
+      try {
+        const { analyzeDevRequest } = await import("./_core/geminiAIService.js");
+        const analysis = await analyzeDevRequest(input.description);
+        const dbInner = await getDb();
+        if (dbInner && newId) {
+          await dbInner.update(devRequests).set({
+            aiCategory: analysis.category,
+            aiSuggestedPriority: analysis.priority,
+            aiAnalysis: `유형: ${analysis.category} | 우선순위: ${analysis.priority} | 예상공수: ${analysis.estimatedHours}h | 담당팀: ${analysis.suggestedTeam}\n\n${analysis.analysis}`,
+            aiAnalyzed: true,
+          }).where(eq(devRequests.id, newId));
+        }
+      } catch (e) {
+        console.error("[createRequest] AI 자동 분석 실패:", e);
+      }
+    });
+    return { id: newId, success: true };
   }),
   updateRequest: adminProcedure.input(z.object({
     id: z.number(),
@@ -1282,6 +1301,83 @@ const devAIRouter = router({
     await db.update(devFeatures).set({ currentVersion: input.version }).where(eq(devFeatures.id, input.featureId));
     return { id: (result as any).insertId, success: true };
   }),
+  // ── AI 지능형 분석 프로시저 ──────────────────────────────────────────────
+  analyzeRequest: adminProcedure.input(z.object({
+    description: z.string().min(1).max(2000),
+  })).mutation(async ({ input }) => {
+    const { analyzeDevRequest } = await import("./_core/geminiAIService.js");
+    return analyzeDevRequest(input.description);
+  }),
+
+  createRequestFromNaturalLanguage: adminProcedure.input(z.object({
+    userInput: z.string().min(1).max(500),
+  })).mutation(async ({ input, ctx }) => {
+    const { processNaturalLanguageRequest } = await import("./_core/geminiAIService.js");
+    const parsed = await processNaturalLanguageRequest(input.userInput);
+    // AI 분석도 함께 실행
+    const { analyzeDevRequest } = await import("./_core/geminiAIService.js");
+    const analysis = await analyzeDevRequest(parsed.description);
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const [result] = await db.insert(devRequests).values({
+      title: parsed.title,
+      description: parsed.description,
+      priority: analysis.priority === "critical" ? "high" : analysis.priority,
+      createdBy: ctx.user.id,
+      createdByName: ctx.user.name ?? "",
+      aiCategory: analysis.category,
+      aiSuggestedPriority: analysis.priority,
+      estimatedHours: analysis.estimatedHours,
+      suggestedTeam: analysis.suggestedTeam,
+      aiAnalysis: analysis.analysis,
+      aiAnalyzed: true,
+    });
+    return { id: (result as any).insertId, success: true, parsed, analysis };
+  }),
+
+  generateReleaseNotes: adminProcedure.input(z.object({
+    versionId: z.number(),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const [version] = await db.select().from(devVersions).where(eq(devVersions.id, input.versionId));
+    if (!version) throw new TRPCError({ code: "NOT_FOUND", message: "버전을 찾을 수 없습니다." });
+    // 해당 버전 이전에 완료된 요청 목록 조회 (최대 50개)
+    const completed = await db
+      .select({ title: devRequests.title, description: devRequests.description, aiCategory: devRequests.aiCategory })
+      .from(devRequests)
+      .where(eq(devRequests.status, "completed"))
+      .orderBy(desc(devRequests.updatedAt))
+      .limit(50);
+    const { generateReleaseNotes } = await import("./_core/geminiAIService.js");
+    const result = await generateReleaseNotes(
+      version.version,
+      version.description,
+      completed.map(r => ({ title: r.title, description: r.description, category: r.aiCategory ?? "FEATURE" }))
+    );
+    return result;
+  }),
+
+  generateFeatureDoc: adminProcedure.input(z.object({
+    featureId: z.number(),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const [feature] = await db.select().from(devFeatures).where(eq(devFeatures.id, input.featureId));
+    if (!feature) throw new TRPCError({ code: "NOT_FOUND", message: "기능을 찾을 수 없습니다." });
+    const { generateFeatureDocumentation } = await import("./_core/geminiAIService.js");
+    const result = await generateFeatureDocumentation(feature.name, feature.description ?? "");
+    return result;
+  }),
+
+  recommendPipeline: adminProcedure.input(z.object({
+    errorDescription: z.string().min(1).max(500),
+    affectedModules: z.array(z.string().max(50)).max(10).default([]),
+  })).mutation(async ({ input }) => {
+    const { generatePipelineRecommendation } = await import("./_core/geminiAIService.js");
+    return generatePipelineRecommendation(input.errorDescription, input.affectedModules);
+  }),
+
   dashboardStats: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });

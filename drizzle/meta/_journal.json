@@ -64,6 +64,13 @@
       "when": 1776919860294,
       "tag": "0008_tough_loa",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1776923180082,
+      "tag": "0009_jittery_the_spike",
+      "breakpoints": true
     }
   ]
 }

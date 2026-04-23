@@ -256,3 +256,36 @@
 - [x] AIDevEngine.tsx 수정 요청 상세 다이얼로그에 DiffViewer 컴포넌트 구현 (Split/Unified 모드 전환)
 - [x] 수정 요청 상세 다이얼로그에 before/after 코드 diff 표시 (원문 보기 토글 포함)
 - [x] 핵심 기능 수정 승인 다이얼로그에도 diff 미리보기 포함 (originalCode 없을 시 경고 메시지 표시)
+
+## 두골프-AI개발 엔진 고도화 (지능형 분석 + 자동 문서화)
+
+### Phase 1: DB 스키마 확장 및 보안 수정
+- [ ] devRequests 테이블에 AI 분석 필드 추가 (estimatedHours, suggestedTeam, aiCategory, aiAnalysis, aiSuggestedPriority)
+- [ ] reviewEngine.ts 보안 취약점 수정 (API 키 노출, 입력 검증 강화)
+- [ ] autoFixer.ts 문법 오류 수정 (불완전 코드 완성)
+- [ ] pnpm db:push 실행
+
+### Phase 2: geminiAIService.ts 통합 모듈 구현
+- [ ] server/_core/geminiAIService.ts 생성 (invokeLLM 기반, @google/generative-ai 직접 호출 제거)
+- [ ] analyzeDevRequest: 요청 분류(BUG/FEATURE/IMPROVEMENT/REFACTOR) + 우선순위 + 예상공수 + 담당팀
+- [ ] generateReleaseNotes: 버전 + 완료 요청 목록 → 릴리즈 노트 자동 생성
+- [ ] generateFeatureDocumentation: 기능명 + 설명 → 기술 문서 초안 생성
+- [ ] processNaturalLanguageRequest: 자연어 → devRequest 형식 자동 변환
+
+### Phase 3: devAI 라우터 프로시저 추가
+- [ ] devAI.analyzeRequest: description 분석 → AI 분류/우선순위/공수 제안 반환
+- [ ] devAI.createRequestFromNaturalLanguage: 자연어 입력 → devRequest 자동 생성
+- [ ] devAI.generateReleaseNotes: 버전 ID → 릴리즈 노트 생성
+- [ ] devAI.generateFeatureDoc: 기능 ID → 기술 문서 초안 생성
+- [ ] devAI.createRequest에 AI 자동 분석 통합 (저장 시 백그라운드 분석)
+
+### Phase 4: AIDevEngine.tsx UI 고도화
+- [ ] "지능형 요청" 탭 추가: 자연어 입력 → AI 분석 → 요청 생성 플로우
+- [ ] "자동 문서화" 탭 추가: 릴리즈 노트 생성 + 기능 문서 초안 생성
+- [ ] 기존 수정 요청 목록에 AI 분석 결과 배지 표시 (카테고리, 예상 공수)
+- [ ] 추천 파이프라인 시각화 (오류 감지 → AI 분석 → 수정 제안 → 검토 → 승인 플로우 다이어그램)
+
+### Phase 5: ReviewEngine 연동 강화
+- [ ] syntax/logic/security 검토 결과를 실제 AI 분석으로 연결 (현재 mock 데이터 제거)
+- [ ] 검토 결과 상세 이슈 목록을 UI에서 확장 가능하게 표시
+- [ ] 보안 취약점 발견 시 자동으로 critical 우선순위로 수정 요청 생성

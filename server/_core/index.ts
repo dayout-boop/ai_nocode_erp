@@ -9,7 +9,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { registerStripeWebhook } from "../stripe";
-import { reportError } from "./errorWatcher";
+import { reportError } from "./errorWatcher.js";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
