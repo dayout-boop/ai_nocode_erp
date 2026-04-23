@@ -502,6 +502,27 @@ function FixRequestsTab() {
                       <Badge className={PRIORITY_COLORS[req.priority]}>{PRIORITY_LABELS[req.priority]}</Badge>
                       <Badge className={STATUS_COLORS[req.status] ?? "bg-gray-100 text-gray-600"}>{req.status}</Badge>
                       <span className="text-xs text-gray-400">{req.requestSource === "auto" ? "🤖 자동" : "✍️ 수동"}</span>
+                      {/* AI 자동 분류 배지 */}
+                      {(req as any).aiAnalyzed && (req as any).aiCategory && (() => {
+                        const catColors: Record<string, string> = {
+                          BUG: "bg-red-100 text-red-700",
+                          SECURITY: "bg-orange-100 text-orange-700",
+                          FEATURE: "bg-blue-100 text-blue-700",
+                          IMPROVEMENT: "bg-purple-100 text-purple-700",
+                          REFACTOR: "bg-gray-100 text-gray-700",
+                        };
+                        return (
+                          <Badge className={catColors[(req as any).aiCategory] ?? "bg-gray-100 text-gray-600"}>
+                            🤖 {(req as any).aiCategory}
+                          </Badge>
+                        );
+                      })()}
+                      {(req as any).aiAnalyzed && (req as any).aiEstimatedHours != null && (
+                        <span className="text-xs text-emerald-600 font-medium">⏱ {(req as any).aiEstimatedHours}h</span>
+                      )}
+                      {!(req as any).aiAnalyzed && (
+                        <span className="text-xs text-gray-300 italic">AI 분석 중...</span>
+                      )}
                     </div>
                     <p className="font-medium text-sm text-gray-800 truncate">{req.title}</p>
                     {req.targetFile && <code className="text-xs text-gray-400">{req.targetFile}</code>}

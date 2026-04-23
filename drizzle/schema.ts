@@ -550,6 +550,14 @@ export const aiFixRequests = mysqlTable("ai_fix_requests", {
   errorLogId: int("errorLogId"),
   /** 요청 출처: auto=자동감지, manual=수동입력 */
   requestSource: mysqlEnum("requestSource", ["auto", "manual"]).default("manual").notNull(),
+  /** AI 분류 카테고리: BUG/FEATURE/IMPROVEMENT/REFACTOR/SECURITY */
+  aiCategory: varchar("aiCategory", { length: 30 }),
+  /** AI 제안 우선순위 */
+  aiSuggestedPriority: varchar("aiSuggestedPriority", { length: 20 }),
+  /** AI 예상 공수 (시간) */
+  aiEstimatedHours: int("aiEstimatedHours"),
+  /** AI 분석 완료 여부 */
+  aiAnalyzed: boolean("aiAnalyzed").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

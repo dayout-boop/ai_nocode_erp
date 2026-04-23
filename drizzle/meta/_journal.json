@@ -71,6 +71,13 @@
       "when": 1776923180082,
       "tag": "0009_jittery_the_spike",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1776924189411,
+      "tag": "0010_first_mephistopheles",
+      "breakpoints": true
     }
   ]
 }

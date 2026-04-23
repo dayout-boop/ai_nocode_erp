@@ -1868,7 +1868,28 @@ const aiDevEngineRouter = router({
         status: "pending",
         requestSource: "manual",
       });
-      return { id: (inserted as any).insertId as number, isCritical: critical };
+      const newId = (inserted as any).insertId as number;
+      // 백그라운드 AI 자동 분석 (비동기 - 응답 지연 없음)
+      setImmediate(async () => {
+        try {
+          const { analyzeDevRequest } = await import("./_core/geminiAIService.js");
+          const analysis = await analyzeDevRequest(input.description);
+          const dbBg = await getDb();
+          if (dbBg) {
+            await dbBg.update(aiFixRequests)
+              .set({
+                aiCategory: analysis.category,
+                aiSuggestedPriority: analysis.priority,
+                aiEstimatedHours: analysis.estimatedHours,
+                aiAnalyzed: true,
+              })
+              .where(eq(aiFixRequests.id, newId));
+          }
+        } catch (e) {
+          console.error("[AI AutoAnalyze] 수정 요청 자동 분석 실패:", e);
+        }
+      });
+      return { id: newId, isCritical: critical };
     }),
 
   // AI 코드 수정 제안 생성
