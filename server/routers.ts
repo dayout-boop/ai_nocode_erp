@@ -31,7 +31,16 @@ import { triggerPackagePublishPipeline } from "./_core/n8n";
 import { reportError, isCriticalError } from "./_core/errorWatcher";
 import { generateFixCode, searchErpFeature } from "./_core/autoFixer";
 import { runFullReview, getReviewResults } from "./_core/reviewEngine";
-import { aiEngineLogs, aiFixRequests, aiReviewResults } from "../drizzle/schema";
+import { aiEngineLogs, aiFixRequests, aiReviewResults, promptVersions, modelRoutingRules } from "../drizzle/schema";
+import {
+  generatePackageDescription,
+  generateMarketingCopy,
+  generateInquiryReply,
+  analyzeErpDataWithAI,
+  detectAnomaly,
+  anonymizeText,
+  getModelConfig,
+} from "./_core/geminiAIService";
 
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "admin") {
@@ -1124,11 +1133,313 @@ const aiLogsRouter = router({
       .orderBy(sql`DATE(${aiInteractionLogs.createdAt})`);
     return stats.map(s => ({ date: s.date, total: Number(s.total), success: Number(s.success), failure: Number(s.total) - Number(s.success) }));
   }),
+  /**
+   * AI 답변 피드백 기록 (thumbs_up / thumbs_down)
+   */
+  submitFeedback: adminProcedure.input(z.object({
+    logId: z.number(),
+    feedback: z.enum(["thumbs_up", "thumbs_down"]),
+    feedbackNote: z.string().max(500).optional(),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    await db.update(aiInteractionLogs)
+      .set({ feedback: input.feedback, feedbackNote: input.feedbackNote ?? null })
+      .where(eq(aiInteractionLogs.id, input.logId));
+    return { success: true };
+  }),
+  /**
+   * 실시간 모니터링 통계 (최근 1시간 기준)
+   */
+  monitoringStats: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [recentLogs, dayLogs, feedbackStats, taskTypeStats, cacheStats] = await Promise.all([
+      db.select({
+        isSuccess: aiInteractionLogs.isSuccess,
+        responseTimeMs: aiInteractionLogs.responseTimeMs,
+        inputTokens: aiInteractionLogs.inputTokens,
+        outputTokens: aiInteractionLogs.outputTokens,
+      }).from(aiInteractionLogs).where(gte(aiInteractionLogs.createdAt, oneHourAgo)),
+      db.select({ count: sql<number>`count(*)` }).from(aiInteractionLogs).where(gte(aiInteractionLogs.createdAt, oneDayAgo)),
+      db.select({
+        feedback: aiInteractionLogs.feedback,
+        cnt: sql<number>`count(*)`,
+      }).from(aiInteractionLogs)
+        .where(and(gte(aiInteractionLogs.createdAt, oneDayAgo), sql`${aiInteractionLogs.feedback} IS NOT NULL`))
+        .groupBy(aiInteractionLogs.feedback),
+      db.select({
+        taskType: aiInteractionLogs.taskType,
+        cnt: sql<number>`count(*)`,
+        avgMs: sql<number>`avg(${aiInteractionLogs.responseTimeMs})`,
+      }).from(aiInteractionLogs)
+        .where(gte(aiInteractionLogs.createdAt, oneDayAgo))
+        .groupBy(aiInteractionLogs.taskType),
+      db.select({
+        cacheHit: aiInteractionLogs.cacheHit,
+        cnt: sql<number>`count(*)`,
+      }).from(aiInteractionLogs)
+        .where(gte(aiInteractionLogs.createdAt, oneDayAgo))
+        .groupBy(aiInteractionLogs.cacheHit),
+    ]);
+    const anomaly = detectAnomaly(recentLogs.map(l => ({ isSuccess: l.isSuccess ?? true, responseTimeMs: l.responseTimeMs })));
+    const totalTokens = recentLogs.reduce((s, l) => s + (l.inputTokens ?? 0) + (l.outputTokens ?? 0), 0);
+    const thumbsUp = feedbackStats.find(f => f.feedback === "thumbs_up")?.cnt ?? 0;
+    const thumbsDown = feedbackStats.find(f => f.feedback === "thumbs_down")?.cnt ?? 0;
+    const cacheHits = cacheStats.find(c => c.cacheHit)?.cnt ?? 0;
+    const cacheMisses = cacheStats.find(c => !c.cacheHit)?.cnt ?? 0;
+    return {
+      lastHour: {
+        totalRequests: anomaly.totalRequests,
+        failedRequests: anomaly.failedRequests,
+        errorRate: Math.round(anomaly.errorRate * 100),
+        avgResponseMs: anomaly.avgResponseMs,
+        totalTokens,
+        isAnomaly: anomaly.isAnomaly,
+        alertMessage: anomaly.alertMessage,
+      },
+      last24h: {
+        totalRequests: Number(dayLogs[0]?.count ?? 0),
+        thumbsUp: Number(thumbsUp),
+        thumbsDown: Number(thumbsDown),
+        satisfactionRate: (Number(thumbsUp) + Number(thumbsDown)) > 0
+          ? Math.round((Number(thumbsUp) / (Number(thumbsUp) + Number(thumbsDown))) * 100)
+          : null,
+        cacheHitRate: (cacheHits + cacheMisses) > 0
+          ? Math.round((cacheHits / (cacheHits + cacheMisses)) * 100)
+          : 0,
+      },
+      taskTypeBreakdown: taskTypeStats.map(t => ({
+        taskType: t.taskType ?? "chat",
+        count: Number(t.cnt),
+        avgResponseMs: t.avgMs ? Math.round(Number(t.avgMs)) : null,
+      })),
+    };
+  }),
+  /**
+   * 상품 설명 초안 생성
+   */
+  generatePackageDesc: adminProcedure.input(z.object({
+    title: z.string().min(1).max(100),
+    country: z.string().min(1).max(50),
+    duration: z.string().optional(),
+    roundCount: z.number().optional(),
+    region: z.string().optional(),
+    extraInfo: z.string().max(500).optional(),
+  })).mutation(async ({ input, ctx }) => {
+    const result = await generatePackageDescription(input);
+    const db = await getDb();
+    if (db) {
+      await db.insert(aiInteractionLogs).values({
+        userId: ctx.user.id,
+        userName: ctx.user.name ?? "",
+        query: anonymizeText(`상품설명 초안: ${input.title} (${input.country})`),
+        response: result.description.slice(0, 500),
+        modelName: "gemini-2.5-flash",
+        isSuccess: true,
+        taskType: "packageDesc",
+        cacheHit: result.cacheHit,
+        responseTimeMs: result.durationMs,
+      });
+    }
+    return result;
+  }),
+  /**
+   * 마케팅 문구 생성
+   */
+  generateMarketingCopy: adminProcedure.input(z.object({
+    title: z.string().min(1).max(100),
+    country: z.string().min(1).max(50),
+    highlights: z.array(z.string()).max(5),
+    targetAudience: z.string().optional(),
+  })).mutation(async ({ input, ctx }) => {
+    const result = await generateMarketingCopy(input);
+    const db = await getDb();
+    if (db) {
+      await db.insert(aiInteractionLogs).values({
+        userId: ctx.user.id,
+        userName: ctx.user.name ?? "",
+        query: anonymizeText(`마케팅 문구: ${input.title}`),
+        response: result.sns.slice(0, 500),
+        modelName: "gemini-2.5-flash",
+        isSuccess: true,
+        taskType: "marketingCopy",
+        cacheHit: result.cacheHit,
+        responseTimeMs: result.durationMs,
+      });
+    }
+    return result;
+  }),
+  /**
+   * 1:1 문의 답변 초안 생성
+   */
+  generateInquiryReply: adminProcedure.input(z.object({
+    inquiryId: z.number(),
+  })).mutation(async ({ input, ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const [inquiry] = await db.select().from(inquiries).where(eq(inquiries.id, input.inquiryId));
+    if (!inquiry) throw new TRPCError({ code: "NOT_FOUND", message: "문의를 찾을 수 없습니다." });
+    const result = await generateInquiryReply({
+      inquiryName: inquiry.name,
+      inquiryMessage: inquiry.message ?? "",
+      packageName: inquiry.packageName ?? undefined,
+      travelDate: inquiry.travelDate ?? undefined,
+      peopleCount: inquiry.peopleCount ?? undefined,
+    });
+    await db.insert(aiInteractionLogs).values({
+      userId: ctx.user.id,
+      userName: ctx.user.name ?? "",
+      query: anonymizeText(`문의답변 초안: ${inquiry.name}님 문의`),
+      response: result.reply.slice(0, 500),
+      modelName: "gemini-2.5-flash",
+      isSuccess: true,
+      taskType: "inquiryReply",
+      responseTimeMs: result.durationMs,
+    });
+    return result;
+  }),
+  /**
+   * ERP 데이터 기반 Function Calling AI 분석
+   */
+  analyzeErpData: adminProcedure.input(z.object({
+    question: z.string().min(1).max(500),
+    dataType: z.enum(["packages", "bookings", "inquiries", "revenue"]),
+  })).mutation(async ({ input, ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    let data: unknown;
+    let functionName = "";
+    if (input.dataType === "packages") {
+      data = await db.select({ id: packages.id, title: packages.title, country: packages.country, status: packages.status, isPopular: packages.isPopular, viewCount: packages.viewCount }).from(packages).orderBy(desc(packages.viewCount)).limit(20);
+      functionName = "packages.list";
+    } else if (input.dataType === "bookings") {
+      data = await db.select({ count: sql<number>`count(*)`, status: bookings.status }).from(bookings).groupBy(bookings.status);
+      functionName = "bookings.statusSummary";
+    } else if (input.dataType === "inquiries") {
+      data = await db.select({ count: sql<number>`count(*)`, status: inquiries.status }).from(inquiries).groupBy(inquiries.status);
+      functionName = "inquiries.statusSummary";
+    } else {
+      data = await db.select({ month: sql<string>`DATE_FORMAT(createdAt, '%Y-%m')`, revenue: sql<string>`COALESCE(SUM(totalAmount), 0)` }).from(bookings).where(eq(bookings.paymentStatus, "paid")).groupBy(sql`DATE_FORMAT(createdAt, '%Y-%m')`).orderBy(sql`DATE_FORMAT(createdAt, '%Y-%m') DESC`).limit(6);
+      functionName = "bookings.monthlyRevenue";
+    }
+    const result = await analyzeErpDataWithAI({ question: input.question, functionName, data });
+    await db.insert(aiInteractionLogs).values({
+      userId: ctx.user.id,
+      userName: ctx.user.name ?? "",
+      query: anonymizeText(input.question),
+      response: result.answer.slice(0, 500),
+      modelName: "gemini-2.5-flash",
+      isSuccess: true,
+      taskType: "devAnalysis",
+      responseTimeMs: result.durationMs,
+    });
+    return result;
+  }),
 });
-
+// ============================================================
+// PROMPT VERSIONS ROUTER - 프롬프트 버전 관리
+// ============================================================
+const promptVersionsRouter = router({
+  list: adminProcedure.input(z.object({
+    taskType: z.string().optional(),
+  })).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const conditions = input.taskType ? eq(promptVersions.taskType, input.taskType) : undefined;
+    return db.select().from(promptVersions).where(conditions).orderBy(desc(promptVersions.createdAt));
+  }),
+  create: adminProcedure.input(z.object({
+    name: z.string().min(1).max(100),
+    taskType: z.string().min(1).max(50),
+    version: z.number().default(1),
+    systemPrompt: z.string().min(1),
+    userPromptTemplate: z.string().min(1),
+    abGroup: z.enum(["a", "b"]).optional(),
+    createdBy: z.string().optional(),
+  })).mutation(async ({ input, ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const result = await db.insert(promptVersions).values({
+      ...input,
+      createdBy: ctx.user.name ?? input.createdBy,
+    });
+    return { id: Number((result as any)[0].insertId) };
+  }),
+  activate: adminProcedure.input(z.object({
+    id: z.number(),
+    taskType: z.string(),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    // 같은 taskType의 기존 활성 버전 비활성화
+    await db.update(promptVersions).set({ isActive: false }).where(eq(promptVersions.taskType, input.taskType));
+    await db.update(promptVersions).set({ isActive: true }).where(eq(promptVersions.id, input.id));
+    return { success: true };
+  }),
+  updateMetrics: adminProcedure.input(z.object({
+    id: z.number(),
+    metrics: z.record(z.string(), z.unknown()),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    await db.update(promptVersions).set({ metrics: input.metrics }).where(eq(promptVersions.id, input.id));
+    return { success: true };
+  }),
+});
+// ============================================================
+// MODEL ROUTING ROUTER - 모델 라우팅 규칙 관리
+// ============================================================
+const modelRoutingRouter = router({
+  list: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const dbRules = await db.select().from(modelRoutingRules);
+    // DB에 없는 기본 태스크타입은 DEFAULT_MODEL_ROUTING에서 보완
+    const taskTypes = ["chat", "packageDesc", "marketingCopy", "inquiryReply", "devAnalysis", "releaseNote", "featureDoc", "pipelineRec"] as const;
+    return taskTypes.map(tt => {
+      const dbRule = dbRules.find(r => r.taskType === tt);
+      const defaultCfg = getModelConfig(tt);
+      return dbRule ?? {
+        id: 0,
+        taskType: tt,
+        primaryModel: defaultCfg.primaryModel,
+        fallbackModel: defaultCfg.fallbackModel,
+        maxTokens: defaultCfg.maxTokens,
+        temperature: String(defaultCfg.temperature),
+        cacheTtlSeconds: defaultCfg.cacheTtlSeconds,
+        isActive: true,
+        description: null,
+        updatedAt: new Date(),
+      };
+    });
+  }),
+  upsert: adminProcedure.input(z.object({
+    taskType: z.string().min(1).max(50),
+    primaryModel: z.string().min(1).max(100),
+    fallbackModel: z.string().max(100).optional(),
+    maxTokens: z.number().optional(),
+    temperature: z.string().optional(),
+    cacheTtlSeconds: z.number().optional(),
+    isActive: z.boolean().optional(),
+    description: z.string().optional(),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const existing = await db.select({ id: modelRoutingRules.id }).from(modelRoutingRules).where(eq(modelRoutingRules.taskType, input.taskType));
+    if (existing.length > 0) {
+      await db.update(modelRoutingRules).set(input).where(eq(modelRoutingRules.taskType, input.taskType));
+    } else {
+      await db.insert(modelRoutingRules).values({ ...input, primaryModel: input.primaryModel });
+    }
+    return { success: true };
+  }),
+});
 // ============================================================
 // DEV AI ROUTER - 두골프 개발AI 관리
-// ============================================================
+// =============================================================
 const devAIRouter = router({
   listRequests: adminProcedure.input(z.object({
     page: z.number().default(1),
@@ -2025,7 +2336,8 @@ export const appRouter = router({
   payment: paymentRouter,
   video: videoRouter,
   automation: automationRouter,
-  aiDevEngine: aiDevEngineRouter,
+   aiDevEngine: aiDevEngineRouter,
+  promptVersions: promptVersionsRouter,
+  modelRouting: modelRoutingRouter,
 });
-
 export type AppRouter = typeof appRouter;

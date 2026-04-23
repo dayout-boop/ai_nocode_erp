@@ -296,3 +296,37 @@
 - [x] analyzeDevRequest 반환값에 estimatedHours, suggestedTeam 포함 및 DB 저장 검증
 - [x] AIDevEngine.tsx 추천 파이프라인 단계형 다이어그램 UI 구현 (오류감지→AI분석→수정제안→검토→승인)
 - [x] ReviewEngine security 결과 → createFixRequest critical 자동 생성 연동 및 테스트 추가
+
+## Gemini AI 고도화 + AI개발 엔진 고도화
+
+### Phase A: DB 스키마 확장
+- [x] ai_interaction_logs에 feedback(thumbs_up/thumbs_down/null), feedbackNote, taskType, cacheHit, promptVersion 필드 추가
+- [x] prompt_versions 테이블 신규 생성 (버전 관리, A/B 테스트)
+- [x] model_routing_rules 테이블 신규 생성 (태스크별 모델 라우팅 규칙)
+- [x] pnpm db:push 실행
+
+### Phase B: geminiAIService 고도화
+- [x] generatePackageDescription: 패키지 정보 → 상품 설명/하이라이트/포함불포함 초안 생성
+- [x] generateMarketingCopy: 패키지 특징 → SNS 문구/광고 카피 생성
+- [x] generateInquiryReply: 문의 내용 분석 → 답변 초안 생성
+- [x] Function Calling: ERP tRPC API 스키마 제공 → AI가 packages.list 등 직접 조회 후 요약
+- [x] 모델 라우팅 로직: 태스크 복잡도에 따라 고성능/저가형 모델 자동 선택
+- [x] 응답 캐싱: 동일 프롬프트 해시 기반 인메모리 캐시 (TTL 10분)
+- [x] 데이터 익명화: ai_interaction_logs 저장 시 이메일/전화번호 자동 마스킹
+
+### Phase C: devAI 라우터 확장
+- [x] aiLogs.submitFeedback: 로그 ID + thumbs_up/down → DB 업데이트
+- [x] devAI.getPromptVersions: 프롬프트 버전 목록 조회
+- [x] devAI.createPromptVersion: 새 프롬프트 버전 저장
+- [x] devAI.activatePromptVersion: 특정 버전 활성화 (A/B 전환)
+- [x] devAI.getModelRoutingRules: 모델 라우팅 규칙 조회
+- [x] devAI.updateModelRoutingRule: 규칙 수정 (모델 스위칭)
+- [x] devAI.detectAnomalies: 최근 1시간 에러율 임계치 초과 시 Slack 알림
+- [x] devAI.getMonitoringStats: 실시간 AI 사용량/응답시간/에러율/비용 통계
+
+### Phase D: ERP UI 구현
+- [x] GeminiAssistant.tsx 고도화: 상품설명/마케팅/문의답변 탭 추가 + Function Calling 결과 표시
+- [x] AI 답변 피드백 버튼(👍/👎) + 피드백 메모 입력 UI
+- [x] AIDevEngine.tsx 실시간 모니터링 대시보드 탭 추가 (AI 사용량/에러율/비용 차트)
+- [x] 프롬프트 버전 관리 UI (버전 목록, 활성화, A/B 테스트 현황)
+- [x] 모델 라우팅 규칙 관리 UI (태스크별 모델 설정)

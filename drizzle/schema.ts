@@ -302,11 +302,79 @@ export const aiInteractionLogs = mysqlTable("ai_interaction_logs", {
   errorType: varchar("errorType", { length: 50 }),
   /** 응답 시간 (ms) */
   responseTimeMs: int("responseTimeMs"),
+  /** 태스크 유형 (chat | packageDesc | marketingCopy | inquiryReply | devAnalysis | releaseNote | featureDoc) */
+  taskType: varchar("taskType", { length: 50 }).default("chat"),
+  /** 캐시 히트 여부 */
+  cacheHit: boolean("cacheHit").default(false),
+  /** 사용된 프롬프트 버전 ID */
+  promptVersionId: int("promptVersionId"),
+  /** 사용자 피드백 (thumbs_up | thumbs_down) */
+  feedback: varchar("feedback", { length: 20 }),
+  /** 피드백 메모 */
+  feedbackNote: text("feedbackNote"),
+  /** 입력 토큰 수 (비용 추적) */
+  inputTokens: int("inputTokens"),
+  /** 출력 토큰 수 */
+  outputTokens: int("outputTokens"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
-
 export type AiInteractionLog = typeof aiInteractionLogs.$inferSelect;
 export type InsertAiInteractionLog = typeof aiInteractionLogs.$inferInsert;
+
+// ============================================================
+// PROMPT_VERSIONS - 프롬프트 버전 관리 (A/B 테스트)
+// ============================================================
+export const promptVersions = mysqlTable("prompt_versions", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 프롬프트 식별자 (예: package_desc_v1, inquiry_reply_v2) */
+  name: varchar("name", { length: 100 }).notNull(),
+  /** 태스크 유형 */
+  taskType: varchar("taskType", { length: 50 }).notNull(),
+  /** 버전 번호 */
+  version: int("version").default(1).notNull(),
+  /** 시스템 프롬프트 내용 */
+  systemPrompt: text("systemPrompt").notNull(),
+  /** 유저 프롬프트 템플릿 ({{변수}} 형식) */
+  userPromptTemplate: text("userPromptTemplate").notNull(),
+  /** 활성화 여부 */
+  isActive: boolean("isActive").default(false).notNull(),
+  /** A/B 테스트 그룹 (a | b) */
+  abGroup: varchar("abGroup", { length: 5 }),
+  /** 성능 메트릭 (thumbs_up 비율 등, JSON) */
+  metrics: json("metrics"),
+  /** 작성자 */
+  createdBy: varchar("createdBy", { length: 100 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type PromptVersion = typeof promptVersions.$inferSelect;
+export type InsertPromptVersion = typeof promptVersions.$inferInsert;
+
+// ============================================================
+// MODEL_ROUTING_RULES - 태스크별 AI 모델 라우팅 규칙
+// ============================================================
+export const modelRoutingRules = mysqlTable("model_routing_rules", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 태스크 유형 */
+  taskType: varchar("taskType", { length: 50 }).notNull().unique(),
+  /** 기본 모델 (예: gemini-2.5-flash) */
+  primaryModel: varchar("primaryModel", { length: 100 }).notNull(),
+  /** 폴백 모델 */
+  fallbackModel: varchar("fallbackModel", { length: 100 }),
+  /** 최대 토큰 수 */
+  maxTokens: int("maxTokens").default(2048),
+  /** 온도 (0.0~1.0) */
+  temperature: varchar("temperature", { length: 10 }).default("0.7"),
+  /** 캐시 TTL (초, 0=캐시 없음) */
+  cacheTtlSeconds: int("cacheTtlSeconds").default(0),
+  /** 활성화 여부 */
+  isActive: boolean("isActive").default(true).notNull(),
+  /** 설명 */
+  description: text("description"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ModelRoutingRule = typeof modelRoutingRules.$inferSelect;
+export type InsertModelRoutingRule = typeof modelRoutingRules.$inferInsert;;
 
 // ============================================================
 // DEV_REQUESTS - 두골프 개발AI 요청 관리

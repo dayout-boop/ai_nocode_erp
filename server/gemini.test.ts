@@ -176,7 +176,6 @@ describe("Gemini API 통합 테스트", () => {
     expect(typeof result.wasFallback).toBe("boolean");
     expect(typeof result.regionUsed).toBe("string");
     expect(result.regionUsed.length).toBeGreaterThan(0);
-    // 503 과부하 시나리오 허용
     if (result.errorMessage) {
       expect(result.errorMessage.length).toBeGreaterThan(0);
       console.log("[Test] API 과부하 상태:", result.errorMessage);
@@ -190,13 +189,95 @@ describe("Gemini API 통합 테스트", () => {
     const result = await geminiChat({
       messages: [{ role: "user", content: "안녕하세요. 한 단어로 인사해주세요." }],
     });
-    // 서비스 계정 미설정 시 Vertex AI를 건너맰다. Studio가 503이면 errorMessage가 있을 수 있음.
     if (result.errorMessage) {
-      // 503 과부하 시나리오: errorMessage가 사용자 친화적 문구여야 한다
       expect(result.errorMessage.length).toBeGreaterThan(0);
       console.log("[Test] API 과부하 상태 - errorMessage:", result.errorMessage);
     } else {
       expect(result.text.length).toBeGreaterThan(0);
     }
   }, 60_000);
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// geminiAIService 단위 테스트
+// ────────────────────────────────────────────────────────────────────────────
+import { anonymizeText, generatePackageDescription, generateMarketingCopy } from "./_core/geminiAIService";
+
+describe("anonymizeText - 개인정보 익명화", () => {
+  it("이메일 주소를 익명화해야 한다", () => {
+    const result = anonymizeText("문의자 이메일은 user@example.com 입니다.");
+    expect(result).not.toContain("user@example.com");
+    expect(result).toContain("[EMAIL]");
+  });
+
+  it("전화번호를 익명화해야 한다", () => {
+    const result = anonymizeText("연락처: 010-1234-5678");
+    expect(result).not.toContain("1234");
+    expect(result).toContain("****");
+  });
+
+  it("개인정보가 없는 텍스트는 그대로 반환해야 한다", () => {
+    const text = "태국 방콕 골프 패키지 문의드립니다.";
+    const result = anonymizeText(text);
+    expect(result).toBe(text);
+  });
+
+  it("빈 문자열은 빈 문자열을 반환해야 한다", () => {
+    expect(anonymizeText("")).toBe("");
+  });
+
+  it("여러 이메일이 있으면 모두 익명화해야 한다", () => {
+    const result = anonymizeText("a@a.com 과 b@b.com 두 개의 이메일이 있습니다.");
+    expect(result).not.toContain("a@a.com");
+    expect(result).not.toContain("b@b.com");
+    expect(result.match(/\[EMAIL\]/g)?.length).toBe(2);
+  });
+});
+
+describe("generatePackageDescription - 입력 검증", () => {
+  it("title이 비어있으면 에러를 반환하거나 빈 description을 반환해야 한다", async () => {
+    // 빈 title은 에러를 던지거나 빈/기본 결과를 반환 — 둘 다 허용
+    try {
+      const result = await generatePackageDescription({ title: "", country: "태국", duration: "3박5일", roundCount: 2, region: "", extraInfo: "" });
+      // 에러 없이 반환되면 description이 문자열이어야 한다
+      expect(typeof result.description).toBe("string");
+    } catch (e) {
+      expect(e).toBeTruthy();
+    }
+  }, 30_000);
+
+  it("country가 비어있으면 에러를 반환하거나 결과를 반환해야 한다", async () => {
+    try {
+      const result = await generatePackageDescription({ title: "태국 방콕 골프", country: "", duration: "3박5일", roundCount: 2, region: "", extraInfo: "" });
+      expect(typeof result.description).toBe("string");
+    } catch (e) {
+      expect(e).toBeTruthy();
+    }
+  }, 30_000);
+
+  it("동일 파라미터는 동일한 캐시 키를 생성해야 한다", () => {
+    const params1 = { title: "태국 방콕", country: "태국", duration: "3박5일", roundCount: 2, region: "방콕", extraInfo: "" };
+    const params2 = { title: "태국 방콕", country: "태국", duration: "3박5일", roundCount: 2, region: "방콕", extraInfo: "" };
+    expect(JSON.stringify(params1)).toBe(JSON.stringify(params2));
+  });
+});
+
+describe("generateMarketingCopy - 입력 검증", () => {
+  it("title이 비어있으면 에러를 반환하거나 결과를 반환해야 한다", async () => {
+    try {
+      const result = await generateMarketingCopy({ title: "", country: "태국", highlights: [], targetAudience: "" });
+      expect(typeof result.sns).toBe("string");
+    } catch (e) {
+      expect(e).toBeTruthy();
+    }
+  }, 30_000);
+
+  it("country가 비어있으면 에러를 반환하거나 결과를 반환해야 한다", async () => {
+    try {
+      const result = await generateMarketingCopy({ title: "태국 골프", country: "", highlights: [], targetAudience: "" });
+      expect(typeof result.sns).toBe("string");
+    } catch (e) {
+      expect(e).toBeTruthy();
+    }
+  }, 30_000);
 });

@@ -368,3 +368,492 @@ export async function generatePipelineRecommendation(
     return fallback;
   }
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// 인메모리 캐시 (TTL 기반)
+// ────────────────────────────────────────────────────────────────────────────
+interface CacheEntry {
+  value: string;
+  expiresAt: number;
+}
+const _cache = new Map<string, CacheEntry>();
+
+function cacheGet(key: string): string | null {
+  const entry = _cache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) { _cache.delete(key); return null; }
+  return entry.value;
+}
+
+function cacheSet(key: string, value: string, ttlSeconds: number): void {
+  if (ttlSeconds <= 0) return;
+  _cache.set(key, { value, expiresAt: Date.now() + ttlSeconds * 1000 });
+}
+
+function makeCacheKey(taskType: string, input: string): string {
+  // 단순 해시: taskType + 입력 앞 200자
+  const raw = `${taskType}:${input.slice(0, 200)}`;
+  let hash = 0;
+  for (let i = 0; i < raw.length; i++) {
+    hash = (hash << 5) - hash + raw.charCodeAt(i);
+    hash |= 0;
+  }
+  return `${taskType}_${Math.abs(hash)}`;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 데이터 익명화 헬퍼 (ai_interaction_logs 저장 전 적용)
+// ────────────────────────────────────────────────────────────────────────────
+export function anonymizeText(text: string): string {
+  return text
+    // 이메일 마스킹
+    .replace(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, "[EMAIL]")
+    // 한국 전화번호 마스킹
+    .replace(/(\d{2,3})-?(\d{3,4})-?(\d{4})/g, (_, a, b, c) => `${a}-****-${c}`)
+    // 여권번호 마스킹 (영문+숫자 9자리)
+    .replace(/[A-Z]{1,2}\d{7,9}/g, "[PASSPORT]")
+    // 주민등록번호 마스킹
+    .replace(/\d{6}-?\d{7}/g, "[RRN]");
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 모델 라우팅 규칙 (DB 조회 전 기본값, 실제 운영 시 DB에서 오버라이드)
+// ────────────────────────────────────────────────────────────────────────────
+export type TaskType =
+  | "chat"
+  | "packageDesc"
+  | "marketingCopy"
+  | "inquiryReply"
+  | "devAnalysis"
+  | "releaseNote"
+  | "featureDoc"
+  | "pipelineRec";
+
+const DEFAULT_MODEL_ROUTING: Record<TaskType, {
+  primaryModel: string;
+  fallbackModel: string;
+  maxTokens: number;
+  temperature: number;
+  cacheTtlSeconds: number;
+}> = {
+  // 저부하 태스크 → 저가형 모델
+  chat:          { primaryModel: "gemini-2.5-flash", fallbackModel: "gemini-1.5-flash", maxTokens: 4096, temperature: 0.7, cacheTtlSeconds: 0 },
+  devAnalysis:   { primaryModel: "gemini-2.5-flash", fallbackModel: "gemini-1.5-flash", maxTokens: 1024, temperature: 0.3, cacheTtlSeconds: 300 },
+  pipelineRec:   { primaryModel: "gemini-2.5-flash", fallbackModel: "gemini-1.5-flash", maxTokens: 1024, temperature: 0.4, cacheTtlSeconds: 600 },
+  // 중간 부하 태스크 → 균형 모델
+  packageDesc:   { primaryModel: "gemini-2.5-flash", fallbackModel: "gemini-1.5-pro",   maxTokens: 2048, temperature: 0.7, cacheTtlSeconds: 600 },
+  marketingCopy: { primaryModel: "gemini-2.5-flash", fallbackModel: "gemini-1.5-pro",   maxTokens: 1024, temperature: 0.9, cacheTtlSeconds: 300 },
+  inquiryReply:  { primaryModel: "gemini-2.5-flash", fallbackModel: "gemini-1.5-pro",   maxTokens: 1024, temperature: 0.5, cacheTtlSeconds: 0 },
+  // 고부하 태스크 → 고성능 모델
+  releaseNote:   { primaryModel: "gemini-1.5-pro",   fallbackModel: "gemini-2.5-flash", maxTokens: 4096, temperature: 0.4, cacheTtlSeconds: 0 },
+  featureDoc:    { primaryModel: "gemini-1.5-pro",   fallbackModel: "gemini-2.5-flash", maxTokens: 4096, temperature: 0.5, cacheTtlSeconds: 0 },
+};
+
+export function getModelConfig(taskType: TaskType) {
+  return DEFAULT_MODEL_ROUTING[taskType] ?? DEFAULT_MODEL_ROUTING.chat;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 6. 상품 설명 초안 자동 생성
+// ────────────────────────────────────────────────────────────────────────────
+export interface PackageDescriptionResult {
+  description: string;
+  highlights: string[];
+  includes: string[];
+  excludes: string[];
+  cacheHit: boolean;
+  durationMs: number;
+}
+
+export async function generatePackageDescription(params: {
+  title: string;
+  country: string;
+  duration?: string;
+  roundCount?: number;
+  region?: string;
+  extraInfo?: string;
+}): Promise<PackageDescriptionResult> {
+  const safeTitle = sanitizeInput(params.title, 100);
+  const safeCountry = sanitizeInput(params.country, 50);
+  const safeDuration = sanitizeInput(params.duration ?? "", 50);
+  const safeRegion = sanitizeInput(params.region ?? "", 100);
+  const safeExtra = sanitizeInput(params.extraInfo ?? "", 500);
+
+  const inputKey = `${safeTitle}|${safeCountry}|${safeDuration}|${safeRegion}|${params.roundCount ?? 2}`;
+  const cfg = getModelConfig("packageDesc");
+  const cacheKey = makeCacheKey("packageDesc", inputKey);
+
+  const fallback: PackageDescriptionResult = {
+    description: `${safeCountry} ${safeTitle} 골프 패키지입니다.`,
+    highlights: ["전문 가이드 동행", "최고급 골프장 라운딩", "편안한 숙박 제공"],
+    includes: ["항공료", "숙박비", "라운딩 그린피"],
+    excludes: ["개인 경비", "캐디피", "카트비"],
+    cacheHit: false,
+    durationMs: 0,
+  };
+
+  // 캐시 확인
+  const cached = cacheGet(cacheKey);
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached) as PackageDescriptionResult;
+      return { ...parsed, cacheHit: true, durationMs: 0 };
+    } catch { /* 캐시 파싱 실패 시 무시 */ }
+  }
+
+  const startMs = Date.now();
+  try {
+    const response = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content: `당신은 두골프 여행사의 골프 패키지 상품 설명 전문 카피라이터입니다.
+고객이 패키지를 선택하고 싶게 만드는 매력적이고 전문적인 한국어 문구를 작성합니다.
+반드시 다음 JSON 형식으로만 응답하세요:
+{
+  "description": "<상품 상세 설명, 150~300자>",
+  "highlights": ["<하이라이트 1>", "<하이라이트 2>", "<하이라이트 3>", "<하이라이트 4>"],
+  "includes": ["<포함 항목 1>", "<포함 항목 2>", ...],
+  "excludes": ["<불포함 항목 1>", "<불포함 항목 2>", ...]
+}`,
+        },
+        {
+          role: "user",
+          content: `다음 골프 패키지 상품 설명을 작성해주세요:
+- 상품명: ${safeTitle}
+- 국가/지역: ${safeCountry}${safeRegion ? ` (${safeRegion})` : ""}
+- 기간: ${safeDuration || "미정"}
+- 라운딩 횟수: ${params.roundCount ?? 2}회
+${safeExtra ? `- 추가 정보: ${safeExtra}` : ""}`,
+        },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "package_description",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              description: { type: "string" },
+              highlights: { type: "array", items: { type: "string" } },
+              includes: { type: "array", items: { type: "string" } },
+              excludes: { type: "array", items: { type: "string" } },
+            },
+            required: ["description", "highlights", "includes", "excludes"],
+            additionalProperties: false,
+          },
+        },
+      },
+    });
+
+    const rawContent = response.choices?.[0]?.message?.content ?? "";
+    const text = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent);
+    const parsed = parseJsonSafely<Omit<PackageDescriptionResult, "cacheHit" | "durationMs">>(text, fallback);
+
+    const result: PackageDescriptionResult = {
+      ...parsed,
+      cacheHit: false,
+      durationMs: Date.now() - startMs,
+    };
+
+    cacheSet(cacheKey, JSON.stringify(result), cfg.cacheTtlSeconds);
+    return result;
+  } catch (error) {
+    console.error("[geminiAIService] generatePackageDescription error:", error);
+    return { ...fallback, durationMs: Date.now() - startMs };
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 7. 마케팅 문구 생성 (SNS / 광고 카피)
+// ────────────────────────────────────────────────────────────────────────────
+export interface MarketingCopyResult {
+  sns: string;
+  adCopy: string;
+  hashtags: string[];
+  cacheHit: boolean;
+  durationMs: number;
+}
+
+export async function generateMarketingCopy(params: {
+  title: string;
+  country: string;
+  highlights: string[];
+  targetAudience?: string;
+}): Promise<MarketingCopyResult> {
+  const safeTitle = sanitizeInput(params.title, 100);
+  const safeCountry = sanitizeInput(params.country, 50);
+  const safeHighlights = params.highlights.slice(0, 5).map(h => sanitizeInput(h, 100));
+  const safeAudience = sanitizeInput(params.targetAudience ?? "골프 애호가", 100);
+
+  const inputKey = `${safeTitle}|${safeCountry}|${safeHighlights.join(",")}`;
+  const cfg = getModelConfig("marketingCopy");
+  const cacheKey = makeCacheKey("marketingCopy", inputKey);
+
+  const fallback: MarketingCopyResult = {
+    sns: `⛳ ${safeTitle} | ${safeCountry} 골프 여행의 새로운 기준! 지금 두골프와 함께 떠나세요 🌏`,
+    adCopy: `${safeCountry}에서 펼쳐지는 특별한 골프 여행, ${safeTitle}. 두골프가 모든 것을 준비했습니다.`,
+    hashtags: ["#두골프", `#${safeCountry}골프`, "#골프여행", "#해외골프", "#골프패키지"],
+    cacheHit: false,
+    durationMs: 0,
+  };
+
+  const cached = cacheGet(cacheKey);
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached) as MarketingCopyResult;
+      return { ...parsed, cacheHit: true, durationMs: 0 };
+    } catch { /* 무시 */ }
+  }
+
+  const startMs = Date.now();
+  try {
+    const response = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content: `당신은 두골프 여행사의 SNS 마케팅 전문가입니다.
+골프 패키지의 매력을 극대화하는 SNS 문구와 광고 카피를 작성합니다.
+반드시 다음 JSON 형식으로만 응답하세요:
+{
+  "sns": "<인스타그램/카카오스토리용 SNS 게시물 문구, 이모지 포함, 150자 이내>",
+  "adCopy": "<광고 배너용 짧고 임팩트 있는 카피, 50자 이내>",
+  "hashtags": ["#해시태그1", "#해시태그2", "#해시태그3", "#해시태그4", "#해시태그5"]
+}`,
+        },
+        {
+          role: "user",
+          content: `다음 골프 패키지의 마케팅 문구를 작성해주세요:
+- 상품명: ${safeTitle}
+- 국가: ${safeCountry}
+- 주요 특징: ${safeHighlights.join(", ")}
+- 타겟 고객: ${safeAudience}`,
+        },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "marketing_copy",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              sns: { type: "string" },
+              adCopy: { type: "string" },
+              hashtags: { type: "array", items: { type: "string" } },
+            },
+            required: ["sns", "adCopy", "hashtags"],
+            additionalProperties: false,
+          },
+        },
+      },
+    });
+
+    const rawContent = response.choices?.[0]?.message?.content ?? "";
+    const text = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent);
+    const parsed = parseJsonSafely<Omit<MarketingCopyResult, "cacheHit" | "durationMs">>(text, fallback);
+
+    const result: MarketingCopyResult = { ...parsed, cacheHit: false, durationMs: Date.now() - startMs };
+    cacheSet(cacheKey, JSON.stringify(result), cfg.cacheTtlSeconds);
+    return result;
+  } catch (error) {
+    console.error("[geminiAIService] generateMarketingCopy error:", error);
+    return { ...fallback, durationMs: Date.now() - startMs };
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 8. 1:1 문의 답변 초안 생성
+// ────────────────────────────────────────────────────────────────────────────
+export interface InquiryReplyResult {
+  reply: string;
+  tone: "formal" | "friendly" | "apologetic";
+  keyPoints: string[];
+  durationMs: number;
+}
+
+export async function generateInquiryReply(params: {
+  inquiryName: string;
+  inquiryMessage: string;
+  packageName?: string;
+  travelDate?: string;
+  peopleCount?: number;
+}): Promise<InquiryReplyResult> {
+  // 익명화 처리 (개인정보 보호)
+  const safeName = sanitizeInput(params.inquiryName, 50);
+  const safeMessage = anonymizeText(sanitizeInput(params.inquiryMessage, 1000));
+  const safePackage = sanitizeInput(params.packageName ?? "", 200);
+  const safeDate = sanitizeInput(params.travelDate ?? "", 50);
+
+  const fallback: InquiryReplyResult = {
+    reply: `안녕하세요 ${safeName}님, 두골프입니다.\n\n문의해 주셔서 감사합니다. 담당자가 확인 후 빠른 시일 내에 연락드리겠습니다.\n\n감사합니다.`,
+    tone: "formal",
+    keyPoints: ["문의 접수 확인", "빠른 답변 약속"],
+    durationMs: 0,
+  };
+
+  const startMs = Date.now();
+  try {
+    const response = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content: `당신은 두골프 여행사의 고객 상담 전문가입니다.
+고객의 문의에 대해 친절하고 전문적인 답변 초안을 작성합니다.
+개인정보(이메일, 전화번호)는 [EMAIL], [PHONE]으로 표시된 경우 그대로 유지하세요.
+반드시 다음 JSON 형식으로만 응답하세요:
+{
+  "reply": "<답변 본문, 존댓말 사용, 200~400자>",
+  "tone": "formal" | "friendly" | "apologetic",
+  "keyPoints": ["<핵심 포인트 1>", "<핵심 포인트 2>"]
+}`,
+        },
+        {
+          role: "user",
+          content: `다음 고객 문의에 대한 답변 초안을 작성해주세요:
+- 고객명: ${safeName}님
+- 문의 내용: ${safeMessage}
+${safePackage ? `- 관심 상품: ${safePackage}` : ""}
+${safeDate ? `- 희망 여행 날짜: ${safeDate}` : ""}
+${params.peopleCount ? `- 인원: ${params.peopleCount}명` : ""}`,
+        },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "inquiry_reply",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              reply: { type: "string" },
+              tone: { type: "string", enum: ["formal", "friendly", "apologetic"] },
+              keyPoints: { type: "array", items: { type: "string" } },
+            },
+            required: ["reply", "tone", "keyPoints"],
+            additionalProperties: false,
+          },
+        },
+      },
+    });
+
+    const rawContent = response.choices?.[0]?.message?.content ?? "";
+    const text = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent);
+    const parsed = parseJsonSafely<Omit<InquiryReplyResult, "durationMs">>(text, fallback);
+    return { ...parsed, durationMs: Date.now() - startMs };
+  } catch (error) {
+    console.error("[geminiAIService] generateInquiryReply error:", error);
+    return { ...fallback, durationMs: Date.now() - startMs };
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 9. Function Calling: ERP 데이터 조회 후 AI 요약
+//    AI가 tRPC API 스키마를 이해하고 데이터를 직접 조회하여 요약 제공
+// ────────────────────────────────────────────────────────────────────────────
+export interface FunctionCallResult {
+  answer: string;
+  functionCalled: string;
+  dataUsed: unknown;
+  durationMs: number;
+}
+
+/**
+ * ERP 데이터를 직접 주입받아 AI가 분석/요약하는 Function Calling 패턴
+ * (실제 tRPC 호출은 라우터에서 수행 후 데이터를 전달)
+ */
+export async function analyzeErpDataWithAI(params: {
+  question: string;
+  functionName: string;
+  data: unknown;
+}): Promise<FunctionCallResult> {
+  const safeQuestion = sanitizeInput(params.question, 500);
+  const dataStr = JSON.stringify(params.data).slice(0, 3000);
+
+  const startMs = Date.now();
+  try {
+    const response = await invokeLLM({
+      messages: [
+        {
+          role: "system",
+          content: `당신은 두골프 ERP 시스템의 데이터 분석 AI입니다.
+제공된 ERP 데이터를 분석하여 관리자의 질문에 명확하고 간결하게 답변합니다.
+숫자는 한국어 단위(개, 건, 원 등)로 표현하고, 핵심 인사이트를 강조하세요.`,
+        },
+        {
+          role: "user",
+          content: `질문: ${safeQuestion}
+
+[${params.functionName} 조회 결과]
+${dataStr}
+
+위 데이터를 분석하여 질문에 답변해주세요.`,
+        },
+      ],
+    });
+
+    const rawContent = response.choices?.[0]?.message?.content ?? "";
+    const answer = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent);
+
+    return {
+      answer,
+      functionCalled: params.functionName,
+      dataUsed: params.data,
+      durationMs: Date.now() - startMs,
+    };
+  } catch (error) {
+    console.error("[geminiAIService] analyzeErpDataWithAI error:", error);
+    return {
+      answer: "데이터 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+      functionCalled: params.functionName,
+      dataUsed: params.data,
+      durationMs: Date.now() - startMs,
+    };
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 10. 이상 감지: 최근 N분 에러율 계산
+// ────────────────────────────────────────────────────────────────────────────
+export interface AnomalyDetectionResult {
+  isAnomaly: boolean;
+  errorRate: number;
+  totalRequests: number;
+  failedRequests: number;
+  avgResponseMs: number;
+  alertMessage: string;
+}
+
+export function detectAnomaly(
+  logs: Array<{ isSuccess: boolean; responseTimeMs: number | null }>,
+  errorRateThreshold = 0.3,
+  avgResponseThreshold = 5000
+): AnomalyDetectionResult {
+  const total = logs.length;
+  if (total === 0) {
+    return { isAnomaly: false, errorRate: 0, totalRequests: 0, failedRequests: 0, avgResponseMs: 0, alertMessage: "" };
+  }
+
+  const failed = logs.filter(l => !l.isSuccess).length;
+  const errorRate = failed / total;
+  const avgResponseMs = Math.round(
+    logs.reduce((sum, l) => sum + (l.responseTimeMs ?? 0), 0) / total
+  );
+
+  const isAnomaly = errorRate >= errorRateThreshold || avgResponseMs >= avgResponseThreshold;
+  let alertMessage = "";
+
+  if (isAnomaly) {
+    const parts: string[] = [];
+    if (errorRate >= errorRateThreshold) {
+      parts.push(`에러율 ${Math.round(errorRate * 100)}% (임계치: ${Math.round(errorRateThreshold * 100)}%)`);
+    }
+    if (avgResponseMs >= avgResponseThreshold) {
+      parts.push(`평균 응답시간 ${avgResponseMs}ms (임계치: ${avgResponseThreshold}ms)`);
+    }
+    alertMessage = `[두골프-AI] 이상 감지: ${parts.join(", ")} | 최근 ${total}건 기준`;
+  }
+
+  return { isAnomaly, errorRate, totalRequests: total, failedRequests: failed, avgResponseMs, alertMessage };
+}
