@@ -85,6 +85,13 @@
       "when": 1776933396693,
       "tag": "0011_fancy_betty_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1776937008138,
+      "tag": "0012_woozy_living_tribunal",
+      "breakpoints": true
     }
   ]
 }

@@ -2,7 +2,7 @@
 // DOGOLF Package Detail Page — DB 연동 버전 (훅 규칙 준수)
 // ============================================================
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useParams, Link } from 'wouter';
 import {
   ArrowLeft, Clock, RotateCcw, MapPin, CheckCircle2, XCircle,
@@ -98,7 +98,18 @@ export default function PackageDetail() {
     { enabled: id > 0 }
   );
 
-  // 갤러리 이미지 배열 (데이터 없으면 빈 배열)
+  // 최근 본 상품 localStorage 저장
+  useEffect(() => {
+    if (!id || id <= 0) return;
+    try {
+      const stored = localStorage.getItem('dogolf_recently_viewed');
+      const prev: number[] = stored ? JSON.parse(stored) : [];
+      const updated = [id, ...prev.filter((v) => v !== id)].slice(0, 8);
+      localStorage.setItem('dogolf_recently_viewed', JSON.stringify(updated));
+    } catch {}
+  }, [id]);
+
+  // 걤러리 이미지 배열 (데이터 없으면 빈 배열)
   const defaultImage = '/manus-storage/hero_main_aa4ec84e.jpg';
   const registeredImages: string[] = data?.images && data.images.length > 0
     ? (data.images as any[]).map((img: any) => img.imageUrl).filter(Boolean)

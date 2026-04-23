@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { Link } from 'wouter';
-import { ChevronLeft, ChevronRight, ArrowRight, Star, Phone } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowRight, Star, Phone, TrendingUp, Zap, MessageCircle, X, Send } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import KakaoFloat from '@/components/KakaoFloat';
@@ -91,6 +91,73 @@ export default function Home() {
 
   const filteredPackages = pkgData?.items ?? [];
   const popularPackages = popularData?.items ?? [];
+
+  // Trending & Special Deal 쿼리
+  const { data: trendingData } = trpc.packages.publicList.useQuery(
+    { trending: true, limit: 4 },
+    { staleTime: 60000 } as any
+  );
+  const { data: specialDealData } = trpc.packages.publicList.useQuery(
+    { specialDeal: true, limit: 4 },
+    { staleTime: 60000 } as any
+  );
+  const trendingPackages = trendingData?.items ?? [];
+  const specialDealPackages = specialDealData?.items ?? [];
+
+  // 최근 본 상품 (localStorage)
+  const [recentlyViewed] = useState<number[]>(() => {
+    try {
+      const stored = localStorage.getItem('dogolf_recently_viewed');
+      return stored ? JSON.parse(stored).slice(0, 4) : [];
+    } catch { return []; }
+  });
+  const { data: allPackagesData } = trpc.packages.publicList.useQuery(
+    { limit: 50 },
+    { staleTime: 120000, enabled: recentlyViewed.length > 0 } as any
+  );
+  const recentlyViewedItems = (allPackagesData?.items ?? []).filter((p: any) => recentlyViewed.includes(p.id));
+
+  // 코스 유형 필터
+  const courseTypeLabels: Record<string, string> = {
+    resort: '리조트', oceanfront: '오션뷰', mountain: '산악', tropical: '열대',
+    parkland: '파크랜드', links: '링크스', desert: '사막', tournament: '토너먼트'
+  };
+  const courseTypeIcons: Record<string, string> = {
+    resort: '🏨', oceanfront: '🌊', mountain: '⛰️', tropical: '🌴',
+    parkland: '🌳', links: '🏌️', desert: '🏜️', tournament: '🏆'
+  };
+  const [activeCourseType, setActiveCourseType] = useState<string | null>(null);
+  const { data: courseFilteredData } = trpc.packages.publicList.useQuery(
+    { courseType: activeCourseType ?? undefined, limit: 8 },
+    { enabled: activeCourseType !== null, staleTime: 30000 } as any
+  );
+  const courseFilteredPackages = activeCourseType ? (courseFilteredData?.items ?? []) : [];
+
+  // AI 상담 플로팅
+  const [showAIChat, setShowAIChat] = useState(false);
+  const [aiInput, setAiInput] = useState('');
+  const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const askMutation = trpc.gemini.ask.useMutation();
+  const handleAiSend = async () => {
+    if (!aiInput.trim() || aiLoading) return;
+    const userMsg = aiInput.trim();
+    setAiMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    setAiInput('');
+    setAiLoading(true);
+    try {
+      const msgs = [...aiMessages, { role: 'user' as const, content: userMsg }].map(m => ({
+        role: m.role === 'user' ? 'user' as const : 'model' as const,
+        content: m.content
+      }));
+      const res = await askMutation.mutateAsync({ messages: msgs, extraContext: '두골프 홈페이지 방문객 상담' });
+      setAiMessages(prev => [...prev, { role: 'assistant', content: res.response }]);
+    } catch {
+      setAiMessages(prev => [...prev, { role: 'assistant', content: '죄송합니다. 잠시 후 다시 시도해 주세요.' }]);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -484,6 +551,200 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ===== TRENDING DESTINATIONS ===== */}
+      {trendingPackages.length > 0 && (
+        <section className="py-16 bg-white">
+          <div className="container">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp size={18} className="text-dogolf-red" />
+                  <p className="text-dogolf-red font-semibold text-sm font-body uppercase tracking-widest">Trending Now</p>
+                </div>
+                <h2 className="font-display-ko text-3xl font-bold text-gray-900">지금 뜨는 패키지</h2>
+              </div>
+              <Link href="/packages">
+                <button className="text-dogolf-green text-sm font-semibold font-body flex items-center gap-1 hover:underline">
+                  전체 보기 <ArrowRight size={14} />
+                </button>
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {trendingPackages.map((pkg: any) => (
+                <DBHomeCard key={pkg.id} pkg={pkg} badge="trending" />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ===== COURSE TYPE FILTER ===== */}
+      <section className="py-12 bg-dogolf-cream">
+        <div className="container">
+          <div className="text-center mb-8">
+            <p className="text-dogolf-purple font-semibold text-sm font-body uppercase tracking-widest mb-2">Course Type</p>
+            <h2 className="font-display-ko text-3xl font-bold text-gray-900">코스 유형으로 찾기</h2>
+          </div>
+          <div className="flex flex-wrap justify-center gap-3 mb-8">
+            {Object.entries(courseTypeLabels).map(([type, label]) => (
+              <button
+                key={type}
+                onClick={() => setActiveCourseType(activeCourseType === type ? null : type)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold font-body transition-all duration-200 border-2 ${
+                  activeCourseType === type
+                    ? 'bg-dogolf-green text-white border-dogolf-green shadow-md'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-dogolf-green hover:text-dogolf-green'
+                }`}
+              >
+                <span>{courseTypeIcons[type]}</span>
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+          {activeCourseType && (
+            <div>
+              {courseFilteredPackages.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                  {courseFilteredPackages.map((pkg: any) => (
+                    <DBHomeCard key={pkg.id} pkg={pkg} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-10">
+                  <p className="text-gray-400 font-body">{courseTypeLabels[activeCourseType]} 유형의 패키지가 없습니다</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ===== SPECIAL DEALS ===== */}
+      {specialDealPackages.length > 0 && (
+        <section className="py-16 bg-gradient-to-r from-dogolf-green-dark to-dogolf-green relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px)', backgroundSize: '30px 30px'}} />
+          <div className="container relative">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Zap size={18} className="text-dogolf-gold" />
+                  <p className="text-dogolf-gold font-semibold text-sm font-body uppercase tracking-widest">Special Deals</p>
+                </div>
+                <h2 className="font-display-ko text-3xl font-bold text-white">한정 특가 패키지</h2>
+                <p className="text-white/70 font-body text-sm mt-1">지금 예약하면 더 저렴하게!</p>
+              </div>
+              <Link href="/packages">
+                <button className="text-white/80 text-sm font-semibold font-body flex items-center gap-1 hover:text-white">
+                  전체 보기 <ArrowRight size={14} />
+                </button>
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {specialDealPackages.map((pkg: any) => (
+                <DBHomeCard key={pkg.id} pkg={pkg} badge="deal" />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ===== RECENTLY VIEWED ===== */}
+      {recentlyViewedItems.length > 0 && (
+        <section className="py-12 bg-gray-50">
+          <div className="container">
+            <div className="flex items-center gap-2 mb-6">
+              <span className="text-lg">👁️</span>
+              <h3 className="font-display-ko text-xl font-bold text-gray-900">최근 본 상품</h3>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {recentlyViewedItems.map((pkg: any) => (
+                <DBHomeCard key={pkg.id} pkg={pkg} compact />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ===== AI 상담 플로팅 버튼 ===== */}
+      <div className="fixed bottom-24 right-6 z-50">
+        {showAIChat && (
+          <div className="mb-3 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col" style={{height: '420px'}}>
+            <div className="bg-dogolf-green px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center">
+                  <span className="text-white text-xs">⛳</span>
+                </div>
+                <div>
+                  <p className="text-white font-semibold text-sm font-body">두골프 AI 상담</p>
+                  <p className="text-white/70 text-xs font-body">골프 여행 전문 AI</p>
+                </div>
+              </div>
+              <button onClick={() => setShowAIChat(false)} className="text-white/70 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {aiMessages.length === 0 && (
+                <div className="text-center py-6">
+                  <p className="text-gray-400 text-xs font-body">안녕하세요! 골프 여행에 대해 무엇이든 물어보세요.</p>
+                  <div className="mt-3 space-y-1">
+                    {['태국 골프 패키지 추천해줘', '비용이 얼마나 들어?', '예약 방법 알려줘'].map(q => (
+                      <button key={q} onClick={() => setAiInput(q)}
+                        className="block w-full text-left text-xs text-dogolf-green bg-green-50 hover:bg-green-100 rounded-lg px-3 py-1.5 font-body transition-colors">
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {aiMessages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs font-body ${
+                    msg.role === 'user'
+                      ? 'bg-dogolf-green text-white rounded-br-sm'
+                      : 'bg-gray-100 text-gray-800 rounded-bl-sm'
+                  }`}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+              {aiLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-100 px-3 py-2 rounded-xl rounded-bl-sm">
+                    <div className="flex gap-1">
+                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0ms'}} />
+                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'150ms'}} />
+                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'300ms'}} />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="p-3 border-t border-gray-100 flex gap-2">
+              <input
+                type="text"
+                value={aiInput}
+                onChange={e => setAiInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAiSend()}
+                placeholder="메시지를 입력하세요..."
+                className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-2 font-body focus:outline-none focus:border-dogolf-green"
+              />
+              <button onClick={handleAiSend} disabled={aiLoading}
+                className="w-8 h-8 bg-dogolf-green text-white rounded-lg flex items-center justify-center hover:bg-dogolf-green-dark disabled:opacity-50 transition-colors">
+                <Send size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+        <button
+          onClick={() => setShowAIChat(prev => !prev)}
+          className="w-14 h-14 bg-dogolf-green text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-dogolf-green-dark transition-all duration-200 hover:scale-110"
+          title="AI 골프 상담"
+        >
+          {showAIChat ? <X size={22} /> : <MessageCircle size={22} />}
+        </button>
+      </div>
+
       {/* ===== CTA BANNER ===== */}
       <section className="relative py-20 overflow-hidden">
         <img
@@ -536,7 +797,7 @@ const countryNameMap: Record<string, string> = {
   philippines: '필리핀', china: '중국', japan: '일본',
 };
 
-function DBHomeCard({ pkg }: { pkg: any }) {
+function DBHomeCard({ pkg, badge, compact }: { pkg: any; badge?: 'trending' | 'deal'; compact?: boolean }) {
   const flag = countryFlagMap[pkg.country] ?? '🌏';
   const countryName = countryNameMap[pkg.country] ?? pkg.country;
   const image = pkg.imageUrl || '/manus-storage/hero_main_aa4ec84e.jpg';
@@ -555,11 +816,13 @@ function DBHomeCard({ pkg }: { pkg: any }) {
 
   return (
     <Link href={`/packages/detail/${pkg.id}`}>
-      <div className="group relative bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer">
+      <div className={`group relative bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer${compact ? ' text-sm' : ''}`}>
         <div className="relative h-52 overflow-hidden">
           <img src={image} alt={pkg.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
           <div className="absolute top-3 left-3 flex flex-col gap-1">
+            {badge === 'trending' && <span className="destination-badge bg-dogolf-red text-white text-xs px-2 py-0.5 rounded-full font-semibold">트렌딩</span>}
+            {badge === 'deal' && <span className="destination-badge bg-dogolf-gold text-white text-xs px-2 py-0.5 rounded-full font-semibold">특가</span>}
             {pkg.isPopular && <span className="destination-badge bg-dogolf-red text-white text-xs px-2 py-0.5 rounded-full font-semibold">인기</span>}
             {pkg.isFeatured && <span className="destination-badge bg-dogolf-purple text-white text-xs px-2 py-0.5 rounded-full font-semibold">추천</span>}
           </div>

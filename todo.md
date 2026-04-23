@@ -330,3 +330,14 @@
 - [x] AIDevEngine.tsx 실시간 모니터링 대시보드 탭 추가 (AI 사용량/에러율/비용 차트)
 - [x] 프롬프트 버전 관리 UI (버전 목록, 활성화, A/B 테스트 현황)
 - [x] 모델 라우팅 규칙 관리 UI (태스크별 모델 설정)
+
+## 레퍼런스 기반 필수 구현 항목 (트레블러스맵 + 타이거부킹)
+
+- [ ] packages 스키마에 courseType(enum), isSpecialDeal(bool), isTrending(bool) 필드 추가 및 db:push
+- [ ] 홈페이지 Trending Destinations 섹션 추가 (인기 목적지 순위, 예약 전환율 향상)
+- [ ] 홈페이지 코스 유형 필터 태그 추가 (Resort/Oceanfront/Mountain/Tropical 등)
+- [ ] 홈페이지 Special Deals 섹션 추가 (특가 상품 전용 섹션)
+- [ ] 홈페이지 최근 본 상품 섹션 추가 (localStorage 기반)
+- [ ] 홈페이지 AI 상담 플로팅 버튼 추가 (Gemini AI 챗봇 연동)
+- [ ] ERP PackageManagement에 courseType/isSpecialDeal/isTrending 필드 관리 UI 추가
+- [ ] Packages.tsx 코스 유형 필터 태그 추가

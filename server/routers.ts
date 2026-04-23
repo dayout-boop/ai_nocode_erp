@@ -156,6 +156,9 @@ const packagesRouter = router({
     status: z.enum(["draft", "active", "inactive", "sold_out"]).optional(),
     isFeatured: z.boolean().optional(),
     isPopular: z.boolean().optional(),
+    isSpecialDeal: z.boolean().optional(),
+    isTrending: z.boolean().optional(),
+    courseType: z.enum(["resort", "oceanfront", "mountain", "tropical", "parkland", "links", "desert", "tournament"]).optional(),
     sortOrder: z.number().optional(),
   })).mutation(async ({ input }) => {
     const db = await getDb();
@@ -232,6 +235,9 @@ const packagesRouter = router({
     country: z.string().optional(),
     featured: z.boolean().optional(),
     popular: z.boolean().optional(),
+    trending: z.boolean().optional(),
+    specialDeal: z.boolean().optional(),
+    courseType: z.string().optional(),
     search: z.string().optional(),
     limit: z.number().default(12),
   })).query(async ({ input }) => {
@@ -241,6 +247,9 @@ const packagesRouter = router({
     if (input.country) conditions.push(eq(packages.country, input.country));
     if (input.featured) conditions.push(eq(packages.isFeatured, true));
     if (input.popular) conditions.push(eq(packages.isPopular, true));
+    if (input.trending) conditions.push(eq(packages.isTrending, true));
+    if (input.specialDeal) conditions.push(eq(packages.isSpecialDeal, true));
+    if (input.courseType) conditions.push(eq(packages.courseType, input.courseType as any));
     if (input.search) conditions.push(like(packages.title, `%${input.search}%`));
     const items = await db.select().from(packages).where(and(...conditions)).orderBy(packages.sortOrder, desc(packages.createdAt)).limit(input.limit);
     // 각 상품의 최저가 조회
