@@ -4,7 +4,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import {
   LayoutDashboard, Package, Calendar, CreditCard, Users, Megaphone, Image, MessageSquare,
-  ChevronDown, ChevronRight, Menu, X, LogOut, Bell, Settings, ExternalLink, Sparkles, Code2
+  ChevronDown, ChevronRight, Menu, X, LogOut, Bell, Settings, ExternalLink, Sparkles, Code2, Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -82,6 +82,15 @@ const navItems: NavItem[] = [
       { label: "기능 목록", href: "/erp/dev-ai?tab=features" },
       { label: "버전 이력", href: "/erp/dev-ai?tab=versions" },
       { label: "AI 오케스트레이터", href: "/erp/orchestrator" },
+    ],
+  },
+  {
+    label: "두골프-AI개발 엔진",
+    icon: <Zap size={18} />,
+    children: [
+      { label: "오류 로그", href: "/erp/ai-dev-engine" },
+      { label: "수정 요청", href: "/erp/ai-dev-engine" },
+      { label: "ERP 기능 검색", href: "/erp/ai-dev-engine" },
     ],
   },
 ];

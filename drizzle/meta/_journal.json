@@ -50,6 +50,13 @@
       "when": 1776880441907,
       "tag": "0006_silky_silhouette",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1776918501596,
+      "tag": "0007_fast_maverick",
+      "breakpoints": true
     }
   ]
 }

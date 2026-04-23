@@ -9,6 +9,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { registerStripeWebhook } from "../stripe";
+import { reportError } from "./errorWatcher";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -67,3 +68,23 @@ async function startServer() {
 }
 
 startServer().catch(console.error);
+
+// ─── 전역 미처리 예외 → 두골프-AI개발 엔진 자동 보고 ─────────────────────────
+process.on("uncaughtException", (err: Error) => {
+  console.error("[uncaughtException]", err);
+  reportError({
+    source: "process.uncaughtException",
+    error: err,
+    context: err.stack,
+  }).catch(() => {});
+});
+
+process.on("unhandledRejection", (reason: unknown) => {
+  const err = reason instanceof Error ? reason : new Error(String(reason));
+  console.error("[unhandledRejection]", err);
+  reportError({
+    source: "process.unhandledRejection",
+    error: err,
+    context: err.stack,
+  }).catch(() => {});
+});

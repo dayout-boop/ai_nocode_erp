@@ -476,3 +476,89 @@ export const packageVideos = mysqlTable("package_videos", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type PackageVideo = typeof packageVideos.$inferSelect;
+
+// ============================================================
+// 두골프-AI개발 엔진 테이블
+// ============================================================
+
+// ─── AI 엔진 오류 감지 이력 ─────────────────────────────────────
+export const aiEngineLogs = mysqlTable("ai_engine_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 오류 발생 출처 (tRPC 라우터명, 컴포넌트명 등) */
+  source: varchar("source", { length: 200 }).notNull(),
+  /** 오류 유형: runtime=런타임, api=API 호출, validation=입력 검증, unknown=기타 */
+  errorType: mysqlEnum("errorType", ["runtime", "api", "validation", "unknown"]).default("unknown").notNull(),
+  /** 오류 메시지 원문 */
+  errorMessage: text("errorMessage").notNull(),
+  /** 스택 트레이스 */
+  stackTrace: text("stackTrace"),
+  /** 오류 발생 URL 또는 경로 */
+  path: varchar("path", { length: 500 }),
+  /** 연관된 수정 요청 ID */
+  fixRequestId: int("fixRequestId"),
+  /** 처리 상태: new=신규, analyzing=분석중, fixed=수정완료, ignored=무시 */
+  status: mysqlEnum("status", ["new", "analyzing", "fixed", "ignored"]).default("new").notNull(),
+  /** AI 분석 결과 요약 */
+  aiAnalysis: text("aiAnalysis"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type AiEngineLog = typeof aiEngineLogs.$inferSelect;
+export type InsertAiEngineLog = typeof aiEngineLogs.$inferInsert;
+
+// ─── AI 수정 요청 큐 ────────────────────────────────────────────
+export const aiFixRequests = mysqlTable("ai_fix_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 수정 요청 제목 */
+  title: varchar("title", { length: 300 }).notNull(),
+  /** 수정 요청 상세 설명 */
+  description: text("description").notNull(),
+  /** 수정 대상 파일 경로 */
+  targetFile: varchar("targetFile", { length: 500 }),
+  /** 수정 대상 함수/컴포넌트명 */
+  targetFunction: varchar("targetFunction", { length: 200 }),
+  /** 우선순위: critical=즉시수정, high=높음, medium=보통, low=낮음 */
+  priority: mysqlEnum("priority", ["critical", "high", "medium", "low"]).default("medium").notNull(),
+  /** 핵심 기능 여부 (결제, 예약, 인증 등) - true이면 사용자 승인 필요 */
+  isCritical: boolean("isCritical").default(false).notNull(),
+  /** 처리 상태 */
+  status: mysqlEnum("status", ["pending", "in_review", "approved", "rejected", "applied", "failed"]).default("pending").notNull(),
+  /** AI가 생성한 수정 코드 제안 */
+  aiFixCode: text("aiFixCode"),
+  /** AI 수정 설명 */
+  aiFixExplanation: text("aiFixExplanation"),
+  /** 사용자 승인/거부 메모 */
+  userFeedback: text("userFeedback"),
+  /** 승인한 관리자 ID */
+  approvedBy: int("approvedBy"),
+  /** 연관된 오류 로그 ID */
+  errorLogId: int("errorLogId"),
+  /** 요청 출처: auto=자동감지, manual=수동입력 */
+  requestSource: mysqlEnum("requestSource", ["auto", "manual"]).default("manual").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type AiFixRequest = typeof aiFixRequests.$inferSelect;
+export type InsertAiFixRequest = typeof aiFixRequests.$inferInsert;
+
+// ─── AI 재검토 결과 ──────────────────────────────────────────────
+export const aiReviewResults = mysqlTable("ai_review_results", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 연관된 수정 요청 ID */
+  fixRequestId: int("fixRequestId").notNull(),
+  /** 검토 단계: syntax=문법, logic=로직, security=보안, test=테스트, final=최종 */
+  reviewStage: mysqlEnum("reviewStage", ["syntax", "logic", "security", "test", "final"]).default("syntax").notNull(),
+  /** 검토 결과: pass=통과, fail=실패, warning=경고 */
+  result: mysqlEnum("result", ["pass", "fail", "warning"]).default("pass").notNull(),
+  /** 검토 상세 내용 */
+  details: text("details"),
+  /** 발견된 이슈 목록 (JSON) */
+  issues: json("issues"),
+  /** 검토에 사용된 AI 모델 */
+  reviewModel: varchar("reviewModel", { length: 100 }),
+  /** 검토 소요 시간 (ms) */
+  durationMs: int("durationMs"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type AiReviewResult = typeof aiReviewResults.$inferSelect;
+export type InsertAiReviewResult = typeof aiReviewResults.$inferInsert;

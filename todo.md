@@ -213,3 +213,37 @@
 - [x] 자동화 실행 이력 DB 저장 (automation_logs 테이블)
 - [x] ERP 상품 상세 페이지에 "자동화" 탭 추가 (n8n 트리거 버튼 + 실행 이력)
 - [x] n8n 연동 가이드 문서 작성 (docs/n8n-integration-guide.md)
+
+## 두골프-AI개발 엔진 구현
+
+### 1단계: OpenRouter API 404 오류 수정
+- [x] anthropic/claude-3.5-sonnet 모델 ID 오류 원인 분석 (OpenRouter 엔드포인트 일시 비활성화)
+- [x] orchestrator.ts 모델 ID를 최신 유효 버전으로 업데이트 (claude-3.5-sonnet-20241022)
+- [x] 모델 404 발생 시 자동 폴백 로직 강화 (COMPLEX_FALLBACK_MODELS 4개 정의)
+
+### 2단계: 두골프-AI개발 엔진 DB 스키마
+- [x] ai_engine_logs 테이블 (오류 감지 이력, 수정 요청, 검토 결과)
+- [x] ai_fix_requests 테이블 (수정 요청 큐, 우선순위, 상태)
+- [x] ai_review_results 테이블 (재검토 결과, 승인/거부)
+- [x] pnpm db:push 실행
+
+### 3단계: 자동 오류 감지 및 수정 파이프라인 (ErrorWatcher + AutoFixer)
+- [x] server/_core/errorWatcher.ts: 런타임 오류 감지 및 AI 수정 요청 생성
+- [x] server/_core/autoFixer.ts: AI 기반 코드 수정 제안 생성 + ERP 기능 검색
+- [x] tRPC aiEngine 라우터: reportError, requestFix, getFixQueue, searchFeature, generateFix, approveFix, rejectFix
+- [x] Express 전역 에러 핸들러에 ErrorWatcher 연동 (server/_core/index.ts)
+
+### 4단계: AI 자동 수정 후 재검토 모듈 (ReviewEngine)
+- [x] server/_core/reviewEngine.ts: 수정 결과 다단계 자동 검증 (syntax/logic/security/performance/compatibility)
+- [x] tRPC aiEngine.reviewFix, approveFix, rejectFix 프로시저
+- [x] 핵심 기능 수정 시 사용자 승인 요구 안전장치 (isCritical + userFeedback 직접 제어)
+
+### 5단계: 두골프-AI개발 엔진 ERP UI
+- [x] client/src/pages/erp/AIDevEngine.tsx: 엔진 메인 대시보드 (4탭: 오류로그/수정요청/재검토/기능검색)
+- [x] ERP 사이드바에 "두골프-AI개발 엔진" 메뉴 추가 (/erp/ai-dev-engine)
+
+### 6단계: 핵심 기능 수정 사용자 피드백 안전장치
+- [x] 핵심 기능 분류 목록 정의 (CRITICAL_FILES: stripe, payment, auth, booking, settlement, kakao, runway, n8n)
+- [x] 핵심 기능 수정 요청 시 사용자 확인 다이얼로그 (AIDevEngine.tsx - 승인 전 피드백 입력 강제)
+- [x] 승인 전 변경사항 diff 미리보기 (suggestedCode 코드 평 표시)
+- [x] 거부 시 원래 상태 유지 로직 (rejectFix 프로시저 - 상태 rejected로 변경만)

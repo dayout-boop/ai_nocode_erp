@@ -111,8 +111,8 @@ export const MODEL_CATALOG: Record<TaskComplexity, ModelConfig> = {
     description: "요금표 분석, 일정 최적화, 리포트 생성 등 중간 복잡도 작업",
   },
   COMPLEX: {
-    id: "anthropic/claude-3.5-sonnet",
-    name: "Claude 3.5 Sonnet",
+    id: "anthropic/claude-3.5-sonnet-20241022",
+    name: "Claude 3.5 Sonnet (Oct 2024)",
     complexity: "COMPLEX",
     inputPricePerMillion: 3.00,
     outputPricePerMillion: 15.00,
@@ -230,6 +230,13 @@ const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 const TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 2;
 
+/** COMPLEX 등급 폴백 모델 목록 (404 발생 시 순서대로 시도) */
+const COMPLEX_FALLBACK_MODELS: string[] = [
+  "anthropic/claude-3.5-sonnet-20241022",
+  "anthropic/claude-3.7-sonnet",
+  "google/gemini-pro-1.5",
+];
+
 interface OpenRouterResponse {
   id: string;
   choices: Array<{
@@ -290,6 +297,37 @@ async function callOpenRouter(
           await new Promise((r) => setTimeout(r, delay));
           lastError = new Error(`HTTP ${res.status}: ${errBody.slice(0, 200)}`);
           continue;
+        }
+
+        // 404: 모델 엔드포인트 없음 → 폴백 모델 목록에서 순서대로 재시도
+        if (res.status === 404) {
+          const fallbacks = COMPLEX_FALLBACK_MODELS.filter((m) => m !== modelId);
+          for (const fallbackId of fallbacks) {
+            console.warn(`[Orchestrator] ${modelId} 404 - 폴백 모델 ${fallbackId} 시도`);
+            try {
+              const fbRes = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                  "HTTP-Referer": "https://dogolf-tour-dkz3fsmp.manus.space",
+                  "X-Title": "DOGOLF ERP AI Orchestrator",
+                },
+                body: JSON.stringify({
+                  model: fallbackId,
+                  messages,
+                  max_tokens: options.maxTokens ?? 2048,
+                  temperature: options.temperature ?? 0.7,
+                }),
+              });
+              if (fbRes.ok) {
+                console.info(`[Orchestrator] 폴백 성공: ${fallbackId}`);
+                return (await fbRes.json()) as OpenRouterResponse;
+              }
+            } catch {
+              // 폴백도 실패하면 다음 폴백 시도
+            }
+          }
         }
 
         throw new Error(`OpenRouter API 오류 [${res.status}]: ${errBody.slice(0, 300)}`);

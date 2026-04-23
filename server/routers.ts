@@ -12,6 +12,7 @@ import {
   aiCostLogs,
   payments, kakaoNotifications, packageVideos, automationLogs
 } from "../drizzle/schema";
+// AI 엔진 테이블은 별도 import로 처리됨 (아래 참조)
 import { eq, desc, and, gte, lte, like, sql, count, asc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { storagePut, storageGetSignedUrl } from "./storage";
@@ -27,6 +28,10 @@ import {
 } from "./_core/kakao";
 import { generateGolfVideo, getVideoGenerationStatus } from "./_core/runway";
 import { triggerPackagePublishPipeline } from "./_core/n8n";
+import { reportError, isCriticalError } from "./_core/errorWatcher";
+import { generateFixCode, searchErpFeature } from "./_core/autoFixer";
+import { runFullReview, getReviewResults } from "./_core/reviewEngine";
+import { aiEngineLogs, aiFixRequests, aiReviewResults } from "../drizzle/schema";
 
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "admin") {
@@ -1684,6 +1689,199 @@ const automationRouter = router({
     }),
 });
 
+// ============================================================
+// 두골프-AI개발 엔진 라우터
+// ============================================================
+const aiDevEngineRouter = router({
+  // 오류 로그 목록 조회
+  getLogs: adminProcedure
+    .input(z.object({
+      status: z.enum(["new", "analyzing", "fixed", "ignored"]).optional(),
+      limit: z.number().min(1).max(100).default(20),
+      offset: z.number().min(0).default(0),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const conditions = [];
+      if (input.status) conditions.push(eq(aiEngineLogs.status, input.status));
+      const rows = await db.select().from(aiEngineLogs)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(aiEngineLogs.createdAt))
+        .limit(input.limit).offset(input.offset);
+      const [{ total }] = await db.select({ total: count() }).from(aiEngineLogs)
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
+      return { logs: rows, total };
+    }),
+
+  // 수정 요청 목록 조회
+  getFixRequests: adminProcedure
+    .input(z.object({
+      status: z.enum(["pending", "in_review", "approved", "rejected", "applied", "failed"]).optional(),
+      priority: z.enum(["critical", "high", "medium", "low"]).optional(),
+      limit: z.number().min(1).max(100).default(20),
+      offset: z.number().min(0).default(0),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const conditions = [];
+      if (input.status) conditions.push(eq(aiFixRequests.status, input.status));
+      if (input.priority) conditions.push(eq(aiFixRequests.priority, input.priority));
+      const rows = await db.select().from(aiFixRequests)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(aiFixRequests.createdAt))
+        .limit(input.limit).offset(input.offset);
+      const [{ total }] = await db.select({ total: count() }).from(aiFixRequests)
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
+      return { requests: rows, total };
+    }),
+
+  // 수정 요청 단일 조회
+  getFixRequest: adminProcedure
+    .input(z.object({ id: z.number() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [req] = await db.select().from(aiFixRequests).where(eq(aiFixRequests.id, input.id));
+      if (!req) throw new TRPCError({ code: "NOT_FOUND" });
+      const reviews = await db.select().from(aiReviewResults).where(eq(aiReviewResults.fixRequestId, input.id));
+      return { request: req, reviews };
+    }),
+
+  // 수동 수정 요청 생성
+  createFixRequest: adminProcedure
+    .input(z.object({
+      title: z.string().min(1).max(300),
+      description: z.string().min(1),
+      targetFile: z.string().optional(),
+      targetFunction: z.string().optional(),
+      priority: z.enum(["critical", "high", "medium", "low"]).default("medium"),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const critical = isCriticalError(input.targetFile ?? "", input.description);
+      const [inserted] = await db.insert(aiFixRequests).values({
+        title: input.title,
+        description: input.description,
+        targetFile: input.targetFile,
+        targetFunction: input.targetFunction,
+        priority: input.priority,
+        isCritical: critical,
+        status: "pending",
+        requestSource: "manual",
+      });
+      return { id: (inserted as any).insertId as number, isCritical: critical };
+    }),
+
+  // AI 코드 수정 제안 생성
+  generateFix: adminProcedure
+    .input(z.object({ fixRequestId: z.number() }))
+    .mutation(async ({ input }) => {
+      const result = await generateFixCode(input.fixRequestId);
+      if (!result.success) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: result.error });
+      return result;
+    }),
+
+  // 다단계 재검토 실행
+  runReview: adminProcedure
+    .input(z.object({ fixRequestId: z.number() }))
+    .mutation(async ({ input }) => {
+      const result = await runFullReview(input.fixRequestId);
+      return result;
+    }),
+
+  // 수정 요청 승인/거부 (핵심 기능 수정 시 사용자 승인 필요)
+  approveFixRequest: adminProcedure
+    .input(z.object({
+      fixRequestId: z.number(),
+      approved: z.boolean(),
+      feedback: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [req] = await db.select().from(aiFixRequests).where(eq(aiFixRequests.id, input.fixRequestId));
+      if (!req) throw new TRPCError({ code: "NOT_FOUND" });
+      // 핵심 기능 수정 승인 시 관리자 권한 확인
+      if (req.isCritical && ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "핵심 기능 수정은 관리자만 승인할 수 있습니다." });
+      }
+      // 핵심 기능 수정 승인 시 사용자 피드백 필수 안전장치
+      if (req.isCritical && input.approved && (!input.feedback || input.feedback.trim().length < 5)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "핵심 기능 수정 승인은 최소 5자 이상의 검토 의견이 필요합니다. (예: \"안전한 변경사항 확인 완료\")"
+        });
+      }
+      await db.update(aiFixRequests).set({
+        status: input.approved ? "approved" : "rejected",
+        userFeedback: input.feedback,
+        approvedBy: ctx.user.id,
+        updatedAt: new Date(),
+      }).where(eq(aiFixRequests.id, input.fixRequestId));
+      return { success: true, status: input.approved ? "approved" : "rejected" };
+    }),
+
+  // 오류 로그 상태 업데이트
+  updateLogStatus: adminProcedure
+    .input(z.object({
+      logId: z.number(),
+      status: z.enum(["new", "analyzing", "fixed", "ignored"]),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.update(aiEngineLogs).set({ status: input.status }).where(eq(aiEngineLogs.id, input.logId));
+      return { success: true };
+    }),
+
+  // ERP 기능 검색 (AI 기반)
+  searchFeature: adminProcedure
+    .input(z.object({ query: z.string().min(1).max(200) }))
+    .query(async ({ input }) => {
+      return searchErpFeature(input.query);
+    }),
+
+  // 수동 오류 보고 (Express 에러 핸들러에서 호출)
+  reportError: publicProcedure
+    .input(z.object({
+      source: z.string(),
+      errorMessage: z.string(),
+      path: z.string().optional(),
+      context: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const logId = await reportError({
+        source: input.source,
+        error: new Error(input.errorMessage),
+        path: input.path,
+        context: input.context,
+      });
+      return { logId };
+    }),
+
+  // 대시보드 통계
+  getDashboardStats: adminProcedure
+    .query(async () => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [newErrors] = await db.select({ count: count() }).from(aiEngineLogs).where(eq(aiEngineLogs.status, "new"));
+      const [pendingFixes] = await db.select({ count: count() }).from(aiFixRequests).where(eq(aiFixRequests.status, "pending"));
+      const [approvedFixes] = await db.select({ count: count() }).from(aiFixRequests).where(eq(aiFixRequests.status, "approved"));
+      const [totalLogs] = await db.select({ count: count() }).from(aiEngineLogs);
+      const recentLogs = await db.select().from(aiEngineLogs).orderBy(desc(aiEngineLogs.createdAt)).limit(5);
+      return {
+        newErrors: newErrors.count,
+        pendingFixes: pendingFixes.count,
+        approvedFixes: approvedFixes.count,
+        totalLogs: totalLogs.count,
+        recentLogs,
+      };
+    }),
+});
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -1708,6 +1906,7 @@ export const appRouter = router({
   payment: paymentRouter,
   video: videoRouter,
   automation: automationRouter,
+  aiDevEngine: aiDevEngineRouter,
 });
 
 export type AppRouter = typeof appRouter;
