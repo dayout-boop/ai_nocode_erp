@@ -343,9 +343,50 @@
 - [x] Packages.tsx 코스 유형 필터 태그 추가
 
 ## 자동 개선 사이클 (2026-04-23)
-- [ ] [CRITICAL] 상품 카드 최저가 표시 강화 + 포함항목 배지 (항공/그린피/숙박) 추가
-- [ ] [CRITICAL] PackageDetail.tsx 빠른 문의 CTA 버튼 + AI 상담 플로팅 강화
-- [ ] [HIGH] Packages.tsx 출발지(인천/부산/대구/청주) 필터 추가
-- [ ] [HIGH] Packages.tsx 기간(2박3일/3박4일 등) 필터 추가
-- [ ] [HIGH] 상품 카드에 BEST/단독특가/신규/한정 배지 추가 (DB 연동)
-- [ ] [MEDIUM] Packages.tsx 월간 인기 목적지 섹션 추가
+- [x] [CRITICAL] 상품 카드 최저가 표시 강화 + 포함항목 배지 (항공/그린피/숙박) 추가
+- [x] [CRITICAL] PackageDetail.tsx 빠른 문의 CTA 버튼 + AI 상담 플로팅 강화
+- [x] [HIGH] Packages.tsx 출발지(인천/부산/대구/청주) 필터 추가
+- [x] [HIGH] Packages.tsx 기간(2박3일/3박4일 등) 필터 추가
+- [x] [HIGH] 상품 카드에 BEST/단독특가/신규/한정 배지 추가 (DB 연동)
+- [x] [MEDIUM] Packages.tsx 월간 인기 목적지 섹션 추가
+
+## STEP 1+2: AI 어시스턴트 시스템 통합 (2026-04-24)
+
+- [x] schema.ts에 ai_logs 테이블 추가 (session_id, assistant enum, role, model_used, tokens_in/out, cost_usd, grounded)
+- [x] schema.ts에 chat_sessions 테이블 추가 (session_id unique, channel enum, user_id, partner_id, status, summary, package_id)
+- [x] schema.ts에 기존 dev_requests 테이블 확장 (module, manus_task_id, source 컬럼 추가)
+- [x] pnpm db:push 마이그레이션 실행
+- [x] server/routers/ 디렉토리 생성
+- [x] server/routers/ai.ts 생성 (masterChat, golfTalkChat, getLogs, getCostSummary)
+- [x] server/routers/devRequest.ts 생성 (create, list, updateStatus, sendToManus)
+- [x] server/routers/chat.ts 생성 (createSession, getSession, closeSession, listSessions)
+- [x] server/routers.ts appRouter에 3개 라우터 등록
+- [x] TypeScript 빌드 오류 없음 확인
+- [x] 테스트 통과 확인 (106개 통과)
+- [ ] 체크포인트 저장
+
+## STEP 4: AI 오케스트레이션 파이프 구현 (2026-04-24)
+
+- [x] server/services/ 디렉토리 생성
+- [x] server/services/openrouter.ts 생성 (모델 라우팅, Prompt Caching, 비용 로깅, 503 재시도)
+- [x] server/services/prompts/master.ts 생성 (두골프 마스터 시스템 프롬프트)
+- [x] server/services/prompts/golftalk.ts 생성 (골프톡 시스템 프롬프트)
+- [x] server/services/prompts/manager.ts 생성 (두골프 매니저 시스템 프롬프트)
+- [x] ai.masterChat 실제 구현 (RAG 컨텍스트 주입, ai_logs 저장)
+- [x] ai.golfTalkChat 실제 구현 (rate limit, packageId 컨텍스트, ai_logs 저장)
+- [x] client/src/pages/erp/MasterAI.tsx 생성 (채팅 UI, 빠른 명령어, 모델 배지, 비용 표시)
+- [x] ERPLayout 사이드바에 AI 어시스턴트 메뉴 추가 (/erp/master-ai, /erp/ai-engine)
+- [x] OPENROUTER_API_KEY 환경변수 등록
+- [x] TypeScript 빌드 오류 없음 확인
+- [x] 테스트 통과 확인 (106개 통과)
+- [ ] 체크포인트 저장
+
+## STEP 3+5: AI 엔진 통합 관리 + RAG 파이프라인 (2026-04-24)
+
+- [x] server/services/rag.ts 생성 (classifyIntent, fetchPackageContext, fetchReservationContext, compressHistory, 민감정보 마스킹)
+- [x] server/services/manusPipe.ts 생성 (sendPendingRequestsToManus, autoRegisterAndSend)
+- [x] client/src/pages/erp/AIEngine.tsx 생성 (4탭: 개발요청관리/AI비용모니터링/상담세션관리/시스템설정)
+- [x] ERPLayout 사이드바에 AI 어시스턴트 섹션 추가 (AI 마스터 + AI 엔진 관리)
+- [x] MANUS_API_KEY, MANUS_DOGOLF_TASK_ID 환경변수 등록
+- [x] env.ts에 manusApiKey, manusDogolfTaskId 추가
+- [ ] 체크포인트 저장 및 Publish

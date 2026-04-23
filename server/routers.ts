@@ -2326,6 +2326,11 @@ const aiDevEngineRouter = router({
     }),
 });
 
+// AI 어시스턴트 라우터 임포트
+import { aiRouter } from "./routers/ai";
+import { devRequestRouter } from "./routers/devRequest";
+import { chatRouter } from "./routers/chat";
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -2353,5 +2358,8 @@ export const appRouter = router({
    aiDevEngine: aiDevEngineRouter,
   promptVersions: promptVersionsRouter,
   modelRouting: modelRoutingRouter,
+  aiAssistant: aiRouter,
+  devRequest: devRequestRouter,
+  chat: chatRouter,
 });
 export type AppRouter = typeof appRouter;

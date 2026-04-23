@@ -26,6 +26,8 @@ import AILogs from "./pages/erp/AILogs";
 import DevAI from "./pages/erp/DevAI";
 import DevAIOrchestrator from "./pages/erp/DevAIOrchestrator";
 import AIDevEngine from "./pages/erp/AIDevEngine";
+import MasterAI from "./pages/erp/MasterAI";
+import AIEngine from "./pages/erp/AIEngine";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -56,6 +58,8 @@ function Router() {
       <Route path={"/erp/dev-ai"} component={DevAI} />
       <Route path={"/erp/orchestrator"} component={DevAIOrchestrator} />
       <Route path={"/erp/ai-dev-engine"} component={AIDevEngine} />
+      <Route path={"/erp/master-ai"} component={MasterAI} />
+      <Route path={"/erp/ai-engine"} component={AIEngine} />
 
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />

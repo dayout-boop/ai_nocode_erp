@@ -1,0 +1,250 @@
+/**
+ * 두골프 AI 오케스트레이션 서비스
+ *
+ * 기존 server/_core/orchestrator.ts를 래핑하여
+ * AI 어시스턴트 채널별 인터페이스를 제공합니다.
+ *
+ * 모델 라우팅:
+ *  high   → google/gemini-2.5-pro-preview (추론·분석·오류검수)
+ *  medium → anthropic/claude-3-5-haiku   (생성·요약·상담)
+ *  low    → google/gemini-2.0-flash-001  (분류·태깅·단순응답)
+ */
+import { ENV } from "../_core/env";
+
+const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+const MAX_RETRIES = 2;
+const TIMEOUT_MS = 30_000;
+
+// 복잡도별 모델 매핑 (STEP 4 요구사항)
+const MODEL_MAP: Record<"high" | "medium" | "low", { id: string; name: string; inputPrice: number; outputPrice: number }> = {
+  high: {
+    id: "google/gemini-2.5-pro-preview",
+    name: "Gemini 2.5 Pro",
+    inputPrice: 1.25,
+    outputPrice: 10.0,
+  },
+  medium: {
+    id: "anthropic/claude-3-5-haiku",
+    name: "Claude 3.5 Haiku",
+    inputPrice: 0.8,
+    outputPrice: 4.0,
+  },
+  low: {
+    id: "google/gemini-2.0-flash-001",
+    name: "Gemini 2.0 Flash",
+    inputPrice: 0.1,
+    outputPrice: 0.4,
+  },
+};
+
+// 폴백 모델 (medium으로 강등)
+const FALLBACK_MODEL = MODEL_MAP.medium;
+
+export interface ChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
+
+export interface ChatOptions {
+  messages: ChatMessage[];
+  complexity: "high" | "medium" | "low";
+  assistant: "master" | "golftalk" | "manager";
+  sessionId: string;
+  userId?: number;
+  systemPrompt?: string;
+  stream?: boolean;
+  maxTokens?: number;
+  temperature?: number;
+}
+
+export interface ChatResult {
+  text: string;
+  model: string;
+  tokensIn: number;
+  tokensOut: number;
+  costUsd: number;
+  durationMs: number;
+}
+
+/**
+ * 모델 라우팅 함수
+ */
+export function routeModel(complexity: "high" | "medium" | "low") {
+  return MODEL_MAP[complexity];
+}
+
+/**
+ * 비용 계산
+ */
+function calculateCost(
+  model: { inputPrice: number; outputPrice: number },
+  tokensIn: number,
+  tokensOut: number
+): number {
+  return (tokensIn * model.inputPrice + tokensOut * model.outputPrice) / 1_000_000;
+}
+
+/**
+ * OpenRouter API 단일 호출 (재시도 포함)
+ */
+async function callOpenRouterRaw(
+  modelId: string,
+  messages: ChatMessage[],
+  systemPrompt: string | undefined,
+  options: { maxTokens?: number; temperature?: number }
+): Promise<{ text: string; tokensIn: number; tokensOut: number; model: string }> {
+  const apiKey = ENV.openrouterApiKey;
+  if (!apiKey) throw new Error("OPENROUTER_API_KEY가 설정되지 않았습니다.");
+
+  // 시스템 프롬프트를 메시지 배열 앞에 추가 (Prompt Caching 마킹)
+  const fullMessages: Array<{ role: string; content: string | Array<{ type: string; text: string; cache_control?: { type: string } }> }> = [];
+
+  if (systemPrompt) {
+    fullMessages.push({
+      role: "system",
+      content: [
+        {
+          type: "text",
+          text: systemPrompt,
+          cache_control: { type: "ephemeral" }, // Prompt Caching
+        },
+      ],
+    });
+  }
+
+  for (const msg of messages) {
+    fullMessages.push({ role: msg.role, content: msg.content });
+  }
+
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+    try {
+      const res = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://dogolf-tour-dkz3fsmp.manus.space",
+          "X-Title": "DOGOLF AI Assistant",
+        },
+        body: JSON.stringify({
+          model: modelId,
+          messages: fullMessages,
+          max_tokens: options.maxTokens ?? 2048,
+          temperature: options.temperature ?? 0.7,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timer);
+
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => "");
+        const isRetryable = res.status === 503 || res.status === 429 || res.status === 500;
+        if (isRetryable && attempt < MAX_RETRIES) {
+          const delay = (attempt + 1) * 1500;
+          console.warn(`[OpenRouter] ${modelId} ${res.status} 에러 - ${delay}ms 후 재시도 (${attempt + 1}/${MAX_RETRIES})`);
+          await new Promise((r) => setTimeout(r, delay));
+          lastError = new Error(`HTTP ${res.status}: ${errBody.slice(0, 200)}`);
+          continue;
+        }
+        throw new Error(`OpenRouter API 오류 [${res.status}]: ${errBody.slice(0, 300)}`);
+      }
+
+      const data = (await res.json()) as {
+        choices: Array<{ message: { content: string } }>;
+        usage?: { prompt_tokens: number; completion_tokens: number };
+        model?: string;
+      };
+
+      return {
+        text: data.choices[0]?.message?.content ?? "",
+        tokensIn: data.usage?.prompt_tokens ?? 0,
+        tokensOut: data.usage?.completion_tokens ?? 0,
+        model: data.model ?? modelId,
+      };
+    } catch (err: unknown) {
+      clearTimeout(timer);
+      const isAbort = err instanceof Error && err.name === "AbortError";
+      const isRetryable = isAbort || (err instanceof Error && err.message.includes("503"));
+      if (isRetryable && attempt < MAX_RETRIES) {
+        const delay = (attempt + 1) * 1500;
+        console.warn(`[OpenRouter] ${modelId} ${isAbort ? "타임아웃" : "네트워크 오류"} - ${delay}ms 후 재시도`);
+        await new Promise((r) => setTimeout(r, delay));
+        lastError = err instanceof Error ? err : new Error(String(err));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError ?? new Error("OpenRouter 호출 실패");
+}
+
+/**
+ * AI 어시스턴트 채팅 (비스트리밍)
+ */
+export async function orchestratorChat(options: ChatOptions): Promise<ChatResult> {
+  const startTime = Date.now();
+  const modelConfig = MODEL_MAP[options.complexity];
+
+  try {
+    const raw = await callOpenRouterRaw(modelConfig.id, options.messages, options.systemPrompt, {
+      maxTokens: options.maxTokens,
+      temperature: options.temperature,
+    });
+
+    const costUsd = calculateCost(modelConfig, raw.tokensIn, raw.tokensOut);
+
+    return {
+      text: raw.text,
+      model: raw.model,
+      tokensIn: raw.tokensIn,
+      tokensOut: raw.tokensOut,
+      costUsd,
+      durationMs: Date.now() - startTime,
+    };
+  } catch (err) {
+    // 503 등 재시도 후에도 실패 시 medium 모델로 폴백
+    console.warn(`[OpenRouter] ${modelConfig.id} 실패, ${FALLBACK_MODEL.id}로 폴백`);
+    try {
+      const raw = await callOpenRouterRaw(FALLBACK_MODEL.id, options.messages, options.systemPrompt, {
+        maxTokens: options.maxTokens,
+        temperature: options.temperature,
+      });
+      const costUsd = calculateCost(FALLBACK_MODEL, raw.tokensIn, raw.tokensOut);
+      return {
+        text: raw.text,
+        model: raw.model,
+        tokensIn: raw.tokensIn,
+        tokensOut: raw.tokensOut,
+        costUsd,
+        durationMs: Date.now() - startTime,
+      };
+    } catch (fallbackErr) {
+      throw fallbackErr;
+    }
+  }
+}
+
+/**
+ * 연결 테스트 (시스템 설정 탭용)
+ */
+export async function testConnection(): Promise<{ ok: boolean; model: string; latencyMs: number }> {
+  const start = Date.now();
+  try {
+    const result = await callOpenRouterRaw(
+      MODEL_MAP.low.id,
+      [{ role: "user", content: "ping" }],
+      undefined,
+      { maxTokens: 10 }
+    );
+    return { ok: true, model: result.model, latencyMs: Date.now() - start };
+  } catch {
+    return { ok: false, model: "", latencyMs: Date.now() - start };
+  }
+}
+
+export { MODEL_MAP };

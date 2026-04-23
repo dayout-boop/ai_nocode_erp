@@ -418,6 +418,13 @@ export const devRequests = mysqlTable("dev_requests", {
   aiAnalysis: text("aiAnalysis"),
   /** AI 분석 완료 여부 */
   aiAnalyzed: boolean("aiAnalyzed").default(false).notNull(),
+  // ── AI 어시스턴트 통합 필드 ──────────────────────────────────────
+  /** 대상 모듈 (예: Packages, Home, PackageDetail) */
+  module: varchar("module", { length: 100 }),
+  /** Manus API task ID (전송 후 기록) */
+  manusTaskId: varchar("manusTaskId", { length: 100 }),
+  /** 요청 출처 */
+  source: mysqlEnum("source", ["manual", "auto_cycle", "master_ai"]).default("manual"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -661,3 +668,58 @@ export const aiReviewResults = mysqlTable("ai_review_results", {
 });
 export type AiReviewResult = typeof aiReviewResults.$inferSelect;
 export type InsertAiReviewResult = typeof aiReviewResults.$inferInsert;
+
+// ============================================================
+// AI_LOGS - AI 어시스턴트 대화 이력 (두골프 마스터/골프톡/매니저)
+// ============================================================
+export const aiLogs = mysqlTable("ai_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 세션 식별자 */
+  sessionId: varchar("sessionId", { length: 100 }).notNull(),
+  /** 관리자 user ID (골프톡 비로그인 시 null) */
+  userId: int("userId"),
+  /** 어시스턴트 채널 구분 */
+  assistant: mysqlEnum("assistant", ["master", "golftalk", "manager"]).notNull(),
+  /** 메시지 역할 */
+  role: mysqlEnum("role", ["user", "assistant", "system"]).notNull(),
+  /** 메시지 내용 */
+  content: text("content").notNull(),
+  /** 실제 사용된 모델명 (비용 추적용) */
+  modelUsed: varchar("modelUsed", { length: 100 }),
+  /** 입력 토큰 수 */
+  tokensIn: int("tokensIn").default(0),
+  /** 출력 토큰 수 */
+  tokensOut: int("tokensOut").default(0),
+  /** 호출 비용 (달러) */
+  costUsd: decimal("costUsd", { precision: 10, scale: 6 }).default("0"),
+  /** Google Search Grounding 적용 여부 */
+  grounded: boolean("grounded").default(false),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type AiLog = typeof aiLogs.$inferSelect;
+export type InsertAiLog = typeof aiLogs.$inferInsert;
+
+// ============================================================
+// CHAT_SESSIONS - 골프톡/두골프 매니저 상담 세션
+// ============================================================
+export const chatSessions = mysqlTable("chat_sessions", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 세션 고유 식별자 */
+  sessionId: varchar("sessionId", { length: 100 }).notNull().unique(),
+  /** 채널 구분 */
+  channel: mysqlEnum("channel", ["golftalk", "manager"]).notNull(),
+  /** 로그인 사용자 ID (비로그인 골프톡은 null) */
+  userId: int("userId"),
+  /** 입점사 파트너 ID (manager 채널용) */
+  partnerId: int("partnerId"),
+  /** 세션 상태 */
+  status: mysqlEnum("status", ["active", "closed", "pending"]).default("active"),
+  /** AI가 생성한 대화 요약 (Prompt Caching용) */
+  summary: text("summary"),
+  /** 문의 중인 패키지 ID */
+  packageId: int("packageId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ChatSession = typeof chatSessions.$inferSelect;
+export type InsertChatSession = typeof chatSessions.$inferInsert;

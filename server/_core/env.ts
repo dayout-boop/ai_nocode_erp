@@ -16,6 +16,9 @@ export const ENV = {
   slackWebhookUrl: process.env.SLACK_WEBHOOK_URL ?? "",
   // OpenRouter (중앙 AI 오케스트레이터)
   openrouterApiKey: process.env.OPENROUTER_API_KEY ?? "",
+  // Manus API (자동 개발 파이프)
+  manusApiKey: process.env.MANUS_API_KEY ?? "",
+  manusDogolfTaskId: process.env.MANUS_DOGOLF_TASK_ID ?? "",
   // Stripe 결제
   stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? "",
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
