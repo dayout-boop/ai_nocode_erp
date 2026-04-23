@@ -550,7 +550,7 @@ export default function PackageDetail() {
                 {/* CTA buttons */}
                 <div className="space-y-2">
                   <Link href={`/inquiry?package=${pkg.id}&name=${encodeURIComponent(pkg.title)}`}>
-                    <button className="w-full py-3 bg-dogolf-green text-white font-bold font-body rounded-xl hover:bg-dogolf-green-dark transition-colors flex items-center justify-center gap-2">
+                    <button className="w-full py-3.5 bg-dogolf-green text-white font-bold font-body rounded-xl hover:bg-dogolf-green-dark transition-colors flex items-center justify-center gap-2 shadow-md">
                       <Users size={16} /> 온라인 예약 문의
                     </button>
                   </Link>
@@ -560,8 +560,14 @@ export default function PackageDetail() {
                     rel="noopener noreferrer"
                     className="w-full py-3 bg-[#FEE500] text-[#3A1D1D] font-bold font-body rounded-xl hover:bg-[#FFD700] transition-colors flex items-center justify-center gap-2"
                   >
-                    <MessageCircle size={16} /> 카카오톡 상담
+                    <MessageCircle size={16} /> 카카오톡 실시간 상담
                   </a>
+                  <button
+                    onClick={() => window.dispatchEvent(new CustomEvent('openAIChat', { detail: { packageTitle: pkg.title } }))}
+                    className="w-full py-3 bg-gradient-to-r from-dogolf-purple to-blue-600 text-white font-bold font-body rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                  >
+                    🤖 AI 스마트 상담 (즉시 응답)
+                  </button>
                   <a
                     href="tel:1668-1739"
                     className="w-full py-3 bg-gray-100 text-gray-700 font-semibold font-body rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
@@ -569,7 +575,7 @@ export default function PackageDetail() {
                     <Phone size={16} /> 1668-1739 전화 상담
                   </a>
                 </div>
-                <p className="text-xs text-gray-400 font-body text-center mt-3">평일 09:00~17:30</p>
+                <p className="text-xs text-gray-400 font-body text-center mt-3">평일 09:00~17:30 | AI상담 24시간</p>
               </div>
             </div>
           </div>

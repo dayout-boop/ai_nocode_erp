@@ -56,6 +56,11 @@ function PackageFormDialog({
     isSpecialDeal: editPackage?.isSpecialDeal || false,
     isTrending: editPackage?.isTrending || false,
     courseType: editPackage?.courseType || "",
+    badgeType: editPackage?.badgeType || "none",
+    departureCities: editPackage?.departureCities || "",
+    includesAirfare: editPackage?.includesAirfare ?? true,
+    includesGreenFee: editPackage?.includesGreenFee ?? true,
+    includesHotel: editPackage?.includesHotel ?? true,
   });
 
   const createMutation = trpc.packages.create.useMutation({
@@ -198,6 +203,60 @@ function PackageFormDialog({
                 <SelectItem value="tournament">🏆 토너먼트</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          {/* 배지 유형 */}
+          <div>
+            <Label>배지 유형</Label>
+            <Select value={form.badgeType || "none"} onValueChange={(v) => setForm({ ...form, badgeType: v })}>
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="배지 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">없음</SelectItem>
+                <SelectItem value="best">🏆 BEST</SelectItem>
+                <SelectItem value="new">🆕 NEW</SelectItem>
+                <SelectItem value="hot">🔥 HOT</SelectItem>
+                <SelectItem value="exclusive">⭐ 단독특가</SelectItem>
+                <SelectItem value="limited">⏰ 한정특가</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {/* 출발지 */}
+          <div>
+            <Label>출발 도시 (쉼표로 구분)</Label>
+            <Input
+              value={form.departureCities}
+              onChange={(e) => setForm({ ...form, departureCities: e.target.value })}
+              placeholder="예: 인천, 부산, 대구"
+              className="mt-1"
+            />
+          </div>
+          {/* 포함 항목 */}
+          <div>
+            <Label className="mb-2 block">포함 항목</Label>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={form.includesAirfare}
+                  onCheckedChange={(v) => setForm({ ...form, includesAirfare: v })}
+                />
+                <Label className="text-xs">✈️ 항공</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={form.includesGreenFee}
+                  onCheckedChange={(v) => setForm({ ...form, includesGreenFee: v })}
+                />
+                <Label className="text-xs">⛳ 그린피</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={form.includesHotel}
+                  onCheckedChange={(v) => setForm({ ...form, includesHotel: v })}
+                />
+                <Label className="text-xs">🏨 숙박</Label>
+              </div>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex items-center gap-2">

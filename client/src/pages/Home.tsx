@@ -139,6 +139,19 @@ export default function Home() {
   const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const askMutation = trpc.gemini.ask.useMutation();
+
+  // PackageDetail의 AI 상담 버튼 클릭 시 플로팅 열기
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setShowAIChat(true);
+      if (detail?.packageTitle) {
+        setAiMessages([{ role: 'assistant', content: `안녕하세요! **${detail.packageTitle}** 상품에 대해 무엇이든 묻어보세요. 가격, 일정, 포함 내역 등 즉시 답변드립니다. ⛳` }]);
+      }
+    };
+    window.addEventListener('openAIChat', handler);
+    return () => window.removeEventListener('openAIChat', handler);
+  }, []);
   const handleAiSend = async () => {
     if (!aiInput.trim() || aiLoading) return;
     const userMsg = aiInput.trim();
@@ -808,11 +821,21 @@ function DBHomeCard({ pkg, badge, compact }: { pkg: any; badge?: 'trending' | 'd
     if (Array.isArray(hl) && hl.length > 0) firstHighlight = hl[0];
   } catch {}
 
-  let includesList: string[] = [];
-  try {
-    const inc = typeof pkg.includes === 'string' ? JSON.parse(pkg.includes) : pkg.includes;
-    if (Array.isArray(inc)) includesList = inc.slice(0, 3);
-  } catch {}
+  // badgeType 배지
+  const BADGE_CFG: Record<string, { label: string; color: string }> = {
+    best:      { label: 'BEST',   color: 'bg-amber-500 text-white' },
+    exclusive: { label: '단독특가', color: 'bg-dogolf-red text-white' },
+    new:       { label: 'NEW',    color: 'bg-blue-500 text-white' },
+    limited:   { label: '한정',   color: 'bg-orange-500 text-white' },
+    hot:       { label: 'HOT🔥',  color: 'bg-rose-600 text-white' },
+  };
+  const badgeCfg = pkg.badgeType && pkg.badgeType !== 'none' ? BADGE_CFG[pkg.badgeType] : null;
+
+  // 포함항목 아이콘 배지
+  const includeIcons: string[] = [];
+  if (pkg.includesAirfare) includeIcons.push('✈항공');
+  if (pkg.includesGreenFee) includeIcons.push('⛳그린피');
+  if (pkg.includesHotel) includeIcons.push('🏨숙박');
 
   return (
     <Link href={`/packages/detail/${pkg.id}`}>
@@ -821,35 +844,46 @@ function DBHomeCard({ pkg, badge, compact }: { pkg: any; badge?: 'trending' | 'd
           <img src={image} alt={pkg.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
           <div className="absolute top-3 left-3 flex flex-col gap-1">
-            {badge === 'trending' && <span className="destination-badge bg-dogolf-red text-white text-xs px-2 py-0.5 rounded-full font-semibold">트렌딩</span>}
-            {badge === 'deal' && <span className="destination-badge bg-dogolf-gold text-white text-xs px-2 py-0.5 rounded-full font-semibold">특가</span>}
-            {pkg.isPopular && <span className="destination-badge bg-dogolf-red text-white text-xs px-2 py-0.5 rounded-full font-semibold">인기</span>}
-            {pkg.isFeatured && <span className="destination-badge bg-dogolf-purple text-white text-xs px-2 py-0.5 rounded-full font-semibold">추천</span>}
+            {badgeCfg && <span className={`text-xs px-2 py-0.5 rounded-full font-bold font-body shadow-sm ${badgeCfg.color}`}>{badgeCfg.label}</span>}
+            {!badgeCfg && badge === 'trending' && <span className="destination-badge bg-dogolf-red text-white text-xs px-2 py-0.5 rounded-full font-semibold">트렌딩</span>}
+            {!badgeCfg && badge === 'deal' && <span className="destination-badge bg-dogolf-gold text-white text-xs px-2 py-0.5 rounded-full font-semibold">특가</span>}
+            {!badgeCfg && pkg.isPopular && <span className="destination-badge bg-dogolf-red text-white text-xs px-2 py-0.5 rounded-full font-semibold">인기</span>}
+            {!badgeCfg && pkg.isFeatured && <span className="destination-badge bg-dogolf-purple text-white text-xs px-2 py-0.5 rounded-full font-semibold">추천</span>}
+            {pkg.isSpecialDeal && <span className="destination-badge bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full font-semibold">특가</span>}
           </div>
           <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
             <span className="text-sm">{flag}</span>
             <span className="text-xs font-semibold text-gray-700 font-body">{countryName}</span>
           </div>
-          <div className="absolute bottom-3 left-3 flex items-center gap-2 text-white text-xs">
-            {pkg.duration && <span>⏱ {pkg.duration}</span>}
-            {pkg.roundCount && <span>⛳ {pkg.roundCount}회</span>}
+          <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+            <div className="flex items-center gap-2 text-white text-xs">
+              {pkg.duration && <span>⏱ {pkg.duration}</span>}
+              {pkg.roundCount && <span>⛳ {pkg.roundCount}회</span>}
+            </div>
+            {includeIcons.length > 0 && (
+              <div className="flex gap-1">
+                {includeIcons.map((ic, i) => (
+                  <span key={i} className="bg-white/20 backdrop-blur-sm text-white text-xs px-1.5 py-0.5 rounded-full">{ic}</span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <div className="p-4">
           {pkg.region && <p className="text-xs text-dogolf-purple font-semibold font-body mb-1">{pkg.region}</p>}
           <h3 className="font-display-ko font-semibold text-gray-900 text-sm leading-snug mb-1 line-clamp-2">{pkg.title}</h3>
-          {firstHighlight && <p className="text-xs text-gray-500 font-body mb-3 line-clamp-1">{firstHighlight}</p>}
-          {includesList.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-3">
-              {includesList.map((item, i) => (
-                <span key={i} className="text-xs bg-green-50 text-dogolf-green px-2 py-0.5 rounded-full font-body">
-                  {item.length > 12 ? item.slice(0, 12) + '…' : item}
-                </span>
-              ))}
-            </div>
-          )}
+          {firstHighlight && <p className="text-xs text-gray-500 font-body mb-2 line-clamp-1">{firstHighlight}</p>}
           <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-            <p className="text-xs text-gray-400 font-body">조회 {(pkg.viewCount ?? 0).toLocaleString()}</p>
+            <div>
+              {pkg.minPrice && pkg.minPrice > 0 ? (
+                <div>
+                  <p className="text-xs text-gray-400 font-body">최저가</p>
+                  <p className="text-base font-bold text-dogolf-green font-number leading-tight">{pkg.minPrice.toLocaleString()}원~</p>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 font-body">조회 {(pkg.viewCount ?? 0).toLocaleString()}</p>
+              )}
+            </div>
             <button className="px-3 py-1.5 bg-dogolf-green text-white text-xs font-semibold font-body rounded-lg hover:bg-dogolf-green-dark transition-colors">
               자세히 보기
             </button>

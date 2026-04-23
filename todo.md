@@ -341,3 +341,11 @@
 - [x] 홈페이지 AI 상담 플로팅 버튼 추가 (Gemini AI 챗봇 연동)
 - [x] ERP PackageManagement에 courseType/isSpecialDeal/isTrending 필드 관리 UI 추가
 - [x] Packages.tsx 코스 유형 필터 태그 추가
+
+## 자동 개선 사이클 (2026-04-23)
+- [ ] [CRITICAL] 상품 카드 최저가 표시 강화 + 포함항목 배지 (항공/그린피/숙박) 추가
+- [ ] [CRITICAL] PackageDetail.tsx 빠른 문의 CTA 버튼 + AI 상담 플로팅 강화
+- [ ] [HIGH] Packages.tsx 출발지(인천/부산/대구/청주) 필터 추가
+- [ ] [HIGH] Packages.tsx 기간(2박3일/3박4일 등) 필터 추가
+- [ ] [HIGH] 상품 카드에 BEST/단독특가/신규/한정 배지 추가 (DB 연동)
+- [ ] [MEDIUM] Packages.tsx 월간 인기 목적지 섹션 추가
