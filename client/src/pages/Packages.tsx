@@ -44,6 +44,18 @@ export default function Packages() {
   const [activeDestination, setActiveDestination] = useState(params.destination || 'all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('popular');
+  const [activeCourseType, setActiveCourseType] = useState('all');
+
+  const COURSE_TYPES = [
+    { id: 'all', label: '전체', icon: '⛳' },
+    { id: 'resort', label: '리조트', icon: '🏨' },
+    { id: 'oceanfront', label: '오션뷰', icon: '🌊' },
+    { id: 'mountain', label: '산악', icon: '⛰️' },
+    { id: 'tropical', label: '열대', icon: '🌴' },
+    { id: 'parkland', label: '파크랜드', icon: '🌳' },
+    { id: 'links', label: '링크스', icon: '🏌️' },
+    { id: 'tournament', label: '토너먼트', icon: '🏆' },
+  ];
 
   const currentDest = destinations.find((d) => d.id === activeDestination) || destinations[0];
   const heroImage = destinationImages[activeDestination] || destinationImages.all;
@@ -60,7 +72,7 @@ export default function Packages() {
 
   const filtered = useMemo(() => {
     const items = data?.items ?? [];
-    return [...items].sort((a: any, b: any) => {
+    let result = [...items].sort((a: any, b: any) => {
       if (sortBy === 'price_asc') {
         return (a.minPrice ?? 0) - (b.minPrice ?? 0);
       }
@@ -74,7 +86,11 @@ export default function Packages() {
       if (a.isFeatured && !b.isFeatured) return -1;
       return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
     });
-  }, [data, sortBy]);
+    if (activeCourseType !== 'all') {
+      result = result.filter((p: any) => p.courseType === activeCourseType);
+    }
+    return result;
+  }, [data, sortBy, activeCourseType]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -116,6 +132,23 @@ export default function Packages() {
                 </button>
               ))}
             </div>
+
+          {/* Course Type Filter */}
+          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
+            {COURSE_TYPES.map((ct) => (
+              <button
+                key={ct.id}
+                onClick={() => setActiveCourseType(ct.id)}
+                className={`px-3 py-1 rounded-full text-xs font-semibold font-body transition-all ${
+                  activeCourseType === ct.id
+                    ? 'bg-dogolf-purple text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {ct.icon} {ct.label}
+              </button>
+            ))}
+          </div>
 
             {/* Search & Sort */}
             <div className="flex gap-3 w-full md:w-auto">

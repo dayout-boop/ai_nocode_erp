@@ -53,6 +53,9 @@ function PackageFormDialog({
     status: editPackage?.status || "draft",
     isFeatured: editPackage?.isFeatured || false,
     isPopular: editPackage?.isPopular || false,
+    isSpecialDeal: editPackage?.isSpecialDeal || false,
+    isTrending: editPackage?.isTrending || false,
+    courseType: editPackage?.courseType || "",
   });
 
   const createMutation = trpc.packages.create.useMutation({
@@ -177,7 +180,26 @@ function PackageFormDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center gap-6">
+          <div>
+            <Label>코스 유형</Label>
+            <Select value={form.courseType || ""} onValueChange={(v) => setForm({ ...form, courseType: v as any })}>
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="코스 유형 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">선택 안함</SelectItem>
+                <SelectItem value="resort">🏨 리조트</SelectItem>
+                <SelectItem value="oceanfront">🌊 오션뷰</SelectItem>
+                <SelectItem value="mountain">⛰️ 산악</SelectItem>
+                <SelectItem value="tropical">🌴 열대</SelectItem>
+                <SelectItem value="parkland">🌳 파크랜드</SelectItem>
+                <SelectItem value="links">🏌️ 링크스</SelectItem>
+                <SelectItem value="desert">🏜️ 사막</SelectItem>
+                <SelectItem value="tournament">🏆 토너먼트</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <div className="flex items-center gap-2">
               <Switch
                 checked={form.isFeatured}
@@ -191,6 +213,20 @@ function PackageFormDialog({
                 onCheckedChange={(v) => setForm({ ...form, isPopular: v })}
               />
               <Label>인기 상품</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={form.isTrending}
+                onCheckedChange={(v) => setForm({ ...form, isTrending: v })}
+              />
+              <Label>트렌딩</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={form.isSpecialDeal}
+                onCheckedChange={(v) => setForm({ ...form, isSpecialDeal: v })}
+              />
+              <Label>특가 상품</Label>
             </div>
           </div>
         </div>
