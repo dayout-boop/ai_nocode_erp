@@ -6,7 +6,6 @@ import { useState } from 'react';
 import { ChevronRight, Eye, Pin } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import KakaoFloat from '@/components/KakaoFloat';
 import { notices } from '@/lib/data';
 
 const categories = ['전체', '공지사항', '이벤트', '신상품'];
@@ -178,7 +177,6 @@ export default function Notice() {
       </section>
 
       <Footer />
-      <KakaoFloat />
     </div>
   );
 }

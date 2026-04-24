@@ -6,7 +6,6 @@ import { useState } from 'react';
 import { X, ZoomIn } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import KakaoFloat from '@/components/KakaoFloat';
 
 const galleryItems = [
   { id: 1, src: '/manus-storage/hero_main_aa4ec84e.jpg', title: '열대 골프 리조트', category: '해외', destination: '태국' },
@@ -124,7 +123,6 @@ export default function Gallery() {
       )}
 
       <Footer />
-      <KakaoFloat />
     </div>
   );
 }

@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import KakaoFloat from '@/components/KakaoFloat';
 import GolfTalkWidget from '@/components/GolfTalkWidget';
 import { trpc } from '@/lib/trpc';
 
@@ -584,7 +583,6 @@ export default function PackageDetail() {
       </section>
 
       <Footer />
-      <KakaoFloat />
       <GolfTalkWidget />
     </div>
   );

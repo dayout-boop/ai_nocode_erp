@@ -6,7 +6,6 @@ import { useState, useEffect } from 'react';
 import { CheckCircle, Phone, Mail, Clock, MapPin } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import KakaoFloat from '@/components/KakaoFloat';
 import { trpc } from '@/lib/trpc';
 
 const destinations = [
@@ -433,7 +432,6 @@ export default function Inquiry() {
       </section>
 
       <Footer />
-      <KakaoFloat />
     </div>
   );
 }

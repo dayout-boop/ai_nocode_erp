@@ -9,7 +9,6 @@ import { Link } from 'wouter';
 import { ChevronLeft, ChevronRight, ArrowRight, Star, Phone, TrendingUp, Zap, X } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import KakaoFloat from '@/components/KakaoFloat';
 import GolfTalkWidget from '@/components/GolfTalkWidget';
 import { heroSlides, destinations, stats, reviews, notices } from '@/lib/data';
 import { trpc } from '@/lib/trpc';
@@ -680,7 +679,6 @@ export default function Home() {
       </section>
 
       <Footer />
-      <KakaoFloat />
       <GolfTalkWidget />
     </div>
   );
