@@ -1,8 +1,9 @@
 // ============================================================
-// DOGOLF GolfTalk Widget — 골프톡 AI 채팅 플로팅 위젯
+// DOGOLF GolfTalk Widget v2.0 — 골프톡 AI 채팅 플로팅 위젯
+// 업데이트: 동적 빠른 답변 버튼, 카카오톡 연결, 개선된 UX
 // ============================================================
 import { useState, useRef, useEffect, useCallback } from "react";
-import { X, Send, ChevronDown, Loader2, MessageCircle } from "lucide-react";
+import { X, Send, ChevronDown, Loader2, MessageCircle, Phone } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
 interface Message {
@@ -10,25 +11,36 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  quickReplies?: string[];
 }
 
 const QUICK_QUESTIONS = [
   "추천 골프 패키지 알려줘",
   "태국 골프 여행 일정은?",
   "예약 방법이 궁금해요",
-  "가격대별 패키지 추천",
+  "가성비 패키지 추천",
 ];
 
 const WELCOME_MESSAGE: Message = {
   id: "welcome",
   role: "assistant",
   content:
-    "안녕하세요! ⛳ 골프톡입니다.\n두골프의 AI 여행 상담사예요. 골프 패키지, 예약, 일정에 대해 무엇이든 물어보세요!",
+    "안녕하세요! ⛳ 골프톡입니다.\n두골프의 AI 골프 여행 전문 상담사예요. 패키지 추천, 예약 안내, 골프 정보 무엇이든 물어보세요!",
   timestamp: new Date(),
+  quickReplies: QUICK_QUESTIONS,
 };
 
 function generateSessionId() {
   return `gt-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+// AI 응답에서 [빠른답변: ...] 패턴을 파싱하는 함수
+function parseQuickReplies(content: string): { cleanContent: string; quickReplies: string[] } {
+  const match = content.match(/\[빠른답변:\s*([^\]]+)\]/);
+  if (!match) return { cleanContent: content, quickReplies: [] };
+  const quickReplies = match[1].split("|").map((s) => s.trim()).filter(Boolean);
+  const cleanContent = content.replace(/\[빠른답변:\s*[^\]]+\]/, "").trim();
+  return { cleanContent, quickReplies };
 }
 
 export default function GolfTalkWidget({ packageId }: { packageId?: number }) {
@@ -84,11 +96,13 @@ export default function GolfTalkWidget({ packageId }: { packageId?: number }) {
           packageId,
         });
 
+        const { cleanContent, quickReplies } = parseQuickReplies(result.response);
         const assistantMsg: Message = {
           id: `a-${Date.now()}`,
           role: "assistant",
-          content: result.response,
+          content: cleanContent,
           timestamp: new Date(),
+          quickReplies: quickReplies.length > 0 ? quickReplies : undefined,
         };
         setMessages((prev) => [...prev, assistantMsg]);
       } catch {
@@ -97,6 +111,7 @@ export default function GolfTalkWidget({ packageId }: { packageId?: number }) {
           role: "assistant",
           content: "죄송합니다. 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요. 📞 전화 상담: 1668-1739",
           timestamp: new Date(),
+          quickReplies: ["카카오톡 연결", "전화 상담 연결"],
         };
         setMessages((prev) => [...prev, errMsg]);
       } finally {
@@ -112,6 +127,23 @@ export default function GolfTalkWidget({ packageId }: { packageId?: number }) {
       sendMessage(input);
     }
   };
+
+  // 빠른 답변 버튼 클릭 핸들러 (카카오톡/전화 특수 처리)
+  const handleQuickReply = (reply: string) => {
+    if (reply === "카카오톡 연결") {
+      window.open("https://pf.kakao.com/_xnGxlxj", "_blank");
+      return;
+    }
+    if (reply === "전화 상담 연결") {
+      window.location.href = "tel:1668-1739";
+      return;
+    }
+    sendMessage(reply);
+  };
+
+  // 마지막 assistant 메시지의 quickReplies 가져오기
+  const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant");
+  const currentQuickReplies = lastAssistantMsg?.quickReplies;
 
   return (
     <>
@@ -131,17 +163,30 @@ export default function GolfTalkWidget({ packageId }: { packageId?: number }) {
                 <p className="text-white font-bold text-sm font-body">골프톡</p>
                 <div className="flex items-center gap-1.5">
                   <div className="w-1.5 h-1.5 bg-green-300 rounded-full animate-pulse" />
-                  <p className="text-green-100 text-xs font-body">AI 여행 상담사</p>
+                  <p className="text-green-100 text-xs font-body">AI 골프 여행 전문 상담사</p>
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="text-white/70 hover:text-white transition-colors p-1"
-              aria-label="채팅창 닫기"
-            >
-              <ChevronDown size={20} />
-            </button>
+            <div className="flex items-center gap-2">
+              {/* 카카오톡 연결 버튼 */}
+              <a
+                href="https://pf.kakao.com/_xnGxlxj"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white/70 hover:text-white transition-colors p-1"
+                aria-label="카카오톡 상담"
+                title="카카오톡 상담"
+              >
+                <Phone size={16} />
+              </a>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="text-white/70 hover:text-white transition-colors p-1"
+                aria-label="채팅창 닫기"
+              >
+                <ChevronDown size={20} />
+              </button>
+            </div>
           </div>
 
           {/* 메시지 목록 */}
@@ -186,13 +231,13 @@ export default function GolfTalkWidget({ packageId }: { packageId?: number }) {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* 빠른 질문 버튼 (메시지가 1개일 때만 표시) */}
-          {messages.length === 1 && (
+          {/* 동적 빠른 답변 버튼 */}
+          {currentQuickReplies && !isTyping && (
             <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex gap-1.5 flex-wrap flex-shrink-0">
-              {QUICK_QUESTIONS.map((q) => (
+              {currentQuickReplies.map((q) => (
                 <button
                   key={q}
-                  onClick={() => sendMessage(q)}
+                  onClick={() => handleQuickReply(q)}
                   className="text-xs bg-white border border-green-200 text-green-700 rounded-full px-2.5 py-1 hover:bg-green-50 transition-colors font-body"
                 >
                   {q}
