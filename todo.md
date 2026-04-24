@@ -363,7 +363,7 @@
 - [x] server/routers.ts appRouter에 3개 라우터 등록
 - [x] TypeScript 빌드 오류 없음 확인
 - [x] 테스트 통과 확인 (106개 통과)
-- [ ] 체크포인트 저장
+- [x] 체크포인트 저장
 
 ## STEP 4: AI 오케스트레이션 파이프 구현 (2026-04-24)
 
@@ -379,7 +379,7 @@
 - [x] OPENROUTER_API_KEY 환경변수 등록
 - [x] TypeScript 빌드 오류 없음 확인
 - [x] 테스트 통과 확인 (106개 통과)
-- [ ] 체크포인트 저장
+- [x] 체크포인트 저장
 
 ## STEP 3+5: AI 엔진 통합 관리 + RAG 파이프라인 (2026-04-24)
 
@@ -389,4 +389,32 @@
 - [x] ERPLayout 사이드바에 AI 어시스턴트 섹션 추가 (AI 마스터 + AI 엔진 관리)
 - [x] MANUS_API_KEY, MANUS_DOGOLF_TASK_ID 환경변수 등록
 - [x] env.ts에 manusApiKey, manusDogolfTaskId 추가
+- [x] 체크포인트 저장 및 Publish
+
+## 4차 개발: 골프톡 + 파트너 + OpenRouter 연동 (2026-04-24)
+
+### Part A: 환경변수 및 OpenRouter Fallback
+- [x] OPENROUTER_BASE_URL 환경변수 등록
+- [x] server/services/openrouter.ts에 OPENROUTER_API_KEY 없을 시 Gemini fallback 구현
+- [x] server/_core/env.ts에 openrouterBaseUrl 추가
+- [x] OPENROUTER_API_KEY 등록 (sk-or-v1-...)
+- [x] 모델 라우팅 업데이트 (high→gemini-2.5-pro, medium→gemini-2.5-flash, low→gemini-2.0-flash-lite)
+
+### Part B: 골프톡 위젯
+- [x] client/src/components/GolfTalkWidget.tsx 생성 (플로팅 버튼, 채팅창, 타이핑 인디케이터)
+- [x] server/services/prompts/golftalk.ts 업데이트 (요구사항 반영)
+- [x] 공개 페이지(홈, 패키지 목록, 패키지 상세)에 GolfTalkWidget 삽입
+
+### Part C: 파트너 페이지
+- [x] client/src/pages/Partner/PartnerDashboard.tsx 생성 (통계 카드, 예약 목록, 빠른 액션)
+- [x] client/src/pages/Partner/PartnerChat.tsx 생성 (매니저 AI 채팅 전체 페이지)
+- [x] App.tsx에 /partner, /partner/chat 라우트 추가 (로그인 필요)
+
+### Part D: 자동 개발 파이프 테스트
+- [x] dev_requests 테이블에 테스트 데이터 1건 삽입 (골프톡 위젯 카카오톡 연동)
+- [x] Manus API 전송 성공 확인 (두골프 ERP 태스크로 메시지 수신 확인)
+- [x] server/manusPipe.test.ts 테스트 파일 생성
+
+### 완료 조건
+- [x] TypeScript 빌드 오류 없음 (pnpm build ✓ built in 25.01s)
 - [ ] 체크포인트 저장 및 Publish

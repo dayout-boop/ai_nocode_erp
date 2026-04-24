@@ -12,6 +12,7 @@ import {
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import KakaoFloat from '@/components/KakaoFloat';
+import GolfTalkWidget from '@/components/GolfTalkWidget';
 import { trpc } from '@/lib/trpc';
 
 const countryFlagMap: Record<string, string> = {
@@ -584,6 +585,7 @@ export default function PackageDetail() {
 
       <Footer />
       <KakaoFloat />
+      <GolfTalkWidget />
     </div>
   );
 }

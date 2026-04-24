@@ -29,6 +29,10 @@ import AIDevEngine from "./pages/erp/AIDevEngine";
 import MasterAI from "./pages/erp/MasterAI";
 import AIEngine from "./pages/erp/AIEngine";
 
+// Partner Pages
+import PartnerDashboard from "./pages/Partner/PartnerDashboard";
+import PartnerChat from "./pages/Partner/PartnerChat";
+
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
@@ -60,6 +64,10 @@ function Router() {
       <Route path={"/erp/ai-dev-engine"} component={AIDevEngine} />
       <Route path={"/erp/master-ai"} component={MasterAI} />
       <Route path={"/erp/ai-engine"} component={AIEngine} />
+
+      {/* 파트너 센터 */}
+      <Route path={"/partner"} component={PartnerDashboard} />
+      <Route path={"/partner/chat"} component={PartnerChat} />
 
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />

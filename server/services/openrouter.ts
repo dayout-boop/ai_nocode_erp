@@ -11,29 +11,29 @@
  */
 import { ENV } from "../_core/env";
 
-const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+const OPENROUTER_BASE_URL = ENV.openrouterBaseUrl ?? "https://openrouter.ai/api/v1";
 const MAX_RETRIES = 2;
 const TIMEOUT_MS = 30_000;
 
 // 복잡도별 모델 매핑 (STEP 4 요구사항)
 const MODEL_MAP: Record<"high" | "medium" | "low", { id: string; name: string; inputPrice: number; outputPrice: number }> = {
   high: {
-    id: "google/gemini-2.5-pro-preview",
+    id: "google/gemini-2.5-pro",
     name: "Gemini 2.5 Pro",
     inputPrice: 1.25,
     outputPrice: 10.0,
   },
   medium: {
-    id: "anthropic/claude-3-5-haiku",
-    name: "Claude 3.5 Haiku",
-    inputPrice: 0.8,
-    outputPrice: 4.0,
+    id: "google/gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    inputPrice: 0.15,
+    outputPrice: 0.6,
   },
   low: {
-    id: "google/gemini-2.0-flash-001",
-    name: "Gemini 2.0 Flash",
-    inputPrice: 0.1,
-    outputPrice: 0.4,
+    id: "google/gemini-2.0-flash-lite",
+    name: "Gemini 2.0 Flash Lite",
+    inputPrice: 0.075,
+    outputPrice: 0.3,
   },
 };
 

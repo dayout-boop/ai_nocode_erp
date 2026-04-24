@@ -10,6 +10,7 @@ import { ChevronLeft, ChevronRight, ArrowRight, Star, Phone, TrendingUp, Zap, Me
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import KakaoFloat from '@/components/KakaoFloat';
+import GolfTalkWidget from '@/components/GolfTalkWidget';
 import { heroSlides, destinations, stats, reviews, notices } from '@/lib/data';
 import { trpc } from '@/lib/trpc';
 
@@ -796,6 +797,7 @@ export default function Home() {
 
       <Footer />
       <KakaoFloat />
+      <GolfTalkWidget />
     </div>
   );
 }

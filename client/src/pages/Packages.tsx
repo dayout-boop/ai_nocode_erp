@@ -8,6 +8,7 @@ import { Search, Loader2, Plane, Flag, Hotel } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import KakaoFloat from '@/components/KakaoFloat';
+import GolfTalkWidget from '@/components/GolfTalkWidget';
 import { destinations } from '@/lib/data';
 import { trpc } from '@/lib/trpc';
 
@@ -330,6 +331,7 @@ export default function Packages() {
 
       <Footer />
       <KakaoFloat />
+      <GolfTalkWidget />
     </div>
   );
 }
