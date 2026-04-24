@@ -463,3 +463,8 @@
 - [x] Home.tsx에서 두골프 AI 상담 플로팅 버튼 및 관련 코드 완전 제거
 - [x] KakaoFloat 컴포넌트 미노출 (return null 처리)
 - [x] Header.tsx의 카카오 상담 버튼을 AI상담사 골프톡으로 명칭 변경 및 GolfTalkWidget 열기 기능으로 교체
+
+## ERP 사이드바 재편성 (2026-04-24)
+- [x] ERPLayout.tsx navItems를 3개 핵심 카테고리 최상단 배치로 재편성
+- [x] 중복/미구현 메뉴 통합 및 정리
+- [x] TypeScript 빌드 오류 없음 확인

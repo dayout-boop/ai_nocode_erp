@@ -3,8 +3,8 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import {
-  LayoutDashboard, Package, Calendar, CreditCard, Users, Megaphone, Image, MessageSquare,
-  ChevronDown, ChevronRight, Menu, X, LogOut, Bell, Settings, ExternalLink, Sparkles, Code2, Zap, Bot
+  LayoutDashboard, Package, Calendar, CreditCard, Users, Megaphone,
+  ChevronDown, ChevronRight, Menu, X, LogOut, Bell, ExternalLink, Sparkles, Zap, Bot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -19,6 +19,41 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 핵심 AI 카테고리 (최상단 고정)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  {
+    label: "AI 챗봇",
+    icon: <Bot size={18} />,
+    children: [
+      { label: "두골프 마스터 🤖", href: "/erp/master-ai" },
+      { label: "골프톡 로그", href: "/erp/ai-logs" },
+      { label: "매니저 상담", href: "/partner/chat" },
+    ],
+  },
+  {
+    label: "AI 마스터",
+    icon: <Sparkles size={18} />,
+    children: [
+      { label: "AI 어시스턴트", href: "/erp/gemini" },
+      { label: "AI 대화 로그", href: "/erp/ai-logs" },
+      { label: "AI 오케스트레이터", href: "/erp/orchestrator" },
+    ],
+  },
+  {
+    label: "AI 엔진 관리",
+    icon: <Zap size={18} />,
+    children: [
+      { label: "엔진 대시보드", href: "/erp/ai-engine" },
+      { label: "개발 요청", href: "/erp/dev-ai?tab=requests" },
+      { label: "기능 목록", href: "/erp/dev-ai?tab=features" },
+      { label: "버전 이력", href: "/erp/dev-ai?tab=versions" },
+      { label: "오류 로그", href: "/erp/ai-dev-engine" },
+    ],
+  },
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 운영 카테고리
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   { label: "대시보드", icon: <LayoutDashboard size={18} />, href: "/erp" },
   {
     label: "상품관리",
@@ -33,12 +68,6 @@ const navItems: NavItem[] = [
     icon: <Calendar size={18} />,
     children: [
       { label: "예약 목록", href: "/erp/bookings" },
-    ],
-  },
-  {
-    label: "문의관리",
-    icon: <MessageSquare size={18} />,
-    children: [
       { label: "예약 문의", href: "/erp/inquiries" },
     ],
   },
@@ -63,42 +92,6 @@ const navItems: NavItem[] = [
     children: [
       { label: "공지사항", href: "/erp/cms/notices" },
       { label: "배너 관리", href: "/erp/cms/banners" },
-    ],
-  },
-  {
-    label: "Gemini AI",
-    icon: <Sparkles size={18} />,
-    children: [
-      { label: "AI 어시스턴트", href: "/erp/gemini" },
-      { label: "AI 대화 로그", href: "/erp/ai-logs" },
-    ],
-  },
-  {
-    label: "두골프 개발AI",
-    icon: <Code2 size={18} />,
-    children: [
-      { label: "대시보드", href: "/erp/dev-ai" },
-      { label: "개발 요청", href: "/erp/dev-ai?tab=requests" },
-      { label: "기능 목록", href: "/erp/dev-ai?tab=features" },
-      { label: "버전 이력", href: "/erp/dev-ai?tab=versions" },
-      { label: "AI 오케스트레이터", href: "/erp/orchestrator" },
-    ],
-  },
-  {
-    label: "두골프-AI개발 엔진",
-    icon: <Zap size={18} />,
-    children: [
-      { label: "오류 로그", href: "/erp/ai-dev-engine" },
-      { label: "수정 요청", href: "/erp/ai-dev-engine" },
-      { label: "ERP 기능 검색", href: "/erp/ai-dev-engine" },
-    ],
-  },
-  {
-    label: "AI 어시스턴트",
-    icon: <Bot size={18} />,
-    children: [
-      { label: "두골프 마스터 🤖", href: "/erp/master-ai" },
-      { label: "AI 엔진 관리", href: "/erp/ai-engine" },
     ],
   },
 ];
