@@ -101,14 +101,12 @@ export default function Header() {
                   예약 문의
                 </button>
               </Link>
-              <a
-                href="http://pf.kakao.com/_xbHHSV"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-4 py-2 text-sm font-semibold font-body bg-[#FEE500] text-[#3A1D1D] rounded-lg hover:bg-[#FFD700] transition-all duration-200 flex items-center gap-1"
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('openGolfTalk'))}
+                className="px-4 py-2 text-sm font-semibold font-body bg-dogolf-green text-white rounded-lg hover:bg-dogolf-green-dark transition-all duration-200 flex items-center gap-1"
               >
-                <span>💬</span> 카카오 상담
-              </a>
+                <span>⛳</span> AI상담사 골프톡
+              </button>
             </div>
 
             {/* Mobile Menu Button */}
@@ -146,14 +144,12 @@ export default function Header() {
                       예약 문의
                     </button>
                   </Link>
-                  <a
-                    href="http://pf.kakao.com/_xbHHSV"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 py-2.5 text-sm font-semibold font-body bg-[#FEE500] text-[#3A1D1D] rounded-lg hover:bg-[#FFD700] transition-all text-center"
+                  <button
+                    onClick={() => window.dispatchEvent(new CustomEvent('openGolfTalk'))}
+                    className="flex-1 py-2.5 text-sm font-semibold font-body bg-dogolf-green text-white rounded-lg hover:bg-dogolf-green-dark transition-all text-center"
                   >
-                    💬 카카오 상담
-                  </a>
+                    ⛳ AI상담사 골프톡
+                  </button>
                 </div>
                 <div className="mt-2 pt-2 border-t border-gray-100">
                   <a href="tel:1668-1739" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600">

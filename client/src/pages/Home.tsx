@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/_core/hooks/useAuth';
 import { Link } from 'wouter';
-import { ChevronLeft, ChevronRight, ArrowRight, Star, Phone, TrendingUp, Zap, MessageCircle, X, Send } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowRight, Star, Phone, TrendingUp, Zap, X } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import KakaoFloat from '@/components/KakaoFloat';
@@ -134,44 +134,7 @@ export default function Home() {
   );
   const courseFilteredPackages = activeCourseType ? (courseFilteredData?.items ?? []) : [];
 
-  // AI 상담 플로팅
-  const [showAIChat, setShowAIChat] = useState(false);
-  const [aiInput, setAiInput] = useState('');
-  const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
-  const [aiLoading, setAiLoading] = useState(false);
-  const golfTalkMutation = trpc.aiAssistant.golfTalkChat.useMutation();
 
-  // PackageDetail의 AI 상담 버튼 클릭 시 플로팅 열기
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      setShowAIChat(true);
-      if (detail?.packageTitle) {
-        setAiMessages([{ role: 'assistant', content: `안녕하세요! **${detail.packageTitle}** 상품에 대해 무엇이든 묻어보세요. 가격, 일정, 포함 내역 등 즉시 답변드립니다. ⛳` }]);
-      }
-    };
-    window.addEventListener('openAIChat', handler);
-    return () => window.removeEventListener('openAIChat', handler);
-  }, []);
-  const handleAiSend = async () => {
-    if (!aiInput.trim() || aiLoading) return;
-    const userMsg = aiInput.trim();
-    setAiMessages(prev => [...prev, { role: 'user', content: userMsg }]);
-    setAiInput('');
-    setAiLoading(true);
-    try {
-      const history = aiMessages.map(m => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content
-      }));
-      const res = await golfTalkMutation.mutateAsync({ message: userMsg, history, sessionId: 'home-' + Date.now() });
-      setAiMessages(prev => [...prev, { role: 'assistant', content: res.response }]);
-    } catch {
-      setAiMessages(prev => [...prev, { role: 'assistant', content: '죄송합니다. 잠시 후 다시 시도해 주세요.' }]);
-    } finally {
-      setAiLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -679,85 +642,6 @@ export default function Home() {
         </section>
       )}
 
-      {/* ===== AI 상담 플로팅 버튼 ===== */}
-      <div className="fixed bottom-24 right-6 z-50">
-        {showAIChat && (
-          <div className="mb-3 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col" style={{height: '420px'}}>
-            <div className="bg-dogolf-green px-4 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center">
-                  <span className="text-white text-xs">⛳</span>
-                </div>
-                <div>
-                  <p className="text-white font-semibold text-sm font-body">두골프 AI 상담</p>
-                  <p className="text-white/70 text-xs font-body">골프 여행 전문 AI</p>
-                </div>
-              </div>
-              <button onClick={() => setShowAIChat(false)} className="text-white/70 hover:text-white">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {aiMessages.length === 0 && (
-                <div className="text-center py-6">
-                  <p className="text-gray-400 text-xs font-body">안녕하세요! 골프 여행에 대해 무엇이든 물어보세요.</p>
-                  <div className="mt-3 space-y-1">
-                    {['태국 골프 패키지 추천해줘', '비용이 얼마나 들어?', '예약 방법 알려줘'].map(q => (
-                      <button key={q} onClick={() => setAiInput(q)}
-                        className="block w-full text-left text-xs text-dogolf-green bg-green-50 hover:bg-green-100 rounded-lg px-3 py-1.5 font-body transition-colors">
-                        {q}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {aiMessages.map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs font-body ${
-                    msg.role === 'user'
-                      ? 'bg-dogolf-green text-white rounded-br-sm'
-                      : 'bg-gray-100 text-gray-800 rounded-bl-sm'
-                  }`}>
-                    {msg.content}
-                  </div>
-                </div>
-              ))}
-              {aiLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-gray-100 px-3 py-2 rounded-xl rounded-bl-sm">
-                    <div className="flex gap-1">
-                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'0ms'}} />
-                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'150ms'}} />
-                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay:'300ms'}} />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="p-3 border-t border-gray-100 flex gap-2">
-              <input
-                type="text"
-                value={aiInput}
-                onChange={e => setAiInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleAiSend()}
-                placeholder="메시지를 입력하세요..."
-                className="flex-1 text-xs border border-gray-200 rounded-lg px-3 py-2 font-body focus:outline-none focus:border-dogolf-green"
-              />
-              <button onClick={handleAiSend} disabled={aiLoading}
-                className="w-8 h-8 bg-dogolf-green text-white rounded-lg flex items-center justify-center hover:bg-dogolf-green-dark disabled:opacity-50 transition-colors">
-                <Send size={14} />
-              </button>
-            </div>
-          </div>
-        )}
-        <button
-          onClick={() => setShowAIChat(prev => !prev)}
-          className="w-14 h-14 bg-dogolf-green text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-dogolf-green-dark transition-all duration-200 hover:scale-110"
-          title="AI 골프 상담"
-        >
-          {showAIChat ? <X size={22} /> : <MessageCircle size={22} />}
-        </button>
-      </div>
 
       {/* ===== CTA BANNER ===== */}
       <section className="relative py-20 overflow-hidden">

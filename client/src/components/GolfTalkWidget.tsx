@@ -73,6 +73,12 @@ export default function GolfTalkWidget({ packageId }: { packageId?: number }) {
       inputRef.current.focus();
     }
   }, [isOpen]);
+  // 헤더 등 외부에서 골프톡 위젯을 열 수 있도록 커스텀 이벤트 리스너 등록
+  useEffect(() => {
+    const handler = () => setIsOpen(true);
+    window.addEventListener('openGolfTalk', handler);
+    return () => window.removeEventListener('openGolfTalk', handler);
+  }, []);
 
   const sendMessage = useCallback(
     async (text: string) => {

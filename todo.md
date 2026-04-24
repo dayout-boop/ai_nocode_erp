@@ -453,3 +453,13 @@
 - [x] 골프톡 시스템 프롬프트에 [후속질문: A | B | C] 패턴 추가
 - [x] TypeScript 빌드 오류 없음
 - [x] 체크포인트 저장
+
+## 홈페이지 위젯 정리 (2026-04-24)
+- [ ] Home.tsx에서 "두골프 AI 상담" 플로팅 버튼 및 관련 코드 완전 제거
+- [x] KakaoFloat 컴포넌트 미노출 (return null 처리)
+- [ ] Header.tsx의 "카카오 상담" 버튼을 "AI상담사 골프톡" 으로 명칭 변경 및 GolfTalkWidget 열기 기능으로 교체
+
+## 홈페이지 위젯 정리 (2026-04-24)
+- [x] Home.tsx에서 두골프 AI 상담 플로팅 버튼 및 관련 코드 완전 제거
+- [x] KakaoFloat 컴포넌트 미노출 (return null 처리)
+- [x] Header.tsx의 카카오 상담 버튼을 AI상담사 골프톡으로 명칭 변경 및 GolfTalkWidget 열기 기능으로 교체
