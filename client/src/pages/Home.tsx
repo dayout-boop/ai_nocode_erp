@@ -139,7 +139,7 @@ export default function Home() {
   const [aiInput, setAiInput] = useState('');
   const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
-  const askMutation = trpc.gemini.ask.useMutation();
+  const golfTalkMutation = trpc.aiAssistant.golfTalkChat.useMutation();
 
   // PackageDetail의 AI 상담 버튼 클릭 시 플로팅 열기
   useEffect(() => {
@@ -160,11 +160,11 @@ export default function Home() {
     setAiInput('');
     setAiLoading(true);
     try {
-      const msgs = [...aiMessages, { role: 'user' as const, content: userMsg }].map(m => ({
-        role: m.role === 'user' ? 'user' as const : 'model' as const,
+      const history = aiMessages.map(m => ({
+        role: m.role as 'user' | 'assistant',
         content: m.content
       }));
-      const res = await askMutation.mutateAsync({ messages: msgs, extraContext: '두골프 홈페이지 방문객 상담' });
+      const res = await golfTalkMutation.mutateAsync({ message: userMsg, history, sessionId: 'home-' + Date.now() });
       setAiMessages(prev => [...prev, { role: 'assistant', content: res.response }]);
     } catch {
       setAiMessages(prev => [...prev, { role: 'assistant', content: '죄송합니다. 잠시 후 다시 시도해 주세요.' }]);

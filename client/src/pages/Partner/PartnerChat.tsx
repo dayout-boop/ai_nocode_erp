@@ -50,7 +50,7 @@ export default function PartnerChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const chatMutation = trpc.aiAssistant.golfTalkChat.useMutation();
+  const chatMutation = trpc.aiAssistant.managerChat.useMutation();
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -100,7 +100,7 @@ export default function PartnerChat() {
       // 매니저 채널은 golfTalkChat을 재사용하되 시스템 컨텍스트를 파트너용으로 전달
       const result = await chatMutation.mutateAsync({
         sessionId,
-        message: `[파트너 문의] ${text.trim()}`,
+        message: text.trim(),
         history,
       });
 

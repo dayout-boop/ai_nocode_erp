@@ -346,6 +346,89 @@ export const aiRouter = router({
     }),
 
   /**
+   * 두골프 매니저 채팅 (파트너 인증 필수)
+   * 입점사 파트너 전용 AI 상담
+   */
+  managerChat: protectedProcedure
+    .input(
+      z.object({
+        message: z.string().min(1).max(1000),
+        sessionId: z.string().min(1).max(100),
+        history: z
+          .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() }))
+          .optional()
+          .default([]),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
+
+      const { MANAGER_SYSTEM_PROMPT } = await import("../services/prompts/manager");
+      const messages: import("../services/openrouter").ChatMessage[] = [
+        ...input.history.map((h) => ({ role: h.role as "user" | "assistant", content: h.content })),
+        { role: "user" as const, content: input.message },
+      ];
+
+      const startTime = Date.now();
+      let responseText = "죄송합니다. 잠시 후 다시 시도해 주세요.";
+      let modelUsed = "";
+      let tokensIn = 0;
+      let tokensOut = 0;
+      let costUsd = 0;
+
+      try {
+        const result = await orchestratorChat({
+          messages,
+          complexity: "medium",
+          assistant: "manager",
+          sessionId: input.sessionId,
+          userId: ctx.user.id,
+          systemPrompt: MANAGER_SYSTEM_PROMPT,
+        });
+        responseText = result.text;
+        modelUsed = result.model;
+        tokensIn = result.tokensIn;
+        tokensOut = result.tokensOut;
+        costUsd = result.costUsd;
+      } catch (err) {
+        console.error("[managerChat] AI 호출 실패:", err);
+      }
+
+      // 로그 저장
+      db.insert(aiLogs)
+        .values([
+          {
+            sessionId: input.sessionId,
+            userId: ctx.user.id,
+            assistant: "manager",
+            role: "user",
+            content: input.message,
+            modelUsed,
+            tokensIn: 0,
+            tokensOut: 0,
+            costUsd: "0",
+            grounded: false,
+          },
+          {
+            sessionId: input.sessionId,
+            userId: ctx.user.id,
+            assistant: "manager",
+            role: "assistant",
+            content: responseText,
+            modelUsed,
+            tokensIn,
+            tokensOut,
+            costUsd: String(costUsd),
+            grounded: false,
+          },
+        ])
+        .catch((e) => console.error("[managerChat] 로그 저장 실패:", e));
+
+      return { response: responseText, model: modelUsed, tokensIn, tokensOut, costUsd, durationMs: Date.now() - startTime };
+    }),
+
+  /**
    * 세션별 대화 내역 조회
    */
   getSessionMessages: adminProcedure
