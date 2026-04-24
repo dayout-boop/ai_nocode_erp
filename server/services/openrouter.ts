@@ -18,8 +18,8 @@ const TIMEOUT_MS = 30_000;
 // 복잡도별 모델 매핑 (STEP 4 요구사항)
 const MODEL_MAP: Record<"high" | "medium" | "low", { id: string; name: string; inputPrice: number; outputPrice: number }> = {
   high: {
-    id: "google/gemini-2.5-pro",
-    name: "Gemini 2.5 Pro",
+    id: "google/gemini-2.5-pro-preview-05-06",
+    name: "Gemini 2.5 Pro Preview",
     inputPrice: 1.25,
     outputPrice: 10.0,
   },
@@ -30,7 +30,7 @@ const MODEL_MAP: Record<"high" | "medium" | "low", { id: string; name: string; i
     outputPrice: 0.6,
   },
   low: {
-    id: "google/gemini-2.0-flash-lite",
+    id: "google/gemini-2.0-flash-lite-001",
     name: "Gemini 2.0 Flash Lite",
     inputPrice: 0.075,
     outputPrice: 0.3,

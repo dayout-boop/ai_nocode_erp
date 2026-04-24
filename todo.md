@@ -417,4 +417,4 @@
 
 ### 완료 조건
 - [x] TypeScript 빌드 오류 없음 (pnpm build ✓ built in 25.01s)
-- [ ] 체크포인트 저장 및 Publish
+- [x] 체크포인트 저장 및 Publish
