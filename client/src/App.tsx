@@ -28,6 +28,10 @@ import DevAIOrchestrator from "./pages/erp/DevAIOrchestrator";
 import AIDevEngine from "./pages/erp/AIDevEngine";
 import MasterAI from "./pages/erp/MasterAI";
 import AIEngine from "./pages/erp/AIEngine";
+import GolfTalkAdmin from "./pages/erp/GolfTalkAdmin";
+import ManagerAdmin from "./pages/erp/ManagerAdmin";
+import MasterLogs from "./pages/erp/MasterLogs";
+import MasterCosts from "./pages/erp/MasterCosts";
 
 // Partner Pages
 import PartnerDashboard from "./pages/Partner/PartnerDashboard";
@@ -63,7 +67,15 @@ function Router() {
       <Route path={"/erp/orchestrator"} component={DevAIOrchestrator} />
       <Route path={"/erp/ai-dev-engine"} component={AIDevEngine} />
       <Route path={"/erp/master-ai"} component={MasterAI} />
+      <Route path={"/erp/master-ai/logs"} component={MasterLogs} />
+      <Route path={"/erp/master-ai/costs"} component={MasterCosts} />
       <Route path={"/erp/ai-engine"} component={AIEngine} />
+      <Route path={"/erp/golftalk-admin"} component={GolfTalkAdmin} />
+      <Route path={"/erp/manager-admin"} component={ManagerAdmin} />
+
+      {/* /admin → /erp 리다이렉트 */}
+      <Route path={"/admin"} component={() => { window.location.replace("/erp"); return null; }} />
+      <Route path={"/admin/:rest*"} component={() => { window.location.replace("/erp"); return null; }} />
 
       {/* 파트너 센터 */}
       <Route path={"/partner"} component={PartnerDashboard} />

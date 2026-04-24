@@ -32,8 +32,9 @@ import {
 import {
   Zap, DollarSign, MessageSquare, Code2, Plus, Send, RefreshCw,
   CheckCircle2, Clock, XCircle, AlertTriangle, Loader2, Bot,
-  BarChart3, Settings, Eye,
+  BarChart3, Settings, Eye, ShieldAlert, ExternalLink,
 } from "lucide-react";
+import { Link } from "wouter";
 
 // ─── 우선순위 배지 ────────────────────────────────────────────────────────────
 function PriorityBadge({ priority }: { priority: string }) {
@@ -611,6 +612,118 @@ function ChatSessionsTab() {
   );
 }
 
+// ─── 탭 5: 자동 오류 수정 파이프 ────────────────────────────────────────────────
+function AutoFixPipeTab() {
+  const logsQuery = trpc.aiDevEngine.getLogs.useQuery({ limit: 20 });
+  const statsQuery = trpc.aiDevEngine.getDashboardStats.useQuery();
+
+  const statusColors: Record<string, string> = {
+    new: "bg-blue-100 text-blue-700",
+    analyzing: "bg-yellow-100 text-yellow-700",
+    fixed: "bg-green-100 text-green-700",
+    failed: "bg-red-100 text-red-700",
+    ignored: "bg-slate-100 text-slate-500",
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* 파이프라인 설명 */}
+      <Card className="border-orange-200 bg-orange-50">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <ShieldAlert size={20} className="text-orange-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-semibold text-orange-800 text-sm">자동 오류 수정 파이프라인 활성화됨</p>
+              <p className="text-orange-700 text-xs mt-1">
+                서버 런타임 오류가 감지되면 AI가 자동으로 원인을 분석하고 수정 제안을 생성합니다.
+                핵심 기능(결제/인증/예약) 수정 시에는 관리자 승인이 필요합니다.
+              </p>
+              <div className="flex items-center gap-2 mt-3">
+                <Link href="/erp/ai-dev-engine">
+                  <button className="flex items-center gap-1.5 text-xs bg-orange-600 text-white px-3 py-1.5 rounded-lg hover:bg-orange-700 transition-colors">
+                    <ExternalLink size={12} />
+                    두골프-AI개발 엔진 전체 보기
+                  </button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 통계 요약 */}
+      {statsQuery.data && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "총 오류 감지", value: (statsQuery.data as any).totalLogs ?? 0, color: "text-blue-600" },
+            { label: "분석 완료", value: (statsQuery.data as any).analyzedLogs ?? 0, color: "text-green-600" },
+            { label: "수정 요청", value: (statsQuery.data as any).totalFixRequests ?? 0, color: "text-purple-600" },
+            { label: "승인 대기", value: (statsQuery.data as any).pendingApproval ?? 0, color: "text-orange-600" },
+          ].map((stat) => (
+            <Card key={stat.label}>
+              <CardContent className="p-3 text-center">
+                <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{stat.label}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* 최근 오류 로그 */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center justify-between">
+            <span>최근 감지된 오류 (20건)</span>
+            <Link href="/erp/ai-dev-engine">
+              <button className="text-xs text-indigo-600 hover:underline flex items-center gap-1">
+                전체 보기 <ExternalLink size={10} />
+              </button>
+            </Link>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>소스</TableHead>
+                <TableHead>오류 메시지</TableHead>
+                <TableHead>유형</TableHead>
+                <TableHead>상태</TableHead>
+                <TableHead>시간</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(logsQuery.data?.logs ?? []).map((log: any) => (
+                <TableRow key={log.id}>
+                  <TableCell className="text-xs font-mono text-slate-600">{log.source?.slice(0, 30) ?? "-"}</TableCell>
+                  <TableCell className="text-xs max-w-xs truncate">{log.errorMessage?.slice(0, 60) ?? "-"}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs">{log.errorType ?? "unknown"}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className={`text-xs ${statusColors[log.status] ?? "bg-slate-100 text-slate-600"}`}>
+                      {log.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-slate-400">
+                    {log.createdAt ? new Date(log.createdAt).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "-"}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {(logsQuery.data?.logs ?? []).length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-6 text-slate-400 text-sm">감지된 오류 없음</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ─── 탭 4: 시스템 설정 ───────────────────────────────────────────────────────
 function SystemSettingsTab() {
   const logsQuery = trpc.aiAssistant.getLogs.useQuery({ assistant: "all", limit: 20, offset: 0 });
@@ -706,7 +819,7 @@ export default function AIEngine() {
 
         {/* Tabs */}
         <Tabs defaultValue="dev-requests">
-          <TabsList className="grid grid-cols-4 w-full max-w-xl">
+          <TabsList className="grid grid-cols-5 w-full max-w-2xl">
             <TabsTrigger value="dev-requests" className="text-xs">
               <Code2 size={12} className="mr-1" />
               개발 요청
@@ -718,6 +831,10 @@ export default function AIEngine() {
             <TabsTrigger value="sessions" className="text-xs">
               <MessageSquare size={12} className="mr-1" />
               상담 세션
+            </TabsTrigger>
+            <TabsTrigger value="auto-fix" className="text-xs">
+              <ShieldAlert size={12} className="mr-1" />
+              자동 수정 파이프
             </TabsTrigger>
             <TabsTrigger value="settings" className="text-xs">
               <Settings size={12} className="mr-1" />
@@ -733,6 +850,9 @@ export default function AIEngine() {
           </TabsContent>
           <TabsContent value="sessions" className="mt-6">
             <ChatSessionsTab />
+          </TabsContent>
+          <TabsContent value="auto-fix" className="mt-6">
+            <AutoFixPipeTab />
           </TabsContent>
           <TabsContent value="settings" className="mt-6">
             <SystemSettingsTab />

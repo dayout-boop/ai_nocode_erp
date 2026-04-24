@@ -476,3 +476,21 @@
 - [x] 추론→분석→결과→Manus 전송 파이프라인 UI 완성
 - [x] 타임아웃 30s → 120s 증가 (Gemini 2.5 Pro 응답 대기)
 - [x] TypeScript 빌드 오류 없음 확인
+
+## 추가 개발 요청 처리 (2026-04-24)
+### 요청 1: ERP 사이드바 3개 카테고리 재편성
+- [x] /admin → /erp 리다이렉트 라우트 추가
+- [x] ERPLayout.tsx navItems 확정 구조로 재편성 (AI챗봇/AI마스터/AI엔진관리 + 하단 일반 메뉴)
+- [x] 골프톡 관리 페이지 (/erp/golftalk-admin) 신규 생성
+- [x] 두골프 매니저 관리 페이지 (/erp/manager-admin) 신규 생성
+- [x] 마스터 대화 이력 페이지 (/erp/master-ai/logs) 신규 생성
+- [x] 마스터 비용 현황 페이지 (/erp/master-ai/costs) 신규 생성
+- [x] AI 엔진 관리 서브 페이지 (models/prompts/dev-requests/pipe) 라우트 추가
+
+### 요청 2: 자동 오류 수정 파이프
+- [x] server/services/autoFix.ts 신규 생성 (오류 감지 → Manus 자동 전송) - errorWatcher.ts/autoFixer.ts로 이미 구현
+- [x] server/_core/index.ts에 글로벌 오류 핸들러 추가 (uncaughtException/unhandledRejection) - 이미 구현
+- [x] AIEngine.tsx에 자동 파이프 설정 탭 추가 (자동 수정 파이프 탭 5번째 추가)
+
+### 요청 3: 커스텀 도메인 확인
+- [x] dayoutgolf.com DNS 전파 상태 확인 및 안내 (HTTP 200 응답 확인)

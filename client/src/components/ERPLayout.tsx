@@ -27,17 +27,17 @@ const navItems: NavItem[] = [
     icon: <Bot size={18} />,
     children: [
       { label: "두골프 마스터 🤖", href: "/erp/master-ai" },
-      { label: "골프톡 로그", href: "/erp/ai-logs" },
-      { label: "매니저 상담", href: "/partner/chat" },
+      { label: "골프톡 관리", href: "/erp/golftalk-admin" },
+      { label: "두골프 매니저 관리", href: "/erp/manager-admin" },
     ],
   },
   {
     label: "AI 마스터",
     icon: <Sparkles size={18} />,
     children: [
-      { label: "AI 어시스턴트", href: "/erp/gemini" },
-      { label: "AI 대화 로그", href: "/erp/ai-logs" },
-      { label: "AI 오케스트레이터", href: "/erp/orchestrator" },
+      { label: "두골프 마스터 채팅", href: "/erp/master-ai" },
+      { label: "대화 이력", href: "/erp/master-ai/logs" },
+      { label: "AI 비용 현황", href: "/erp/master-ai/costs" },
     ],
   },
   {
