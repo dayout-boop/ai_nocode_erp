@@ -12,6 +12,7 @@ interface Message {
   content: string;
   timestamp: Date;
   quickReplies?: string[];
+  isFollowUp?: boolean;
 }
 
 const QUICK_QUESTIONS = [
@@ -34,13 +35,18 @@ function generateSessionId() {
   return `gt-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-// AI 응답에서 [빠른답변: ...] 패턴을 파싱하는 함수
-function parseQuickReplies(content: string): { cleanContent: string; quickReplies: string[] } {
-  const match = content.match(/\[빠른답변:\s*([^\]]+)\]/);
-  if (!match) return { cleanContent: content, quickReplies: [] };
+// AI 응답에서 [빠른답변: ...] 또는 [후속질문: ...] 패턴을 파싱하는 함수
+function parseQuickReplies(content: string): { cleanContent: string; quickReplies: string[]; isFollowUp: boolean } {
+  // [빠른답변:] 패턴 체크 (선택지 제시)
+  const quickMatch = content.match(/\[빠른답변:\s*([^\]]+)\]/);
+  // [후속질문:] 패턴 체크 (다음 행동 예측)
+  const followMatch = content.match(/\[후속질문:\s*([^\]]+)\]/);
+  const match = quickMatch || followMatch;
+  const isFollowUp = Boolean(!quickMatch && followMatch);
+  if (!match) return { cleanContent: content, quickReplies: [], isFollowUp: false };
   const quickReplies = match[1].split("|").map((s) => s.trim()).filter(Boolean);
-  const cleanContent = content.replace(/\[빠른답변:\s*[^\]]+\]/, "").trim();
-  return { cleanContent, quickReplies };
+  const cleanContent = content.replace(/\[(빠른답변|후속질문):\s*[^\]]+\]/, "").trim();
+  return { cleanContent, quickReplies, isFollowUp };
 }
 
 export default function GolfTalkWidget({ packageId }: { packageId?: number }) {
@@ -96,13 +102,14 @@ export default function GolfTalkWidget({ packageId }: { packageId?: number }) {
           packageId,
         });
 
-        const { cleanContent, quickReplies } = parseQuickReplies(result.response);
+        const { cleanContent, quickReplies, isFollowUp } = parseQuickReplies(result.response);
         const assistantMsg: Message = {
           id: `a-${Date.now()}`,
           role: "assistant",
           content: cleanContent,
           timestamp: new Date(),
           quickReplies: quickReplies.length > 0 ? quickReplies : undefined,
+          isFollowUp: isFollowUp,
         };
         setMessages((prev) => [...prev, assistantMsg]);
       } catch {
@@ -144,6 +151,7 @@ export default function GolfTalkWidget({ packageId }: { packageId?: number }) {
   // 마지막 assistant 메시지의 quickReplies 가져오기
   const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant");
   const currentQuickReplies = lastAssistantMsg?.quickReplies;
+  const isCurrentFollowUp = lastAssistantMsg?.isFollowUp ?? false;
 
   return (
     <>
@@ -231,18 +239,27 @@ export default function GolfTalkWidget({ packageId }: { packageId?: number }) {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* 동적 빠른 답변 버튼 */}
+          {/* 동적 빠른 답변 / 후속 질문 버튼 */}
           {currentQuickReplies && !isTyping && (
-            <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex gap-1.5 flex-wrap flex-shrink-0">
-              {currentQuickReplies.map((q) => (
-                <button
-                  key={q}
-                  onClick={() => handleQuickReply(q)}
-                  className="text-xs bg-white border border-green-200 text-green-700 rounded-full px-2.5 py-1 hover:bg-green-50 transition-colors font-body"
-                >
-                  {q}
-                </button>
-              ))}
+            <div className="px-3 py-2 bg-gray-50 border-t border-gray-100 flex-shrink-0">
+              {isCurrentFollowUp && (
+                <p className="text-[10px] text-gray-400 font-body mb-1.5 px-0.5">💡 다음으로 궁금하신 게 있으신가요?</p>
+              )}
+              <div className="flex gap-1.5 flex-wrap">
+                {currentQuickReplies.map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => handleQuickReply(q)}
+                    className={`text-xs rounded-full px-2.5 py-1 transition-colors font-body ${
+                      isCurrentFollowUp
+                        ? "bg-green-50 border border-green-300 text-green-800 hover:bg-green-100"
+                        : "bg-white border border-green-200 text-green-700 hover:bg-green-50"
+                    }`}
+                  >
+                    {isCurrentFollowUp ? "🔍 " : ""}{q}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
