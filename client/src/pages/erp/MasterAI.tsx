@@ -1,15 +1,17 @@
 /**
- * 두골프 마스터 AI 채팅 페이지
- * - SSE 스트리밍으로 실시간 응답 표시 (응답 멈춤 문제 해결)
- * - 네이티브 div 스크롤 (ScrollArea ref 버그 우회)
- * - 개발 요청 자동 감지 → Manus 전송 UI
+ * 두골프 마스터 AI 채팅 페이지 (v3)
+ * - SSE 스트리밍 실시간 응답
+ * - Tool Calling 시각화 (DB 조회 과정 표시)
  * - 추론 → 분석 → 결과도출 → Manus 전송 파이프라인
+ * - 사실 기반 응답 강제 (생성형 대화 차단)
+ * - 개발 요청 자동 감지 → Manus 전송 UI
  */
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Send, Loader2, Bot, User, Zap, AlertCircle, CheckCircle2,
   ExternalLink, ChevronDown, RefreshCw, BarChart3, ClipboardList,
-  DollarSign, Cpu, MessageSquare,
+  DollarSign, Cpu, MessageSquare, Database, Search, Clock,
+  TrendingUp, Package, AlertTriangle, Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,6 +31,15 @@ interface DevRequestSuggestion {
   estimatedHours: number;
 }
 
+interface ToolExecution {
+  id: string;
+  name: string;
+  status: "running" | "done" | "error";
+  queryTime?: number;
+  error?: string;
+  startedAt: number;
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -42,7 +53,24 @@ interface Message {
   devRequestSuggestion?: DevRequestSuggestion | null;
   error?: string;
   timestamp: Date;
+  // Tool Calling 시각화
+  toolExecutions?: ToolExecution[];
+  phase?: "thinking" | "querying" | "analyzing" | "done";
 }
+
+// ─── 도구 이름 한국어 매핑 ─────────────────────────────────────────────────────
+const TOOL_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
+  get_today_reservations: { label: "오늘 예약 조회", icon: <ClipboardList size={11} /> },
+  get_monthly_settlement: { label: "월별 정산 조회", icon: <BarChart3 size={11} /> },
+  get_pending_dev_requests: { label: "개발 요청 조회", icon: <Zap size={11} /> },
+  get_ai_cost_today: { label: "AI 비용 조회", icon: <DollarSign size={11} /> },
+  get_ai_cost_monthly: { label: "월별 AI 비용 조회", icon: <TrendingUp size={11} /> },
+  get_system_error_logs: { label: "오류 로그 조회", icon: <AlertTriangle size={11} /> },
+  get_package_summary: { label: "상품 현황 조회", icon: <Package size={11} /> },
+  get_customer_stats: { label: "고객 통계 조회", icon: <Activity size={11} /> },
+  search_packages: { label: "상품 검색", icon: <Search size={11} /> },
+  get_inquiry_stats: { label: "문의 통계 조회", icon: <MessageSquare size={11} /> },
+};
 
 // ─── 빠른 명령 버튼 ────────────────────────────────────────────────────────────
 const QUICK_COMMANDS = [
@@ -50,8 +78,8 @@ const QUICK_COMMANDS = [
   { label: "이번 달 정산", icon: <BarChart3 size={13} />, message: "이번 달 정산 현황과 미정산 건수를 요약해주세요." },
   { label: "미처리 개발 요청", icon: <Zap size={13} />, message: "현재 pending 상태인 개발 요청 목록을 알려주세요." },
   { label: "AI 비용 현황", icon: <DollarSign size={13} />, message: "오늘과 이번 달 AI 사용 비용 현황을 알려주세요." },
-  { label: "시스템 상태", icon: <Cpu size={13} />, message: "현재 ERP 시스템 상태와 오류 로그를 확인해주세요." },
-  { label: "상품 현황", icon: <MessageSquare size={13} />, message: "현재 등록된 골프 패키지 상품 현황을 요약해주세요." },
+  { label: "시스템 오류 로그", icon: <AlertTriangle size={13} />, message: "최근 시스템 오류 로그를 확인해주세요." },
+  { label: "상품 현황", icon: <Package size={13} />, message: "현재 등록된 골프 패키지 상품 현황을 요약해주세요." },
 ];
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -60,6 +88,67 @@ const PRIORITY_COLORS: Record<string, string> = {
   medium: "bg-yellow-100 text-yellow-700 border-yellow-200",
   low: "bg-green-100 text-green-700 border-green-200",
 };
+
+// ─── Tool 실행 시각화 컴포넌트 ─────────────────────────────────────────────────
+function ToolExecutionPanel({ tools }: { tools: ToolExecution[] }) {
+  if (tools.length === 0) return null;
+  return (
+    <div className="mt-2 mb-1 space-y-1">
+      {tools.map((tool) => {
+        const meta = TOOL_LABELS[tool.name] ?? { label: tool.name, icon: <Database size={11} /> };
+        return (
+          <div
+            key={tool.id}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs border ${
+              tool.status === "running"
+                ? "bg-blue-50 border-blue-200 text-blue-700"
+                : tool.status === "done"
+                ? "bg-green-50 border-green-200 text-green-700"
+                : "bg-red-50 border-red-200 text-red-700"
+            }`}
+          >
+            {tool.status === "running" ? (
+              <Loader2 size={11} className="animate-spin shrink-0" />
+            ) : tool.status === "done" ? (
+              <CheckCircle2 size={11} className="shrink-0" />
+            ) : (
+              <AlertCircle size={11} className="shrink-0" />
+            )}
+            <span className="shrink-0">{meta.icon}</span>
+            <span className="font-medium">{meta.label}</span>
+            {tool.queryTime !== undefined && (
+              <span className="ml-auto font-mono opacity-70 flex items-center gap-0.5">
+                <Clock size={9} />
+                {tool.queryTime}ms
+              </span>
+            )}
+            {tool.error && (
+              <span className="ml-auto text-red-600 truncate max-w-[120px]">{tool.error}</span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── 추론 단계 표시 컴포넌트 ─────────────────────────────────────────────────
+function PhaseIndicator({ phase }: { phase?: string }) {
+  if (!phase || phase === "done") return null;
+  const phases: Record<string, { label: string; color: string }> = {
+    thinking: { label: "추론 중...", color: "text-purple-600" },
+    querying: { label: "DB 조회 중...", color: "text-blue-600" },
+    analyzing: { label: "분석 중...", color: "text-indigo-600" },
+  };
+  const p = phases[phase];
+  if (!p) return null;
+  return (
+    <span className={`text-xs font-medium ${p.color} flex items-center gap-1`}>
+      <Loader2 size={10} className="animate-spin" />
+      {p.label}
+    </span>
+  );
+}
 
 // ─── 개발 요청 카드 컴포넌트 ─────────────────────────────────────────────────
 function DevRequestCard({
@@ -189,6 +278,8 @@ export default function MasterAI() {
       role: "assistant",
       content: "",
       streaming: true,
+      phase: "thinking",
+      toolExecutions: [],
       timestamp: new Date(),
     };
 
@@ -216,7 +307,7 @@ export default function MasterAI() {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
-              ? { ...m, streaming: false, error: err.error ?? "응답 실패", content: `❌ ${err.error ?? "서버 오류"}` }
+              ? { ...m, streaming: false, phase: "done", error: err.error ?? "응답 실패", content: `❌ ${err.error ?? "서버 오류"}` }
               : m
           )
         );
@@ -242,13 +333,46 @@ export default function MasterAI() {
           } else if (line.startsWith("data: ")) {
             try {
               const data = JSON.parse(line.slice(6));
-              if (eventType === "chunk" && data.text !== undefined) {
+
+              if (eventType === "tool_start") {
+                // Tool 실행 시작 → phase를 querying으로 변경
+                const newTool: ToolExecution = {
+                  id: data.id,
+                  name: data.name,
+                  status: "running",
+                  startedAt: Date.now(),
+                };
                 setMessages((prev) =>
                   prev.map((m) =>
-                    m.id === assistantId ? { ...m, content: m.content + data.text } : m
+                    m.id === assistantId
+                      ? { ...m, phase: "querying", toolExecutions: [...(m.toolExecutions ?? []), newTool] }
+                      : m
                   )
                 );
                 streamingAutoScroll();
+
+              } else if (eventType === "tool_done") {
+                // Tool 실행 완료
+                setMessages((prev) =>
+                  prev.map((m) => {
+                    if (m.id !== assistantId) return m;
+                    const updatedTools = (m.toolExecutions ?? []).map((t) =>
+                      t.id === data.id
+                        ? { ...t, status: data.success ? "done" : "error" as "done" | "error", queryTime: data.queryTime, error: data.error }
+                        : t
+                    );
+                    return { ...m, phase: "analyzing", toolExecutions: updatedTools };
+                  })
+                );
+
+              } else if (eventType === "chunk" && data.text !== undefined) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId ? { ...m, phase: "done", content: m.content + data.text } : m
+                  )
+                );
+                streamingAutoScroll();
+
               } else if (eventType === "done") {
                 setMessages((prev) =>
                   prev.map((m) =>
@@ -256,6 +380,7 @@ export default function MasterAI() {
                       ? {
                           ...m,
                           streaming: false,
+                          phase: "done",
                           model: data.model,
                           tokensIn: data.tokensIn,
                           tokensOut: data.tokensOut,
@@ -266,11 +391,12 @@ export default function MasterAI() {
                       : m
                   )
                 );
+
               } else if (eventType === "error") {
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantId
-                      ? { ...m, streaming: false, error: data.message, content: m.content || `❌ ${data.message}` }
+                      ? { ...m, streaming: false, phase: "done", error: data.message, content: m.content || `❌ ${data.message}` }
                       : m
                   )
                 );
@@ -285,7 +411,7 @@ export default function MasterAI() {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
-              ? { ...m, streaming: false, error: "연결 오류", content: m.content || "❌ 연결이 끊어졌습니다. 다시 시도해주세요." }
+              ? { ...m, streaming: false, phase: "done", error: "연결 오류", content: m.content || "❌ 연결이 끊어졌습니다. 다시 시도해주세요." }
               : m
           )
         );
@@ -293,6 +419,7 @@ export default function MasterAI() {
     } finally {
       setIsStreaming(false);
       abortRef.current = null;
+      textareaRef.current?.focus();
     }
   }, [isStreaming, messages, sessionId, streamingAutoScroll]);
 
@@ -339,12 +466,16 @@ export default function MasterAI() {
           </div>
           <div>
             <h1 className="font-bold text-gray-900 text-base leading-tight">두골프 마스터 🤖</h1>
-            <p className="text-xs text-gray-500">추론 · 분석 · 결과도출 · Manus 개발 요청</p>
+            <p className="text-xs text-gray-500">추론 · DB조회 · 분석 · 결과도출 · Manus 개발 요청</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">
             Gemini 2.5 Pro
+          </Badge>
+          <Badge variant="outline" className="text-xs text-green-600 border-green-200 bg-green-50 hidden sm:flex items-center gap-1">
+            <Database size={9} />
+            DB 직접 접근
           </Badge>
           <Button
             variant="outline"
@@ -389,7 +520,7 @@ export default function MasterAI() {
         </div>
       )}
 
-      {/* 메시지 영역 — 네이티브 div 스크롤 (ScrollArea 버그 우회) */}
+      {/* 메시지 영역 — 네이티브 div 스크롤 */}
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
@@ -402,10 +533,23 @@ export default function MasterAI() {
               <Bot size={28} className="text-indigo-500" />
             </div>
             <p className="text-lg font-semibold text-gray-600 mb-1">두골프 마스터에게 물어보세요</p>
-            <p className="text-sm text-gray-400 max-w-sm">
-              ERP 데이터 조회, 정산 분석, 개발 요청 자동화까지<br />
-              추론 → 분석 → 결과도출 → Manus 전송 파이프라인
+            <p className="text-sm text-gray-400 max-w-sm leading-relaxed">
+              ERP 데이터 직접 조회 · 정산 분석 · 개발 요청 자동화<br />
+              <span className="text-xs text-indigo-400 font-medium">추론 → DB조회 → 분석 → 결과도출 → Manus 전송</span>
             </p>
+            <div className="mt-6 grid grid-cols-2 gap-2 text-xs text-gray-400 max-w-xs">
+              {[
+                { icon: <Database size={11} />, text: "DB 직접 접근 (10개 도구)" },
+                { icon: <Zap size={11} />, text: "개발 요청 자동 감지" },
+                { icon: <AlertCircle size={11} />, text: "사실 기반 응답만 허용" },
+                { icon: <Activity size={11} />, text: "AI 비용 실시간 추적" },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-1.5 bg-gray-50 rounded-lg px-2 py-1.5">
+                  <span className="text-indigo-400">{item.icon}</span>
+                  {item.text}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -427,9 +571,23 @@ export default function MasterAI() {
             </div>
 
             {/* 메시지 버블 */}
-            <div className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"} max-w-[80%]`}>
+            <div className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"} max-w-[82%] min-w-0`}>
+              {/* 추론 단계 표시 */}
+              {msg.role === "assistant" && msg.streaming && (
+                <div className="mb-1">
+                  <PhaseIndicator phase={msg.phase} />
+                </div>
+              )}
+
+              {/* Tool 실행 패널 */}
+              {msg.role === "assistant" && msg.toolExecutions && msg.toolExecutions.length > 0 && (
+                <div className="w-full mb-1">
+                  <ToolExecutionPanel tools={msg.toolExecutions} />
+                </div>
+              )}
+
               <div
-                className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                className={`rounded-2xl px-4 py-3 text-sm leading-relaxed w-full ${
                   msg.role === "user"
                     ? "bg-indigo-600 text-white rounded-tr-sm"
                     : "bg-white border border-gray-200 text-gray-800 rounded-tl-sm shadow-sm"
@@ -442,11 +600,16 @@ export default function MasterAI() {
                         <Streamdown>{msg.content}</Streamdown>
                       </div>
                     ) : msg.streaming ? (
-                      <span className="text-gray-400 italic text-xs">응답 생성 중...</span>
+                      <span className="text-gray-400 italic text-xs">
+                        {msg.phase === "thinking" && "추론 중..."}
+                        {msg.phase === "querying" && "DB 조회 중..."}
+                        {msg.phase === "analyzing" && "분석 중..."}
+                        {!msg.phase && "응답 생성 중..."}
+                      </span>
                     ) : (
                       <span className="text-gray-400 italic">응답 없음</span>
                     )}
-                    {msg.streaming && (
+                    {msg.streaming && msg.content && (
                       <span className="inline-flex items-center gap-0.5 ml-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "0ms" }} />
                         <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "150ms" }} />
@@ -482,6 +645,12 @@ export default function MasterAI() {
                   )}
                   {msg.durationMs && (
                     <span className="text-[10px] text-gray-400 font-mono">{(msg.durationMs / 1000).toFixed(1)}s</span>
+                  )}
+                  {msg.toolExecutions && msg.toolExecutions.length > 0 && (
+                    <span className="text-[10px] text-blue-400 font-mono flex items-center gap-0.5">
+                      <Database size={9} />
+                      {msg.toolExecutions.length}개 도구 사용
+                    </span>
                   )}
                   <span className="text-[10px] text-gray-400">
                     {msg.timestamp.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
@@ -545,8 +714,8 @@ export default function MasterAI() {
           </Button>
         </div>
         <p className="text-[10px] text-gray-400 mt-1.5 flex items-center gap-1 justify-center">
-          <MessageSquare size={9} />
-          세션: {sessionId.slice(0, 12)}... · 최근 20턴 컨텍스트 유지 · ERP DB 직접 접근
+          <Database size={9} />
+          사실 기반 응답 전용 · ERP DB 직접 접근 · 최근 20턴 컨텍스트 · 세션: {sessionId.slice(0, 12)}...
         </p>
       </div>
     </div>

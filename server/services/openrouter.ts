@@ -1,13 +1,12 @@
 /**
  * 두골프 AI 오케스트레이션 서비스
  *
- * 기존 server/_core/orchestrator.ts를 래핑하여
- * AI 어시스턴트 채널별 인터페이스를 제공합니다.
- *
  * 모델 라우팅:
  *  high   → google/gemini-2.5-pro-preview (추론·분석·오류검수)
- *  medium → anthropic/claude-3-5-haiku   (생성·요약·상담)
- *  low    → google/gemini-2.0-flash-001  (분류·태깅·단순응답)
+ *  medium → google/gemini-2.5-flash       (생성·요약·상담)
+ *  low    → google/gemini-2.0-flash-lite  (분류·태깅·단순응답)
+ *
+ * Tool Calling 지원 (두골프 마스터 전용)
  */
 import { ENV } from "../_core/env";
 
@@ -15,7 +14,7 @@ const OPENROUTER_BASE_URL = ENV.openrouterBaseUrl ?? "https://openrouter.ai/api/
 const MAX_RETRIES = 2;
 const TIMEOUT_MS = 120_000; // 2분 (Gemini 2.5 Pro 긴 응답 대기)
 
-// 복잡도별 모델 매핑 (STEP 4 요구사항)
+// 복잡도별 모델 매핑
 const MODEL_MAP: Record<"high" | "medium" | "low", { id: string; name: string; inputPrice: number; outputPrice: number }> = {
   high: {
     id: "google/gemini-2.5-pro-preview-05-06",
@@ -41,8 +40,25 @@ const MODEL_MAP: Record<"high" | "medium" | "low", { id: string; name: string; i
 const FALLBACK_MODEL = MODEL_MAP.medium;
 
 export interface ChatMessage {
-  role: "user" | "assistant" | "system";
+  role: "user" | "assistant" | "system" | "tool";
   content: string;
+  tool_call_id?: string;
+  tool_calls?: ToolCall[];
+}
+
+export interface ToolCall {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+}
+
+export interface ToolDefinition {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
 }
 
 export interface ChatOptions {
@@ -55,6 +71,9 @@ export interface ChatOptions {
   stream?: boolean;
   maxTokens?: number;
   temperature?: number;
+  // Tool Calling 지원
+  tools?: ToolDefinition[];
+  tool_choice?: "auto" | "none" | "required";
 }
 
 export interface ChatResult {
@@ -64,6 +83,9 @@ export interface ChatResult {
   tokensOut: number;
   costUsd: number;
   durationMs: number;
+  // Tool Calling 결과
+  tool_calls?: ToolCall[];
+  finish_reason?: string;
 }
 
 /**
@@ -91,13 +113,19 @@ async function callOpenRouterRaw(
   modelId: string,
   messages: ChatMessage[],
   systemPrompt: string | undefined,
-  options: { maxTokens?: number; temperature?: number }
-): Promise<{ text: string; tokensIn: number; tokensOut: number; model: string }> {
+  options: {
+    maxTokens?: number;
+    temperature?: number;
+    tools?: ToolDefinition[];
+    tool_choice?: "auto" | "none" | "required";
+  }
+): Promise<{ text: string; tokensIn: number; tokensOut: number; model: string; tool_calls?: ToolCall[]; finish_reason?: string }> {
   const apiKey = ENV.openrouterApiKey;
   if (!apiKey) throw new Error("OPENROUTER_API_KEY가 설정되지 않았습니다.");
 
-  // 시스템 프롬프트를 메시지 배열 앞에 추가 (Prompt Caching 마킹)
-  const fullMessages: Array<{ role: string; content: string | Array<{ type: string; text: string; cache_control?: { type: string } }> }> = [];
+  // 메시지 배열 구성 (Tool Calling 메시지 포함)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fullMessages: Array<any> = [];
 
   if (systemPrompt) {
     fullMessages.push({
@@ -113,7 +141,23 @@ async function callOpenRouterRaw(
   }
 
   for (const msg of messages) {
-    fullMessages.push({ role: msg.role, content: msg.content });
+    if (msg.role === "tool") {
+      // Tool 결과 메시지
+      fullMessages.push({
+        role: "tool",
+        tool_call_id: msg.tool_call_id,
+        content: msg.content,
+      });
+    } else if (msg.tool_calls && msg.tool_calls.length > 0) {
+      // Tool 호출을 포함한 어시스턴트 메시지
+      fullMessages.push({
+        role: "assistant",
+        content: msg.content || null,
+        tool_calls: msg.tool_calls,
+      });
+    } else {
+      fullMessages.push({ role: msg.role, content: msg.content });
+    }
   }
 
   let lastError: Error | null = null;
@@ -122,20 +166,26 @@ async function callOpenRouterRaw(
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
     try {
+      const bodyObj: Record<string, unknown> = {
+        model: modelId,
+        messages: fullMessages,
+        max_tokens: options.maxTokens ?? 2048,
+        temperature: options.temperature ?? 0.7,
+      };
+      if (options.tools && options.tools.length > 0) {
+        bodyObj.tools = options.tools;
+        bodyObj.tool_choice = options.tool_choice ?? "auto";
+      }
+
       const res = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
           "HTTP-Referer": "https://dogolf-tour-dkz3fsmp.manus.space",
-          "X-Title": "DOGOLF AI Assistant",
+          "X-Title": "DOGOLF Master AI",
         },
-        body: JSON.stringify({
-          model: modelId,
-          messages: fullMessages,
-          max_tokens: options.maxTokens ?? 2048,
-          temperature: options.temperature ?? 0.7,
-        }),
+        body: JSON.stringify(bodyObj),
         signal: controller.signal,
       });
 
@@ -155,7 +205,13 @@ async function callOpenRouterRaw(
       }
 
       const data = (await res.json()) as {
-        choices: Array<{ message: { content: string } }>;
+        choices: Array<{
+          message: {
+            content: string | null;
+            tool_calls?: ToolCall[];
+          };
+          finish_reason?: string;
+        }>;
         usage?: { prompt_tokens: number; completion_tokens: number };
         model?: string;
       };
@@ -165,6 +221,8 @@ async function callOpenRouterRaw(
         tokensIn: data.usage?.prompt_tokens ?? 0,
         tokensOut: data.usage?.completion_tokens ?? 0,
         model: data.model ?? modelId,
+        tool_calls: data.choices[0]?.message?.tool_calls,
+        finish_reason: data.choices[0]?.finish_reason,
       };
     } catch (err: unknown) {
       clearTimeout(timer);
@@ -184,7 +242,7 @@ async function callOpenRouterRaw(
 }
 
 /**
- * AI 어시스턴트 채팅 (비스트리밍)
+ * AI 어시스턴트 채팅 (비스트리밍, Tool Calling 지원)
  */
 export async function orchestratorChat(options: ChatOptions): Promise<ChatResult> {
   const startTime = Date.now();
@@ -194,6 +252,8 @@ export async function orchestratorChat(options: ChatOptions): Promise<ChatResult
     const raw = await callOpenRouterRaw(modelConfig.id, options.messages, options.systemPrompt, {
       maxTokens: options.maxTokens,
       temperature: options.temperature,
+      tools: options.tools,
+      tool_choice: options.tool_choice,
     });
 
     const costUsd = calculateCost(modelConfig, raw.tokensIn, raw.tokensOut);
@@ -205,6 +265,8 @@ export async function orchestratorChat(options: ChatOptions): Promise<ChatResult
       tokensOut: raw.tokensOut,
       costUsd,
       durationMs: Date.now() - startTime,
+      tool_calls: raw.tool_calls,
+      finish_reason: raw.finish_reason,
     };
   } catch (err) {
     // 503 등 재시도 후에도 실패 시 medium 모델로 폴백
@@ -213,6 +275,8 @@ export async function orchestratorChat(options: ChatOptions): Promise<ChatResult
       const raw = await callOpenRouterRaw(FALLBACK_MODEL.id, options.messages, options.systemPrompt, {
         maxTokens: options.maxTokens,
         temperature: options.temperature,
+        tools: options.tools,
+        tool_choice: options.tool_choice,
       });
       const costUsd = calculateCost(FALLBACK_MODEL, raw.tokensIn, raw.tokensOut);
       return {
@@ -222,6 +286,8 @@ export async function orchestratorChat(options: ChatOptions): Promise<ChatResult
         tokensOut: raw.tokensOut,
         costUsd,
         durationMs: Date.now() - startTime,
+        tool_calls: raw.tool_calls,
+        finish_reason: raw.finish_reason,
       };
     } catch (fallbackErr) {
       throw fallbackErr;
@@ -267,7 +333,8 @@ export async function orchestratorChatStream(
     return;
   }
 
-  const fullMessages: Array<{ role: string; content: string | Array<{ type: string; text: string; cache_control?: { type: string } }> }> = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fullMessages: Array<any> = [];
   if (options.systemPrompt) {
     fullMessages.push({
       role: "system",
@@ -275,7 +342,13 @@ export async function orchestratorChatStream(
     });
   }
   for (const msg of options.messages) {
-    fullMessages.push({ role: msg.role, content: msg.content });
+    if (msg.role === "tool") {
+      fullMessages.push({ role: "tool", tool_call_id: msg.tool_call_id, content: msg.content });
+    } else if (msg.tool_calls && msg.tool_calls.length > 0) {
+      fullMessages.push({ role: "assistant", content: msg.content || null, tool_calls: msg.tool_calls });
+    } else {
+      fullMessages.push({ role: msg.role, content: msg.content });
+    }
   }
 
   const controller = new AbortController();
@@ -288,7 +361,7 @@ export async function orchestratorChatStream(
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         "HTTP-Referer": "https://dogolf-tour-dkz3fsmp.manus.space",
-        "X-Title": "DOGOLF AI Assistant",
+        "X-Title": "DOGOLF Master AI",
       },
       body: JSON.stringify({
         model: modelConfig.id,
