@@ -13,7 +13,7 @@ import { ENV } from "../_core/env";
 
 const OPENROUTER_BASE_URL = ENV.openrouterBaseUrl ?? "https://openrouter.ai/api/v1";
 const MAX_RETRIES = 2;
-const TIMEOUT_MS = 30_000;
+const TIMEOUT_MS = 120_000; // 2분 (Gemini 2.5 Pro 긴 응답 대기)
 
 // 복잡도별 모델 매핑 (STEP 4 요구사항)
 const MODEL_MAP: Record<"high" | "medium" | "low", { id: string; name: string; inputPrice: number; outputPrice: number }> = {
@@ -244,6 +244,108 @@ export async function testConnection(): Promise<{ ok: boolean; model: string; la
     return { ok: true, model: result.model, latencyMs: Date.now() - start };
   } catch {
     return { ok: false, model: "", latencyMs: Date.now() - start };
+  }
+}
+
+/**
+ * 스트리밍 AI 채팅 (SSE 엔드포인트용)
+ * onChunk: 텍스트 청크 실시간 콜백
+ * onDone: 완료 시 메타데이터 콜백
+ * onError: 오류 콜백
+ */
+export async function orchestratorChatStream(
+  options: ChatOptions,
+  onChunk: (chunk: string) => void,
+  onDone: (result: { model: string; tokensIn: number; tokensOut: number; costUsd: number; durationMs: number }) => void,
+  onError: (err: Error) => void
+): Promise<void> {
+  const startTime = Date.now();
+  const modelConfig = MODEL_MAP[options.complexity];
+  const apiKey = ENV.openrouterApiKey;
+  if (!apiKey) {
+    onError(new Error("OPENROUTER_API_KEY가 설정되지 않았습니다."));
+    return;
+  }
+
+  const fullMessages: Array<{ role: string; content: string | Array<{ type: string; text: string; cache_control?: { type: string } }> }> = [];
+  if (options.systemPrompt) {
+    fullMessages.push({
+      role: "system",
+      content: [{ type: "text", text: options.systemPrompt, cache_control: { type: "ephemeral" } }],
+    });
+  }
+  for (const msg of options.messages) {
+    fullMessages.push({ role: msg.role, content: msg.content });
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+  try {
+    const res = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://dogolf-tour-dkz3fsmp.manus.space",
+        "X-Title": "DOGOLF AI Assistant",
+      },
+      body: JSON.stringify({
+        model: modelConfig.id,
+        messages: fullMessages,
+        max_tokens: options.maxTokens ?? 4096,
+        temperature: options.temperature ?? 0.7,
+        stream: true,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+
+    if (!res.ok || !res.body) {
+      const errBody = await res.text().catch(() => "");
+      onError(new Error(`OpenRouter API 오류 [${res.status}]: ${errBody.slice(0, 300)}`));
+      return;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let tokensIn = 0;
+    let tokensOut = 0;
+    let modelUsed = modelConfig.id;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split("\n");
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") continue;
+        try {
+          const parsed = JSON.parse(data) as {
+            choices?: Array<{ delta?: { content?: string }; finish_reason?: string }>;
+            usage?: { prompt_tokens: number; completion_tokens: number };
+            model?: string;
+          };
+          if (parsed.model) modelUsed = parsed.model;
+          if (parsed.usage) {
+            tokensIn = parsed.usage.prompt_tokens;
+            tokensOut = parsed.usage.completion_tokens;
+          }
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) onChunk(content);
+        } catch {
+          // JSON 파싱 실패 무시
+        }
+      }
+    }
+
+    const costUsd = calculateCost(modelConfig, tokensIn, tokensOut);
+    onDone({ model: modelUsed, tokensIn, tokensOut, costUsd, durationMs: Date.now() - startTime });
+  } catch (err) {
+    clearTimeout(timer);
+    onError(err instanceof Error ? err : new Error(String(err)));
   }
 }
 

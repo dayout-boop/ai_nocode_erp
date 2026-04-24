@@ -468,3 +468,11 @@
 - [x] ERPLayout.tsx navItems를 3개 핵심 카테고리 최상단 배치로 재편성
 - [x] 중복/미구현 메뉴 통합 및 정리
 - [x] TypeScript 빌드 오류 없음 확인
+
+## 두골프 마스터 AI 전면 개선 (2026-04-24)
+- [ ] MasterAI.tsx 스크롤 버그 수정 (ScrollArea → 네이티브 div overflow-y-auto)
+- [ ] 스트리밍 응답 구현 (SSE 기반 실시간 텍스트 출력)
+- [ ] devRequestSuggestion UI 구현 (감지 시 카드 표시 + Manus 전송 버튼)
+- [ ] 추론→분석→결과→Manus 전송 파이프라인 UI 완성
+- [ ] 타임아웃 30s → 120s 증가 (Gemini 2.5 Pro 응답 대기)
+- [ ] TypeScript 빌드 오류 없음 확인

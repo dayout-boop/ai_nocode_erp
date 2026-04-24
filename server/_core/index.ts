@@ -9,6 +9,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { registerStripeWebhook } from "../stripe";
+import { registerMasterStreamRoute } from "../masterStream";
 import { reportError } from "./errorWatcher.js";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -40,6 +41,7 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
   registerOAuthRoutes(app);
+  registerMasterStreamRoute(app);
   // tRPC API
   app.use(
     "/api/trpc",
