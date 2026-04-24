@@ -8,6 +8,7 @@ import Home from "./pages/Home";
 import Packages from "./pages/Packages";
 import Gallery from "./pages/Gallery";
 import Notice from "./pages/Notice";
+import NoticeDetail from "./pages/NoticeDetail";
 import Inquiry from './pages/Inquiry';
 import PackageDetail from './pages/PackageDetail';
 
@@ -48,6 +49,7 @@ function Router() {
       <Route path={"/packages/:destination"} component={Packages} />
       <Route path={"/gallery"} component={Gallery} />
       <Route path={"/notice"} component={Notice} />
+      <Route path={"/notice/:id"} component={NoticeDetail} />
       <Route path={"/inquiry"} component={Inquiry} />
 
       {/* ERP 관리자 백오피스 */}
@@ -59,6 +61,7 @@ function Router() {
       <Route path={"/erp/inquiries"} component={ERPInquiries} />
       <Route path={"/erp/settlements"} component={ERPSettlements} />
       <Route path={"/erp/crm"} component={ERPCRMCustomers} />
+      <Route path={"/erp/cms"} component={() => { window.location.replace('/erp/cms/notices'); return null; }} />
       <Route path={"/erp/cms/notices"} component={ERPCMSNotices} />
       <Route path={"/erp/cms/banners"} component={ERPCMSBanners} />
       <Route path={"/erp/gemini"} component={GeminiAssistant} />
