@@ -3,7 +3,6 @@
 // ============================================================
 
 import { useState } from 'react';
-import { Link } from 'wouter';
 import { ChevronRight, Eye, Pin } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -91,8 +90,8 @@ export default function Notice() {
                 </div>
 
                 {filtered.map((notice) => (
-                  <Link key={notice.id} href={`/notice/${notice.id}`}>
                   <div
+                    key={notice.id}
                     className="grid grid-cols-12 gap-2 px-6 py-4 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer items-center"
                   >
                     <span className="col-span-1 text-xs text-gray-400 font-number">
@@ -119,7 +118,6 @@ export default function Notice() {
                       {notice.views.toLocaleString()}
                     </span>
                   </div>
-                  </Link>
                 ))}
               </div>
             </div>

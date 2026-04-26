@@ -8,7 +8,6 @@ import Home from "./pages/Home";
 import Packages from "./pages/Packages";
 import Gallery from "./pages/Gallery";
 import Notice from "./pages/Notice";
-import NoticeDetail from "./pages/NoticeDetail";
 import Inquiry from './pages/Inquiry';
 import PackageDetail from './pages/PackageDetail';
 
@@ -49,7 +48,6 @@ function Router() {
       <Route path={"/packages/:destination"} component={Packages} />
       <Route path={"/gallery"} component={Gallery} />
       <Route path={"/notice"} component={Notice} />
-      <Route path={"/notice/:id"} component={NoticeDetail} />
       <Route path={"/inquiry"} component={Inquiry} />
 
       {/* ERP 관리자 백오피스 */}

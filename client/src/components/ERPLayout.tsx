@@ -221,9 +221,12 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-slate-100 flex">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 transition-all duration-300 ${
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 ${
           sidebarCollapsed ? "w-16" : "w-60"
-        } ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+        } transition-transform duration-200 ease-out will-change-transform ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
+        style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {/* Logo */}
         <div className="flex items-center gap-3 px-4 py-5 border-b border-slate-700/50">
@@ -264,22 +267,36 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile overlay */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setMobileOpen(false)} />
-      )}
+      <div
+        className={`fixed inset-0 z-40 bg-black/50 lg:hidden transition-opacity duration-200 ${
+          mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
+        onTouchStart={() => setMobileOpen(false)}
+        onClick={() => setMobileOpen(false)}
+      />
 
       {/* Main content */}
-      <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarCollapsed ? "lg:ml-16" : "lg:ml-60"}`}>
+      <div className={`flex-1 flex flex-col min-h-screen transition-[margin] duration-200 ${sidebarCollapsed ? "lg:ml-16" : "lg:ml-60"}`}>
         {/* Top bar */}
         <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-4">
+          {/* 모바일: 사이드바 오버레이 토글 / 데스크탑: 사이드바 접기 */}
           <button
-            className="text-slate-500 hover:text-slate-700 lg:block"
+            className="text-slate-500 hover:text-slate-700 touch-manipulation"
+            onTouchEnd={(e) => {
+              // 모바일 터치: click 이벤트 지연(300ms) 없이 즉시 반응
+              e.preventDefault();
+              e.stopPropagation();
+              setMobileOpen((prev) => !prev);
+            }}
             onClick={() => {
-              setSidebarCollapsed(!sidebarCollapsed);
-              setMobileOpen(!mobileOpen);
+              // 데스크탑(lg 이상): 사이드바 너비 토글
+              // 모바일(lg 미만): 오버레이 토글 (onTouchEnd에서 이미 처리되므로 터치 시는 실행 안 됨)
+              if (window.matchMedia('(min-width: 1024px)').matches) {
+                setSidebarCollapsed((prev) => !prev);
+              }
             }}
           >
-            <Menu size={20} />
+            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
 
           <div className="flex-1" />
