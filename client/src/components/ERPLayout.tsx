@@ -4,18 +4,41 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import {
   LayoutDashboard, Package, Calendar, CreditCard, Users, Megaphone,
-  ChevronDown, ChevronRight, Menu, X, LogOut, Bell, ExternalLink, Sparkles, Zap, Bot
+  ChevronDown, ChevronRight, Menu, X, LogOut, Bell, ExternalLink,
+  Sparkles, Zap, Bot,
+  // AI 챗봇 하위
+  MessageSquare, Settings2, UserCog,
+  // AI 마스터 하위
+  BrainCircuit, History, DollarSign,
+  // AI 엔진 하위
+  Gauge, ListChecks, LayoutList, GitBranch, AlertTriangle,
+  // 상품관리 하위
+  PackageSearch, PackagePlus,
+  // 예약관리 하위
+  ClipboardList, MessageCircleQuestion,
+  // 정산관리 하위
+  ReceiptText, Building2,
+  // CRM 하위
+  Search,
+  // CMS 하위
+  Bell as BellIcon, Image,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
 
+interface NavChild {
+  label: string;
+  href: string;
+  icon?: React.ReactNode;
+}
+
 interface NavItem {
   label: string;
   icon: React.ReactNode;
   href?: string;
-  children?: { label: string; href: string }[];
+  children?: NavChild[];
 }
 
 const navItems: NavItem[] = [
@@ -26,29 +49,29 @@ const navItems: NavItem[] = [
     label: "AI 챗봇",
     icon: <Bot size={18} />,
     children: [
-      { label: "두골프 마스터 🤖", href: "/erp/master-ai" },
-      { label: "골프톡 관리", href: "/erp/golftalk-admin" },
-      { label: "두골프 매니저 관리", href: "/erp/manager-admin" },
+      { label: "두골프 마스터 🤖", href: "/erp/master-ai", icon: <MessageSquare size={14} /> },
+      { label: "골프톡 관리", href: "/erp/golftalk-admin", icon: <Settings2 size={14} /> },
+      { label: "두골프 매니저 관리", href: "/erp/manager-admin", icon: <UserCog size={14} /> },
     ],
   },
   {
     label: "AI 마스터",
     icon: <Sparkles size={18} />,
     children: [
-      { label: "두골프 마스터 채팅", href: "/erp/master-ai" },
-      { label: "대화 이력", href: "/erp/master-ai/logs" },
-      { label: "AI 비용 현황", href: "/erp/master-ai/costs" },
+      { label: "두골프 마스터 채팅", href: "/erp/master-ai", icon: <BrainCircuit size={14} /> },
+      { label: "대화 이력", href: "/erp/master-ai/logs", icon: <History size={14} /> },
+      { label: "AI 비용 현황", href: "/erp/master-ai/costs", icon: <DollarSign size={14} /> },
     ],
   },
   {
     label: "AI 엔진 관리",
     icon: <Zap size={18} />,
     children: [
-      { label: "엔진 대시보드", href: "/erp/ai-engine" },
-      { label: "개발 요청", href: "/erp/dev-ai?tab=requests" },
-      { label: "기능 목록", href: "/erp/dev-ai?tab=features" },
-      { label: "버전 이력", href: "/erp/dev-ai?tab=versions" },
-      { label: "오류 로그", href: "/erp/ai-dev-engine" },
+      { label: "엔진 대시보드", href: "/erp/ai-engine", icon: <Gauge size={14} /> },
+      { label: "개발 요청", href: "/erp/dev-ai?tab=requests", icon: <ListChecks size={14} /> },
+      { label: "기능 목록", href: "/erp/dev-ai?tab=features", icon: <LayoutList size={14} /> },
+      { label: "버전 이력", href: "/erp/dev-ai?tab=versions", icon: <GitBranch size={14} /> },
+      { label: "오류 로그", href: "/erp/ai-dev-engine", icon: <AlertTriangle size={14} /> },
     ],
   },
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -59,39 +82,39 @@ const navItems: NavItem[] = [
     label: "상품관리",
     icon: <Package size={18} />,
     children: [
-      { label: "상품 목록", href: "/erp/packages" },
-      { label: "상품 등록", href: "/erp/packages/new" },
+      { label: "상품 목록", href: "/erp/packages", icon: <PackageSearch size={14} /> },
+      { label: "상품 등록", href: "/erp/packages/new", icon: <PackagePlus size={14} /> },
     ],
   },
   {
     label: "예약관리",
     icon: <Calendar size={18} />,
     children: [
-      { label: "예약 목록", href: "/erp/bookings" },
-      { label: "예약 문의", href: "/erp/inquiries" },
+      { label: "예약 목록", href: "/erp/bookings", icon: <ClipboardList size={14} /> },
+      { label: "예약 문의", href: "/erp/inquiries", icon: <MessageCircleQuestion size={14} /> },
     ],
   },
   {
     label: "정산관리",
     icon: <CreditCard size={18} />,
     children: [
-      { label: "정산 목록", href: "/erp/settlements" },
-      { label: "공급처별 정산", href: "/erp/settlements/suppliers" },
+      { label: "정산 목록", href: "/erp/settlements", icon: <ReceiptText size={14} /> },
+      { label: "공급처별 정산", href: "/erp/settlements/suppliers", icon: <Building2 size={14} /> },
     ],
   },
   {
     label: "CRM",
     icon: <Users size={18} />,
     children: [
-      { label: "고객 검색", href: "/erp/crm" },
+      { label: "고객 검색", href: "/erp/crm", icon: <Search size={14} /> },
     ],
   },
   {
     label: "CMS",
     icon: <Megaphone size={18} />,
     children: [
-      { label: "공지사항", href: "/erp/cms/notices" },
-      { label: "배너 관리", href: "/erp/cms/banners" },
+      { label: "공지사항", href: "/erp/cms/notices", icon: <BellIcon size={14} /> },
+      { label: "배너 관리", href: "/erp/cms/banners", icon: <Image size={14} /> },
     ],
   },
 ];
@@ -125,10 +148,14 @@ function NavItemComponent({ item, collapsed }: { item: NavItem; collapsed: boole
   return (
     <div>
       <div
-        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-150 ${
+        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-150 touch-manipulation ${
           isActive ? "text-white" : "text-slate-300 hover:bg-slate-700 hover:text-white"
         }`}
         onClick={() => setOpen(!open)}
+        onTouchEnd={(e) => {
+          e.preventDefault();
+          setOpen((prev) => !prev);
+        }}
       >
         <span className="shrink-0">{item.icon}</span>
         {!collapsed && (
@@ -139,17 +166,20 @@ function NavItemComponent({ item, collapsed }: { item: NavItem; collapsed: boole
         )}
       </div>
       {!collapsed && open && (
-        <div className="ml-7 mt-1 space-y-0.5">
+        <div className="ml-4 mt-1 space-y-0.5 border-l border-slate-700/60 pl-3">
           {item.children?.map((child) => (
             <Link key={child.href} href={child.href}>
               <div
-                className={`px-3 py-2 rounded-md text-sm cursor-pointer transition-colors ${
-                  location === child.href
+                className={`flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm cursor-pointer transition-colors ${
+                  location === child.href || location.startsWith(child.href + "?")
                     ? "bg-indigo-600/80 text-white font-medium"
                     : "text-slate-400 hover:text-white hover:bg-slate-700"
                 }`}
               >
-                {child.label}
+                {child.icon && (
+                  <span className="shrink-0 opacity-70">{child.icon}</span>
+                )}
+                <span>{child.label}</span>
               </div>
             </Link>
           ))}
@@ -222,7 +252,7 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 ${
-          sidebarCollapsed ? "w-16" : "w-60"
+          sidebarCollapsed ? "w-16" : "w-64"
         } transition-transform duration-200 ease-out will-change-transform ${
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
@@ -276,7 +306,7 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
       />
 
       {/* Main content */}
-      <div className={`flex-1 flex flex-col min-h-screen transition-[margin] duration-200 ${sidebarCollapsed ? "lg:ml-16" : "lg:ml-60"}`}>
+      <div className={`flex-1 flex flex-col min-h-screen transition-[margin] duration-200 ${sidebarCollapsed ? "lg:ml-16" : "lg:ml-64"}`}>
         {/* Top bar */}
         <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-4">
           {/* 모바일: 사이드바 오버레이 토글 / 데스크탑: 사이드바 접기 */}
@@ -290,7 +320,6 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
             }}
             onClick={() => {
               // 데스크탑(lg 이상): 사이드바 너비 토글
-              // 모바일(lg 미만): 오버레이 토글 (onTouchEnd에서 이미 처리되므로 터치 시는 실행 안 됨)
               if (window.matchMedia('(min-width: 1024px)').matches) {
                 setSidebarCollapsed((prev) => !prev);
               }
