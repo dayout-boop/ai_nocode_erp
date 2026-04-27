@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import {
   LayoutDashboard, Package, Calendar, CreditCard, Users, Megaphone,
   ChevronDown, ChevronRight, Menu, X, LogOut, Bell, ExternalLink,
-  Sparkles, Zap, Bot,
+  Sparkles, Zap, Bot, Plus,
   // AI 챗봇 하위
   MessageSquare, Settings2, UserCog,
   // AI 마스터 하위
@@ -195,9 +195,28 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // 이번주 일정 위젯 상태
+  const [showWeeklyPopup, setShowWeeklyPopup] = useState(false);
+  const weeklyPopupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (weeklyPopupRef.current && !weeklyPopupRef.current.contains(e.target as Node)) {
+        setShowWeeklyPopup(false);
+      }
+    };
+    if (showWeeklyPopup) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showWeeklyPopup]);
+
   const statsQuery = trpc.dashboard.stats.useQuery(undefined, {
     enabled: isAuthenticated && user?.role === "admin",
     refetchInterval: 60000,
+  });
+
+  const weeklySchedulesQuery = trpc.crm.getWeeklySchedules.useQuery(undefined, {
+    enabled: isAuthenticated && user?.role === "admin",
+    refetchInterval: 300000, // 5분마다 갱신
   });
 
   if (loading) {
@@ -338,6 +357,71 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
               <span>대기 예약 {pendingBookingsCount}건</span>
             </div>
           )}
+
+          {/* 이번주 일정 위젯 */}
+          <div className="relative" ref={weeklyPopupRef}>
+            <button
+              onClick={() => setShowWeeklyPopup((v) => !v)}
+              className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-xs px-3 py-1.5 rounded-full border border-emerald-200 hover:bg-emerald-100 transition-colors"
+            >
+              <Calendar size={12} />
+              <span>이번주 일정 {weeklySchedulesQuery.data?.length ?? 0}건</span>
+            </button>
+
+            {showWeeklyPopup && (
+              <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-xl z-[100] overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                    <Calendar size={14} className="text-emerald-600" />
+                    이번주 일정 ({weeklySchedulesQuery.data?.length ?? 0}건)
+                  </h3>
+                  <button onClick={() => setShowWeeklyPopup(false)} className="text-gray-400 hover:text-gray-600">
+                    <X size={14} />
+                  </button>
+                </div>
+                <div className="max-h-72 overflow-y-auto divide-y divide-gray-50">
+                  {!weeklySchedulesQuery.data || weeklySchedulesQuery.data.length === 0 ? (
+                    <div className="p-4 text-center text-gray-400 text-sm">이번주 일정이 없습니다</div>
+                  ) : (
+                    weeklySchedulesQuery.data.map((s) => {
+                      const start = new Date(s.startDate);
+                      return (
+                        <div key={s.id} className="px-4 py-2.5 hover:bg-gray-50">
+                          <div className="flex items-start gap-2">
+                            <div
+                              className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
+                              style={{ backgroundColor: s.color || '#16a34a' }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-800 truncate">{s.title}</p>
+                              <p className="text-xs text-gray-400">
+                                {start.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
+                                {' '}{start.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                              {s.assignedTo && (
+                                <p className="text-xs text-gray-400">담당: {s.assignedTo}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50">
+                  <Link href="/erp/crm/partners">
+                    <button
+                      onClick={() => setShowWeeklyPopup(false)}
+                      className="w-full text-xs text-emerald-600 font-medium hover:underline flex items-center justify-center gap-1"
+                    >
+                      <Plus size={12} /> 파트너 관리로 이동
+                    </button>
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+
           {newInquiriesCount > 0 && (
             <div className="flex items-center gap-1.5 bg-red-50 text-red-700 text-xs px-3 py-1.5 rounded-full border border-red-200">
               <Bell size={12} />

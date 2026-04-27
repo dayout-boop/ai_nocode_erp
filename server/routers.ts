@@ -1056,7 +1056,47 @@ const crmRouter = router({
     }))
     .mutation(async ({ input }) => {
       const { createPartnerSchedule } = await import('./db.js');
+      // 원본 일정 저장
       await createPartnerSchedule(input);
+
+      // 반복 일정 인스턴스 자동 생성
+      if (input.recurrenceType && input.recurrenceType !== 'none') {
+        const maxOccurrences = 60; // 최대 60회 반복
+        const duration = input.endDate.getTime() - input.startDate.getTime();
+        const endLimit = input.recurrenceEndDate
+          ? input.recurrenceEndDate
+          : (() => { const d = new Date(input.startDate); d.setFullYear(d.getFullYear() + 2); return d; })();
+
+        let current = new Date(input.startDate);
+        let count = 0;
+
+        while (count < maxOccurrences) {
+          const interval = input.recurrenceInterval || 1;
+          const next = new Date(current);
+          if (input.recurrenceType === 'daily') {
+            next.setDate(next.getDate() + interval);
+          } else if (input.recurrenceType === 'weekly') {
+            next.setDate(next.getDate() + interval * 7);
+          } else if (input.recurrenceType === 'monthly') {
+            next.setMonth(next.getMonth() + interval);
+          } else if (input.recurrenceType === 'yearly') {
+            next.setFullYear(next.getFullYear() + interval);
+          }
+
+          if (next > endLimit) break;
+
+          const nextEnd = new Date(next.getTime() + duration);
+          await createPartnerSchedule({
+            ...input,
+            startDate: next,
+            endDate: nextEnd,
+          });
+
+          current = next;
+          count++;
+        }
+      }
+
       return { success: true };
     }),
 

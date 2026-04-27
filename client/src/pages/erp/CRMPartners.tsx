@@ -5,7 +5,7 @@
  * - 하단: 거래처 목록 테이블
  * - 모달: 거래처 상세/등록, 일정 등록
  */
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import ERPLayout from "@/components/ERPLayout";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -810,22 +810,6 @@ export default function CRMPartners() {
     );
   }, [schedules]);
 
-  // 이번주 일정 위젯 상태
-  const [showWeeklyPopup, setShowWeeklyPopup] = useState(false);
-  const weeklyPopupRef = useRef<HTMLDivElement>(null);
-  const { data: weeklySchedules = [] } = trpc.crm.getWeeklySchedules.useQuery();
-
-  // 팝업 외부 클릭 시 닫기
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (weeklyPopupRef.current && !weeklyPopupRef.current.contains(e.target as Node)) {
-        setShowWeeklyPopup(false);
-      }
-    };
-    if (showWeeklyPopup) document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showWeeklyPopup]);
-
   const MONTH_NAMES = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
 
   return (
@@ -840,83 +824,12 @@ export default function CRMPartners() {
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">파트너 정보 및 일정을 관리합니다</p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* 이번주 일정 위젯 */}
-          <div className="relative" ref={weeklyPopupRef}>
-            <button
-              onClick={() => setShowWeeklyPopup((v) => !v)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-            >
-              <Calendar size={15} className="text-dogolf-green" />
-              이번주 일정
-              <span className="inline-flex items-center justify-center w-5 h-5 bg-dogolf-green text-white text-xs rounded-full font-bold">
-                {weeklySchedules.length}
-              </span>
-            </button>
-
-            {showWeeklyPopup && (
-              <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
-                    <Calendar size={14} className="text-dogolf-green" />
-                    이번주 일정 ({weeklySchedules.length}건)
-                  </h3>
-                  <button onClick={() => setShowWeeklyPopup(false)} className="text-gray-400 hover:text-gray-600">
-                    <X size={14} />
-                  </button>
-                </div>
-                <div className="max-h-72 overflow-y-auto divide-y divide-gray-50">
-                  {weeklySchedules.length === 0 ? (
-                    <div className="p-4 text-center text-gray-400 text-sm">이번주 일정이 없습니다</div>
-                  ) : (
-                    weeklySchedules.map((s) => {
-                      const start = new Date(s.startDate);
-                      const partnerInfo = partners.find((p) => p.id === s.partnerId);
-                      return (
-                        <div key={s.id} className="px-4 py-2.5 hover:bg-gray-50">
-                          <div className="flex items-start gap-2">
-                            <div
-                              className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
-                              style={{ backgroundColor: s.color || '#16a34a' }}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-800 truncate">{s.title}</p>
-                              {partnerInfo && (
-                                <p className="text-xs text-dogolf-green">{partnerInfo.companyName}</p>
-                              )}
-                              <p className="text-xs text-gray-400">
-                                {start.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
-                                {' '}{start.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
-                              </p>
-                              {s.assignedTo && (
-                                <p className="text-xs text-gray-400">담당: {s.assignedTo}</p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-                <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50">
-                  <button
-                    onClick={() => { setShowWeeklyPopup(false); setScheduleDefaultDate(new Date()); setSchedulePartnerId(undefined); setShowScheduleForm(true); }}
-                    className="w-full text-xs text-dogolf-green font-medium hover:underline flex items-center justify-center gap-1"
-                  >
-                    <Plus size={12} /> 일정 추가
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <Button
-            onClick={() => { setSelectedPartner(null); setShowPartnerForm(true); }}
-            className="bg-dogolf-green hover:bg-dogolf-green-dark text-white flex items-center gap-1.5"
-          >
-            <Plus size={16} /> 신규 등록
-          </Button>
-        </div>
+        <Button
+          onClick={() => { setSelectedPartner(null); setShowPartnerForm(true); }}
+          className="bg-dogolf-green hover:bg-dogolf-green-dark text-white flex items-center gap-1.5"
+        >
+          <Plus size={16} /> 신규 등록
+        </Button>
       </div>
 
       {/* ── 상단: 캘린더 + 일정 리스트 ── */}
