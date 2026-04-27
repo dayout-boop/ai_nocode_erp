@@ -7,6 +7,7 @@
  * - 개발 요청 자동 감지 → Manus 전송 UI
  */
 import { useState, useRef, useEffect, useCallback } from "react";
+import ERPLayout from "@/components/ERPLayout";
 import {
   Send, Loader2, Bot, User, Zap, AlertCircle, CheckCircle2,
   ExternalLink, ChevronDown, RefreshCw, BarChart3, ClipboardList,
@@ -457,7 +458,8 @@ export default function MasterAI() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-4xl mx-auto relative">
+    <ERPLayout>
+    <div className="flex flex-col h-[calc(100vh)] max-w-4xl mx-auto relative">
       {/* 헤더 */}
       <div className="flex items-center justify-between px-4 py-3 border-b bg-white shrink-0">
         <div className="flex items-center gap-3">
@@ -719,5 +721,6 @@ export default function MasterAI() {
         </p>
       </div>
     </div>
+    </ERPLayout>
   );
 }
