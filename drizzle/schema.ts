@@ -782,6 +782,14 @@ export const partnerSchedules = mysqlTable("partner_schedules", {
   assignedTo: varchar("assignedTo", { length: 100 }),
   /** 일정 색상 (캘린더 표시용) */
   color: varchar("color", { length: 20 }).default("#16a34a"),
+  /** 반복 유형: none | daily | weekly | monthly | yearly */
+  recurrenceType: varchar("recurrenceType", { length: 20 }).default("none").notNull(),
+  /** 반복 간격 (예: 1=매월, 2=격월) */
+  recurrenceInterval: int("recurrenceInterval").default(1),
+  /** 반복 종료일 (null이면 무기한) */
+  recurrenceEndDate: timestamp("recurrenceEndDate"),
+  /** 원본 반복 일정 ID (반복 인스턴스인 경우) */
+  parentScheduleId: int("parentScheduleId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

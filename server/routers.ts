@@ -1050,11 +1050,20 @@ const crmRouter = router({
       endDate: z.date(),
       assignedTo: z.string().optional(),
       color: z.string().optional(),
+      recurrenceType: z.enum(['none', 'daily', 'weekly', 'monthly', 'yearly']).default('none'),
+      recurrenceInterval: z.number().int().min(1).default(1),
+      recurrenceEndDate: z.date().optional(),
     }))
     .mutation(async ({ input }) => {
       const { createPartnerSchedule } = await import('./db.js');
       await createPartnerSchedule(input);
       return { success: true };
+    }),
+
+  getWeeklySchedules: protectedProcedure
+    .query(async () => {
+      const { getWeeklyPartnerSchedules } = await import('./db.js');
+      return await getWeeklyPartnerSchedules();
     }),
 
   updateSchedule: protectedProcedure
@@ -1067,6 +1076,9 @@ const crmRouter = router({
         endDate: z.date().optional(),
         assignedTo: z.string().optional(),
         color: z.string().optional(),
+        recurrenceType: z.enum(['none', 'daily', 'weekly', 'monthly', 'yearly']).optional(),
+        recurrenceInterval: z.number().int().min(1).optional(),
+        recurrenceEndDate: z.date().optional().nullable(),
       }),
     }))
     .mutation(async ({ input }) => {

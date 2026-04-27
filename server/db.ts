@@ -184,3 +184,28 @@ export async function deletePartnerSchedule(id: number) {
   if (!db) throw new Error("Database not available");
   await db.delete(partnerSchedules).where(eq(partnerSchedules.id, id));
 }
+
+/** 이번 주 일정 조회 (월~일) */
+export async function getWeeklyPartnerSchedules() {
+  const db = await getDb();
+  if (!db) return [];
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0=일, 1=월 ...
+  const diffToMonday = (dayOfWeek === 0 ? -6 : 1 - dayOfWeek);
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diffToMonday);
+  monday.setHours(0, 0, 0, 0);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  return await db
+    .select()
+    .from(partnerSchedules)
+    .where(
+      and(
+        gte(partnerSchedules.startDate, monday),
+        lte(partnerSchedules.startDate, sunday)
+      )
+    )
+    .orderBy(partnerSchedules.startDate);
+}
