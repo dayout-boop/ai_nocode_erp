@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, ArrowDownCircle, ArrowUpCircle, CreditCard, Wallet } from "lucide-react";
+import { Plus, ArrowDownCircle, ArrowUpCircle, CreditCard, Wallet, Clipboard, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 
 type TabType = "income" | "remittance" | "deposit" | "charge" | "prepaid";
@@ -33,6 +33,65 @@ const MATCH_COLORS: Record<string, string> = {
   partial: "bg-orange-100 text-orange-700",
 };
 
+/**
+ * 은행 문자 자동 파싱 함수
+ * 지원 형식:
+ * - "[신한은행] 01/15 14:32 홍길동 1,234,567원 입금"
+ * - "국민은행 입금 2024-01-15 홍길동 1234567"
+ * - "OY-202504-XXXX 홍길동 1,234,567"
+ */
+function parseBankMessage(text: string): {
+  bankName?: string;
+  amount?: number;
+  depositorName?: string;
+  transactionDate?: string;
+  reservationNo?: string;
+} {
+  const result: ReturnType<typeof parseBankMessage> = {};
+
+  // 은행명 추출
+  const bankMatch = text.match(/\[([\w가-힣]+은행|[\w가-힣]+뱅크)\]|^([\w가-힣]+은행|[\w가-힣]+뱅크)/m);
+  if (bankMatch) result.bankName = bankMatch[1] || bankMatch[2];
+
+  // 금액 추출 (숫자+원 패턴, 쉼표 포함)
+  const amountMatch = text.match(/([0-9,]+)원/) || text.match(/([0-9,]+)\s*원/) || text.match(/\b([0-9]{4,})\b/);
+  if (amountMatch) {
+    const amountStr = amountMatch[1].replace(/,/g, "");
+    const amount = parseInt(amountStr, 10);
+    if (!isNaN(amount) && amount > 0) result.amount = amount;
+  }
+
+  // 날짜 추출
+  const dateMatch = text.match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/)
+    || text.match(/(\d{2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})/);
+  if (dateMatch) {
+    if (dateMatch[0].includes("/") && dateMatch[1].length === 2) {
+      // MM/DD HH:mm 형식 → 현재 연도 사용
+      const year = new Date().getFullYear();
+      const month = dateMatch[1].padStart(2, "0");
+      const day = dateMatch[2].padStart(2, "0");
+      const hour = dateMatch[3] ? dateMatch[3].padStart(2, "0") : "00";
+      const min = dateMatch[4] ? dateMatch[4].padStart(2, "0") : "00";
+      result.transactionDate = `${year}-${month}-${day}T${hour}:${min}`;
+    } else {
+      const year = dateMatch[1];
+      const month = dateMatch[2].padStart(2, "0");
+      const day = dateMatch[3].padStart(2, "0");
+      result.transactionDate = `${year}-${month}-${day}T00:00`;
+    }
+  }
+
+  // 예약번호 추출 (OY-YYYYMM-XXXX 패턴)
+  const resNoMatch = text.match(/OY-\d{6}-[A-Z0-9]{4}/i);
+  if (resNoMatch) result.reservationNo = resNoMatch[0].toUpperCase();
+
+  // 입금자명 추출 (한글 2~5글자)
+  const nameMatch = text.match(/([가-힣]{2,5})\s*\d+원/) || text.match(/입금\s+([가-힣]{2,5})/) || text.match(/([가-힣]{2,5})\s+[0-9,]+원/);
+  if (nameMatch) result.depositorName = nameMatch[1];
+
+  return result;
+}
+
 export default function FinanceManagement() {
   const [activeTab, setActiveTab] = useState<TabType>("income");
 
@@ -42,6 +101,8 @@ export default function FinanceManagement() {
     reservationNo: "", notes: "",
   });
   const [showIncomeForm, setShowIncomeForm] = useState(false);
+  const [incomeParseText, setIncomeParseText] = useState("");
+  const [showIncomeParse, setShowIncomeParse] = useState(false);
 
   // 송금 상태
   const [remitForm, setRemitForm] = useState({
@@ -49,6 +110,8 @@ export default function FinanceManagement() {
     reservationNo: "", notes: "",
   });
   const [showRemitForm, setShowRemitForm] = useState(false);
+  const [remitParseText, setRemitParseText] = useState("");
+  const [showRemitParse, setShowRemitParse] = useState(false);
 
   // 예치금 상태
   const [depositForm, setDepositForm] = useState({
@@ -78,11 +141,11 @@ export default function FinanceManagement() {
   const { data: prepaids, refetch: refetchPrepaid } = trpc.reservations.listPrepaid.useQuery();
 
   const addIncomeMut = trpc.reservations.addIncome.useMutation({
-    onSuccess: () => { toast.success("입금 내역이 등록되었습니다."); setShowIncomeForm(false); refetchIncome(); },
+    onSuccess: () => { toast.success("입금 내역이 등록되었습니다."); setShowIncomeForm(false); setShowIncomeParse(false); refetchIncome(); },
     onError: (e) => toast.error(e.message),
   });
   const addRemitMut = trpc.reservations.addRemittance.useMutation({
-    onSuccess: () => { toast.success("송금 내역이 등록되었습니다."); setShowRemitForm(false); refetchRemit(); },
+    onSuccess: () => { toast.success("송금 내역이 등록되었습니다."); setShowRemitForm(false); setShowRemitParse(false); refetchRemit(); },
     onError: (e) => toast.error(e.message),
   });
   const addDepositMut = trpc.reservations.addDeposit.useMutation({
@@ -98,6 +161,42 @@ export default function FinanceManagement() {
     onError: (e) => toast.error(e.message),
   });
 
+  // 은행 문자 파싱 → 입금 폼 자동 채우기
+  function handleIncomeParse() {
+    if (!incomeParseText.trim()) { toast.error("파싱할 문자를 입력해주세요."); return; }
+    const parsed = parseBankMessage(incomeParseText);
+    setIncomeForm(f => ({
+      ...f,
+      bankName: parsed.bankName ?? f.bankName,
+      amount: parsed.amount ?? f.amount,
+      depositorName: parsed.depositorName ?? f.depositorName,
+      transactionDate: parsed.transactionDate ?? f.transactionDate,
+      reservationNo: parsed.reservationNo ?? f.reservationNo,
+      detail: incomeParseText,
+    }));
+    setShowIncomeParse(false);
+    setShowIncomeForm(true);
+    toast.success("문자 파싱 완료! 내용을 확인 후 등록하세요.");
+  }
+
+  // 은행 문자 파싱 → 송금 폼 자동 채우기
+  function handleRemitParse() {
+    if (!remitParseText.trim()) { toast.error("파싱할 문자를 입력해주세요."); return; }
+    const parsed = parseBankMessage(remitParseText);
+    setRemitForm(f => ({
+      ...f,
+      bankName: parsed.bankName ?? f.bankName,
+      amount: parsed.amount ?? f.amount,
+      recipientName: parsed.depositorName ?? f.recipientName,
+      transactionDate: parsed.transactionDate ?? f.transactionDate,
+      reservationNo: parsed.reservationNo ?? f.reservationNo,
+      detail: remitParseText,
+    }));
+    setShowRemitParse(false);
+    setShowRemitForm(true);
+    toast.success("문자 파싱 완료! 내용을 확인 후 등록하세요.");
+  }
+
   const tabs: { id: TabType; label: string; icon: React.ReactNode; count?: number }[] = [
     { id: "income", label: "입금 내역", icon: <ArrowDownCircle className="w-4 h-4 text-green-500" />, count: incomes?.length },
     { id: "remittance", label: "송금 내역", icon: <ArrowUpCircle className="w-4 h-4 text-blue-500" />, count: remittances?.length },
@@ -111,18 +210,33 @@ export default function FinanceManagement() {
       <div className="p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-800">자금 관리</h1>
-          <Button
-            onClick={() => {
-              if (activeTab === "income") setShowIncomeForm(true);
-              else if (activeTab === "remittance") setShowRemitForm(true);
-              else if (activeTab === "deposit") setShowDepositForm(true);
-              else if (activeTab === "charge") setShowChargeForm(true);
-              else if (activeTab === "prepaid") setShowPrepaidForm(true);
-            }}
-            className="bg-green-700 hover:bg-green-800 text-white"
-          >
-            <Plus className="w-4 h-4 mr-1" /> 등록
-          </Button>
+          <div className="flex gap-2">
+            {/* 문자 파싱 버튼 (입금/송금 탭에서만 표시) */}
+            {(activeTab === "income" || activeTab === "remittance") && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (activeTab === "income") { setIncomeParseText(""); setShowIncomeParse(true); }
+                  else { setRemitParseText(""); setShowRemitParse(true); }
+                }}
+                className="border-green-600 text-green-700 hover:bg-green-50"
+              >
+                <Clipboard className="w-4 h-4 mr-1" /> 문자 붙여넣기
+              </Button>
+            )}
+            <Button
+              onClick={() => {
+                if (activeTab === "income") setShowIncomeForm(true);
+                else if (activeTab === "remittance") setShowRemitForm(true);
+                else if (activeTab === "deposit") setShowDepositForm(true);
+                else if (activeTab === "charge") setShowChargeForm(true);
+                else if (activeTab === "prepaid") setShowPrepaidForm(true);
+              }}
+              className="bg-green-700 hover:bg-green-800 text-white"
+            >
+              <Plus className="w-4 h-4 mr-1" /> 등록
+            </Button>
+          </div>
         </div>
 
         {/* 탭 */}
@@ -354,6 +468,83 @@ export default function FinanceManagement() {
         )}
       </div>
 
+      {/* ===== 은행 문자 파싱 모달 (입금) ===== */}
+      <Dialog open={showIncomeParse} onOpenChange={setShowIncomeParse}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clipboard className="w-5 h-5 text-green-600" />
+              은행 입금 문자 붙여넣기
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500">
+              은행 앱 또는 문자 알림을 그대로 붙여넣으면 자동으로 파싱됩니다.
+            </p>
+            <div className="bg-gray-50 rounded p-3 text-xs text-gray-500 space-y-1">
+              <p className="font-semibold text-gray-700">지원 형식 예시:</p>
+              <p>[신한은행] 01/15 14:32 홍길동 1,234,567원 입금</p>
+              <p>국민은행 입금 2024-01-15 홍길동 1234567원</p>
+              <p>OY-202504-XXXX 홍길동 1,234,567</p>
+            </div>
+            <div>
+              <Label>은행 문자 내용 *</Label>
+              <Textarea
+                value={incomeParseText}
+                onChange={e => setIncomeParseText(e.target.value)}
+                placeholder="은행 문자를 여기에 붙여넣으세요..."
+                rows={5}
+                className="font-mono text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowIncomeParse(false)}>취소</Button>
+            <Button onClick={handleIncomeParse} className="bg-green-700 hover:bg-green-800 text-white">
+              <CheckCircle className="w-4 h-4 mr-1" /> 파싱 후 등록
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ===== 은행 문자 파싱 모달 (송금) ===== */}
+      <Dialog open={showRemitParse} onOpenChange={setShowRemitParse}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clipboard className="w-5 h-5 text-blue-600" />
+              은행 송금 문자 붙여넣기
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500">
+              은행 앱 또는 문자 알림을 그대로 붙여넣으면 자동으로 파싱됩니다.
+            </p>
+            <div className="bg-gray-50 rounded p-3 text-xs text-gray-500 space-y-1">
+              <p className="font-semibold text-gray-700">지원 형식 예시:</p>
+              <p>[신한은행] 01/15 14:32 홍길동 1,234,567원 출금</p>
+              <p>국민은행 송금 2024-01-15 홍길동 1234567원</p>
+            </div>
+            <div>
+              <Label>은행 문자 내용 *</Label>
+              <Textarea
+                value={remitParseText}
+                onChange={e => setRemitParseText(e.target.value)}
+                placeholder="은행 문자를 여기에 붙여넣으세요..."
+                rows={5}
+                className="font-mono text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRemitParse(false)}>취소</Button>
+            <Button onClick={handleRemitParse} className="bg-blue-700 hover:bg-blue-800 text-white">
+              <CheckCircle className="w-4 h-4 mr-1" /> 파싱 후 등록
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* 입금 등록 모달 */}
       <Dialog open={showIncomeForm} onOpenChange={setShowIncomeForm}>
         <DialogContent className="max-w-md">
@@ -363,8 +554,19 @@ export default function FinanceManagement() {
             <div><Label>은행명</Label><Input value={incomeForm.bankName} onChange={e => setIncomeForm(f => ({ ...f, bankName: e.target.value }))} placeholder="신한, 국민 등" /></div>
             <div><Label>금액 *</Label><Input type="number" value={incomeForm.amount} onChange={e => setIncomeForm(f => ({ ...f, amount: Number(e.target.value) }))} /></div>
             <div><Label>입금자명</Label><Input value={incomeForm.depositorName} onChange={e => setIncomeForm(f => ({ ...f, depositorName: e.target.value }))} /></div>
-            <div><Label>예약번호</Label><Input value={incomeForm.reservationNo} onChange={e => setIncomeForm(f => ({ ...f, reservationNo: e.target.value }))} placeholder="OY-202504-XXXX" /></div>
-            <div><Label>상세내역 (은행 문자 그대로 붙여넣기)</Label><Textarea value={incomeForm.detail} onChange={e => setIncomeForm(f => ({ ...f, detail: e.target.value }))} rows={2} /></div>
+            <div>
+              <Label>예약번호 (자동 매칭)</Label>
+              <Input
+                value={incomeForm.reservationNo}
+                onChange={e => setIncomeForm(f => ({ ...f, reservationNo: e.target.value }))}
+                placeholder="OY-202504-XXXX"
+                className={incomeForm.reservationNo ? "border-green-400 bg-green-50" : ""}
+              />
+              {incomeForm.reservationNo && (
+                <p className="text-xs text-green-600 mt-1">✓ 예약번호 자동 감지됨 - 등록 시 해당 예약에 자동 매칭됩니다.</p>
+              )}
+            </div>
+            <div><Label>상세내역 (은행 문자 원본)</Label><Textarea value={incomeForm.detail} onChange={e => setIncomeForm(f => ({ ...f, detail: e.target.value }))} rows={2} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowIncomeForm(false)}>취소</Button>
@@ -385,7 +587,18 @@ export default function FinanceManagement() {
             <div><Label>은행명</Label><Input value={remitForm.bankName} onChange={e => setRemitForm(f => ({ ...f, bankName: e.target.value }))} /></div>
             <div><Label>금액 *</Label><Input type="number" value={remitForm.amount} onChange={e => setRemitForm(f => ({ ...f, amount: Number(e.target.value) }))} /></div>
             <div><Label>수취인명</Label><Input value={remitForm.recipientName} onChange={e => setRemitForm(f => ({ ...f, recipientName: e.target.value }))} /></div>
-            <div><Label>예약번호</Label><Input value={remitForm.reservationNo} onChange={e => setRemitForm(f => ({ ...f, reservationNo: e.target.value }))} /></div>
+            <div>
+              <Label>예약번호 (자동 매칭)</Label>
+              <Input
+                value={remitForm.reservationNo}
+                onChange={e => setRemitForm(f => ({ ...f, reservationNo: e.target.value }))}
+                placeholder="OY-202504-XXXX"
+                className={remitForm.reservationNo ? "border-blue-400 bg-blue-50" : ""}
+              />
+              {remitForm.reservationNo && (
+                <p className="text-xs text-blue-600 mt-1">✓ 예약번호 자동 감지됨 - 등록 시 해당 예약에 자동 매칭됩니다.</p>
+              )}
+            </div>
             <div><Label>상세내역</Label><Textarea value={remitForm.detail} onChange={e => setRemitForm(f => ({ ...f, detail: e.target.value }))} rows={2} /></div>
           </div>
           <DialogFooter>

@@ -58,6 +58,7 @@ const defaultForm = {
   salePricePerPerson: 0, salePriceTotal: 0,
   depositPrice: 0, extraFee: 0, profit: 0,
   status: "pending" as StatusType, notes: "",
+  affiliateId: undefined as number | undefined,
 };
 
 export default function ReservationManagement() {
@@ -71,6 +72,10 @@ export default function ReservationManagement() {
   const [showDetail, setShowDetail] = useState<number | null>(null);
   const [form, setForm] = useState({ ...defaultForm });
 
+  // 제휴사 검색 드롭다운 상태
+  const [affiliateSearch, setAffiliateSearch] = useState("");
+  const [showAffiliateDropdown, setShowAffiliateDropdown] = useState(false);
+
   const { data, refetch } = trpc.reservations.list.useQuery({
     page, pageSize: 20, search, status: statusFilter, paymentStatus: paymentFilter,
   });
@@ -78,6 +83,12 @@ export default function ReservationManagement() {
   const { data: detail } = trpc.reservations.getById.useQuery(
     { id: showDetail! },
     { enabled: showDetail !== null }
+  );
+
+  // 제휴사 검색 쿼리 (1글자 이상 입력 시 활성화)
+  const { data: affiliateData } = trpc.affiliates.list.useQuery(
+    { page: 1, pageSize: 20, search: affiliateSearch, type: "all", status: "active" },
+    { enabled: affiliateSearch.length >= 1 }
   );
 
   const createMut = trpc.reservations.create.useMutation({
@@ -100,10 +111,12 @@ export default function ReservationManagement() {
   function openCreate() {
     setForm({ ...defaultForm });
     setEditId(null);
+    setAffiliateSearch("");
     setShowForm(true);
   }
 
   function openEdit(item: typeof items[0]) {
+    setAffiliateSearch(item.golfCourseName ?? "");
     setForm({
       productName: item.productName,
       golfCourseName: item.golfCourseName ?? "",
@@ -123,6 +136,7 @@ export default function ReservationManagement() {
       profit: item.profit ?? 0,
       status: (item.status as StatusType) ?? "pending",
       notes: item.notes ?? "",
+      affiliateId: (item as any).affiliateId ?? undefined,
     });
     setEditId(item.id);
     setShowForm(true);
@@ -133,10 +147,11 @@ export default function ReservationManagement() {
       toast.error("상품명, 고객명, 출발일은 필수입니다.");
       return;
     }
+    const submitData = { ...form };
     if (editId) {
-      updateMut.mutate({ id: editId, ...form });
+      updateMut.mutate({ id: editId, ...submitData });
     } else {
-      createMut.mutate(form);
+      createMut.mutate(submitData);
     }
   }
 
@@ -334,9 +349,42 @@ export default function ReservationManagement() {
               <Label>상품명 *</Label>
               <Input value={form.productName} onChange={e => setForm(f => ({ ...f, productName: e.target.value }))} placeholder="예: 태국 파타야 3박5일" />
             </div>
-            <div>
-              <Label>골프장명</Label>
-              <Input value={form.golfCourseName} onChange={e => setForm(f => ({ ...f, golfCourseName: e.target.value }))} />
+            {/* 골프장명 - 제휴사 검색 드롭다운 */}
+            <div className="relative">
+              <Label>골프장명 (제휴사 검색)</Label>
+              <Input
+                value={affiliateSearch}
+                onChange={e => {
+                  setAffiliateSearch(e.target.value);
+                  setForm(f => ({ ...f, golfCourseName: e.target.value, affiliateId: undefined }));
+                  setShowAffiliateDropdown(true);
+                }}
+                onFocus={() => { if (affiliateSearch.length >= 1) setShowAffiliateDropdown(true); }}
+                onBlur={() => setTimeout(() => setShowAffiliateDropdown(false), 200)}
+                placeholder="골프장명 검색 (1글자 이상)..."
+              />
+              {showAffiliateDropdown && affiliateData && affiliateData.items.length > 0 && (
+                <div className="absolute z-50 w-full bg-white border rounded-md shadow-lg mt-1 max-h-48 overflow-y-auto">
+                  {affiliateData.items.map(aff => (
+                    <button
+                      key={aff.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 hover:bg-green-50 text-sm border-b last:border-0"
+                      onMouseDown={() => {
+                        setAffiliateSearch(aff.name);
+                        setForm(f => ({ ...f, golfCourseName: aff.name, affiliateId: aff.id }));
+                        setShowAffiliateDropdown(false);
+                      }}
+                    >
+                      <span className="font-medium">{aff.name}</span>
+                      <span className="text-xs text-gray-400 ml-2">{aff.country ?? ""} {aff.region ?? ""}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {form.affiliateId && (
+                <p className="text-xs text-green-600 mt-1">✓ 제휴사 연결됨 (ID: {form.affiliateId})</p>
+              )}
             </div>
             <div>
               <Label>출발일 *</Label>
