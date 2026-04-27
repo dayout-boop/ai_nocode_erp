@@ -83,6 +83,8 @@ export default function AffiliateManagement() {
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / 20);
 
+  const { data: typeCountsData } = trpc.affiliates.typeCounts.useQuery();
+
   function openCreate() {
     setForm({ ...defaultForm });
     setEditId(null);
@@ -129,12 +131,8 @@ export default function AffiliateManagement() {
       setForm((f) => ({ ...f, [key]: Number(e.target.value) || 0 })),
   });
 
-  // 타입별 통계
-  const typeCounts = items.reduce((acc, item) => {
-    const t = item.type ?? "other";
-    acc[t] = (acc[t] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  // 타입별 통계 (서버에서 전체 집계)
+  const typeCounts = typeCountsData ?? {};
 
   return (
     <ERPLayout>

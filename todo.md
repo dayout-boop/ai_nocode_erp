@@ -549,7 +549,7 @@
 - [x] 햄버거/카테고리 아이콘 클릭 시 setOpen 상태 즉시 반영 (지연 제거)
 - [x] z-index 및 backdrop 처리 점검
 - [x] 브라우저 모바일 뷰 테스트
-- [ ] 체크포인트 저장
+- [x] 체크포인트 저장
 
 ## 모바일 사이드바 메뉴 아이콘 추가 (2026-04-27)
 
@@ -562,14 +562,40 @@
 
 Detected
 ## CRM > 파트너 관리 기능 개발 (ID: 60001) - 2026-04-27
-- [ ] DB 스키마: partners 테이블 추가
-- [ ] DB 스키마: partnerSchedules 테이블 추가
-- [ ] pnpm db:push 실행 (마이그레이션)
-- [ ] server/db.ts: 파트너 관련 DB 헬퍼 추가
-- [ ] server/routers/crm.ts: tRPC 프로시저 구현
-- [ ] server/routers.ts: crm 라우터 머지
-- [ ] client/src/pages/erp/CRMPartners.tsx: 파트너 관리 페이지 구현
-- [ ] App.tsx: /erp/crm/partners 라우트 등록
-- [ ] ERPLayout.tsx: CRM 카테고리에 파트너 관리 링크 추가
+- [x] DB 스키마: partners 테이블 추가
+- [x] DB 스키마: partnerSchedules 테이블 추가
+- [x] pnpm db:push 실행 (마이그레이션)
+- [x] server/db.ts: 파트너 관련 DB 헬퍼 추가
+- [x] server/routers/crm.ts: tRPC 프로시저 구현
+- [x] server/routers.ts: crm 라우터 머지
+- [x] client/src/pages/erp/CRMPartners.tsx: 파트너 관리 페이지 구현
+- [x] App.tsx: /erp/crm/partners 라우트 등록
+- [x] ERPLayout.tsx: CRM 카테고리에 파트너 관리 링크 추가
+- [x] TypeScript 빌드 오류 0개 확인
+- [x] 체크포인트 저장
+
+## 예약/자금관리 + 제휴사 관리 기능 추가 (2026-04-27)
+- [x] DB 스키마: reservations, deposit_records, remittance_records, deposit_funds, charge_records, charge_usages, affiliates 확장
+- [x] pnpm db:push 실행
+- [x] server/routers/reservations.ts: 수기 예약관리 tRPC 프로시저
+- [x] server/routers/affiliates.ts: 제휴사 관리 tRPC 프로시저
+- [x] server/routers.ts: reservations, affiliates 라우터 등록
+- [x] client/src/pages/erp/ReservationManagement.tsx: 수기 예약관리 페이지
+- [x] client/src/pages/erp/FinanceManagement.tsx: 자금관리 페이지
+- [x] client/src/pages/erp/AffiliateManagement.tsx: 제휴사 관리 페이지
+- [x] ERPLayout.tsx: 수기 예약관리, 자금관리, 제휴사 관리 메뉴 추가
+- [x] App.tsx: 3개 라우트 등록
+- [x] TypeScript 빌드 오류 0개 확인
+- [x] 체크포인트 저장
+
+## ERP 전체 기능 테스트 및 오류 수정 (2026-04-27)
+- [ ] ERP 로그인 및 대시보드 렌더링 확인
+- [ ] 수기 예약관리 페이지 동작 확인
+- [ ] 자금관리 페이지 동작 확인
+- [ ] 제휴사 관리 페이지 동작 확인
+- [ ] 파트너 관리 페이지 동작 확인
+- [ ] 홈페이지 렌더링 및 골프톡 위젯 확인
+- [ ] 발견된 오류 수정
 - [ ] TypeScript 빌드 오류 0개 확인
+- [ ] oyeo.co.kr 골프장 데이터 스크래핑 및 제휴사 DB 초기 데이터 등록
 - [ ] 체크포인트 저장

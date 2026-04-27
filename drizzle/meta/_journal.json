@@ -134,6 +134,13 @@
       "when": 1777296564207,
       "tag": "0018_pretty_barracuda",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1777300820140,
+      "tag": "0019_fixed_gargoyle",
+      "breakpoints": true
     }
   ]
 }

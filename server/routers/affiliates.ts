@@ -140,12 +140,42 @@ export const affiliatesRouter = router({
       phone: z.string().optional(),
       contactName: z.string().optional(),
       notes: z.string().optional(),
+      oyeoId: z.string().optional(),
+      oyeoCode: z.string().optional(),
+      nameEn: z.string().optional(),
+      continent: z.string().optional(),
+      lat: z.string().nullable().optional(),
+      lng: z.string().nullable().optional(),
     })))
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       if (input.length === 0) return { count: 0 };
-      await db.insert(affiliates).values(input.map(item => ({ ...item, isActive: true })) as any[]);
-      return { count: input.length };
+      // 100개씩 배치 삽입
+      const batchSize = 100;
+      let totalInserted = 0;
+      for (let i = 0; i < input.length; i += batchSize) {
+        const batch = input.slice(i, i + batchSize);
+        await db.insert(affiliates).values(batch.map(item => ({
+          ...item,
+          category: (item.type === 'golf_domestic' ? 'golf_domestic' : item.type === 'golf_overseas' ? 'golf_overseas' : 'other') as any,
+          isActive: true,
+        })) as any[]);
+        totalInserted += batch.length;
+      }
+      return { count: totalInserted };
+    }),
+
+  // ─── 타입별 통계 ─────────────────────────────────────────────
+  typeCounts: protectedProcedure
+    .query(async () => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const rows = await db.select({ type: affiliates.type, cnt: count() }).from(affiliates).groupBy(affiliates.type);
+      const result: Record<string, number> = {};
+      for (const row of rows) {
+        result[row.type ?? 'other'] = row.cnt;
+      }
+      return result;
     }),
 });

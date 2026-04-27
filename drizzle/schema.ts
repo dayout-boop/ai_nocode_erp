@@ -834,6 +834,18 @@ export const affiliates = mysqlTable("affiliates", {
   /** 상태 */
   status: mysqlEnum("status", ["active", "inactive", "pending"]).default("active"),
   notes: text("notes"),
+  /** oyeo 시스템 ID */
+  oyeoId: varchar("oyeoId", { length: 20 }),
+  /** oyeo 골프코드 */
+  oyeoCode: varchar("oyeoCode", { length: 30 }),
+  /** 영문명 */
+  nameEn: varchar("nameEn", { length: 200 }),
+  /** 대륙 */
+  continent: varchar("continent", { length: 50 }),
+  /** 위도 */
+  lat: varchar("lat", { length: 30 }),
+  /** 경도 */
+  lng: varchar("lng", { length: 30 }),
   isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
