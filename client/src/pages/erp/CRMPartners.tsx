@@ -6,6 +6,7 @@
  * - 모달: 거래처 상세/등록, 일정 등록
  */
 import { useState, useMemo } from "react";
+import ERPLayout from "@/components/ERPLayout";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -743,7 +744,8 @@ export default function CRMPartners() {
   const MONTH_NAMES = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+    <ERPLayout>
+      <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
       {/* 페이지 헤더 */}
       <div className="flex items-center justify-between">
         <div>
@@ -1035,6 +1037,7 @@ export default function CRMPartners() {
         defaultDate={scheduleDefaultDate}
         onSaved={refetchSchedules}
       />
-    </div>
+      </div>
+    </ERPLayout>
   );
 }
