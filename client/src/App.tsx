@@ -29,6 +29,9 @@ import DevAIOrchestrator from "./pages/erp/DevAIOrchestrator";
 import AIDevEngine from "./pages/erp/AIDevEngine";
 import MasterAI from "./pages/erp/MasterAI";
 import AIEngine from "./pages/erp/AIEngine";
+import ReservationManagement from "./pages/erp/ReservationManagement";
+import FinanceManagement from "./pages/erp/FinanceManagement";
+import AffiliateManagement from "./pages/erp/AffiliateManagement";
 import GolfTalkAdmin from "./pages/erp/GolfTalkAdmin";
 import ManagerAdmin from "./pages/erp/ManagerAdmin";
 import MasterLogs from "./pages/erp/MasterLogs";
@@ -61,6 +64,9 @@ function Router() {
       <Route path={"/erp/settlements"} component={ERPSettlements} />
       <Route path={"/erp/crm"} component={ERPCRMCustomers} />
       <Route path={"/erp/crm/partners"} component={ERPCRMPartners} />
+      <Route path={"/erp/crm/affiliates"} component={AffiliateManagement} />
+      <Route path={"/erp/reservations"} component={ReservationManagement} />
+      <Route path={"/erp/finance"} component={FinanceManagement} />
       <Route path={"/erp/cms"} component={() => { window.location.replace('/erp/cms/notices'); return null; }} />
       <Route path={"/erp/cms/notices"} component={ERPCMSNotices} />
       <Route path={"/erp/cms/banners"} component={ERPCMSBanners} />

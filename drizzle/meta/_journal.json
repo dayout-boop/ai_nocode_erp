@@ -120,6 +120,20 @@
       "when": 1777292671634,
       "tag": "0016_spooky_hobgoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1777295921547,
+      "tag": "0017_volatile_dark_beast",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1777296564207,
+      "tag": "0018_pretty_barracuda",
+      "breakpoints": true
     }
   ]
 }

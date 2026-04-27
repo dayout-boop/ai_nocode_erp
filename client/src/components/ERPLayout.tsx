@@ -92,6 +92,14 @@ const navItems: NavItem[] = [
     children: [
       { label: "예약 목록", href: "/erp/bookings", icon: <ClipboardList size={14} /> },
       { label: "예약 문의", href: "/erp/inquiries", icon: <MessageCircleQuestion size={14} /> },
+      { label: "수기 예약관리", href: "/erp/reservations", icon: <ClipboardList size={14} /> },
+    ],
+  },
+  {
+    label: "자금관리",
+    icon: <CreditCard size={18} />,
+    children: [
+      { label: "자금 현황", href: "/erp/finance", icon: <ReceiptText size={14} /> },
     ],
   },
   {
@@ -108,6 +116,7 @@ const navItems: NavItem[] = [
     children: [
       { label: "고객 검색", href: "/erp/crm", icon: <Search size={14} /> },
       { label: "파트너 관리", href: "/erp/crm/partners", icon: <Building2 size={14} /> },
+      { label: "제휴사 관리", href: "/erp/crm/affiliates", icon: <Building2 size={14} /> },
     ],
   },
   {

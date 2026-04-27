@@ -795,3 +795,223 @@ export const partnerSchedules = mysqlTable("partner_schedules", {
 });
 export type PartnerSchedule = typeof partnerSchedules.$inferSelect;
 export type InsertPartnerSchedule = typeof partnerSchedules.$inferInsert;
+
+// ============================================================
+// AFFILIATES - 제휴사 (골프장, 숙소, 관광지)
+// ============================================================
+export const affiliates = mysqlTable("affiliates", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 분류: golf_domestic | golf_overseas | accommodation | attraction | other */
+  category: mysqlEnum("category", ["golf_domestic", "golf_overseas", "accommodation", "attraction", "other"]).notNull(),
+  name: varchar("name", { length: 200 }).notNull(),
+  /** 지역 (국내: 경기/강원 등, 해외: 태국/베트남 등) */
+  region: varchar("region", { length: 100 }),
+  country: varchar("country", { length: 50 }).default("한국"),
+  address: text("address"),
+  phone: varchar("phone", { length: 30 }),
+  email: varchar("email", { length: 200 }),
+  website: varchar("website", { length: 300 }),
+  contactPerson: varchar("contactPerson", { length: 100 }),
+  contactName: varchar("contactName", { length: 100 }),
+  contactPhone: varchar("contactPhone", { length: 30 }),
+  /** UI에서 사용하는 type 필드 */
+  type: mysqlEnum("type", ["golf_domestic", "golf_overseas", "hotel", "attraction", "transport", "other"]).default("golf_domestic"),
+  /** 계약 유형: direct | agency | platform */
+  contractType: mysqlEnum("contractType", ["direct", "agency", "platform"]).default("direct"),
+  supplyPrice: int("supplyPrice"),
+  /** 홈 수 */
+  holeCount: int("holeCount").default(18),
+  /** 코스 수 */
+  courseCount: int("courseCount").default(1),
+  /** 그린피 최소 */
+  greenFeeMin: int("greenFeeMin").default(0),
+  /** 그린피 최대 */
+  greenFeeMax: int("greenFeeMax").default(0),
+  /** 선입금 잔액 */
+  prepaidBalance: int("prepaidBalance").default(0),
+  /** 데파짓 잔액 */
+  depositBalance: int("depositBalance").default(0),
+  /** 상태 */
+  status: mysqlEnum("status", ["active", "inactive", "pending"]).default("active"),
+  notes: text("notes"),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Affiliate = typeof affiliates.$inferSelect;
+export type InsertAffiliate = typeof affiliates.$inferInsert;
+
+// ============================================================
+// RESERVATIONS - 예약 마스터
+// ============================================================
+export const reservations = mysqlTable("reservations", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 예약번호 (자동생성: OY-YYYYMM-XXXX) */
+  reservationNo: varchar("reservationNo", { length: 30 }).notNull().unique(),
+  /** 상품명 */
+  productName: varchar("productName", { length: 300 }).notNull(),
+  /** 골프장명 */
+  golfCourseName: varchar("golfCourseName", { length: 200 }),
+  /** 제휴사 ID (affiliates 참조) */
+  affiliateId: int("affiliateId"),
+  /** 출발일 */
+  departureDate: timestamp("departureDate").notNull(),
+  /** 박수 (0=당일) */
+  nights: int("nights").default(0),
+  /** 팀수 */
+  teams: int("teams").default(1),
+  /** 인원 */
+  headcount: int("headcount").default(1),
+  /** 고객명 */
+  customerName: varchar("customerName", { length: 100 }).notNull(),
+  /** 고객 연락처 */
+  customerPhone: varchar("customerPhone", { length: 30 }),
+  /** 고객 이메일 */
+  customerEmail: varchar("customerEmail", { length: 200 }),
+  /** 담당자 */
+  assignedTo: varchar("assignedTo", { length: 100 }),
+  /** 대리점명 */
+  agentName: varchar("agentName", { length: 200 }),
+  /** 판매가 (1인) */
+  salePricePerPerson: int("salePricePerPerson").default(0),
+  /** 판매 합계 */
+  salePriceTotal: int("salePriceTotal").default(0),
+  /** 입금가 (공급가) */
+  depositPrice: int("depositPrice").default(0),
+  /** 추가요금 */
+  extraFee: int("extraFee").default(0),
+  /** 수익 */
+  profit: int("profit").default(0),
+  /** 상태: pending | confirmed | cancelled | completed */
+  status: mysqlEnum("status", ["pending", "confirmed", "cancelled", "completed"]).default("pending").notNull(),
+  /** 입금 상태: unpaid | partial | paid */
+  paymentStatus: mysqlEnum("paymentStatus", ["unpaid", "partial", "paid"]).default("unpaid").notNull(),
+  /** 실제 입금 합계 */
+  paidAmount: int("paidAmount").default(0),
+  /** 송금 합계 */
+  remittedAmount: int("remittedAmount").default(0),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Reservation = typeof reservations.$inferSelect;
+export type InsertReservation = typeof reservations.$inferInsert;
+
+// ============================================================
+// INCOME_RECORDS - 입금 내역
+// ============================================================
+export const incomeRecords = mysqlTable("income_records", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 입금일시 */
+  transactionDate: timestamp("transactionDate").notNull(),
+  /** 은행명 */
+  bankName: varchar("bankName", { length: 50 }),
+  /** 입금액 */
+  amount: int("amount").notNull(),
+  /** 입금자명 */
+  depositorName: varchar("depositorName", { length: 100 }),
+  /** 상세내역 (은행 문자 그대로) */
+  detail: text("detail"),
+  /** 예약번호 (수동 매칭) */
+  reservationNo: varchar("reservationNo", { length: 30 }),
+  /** 매칭된 예약 ID */
+  matchedReservationId: int("matchedReservationId"),
+  /** 매칭 상태: unmatched | matched | partial */
+  matchStatus: mysqlEnum("matchStatus", ["unmatched", "matched", "partial"]).default("unmatched").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type IncomeRecord = typeof incomeRecords.$inferSelect;
+export type InsertIncomeRecord = typeof incomeRecords.$inferInsert;
+
+// ============================================================
+// REMITTANCE_RECORDS - 송금 내역
+// ============================================================
+export const remittanceRecords = mysqlTable("remittance_records", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 송금일시 */
+  transactionDate: timestamp("transactionDate").notNull(),
+  /** 은행명 */
+  bankName: varchar("bankName", { length: 50 }),
+  /** 송금액 */
+  amount: int("amount").notNull(),
+  /** 수취인명 (거래처) */
+  recipientName: varchar("recipientName", { length: 100 }),
+  /** 상세내역 */
+  detail: text("detail"),
+  /** 예약번호 */
+  reservationNo: varchar("reservationNo", { length: 30 }),
+  /** 매칭된 예약 ID */
+  matchedReservationId: int("matchedReservationId"),
+  /** 제휴사 ID */
+  affiliateId: int("affiliateId"),
+  /** 매칭 상태 */
+  matchStatus: mysqlEnum("matchStatus", ["unmatched", "matched", "partial"]).default("unmatched").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type RemittanceRecord = typeof remittanceRecords.$inferSelect;
+export type InsertRemittanceRecord = typeof remittanceRecords.$inferInsert;
+
+// ============================================================
+// DEPOSIT_RECORDS - 예치금 관리
+// ============================================================
+export const depositRecords = mysqlTable("deposit_records", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 예약 ID */
+  reservationId: int("reservationId"),
+  /** 예약번호 */
+  reservationNo: varchar("reservationNo", { length: 30 }),
+  /** 유형: unpaid | expected | deduct_other | deduct_shinhan */
+  type: mysqlEnum("type", ["unpaid", "expected", "deduct_other", "deduct_shinhan"]).notNull(),
+  amount: int("amount").notNull(),
+  memo: text("memo"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type DepositRecord = typeof depositRecords.$inferSelect;
+export type InsertDepositRecord = typeof depositRecords.$inferInsert;
+
+// ============================================================
+// CHARGE_RECORDS - 충전 (카드 결제) 관리
+// ============================================================
+export const chargeRecords = mysqlTable("charge_records", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 카드사 */
+  cardCompany: varchar("cardCompany", { length: 50 }),
+  /** 골프장명 (카드 내역에서 추측) */
+  golfCourseName: varchar("golfCourseName", { length: 200 }),
+  amount: int("amount").notNull(),
+  transactionDate: timestamp("transactionDate").notNull(),
+  /** 예약번호 */
+  reservationNo: varchar("reservationNo", { length: 30 }),
+  /** 매칭된 예약 ID */
+  matchedReservationId: int("matchedReservationId"),
+  /** 원본 카드 내역 텍스트 */
+  rawText: text("rawText"),
+  matchStatus: mysqlEnum("matchStatus", ["unmatched", "matched", "partial"]).default("unmatched").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type ChargeRecord = typeof chargeRecords.$inferSelect;
+export type InsertChargeRecord = typeof chargeRecords.$inferInsert;
+
+// ============================================================
+// PREPAID_RECORDS - 데파짓 (선입금) 관리
+// ============================================================
+export const prepaidRecords = mysqlTable("prepaid_records", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 제휴사 ID */
+  affiliateId: int("affiliateId"),
+  golfCourseName: varchar("golfCourseName", { length: 200 }).notNull(),
+  /** 선입금 총액 */
+  prepaidAmount: int("prepaidAmount").notNull(),
+  /** 사용 금액 */
+  usedAmount: int("usedAmount").default(0),
+  /** 잔액 (자동 계산) */
+  remainingAmount: int("remainingAmount").default(0),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type PrepaidRecord = typeof prepaidRecords.$inferSelect;
+export type InsertPrepaidRecord = typeof prepaidRecords.$inferInsert;
