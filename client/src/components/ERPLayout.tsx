@@ -22,6 +22,8 @@ import {
   Search,
   // CMS 하위
   Bell as BellIcon, Image,
+  // 설정
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -127,6 +129,7 @@ const navItems: NavItem[] = [
       { label: "배너 관리", href: "/erp/cms/banners", icon: <Image size={14} /> },
     ],
   },
+  { label: "연동 설정", icon: <Settings size={18} />, href: "/erp/settings" },
 ];
 
 function NavItemComponent({ item, collapsed }: { item: NavItem; collapsed: boolean }) {

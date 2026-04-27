@@ -606,4 +606,38 @@ Detected
 - [x] FinanceManagement.tsx: parseBankMessage 함수 구현 (은행명/금액/날짜/입금자/예약번호 자동 추출)
 - [x] FinanceManagement.tsx: 예약번호 자동 감지 시 시각적 피드백 표시 (초록/파랑 하이라이트)
 - [x] TypeScript 빌드 오류 0개 확인
-- [ ] 체크포인트 저장
+- [x] 체크포인트 저장
+
+## 시스템 전체 점검 및 미작동 항목 수정 (2026-04-28)
+
+### 환경변수 점검 결과
+- ✅ 정상: GEMINI_API_KEY, OPENROUTER_API_KEY, MANUS_API_KEY, STRIPE_SECRET_KEY, PIXABAY_API_KEY 등
+- ❌ 미설정: SLACK_WEBHOOK_URL, KAKAO_API_KEY, KAKAO_SENDER_KEY, RUNWAY_API_KEY, N8N_WEBHOOK_URL
+
+### Phase 1: Stripe 웹훅 정상화
+- [ ] Stripe 대시보드에서 웹훅 엔드포인트 등록 안내 UI 추가 (ERP 설정 페이지)
+- [ ] Stripe 웹훅 URL: https://dogolf-tour-dkz3fsmp.manus.space/api/stripe/webhook 안내
+- [ ] ERP 대시보드에 Stripe 연동 상태 표시 위젯 추가
+
+### Phase 2: Slack Webhook 등록 및 개발AI 알림 활성화
+- [ ] SLACK_WEBHOOK_URL 시크릿 등록 (사용자에게 Slack Incoming Webhook URL 요청)
+- [ ] 개발AI 페이지에 Slack 연동 상태 표시 및 테스트 버튼 추가
+
+### Phase 3: 카카오 알림톡 Solapi 연동
+- [ ] KAKAO_API_KEY, KAKAO_SENDER_KEY 시크릿 등록 안내 (Solapi 가입 필요)
+- [ ] ERP 설정 페이지에 카카오 알림톡 연동 상태 및 가이드 추가
+- [ ] 알림톡 템플릿 코드 목록 정리 (DOGOLF_BOOKING_CONFIRMED 등)
+
+### Phase 4: Runway ML / n8n 미설정 UI 안내 개선
+- [ ] 동영상 생성 탭: API 키 미설정 시 "Runway ML API 키 필요" 안내 카드 표시
+- [ ] n8n 자동화 탭: 웹훅 미설정 시 "n8n 연동 필요" 안내 카드 표시
+
+### Phase 5: Manus API 개발 파이프 수정
+- [x] manusPipe.ts API 엔드포인트 검증 (task.sendMessage → task.create 방식으로 수정)
+- [x] 개발AI 페이지에 Manus 파이프 연결 상태 표시
+
+### Phase 6: ERP 통합 설정 페이지 구현
+- [x] /erp/settings 페이지 신규 생성 (연동 서비스 상태 한눈에 확인)
+- [x] 각 서비스별 연동 상태 (✅/❌), 설정 방법 링크, 테스트 버튼 제공
+- [x] ERPLayout 사이드바에 "연동 설정" 메뉴 추가
+- [ ] 체크포인트 저장 (Publish 필요)

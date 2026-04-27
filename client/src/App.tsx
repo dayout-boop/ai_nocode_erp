@@ -36,6 +36,7 @@ import GolfTalkAdmin from "./pages/erp/GolfTalkAdmin";
 import ManagerAdmin from "./pages/erp/ManagerAdmin";
 import MasterLogs from "./pages/erp/MasterLogs";
 import MasterCosts from "./pages/erp/MasterCosts";
+import ERPSettings from "./pages/erp/ERPSettings";
 
 // Partner Pages
 import PartnerDashboard from "./pages/Partner/PartnerDashboard";
@@ -81,6 +82,7 @@ function Router() {
       <Route path={"/erp/ai-engine"} component={AIEngine} />
       <Route path={"/erp/golftalk-admin"} component={GolfTalkAdmin} />
       <Route path={"/erp/manager-admin"} component={ManagerAdmin} />
+      <Route path={"/erp/settings"} component={ERPSettings} />
 
       {/* /admin → /erp 리다이렉트 */}
       <Route path={"/admin"} component={() => { window.location.replace("/erp"); return null; }} />

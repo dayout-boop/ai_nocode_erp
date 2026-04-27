@@ -19,9 +19,11 @@ function getManusTaskId(): string {
 }
 
 /**
- * Manus API로 메시지 전송
+ * Manus API로 새 태스크 생성 (task.create)
+ * task.sendMessage는 기존 태스크에 메시지 추가용이므로,
+ * 개발 요청은 독립 태스크로 생성하는 것이 올바른 방식
  */
-async function sendToManus(taskId: string, message: string): Promise<{ success: boolean; taskId?: string }> {
+async function sendToManus(_taskId: string, message: string): Promise<{ success: boolean; taskId?: string }> {
   const apiKey = getManusApiKey();
   if (!apiKey) {
     console.warn("[ManusPipe] MANUS_API_KEY가 설정되지 않았습니다.");
@@ -29,14 +31,14 @@ async function sendToManus(taskId: string, message: string): Promise<{ success: 
   }
 
   try {
-    const res = await fetch(`${MANUS_API_BASE}/task.sendMessage`, {
+    // task.create: 독립 태스크로 개발 요청 전송
+    const res = await fetch(`${MANUS_API_BASE}/task.create`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-manus-api-key": apiKey,
       },
       body: JSON.stringify({
-        task_id: taskId,
         message: {
           content: [{ type: "text", text: message }],
         },
@@ -49,8 +51,13 @@ async function sendToManus(taskId: string, message: string): Promise<{ success: 
       return { success: false };
     }
 
-    const data = (await res.json()) as { task?: { id: string } };
-    return { success: true, taskId: data.task?.id ?? taskId };
+    const data = (await res.json()) as { ok: boolean; task_id?: string; task_url?: string };
+    if (!data.ok) {
+      console.error("[ManusPipe] task.create 실패:", JSON.stringify(data));
+      return { success: false };
+    }
+    console.log(`[ManusPipe] 태스크 생성 성공: ${data.task_id} - ${data.task_url}`);
+    return { success: true, taskId: data.task_id };
   } catch (err) {
     console.error("[ManusPipe] 전송 실패:", err);
     return { success: false };
