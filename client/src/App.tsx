@@ -19,6 +19,7 @@ import ERPBookings from "./pages/erp/Bookings";
 import ERPInquiries from "./pages/erp/Inquiries";
 import ERPSettlements from "./pages/erp/Settlements";
 import ERPCRMCustomers from "./pages/erp/CRMCustomers";
+import ERPCRMPartners from "./pages/erp/CRMPartners";
 import ERPCMSNotices from "./pages/erp/CMSNotices";
 import ERPCMSBanners from "./pages/erp/CMSBanners";
 import GeminiAssistant from "./pages/erp/GeminiAssistant";
@@ -59,6 +60,7 @@ function Router() {
       <Route path={"/erp/inquiries"} component={ERPInquiries} />
       <Route path={"/erp/settlements"} component={ERPSettlements} />
       <Route path={"/erp/crm"} component={ERPCRMCustomers} />
+      <Route path={"/erp/crm/partners"} component={ERPCRMPartners} />
       <Route path={"/erp/cms"} component={() => { window.location.replace('/erp/cms/notices'); return null; }} />
       <Route path={"/erp/cms/notices"} component={ERPCMSNotices} />
       <Route path={"/erp/cms/banners"} component={ERPCMSBanners} />

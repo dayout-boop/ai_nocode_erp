@@ -107,6 +107,7 @@ const navItems: NavItem[] = [
     icon: <Users size={18} />,
     children: [
       { label: "고객 검색", href: "/erp/crm", icon: <Search size={14} /> },
+      { label: "파트너 관리", href: "/erp/crm/partners", icon: <Building2 size={14} /> },
     ],
   },
   {

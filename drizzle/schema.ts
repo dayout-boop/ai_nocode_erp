@@ -723,3 +723,67 @@ export const chatSessions = mysqlTable("chat_sessions", {
 });
 export type ChatSession = typeof chatSessions.$inferSelect;
 export type InsertChatSession = typeof chatSessions.$inferInsert;
+
+// ============================================================
+// PARTNERS - 파트너(거래처) 관리
+// ============================================================
+export const partners = mysqlTable("partners", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 업체명 */
+  companyName: varchar("companyName", { length: 200 }).notNull(),
+  /** 사업자등록번호 */
+  businessNumber: varchar("businessNumber", { length: 20 }),
+  /** 관광사업자 등록번호 */
+  tourismLicenseNo: varchar("tourismLicenseNo", { length: 50 }),
+  /** 통신판매업 신고번호 */
+  onlineSalesNo: varchar("onlineSalesNo", { length: 50 }),
+  /** 은행명 */
+  bankName: varchar("bankName", { length: 50 }),
+  /** 계좌번호 */
+  accountNumber: varchar("accountNumber", { length: 50 }),
+  /** 예금주 */
+  accountHolder: varchar("accountHolder", { length: 100 }),
+  /** 담당자명 */
+  contactName: varchar("contactName", { length: 100 }),
+  /** 담당자 전화번호 */
+  contactPhone: varchar("contactPhone", { length: 20 }),
+  /** 담당자 이메일 */
+  contactEmail: varchar("contactEmail", { length: 320 }),
+  /** 파트너 로그인 ID */
+  loginId: varchar("loginId", { length: 100 }),
+  /** 파트너 로그인 PW (bcrypt 해시) */
+  loginPwHash: varchar("loginPwHash", { length: 255 }),
+  /** 메모 */
+  memo: text("memo"),
+  /** 활성 상태 */
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Partner = typeof partners.$inferSelect;
+export type InsertPartner = typeof partners.$inferInsert;
+
+// ============================================================
+// PARTNER_SCHEDULES - 파트너 일정 관리
+// ============================================================
+export const partnerSchedules = mysqlTable("partner_schedules", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 파트너 ID (FK) */
+  partnerId: int("partnerId").notNull(),
+  /** 일정 제목 */
+  title: varchar("title", { length: 200 }).notNull(),
+  /** 메모 */
+  memo: text("memo"),
+  /** 시작일 */
+  startDate: timestamp("startDate").notNull(),
+  /** 종료일 */
+  endDate: timestamp("endDate").notNull(),
+  /** 담당자 이름 */
+  assignedTo: varchar("assignedTo", { length: 100 }),
+  /** 일정 색상 (캘린더 표시용) */
+  color: varchar("color", { length: 20 }).default("#16a34a"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type PartnerSchedule = typeof partnerSchedules.$inferSelect;
+export type InsertPartnerSchedule = typeof partnerSchedules.$inferInsert;

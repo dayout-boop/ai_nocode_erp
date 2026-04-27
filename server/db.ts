@@ -1,6 +1,13 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, gte, like, lte, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import {
+  InsertUser,
+  InsertPartner,
+  InsertPartnerSchedule,
+  users,
+  partners,
+  partnerSchedules,
+} from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +96,91 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ============================================================
+// PARTNER HELPERS - 파트너(거래처) 관리
+// ============================================================
+
+export async function getPartners(search?: string) {
+  const db = await getDb();
+  if (!db) return [];
+  if (search) {
+    return await db.select().from(partners).where(
+      or(
+        like(partners.companyName, `%${search}%`),
+        like(partners.contactName, `%${search}%`),
+        like(partners.contactPhone, `%${search}%`)
+      )
+    ).orderBy(desc(partners.createdAt));
+  }
+  return await db.select().from(partners).orderBy(desc(partners.createdAt));
+}
+
+export async function getPartnerById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(partners).where(eq(partners.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createPartner(data: InsertPartner) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(partners).values(data);
+  return result[0];
+}
+
+export async function updatePartner(id: number, data: Partial<InsertPartner>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(partners).set(data).where(eq(partners.id, id));
+}
+
+export async function deletePartner(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(partners).where(eq(partners.id, id));
+}
+
+// ============================================================
+// PARTNER SCHEDULE HELPERS - 파트너 일정 관리
+// ============================================================
+
+export async function getPartnerSchedules(opts?: {
+  partnerId?: number;
+  year?: number;
+  month?: number;
+}) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions: ReturnType<typeof eq>[] = [];
+  if (opts?.partnerId) conditions.push(eq(partnerSchedules.partnerId, opts.partnerId));
+  if (opts?.year !== undefined && opts?.month !== undefined) {
+    const startOfMonth = new Date(opts.year, opts.month - 1, 1);
+    const endOfMonth = new Date(opts.year, opts.month, 0, 23, 59, 59);
+    conditions.push(gte(partnerSchedules.startDate, startOfMonth) as any);
+    conditions.push(lte(partnerSchedules.endDate, endOfMonth) as any);
+  }
+  if (conditions.length > 0) {
+    return await db.select().from(partnerSchedules).where(and(...conditions)).orderBy(partnerSchedules.startDate);
+  }
+  return await db.select().from(partnerSchedules).orderBy(partnerSchedules.startDate);
+}
+
+export async function createPartnerSchedule(data: InsertPartnerSchedule) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(partnerSchedules).values(data);
+  return result[0];
+}
+
+export async function updatePartnerSchedule(id: number, data: Partial<InsertPartnerSchedule>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(partnerSchedules).set(data).where(eq(partnerSchedules.id, id));
+}
+
+export async function deletePartnerSchedule(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(partnerSchedules).where(eq(partnerSchedules.id, id));
+}

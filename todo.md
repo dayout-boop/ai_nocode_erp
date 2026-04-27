@@ -558,4 +558,18 @@
 - [x] 아이콘 렌더링 코드 추가 (사이드바 펼침/접힌 상태 모두 대응)
 - [x] TypeScript 오류 없음 확인
 - [x] 브라우저 확인
+- [x] 체크포인트 저장
+
+Detected
+## CRM > 파트너 관리 기능 개발 (ID: 60001) - 2026-04-27
+- [ ] DB 스키마: partners 테이블 추가
+- [ ] DB 스키마: partnerSchedules 테이블 추가
+- [ ] pnpm db:push 실행 (마이그레이션)
+- [ ] server/db.ts: 파트너 관련 DB 헬퍼 추가
+- [ ] server/routers/crm.ts: tRPC 프로시저 구현
+- [ ] server/routers.ts: crm 라우터 머지
+- [ ] client/src/pages/erp/CRMPartners.tsx: 파트너 관리 페이지 구현
+- [ ] App.tsx: /erp/crm/partners 라우트 등록
+- [ ] ERPLayout.tsx: CRM 카테고리에 파트너 관리 링크 추가
+- [ ] TypeScript 빌드 오류 0개 확인
 - [ ] 체크포인트 저장

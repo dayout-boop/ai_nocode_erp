@@ -937,6 +937,153 @@ const cmsRouter = router({
 });
 
 const crmRouter = router({
+  // ── 파트너(거래처) 관리 ─────────────────────────────────────
+  getPartners: protectedProcedure
+    .input(z.object({ search: z.string().optional() }).optional())
+    .query(async ({ input }) => {
+      const { getPartners } = await import('./db.js');
+      return await getPartners(input?.search);
+    }),
+
+  getPartnerById: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const { getPartnerById } = await import('./db.js');
+      const partner = await getPartnerById(input.id);
+      if (!partner) throw new TRPCError({ code: 'NOT_FOUND', message: '파트너를 찾을 수 없습니다' });
+      const { loginPwHash: _, ...safe } = partner;
+      return safe;
+    }),
+
+  createPartner: protectedProcedure
+    .input(z.object({
+      companyName: z.string().min(1),
+      businessNumber: z.string().optional(),
+      tourismLicenseNo: z.string().optional(),
+      onlineSalesNo: z.string().optional(),
+      bankName: z.string().optional(),
+      accountNumber: z.string().optional(),
+      accountHolder: z.string().optional(),
+      contactName: z.string().optional(),
+      contactPhone: z.string().optional(),
+      contactEmail: z.string().optional(),
+      loginId: z.string().optional(),
+      loginPw: z.string().optional(),
+      memo: z.string().optional(),
+      isActive: z.boolean().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const { createPartner } = await import('./db.js');
+      const { loginPw, ...rest } = input;
+      let loginPwHash: string | undefined;
+      if (loginPw) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(loginPw + 'dogolf_salt_2024');
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        loginPwHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+      }
+      await createPartner({ ...rest, loginPwHash });
+      return { success: true };
+    }),
+
+  updatePartner: protectedProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      data: z.object({
+        companyName: z.string().optional(),
+        businessNumber: z.string().optional(),
+        tourismLicenseNo: z.string().optional(),
+        onlineSalesNo: z.string().optional(),
+        bankName: z.string().optional(),
+        accountNumber: z.string().optional(),
+        accountHolder: z.string().optional(),
+        contactName: z.string().optional(),
+        contactPhone: z.string().optional(),
+        contactEmail: z.string().optional(),
+        loginId: z.string().optional(),
+        loginPw: z.string().optional(),
+        memo: z.string().optional(),
+        isActive: z.boolean().optional(),
+      }),
+    }))
+    .mutation(async ({ input }) => {
+      const { updatePartner } = await import('./db.js');
+      const { loginPw, ...rest } = input.data;
+      const updateData: Record<string, unknown> = { ...rest };
+      if (loginPw) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(loginPw + 'dogolf_salt_2024');
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        updateData.loginPwHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+      }
+      await updatePartner(input.id, updateData as any);
+      return { success: true };
+    }),
+
+  deletePartner: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      const { deletePartner } = await import('./db.js');
+      await deletePartner(input.id);
+      return { success: true };
+    }),
+
+  getSchedules: protectedProcedure
+    .input(z.object({
+      partnerId: z.number().int().positive().optional(),
+      year: z.number().int().optional(),
+      month: z.number().int().min(1).max(12).optional(),
+    }).optional())
+    .query(async ({ input }) => {
+      const { getPartnerSchedules } = await import('./db.js');
+      return await getPartnerSchedules(input);
+    }),
+
+  createSchedule: protectedProcedure
+    .input(z.object({
+      partnerId: z.number().int().positive(),
+      title: z.string().min(1),
+      memo: z.string().optional(),
+      startDate: z.date(),
+      endDate: z.date(),
+      assignedTo: z.string().optional(),
+      color: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const { createPartnerSchedule } = await import('./db.js');
+      await createPartnerSchedule(input);
+      return { success: true };
+    }),
+
+  updateSchedule: protectedProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      data: z.object({
+        title: z.string().optional(),
+        memo: z.string().optional(),
+        startDate: z.date().optional(),
+        endDate: z.date().optional(),
+        assignedTo: z.string().optional(),
+        color: z.string().optional(),
+      }),
+    }))
+    .mutation(async ({ input }) => {
+      const { updatePartnerSchedule } = await import('./db.js');
+      await updatePartnerSchedule(input.id, input.data as any);
+      return { success: true };
+    }),
+
+  deleteSchedule: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      const { deletePartnerSchedule } = await import('./db.js');
+      await deletePartnerSchedule(input.id);
+      return { success: true };
+    }),
+
+  // ── 기존 고객 관리 ────────────────────────────────────────
   searchCustomers: adminProcedure.input(z.object({
     search: z.string().optional(),
     page: z.number().default(1),
