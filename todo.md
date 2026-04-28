@@ -655,4 +655,11 @@ Detected
 - [x] App.tsx에 /erp/reservations/templates 라우트 추가
 - [x] ERPLayout 사이드바에 "문의 자동화 템플릿" 메뉴 추가
 - [x] TypeScript 빌드 오류 0개 확인
+- [x] 체크포인트 저장 (b335b6a6)
+
+## 버그 수정: 수기예약 확정 시 예약목록 미표시 (2026-04-28)
+- [ ] 수기예약 '확정' 상태 변경 시 bookings 테이블 연동 로직 확인
+- [ ] BookingManagement.tsx에서 reservations 확정 데이터 표시 여부 확인
+- [ ] 연동 로직 수정 및 검증
+- [ ] TypeScript 빌드 오류 0개 확인
 - [ ] 체크포인트 저장

@@ -14,7 +14,8 @@ import {
   packageImages, aiInteractionLogs,
   devRequests, devFeatures, devVersions,
   aiCostLogs,
-  payments, kakaoNotifications, packageVideos, automationLogs
+  payments, kakaoNotifications, packageVideos, automationLogs,
+  reservations
 } from "../drizzle/schema";
 // AI 엔진 테이블은 별도 import로 처리됨 (아래 참조)
 import { eq, desc, and, gte, lte, like, sql, count, asc } from "drizzle-orm";
@@ -632,13 +633,78 @@ const bookingsRouter = router({
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
     const offset = (input.page - 1) * input.limit;
-    const conditions: any[] = [];
-    if (input.status) conditions.push(eq(bookings.status, input.status as any));
-    if (input.search) conditions.push(like(bookings.leaderName, `%${input.search}%`));
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-    const items = await db.select().from(bookings).where(whereClause).orderBy(desc(bookings.createdAt)).limit(input.limit).offset(offset);
-    const [total] = await db.select({ count: count() }).from(bookings).where(whereClause);
-    return { items, total: total.count };
+
+    // ─── bookings 테이블 조회 ───────────────────────────────────
+    const bookingConditions: any[] = [];
+    if (input.status) bookingConditions.push(eq(bookings.status, input.status as any));
+    if (input.search) bookingConditions.push(like(bookings.leaderName, `%${input.search}%`));
+    const bookingWhereClause = bookingConditions.length > 0 ? and(...bookingConditions) : undefined;
+    const bookingItems = await db.select().from(bookings).where(bookingWhereClause).orderBy(desc(bookings.createdAt));
+    const bookingTotal = await db.select({ count: count() }).from(bookings).where(bookingWhereClause);
+
+    // ─── reservations 확정 데이터 통합 ─────────────────────────
+    // reservations 테이블의 confirmed 상태 데이터를 bookings 형식으로 변환하여 통합
+    const resConditions: any[] = [eq(reservations.status, "confirmed")];
+    if (input.status && input.status !== "confirmed") {
+      // 다른 상태 필터 시 reservations는 포함하지 않음
+    } else {
+      if (input.search) resConditions.push(like(reservations.customerName, `%${input.search}%`));
+    }
+    let reservationItems: any[] = [];
+    if (!input.status || input.status === "confirmed") {
+      const rawResItems = await db.select().from(reservations).where(
+        resConditions.length > 1 ? and(...resConditions) : resConditions[0]
+      ).orderBy(desc(reservations.createdAt));
+      // reservations → bookings 형식으로 변환 (source: 'reservation' 표시)
+      reservationItems = rawResItems.map((r) => ({
+        id: r.id,
+        bookingNumber: r.reservationNo,
+        packageId: 0,
+        slotId: null,
+        userId: null,
+        leaderName: r.customerName,
+        leaderPhone: r.customerPhone ?? "",
+        leaderEmail: r.customerEmail ?? null,
+        adultCount: r.headcount ?? 1,
+        childCount: 0,
+        totalPeople: r.headcount ?? 1,
+        departureDate: r.departureDate,
+        returnDate: null,
+        selectedOptions: null,
+        roundCount: r.teams ?? 1,
+        cartIncluded: false,
+        caddieIncluded: false,
+        basePrice: String(r.salePriceTotal ?? 0),
+        optionPrice: "0",
+        discountAmount: "0",
+        totalAmount: String(r.salePriceTotal ?? 0),
+        paidAmount: String(r.paidAmount ?? 0),
+        status: r.status,
+        paymentStatus: r.paymentStatus === "paid" ? "paid" : r.paymentStatus === "partial" ? "partial" : "unpaid",
+        customerMemo: r.notes ?? null,
+        adminMemo: r.agentName ?? null,
+        cancelReason: null,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+        // 수기예약 구분 필드
+        _source: "reservation" as const,
+        _productName: r.productName,
+        _golfCourseName: r.golfCourseName,
+        _assignedTo: r.assignedTo,
+        _teams: r.teams,
+      }));
+    }
+
+    // 통합 후 정렬 및 페이지네이션
+    const allItems = [
+      ...bookingItems.map(b => ({ ...b, _source: "booking" as const })),
+      ...reservationItems,
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const total = allItems.length;
+    const items = allItems.slice(offset, offset + input.limit);
+
+    return { items, total };
   }),
   get: adminProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
     const db = await getDb();

@@ -393,23 +393,38 @@ export default function BookingsPage() {
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50">
                       <th className="text-left px-5 py-3 text-slate-500 font-medium">예약번호</th>
+                      <th className="text-left px-4 py-3 text-slate-500 font-medium hidden md:table-cell">골프장/상품</th>
                       <th className="text-left px-4 py-3 text-slate-500 font-medium">예약자</th>
-                      <th className="text-left px-4 py-3 text-slate-500 font-medium">연락처</th>
-                      <th className="text-center px-4 py-3 text-slate-500 font-medium">인원</th>
+                      <th className="text-left px-4 py-3 text-slate-500 font-medium hidden sm:table-cell">연락처</th>
+                      <th className="text-center px-4 py-3 text-slate-500 font-medium hidden sm:table-cell">인원</th>
                       <th className="text-right px-4 py-3 text-slate-500 font-medium">금액</th>
                       <th className="text-center px-4 py-3 text-slate-500 font-medium">예약상태</th>
-                      <th className="text-center px-4 py-3 text-slate-500 font-medium">결제상태</th>
-                      <th className="text-left px-4 py-3 text-slate-500 font-medium">예약일</th>
+                      <th className="text-center px-4 py-3 text-slate-500 font-medium hidden sm:table-cell">결제상태</th>
+                      <th className="text-left px-4 py-3 text-slate-500 font-medium hidden lg:table-cell">예약일</th>
                       <th className="text-right px-5 py-3 text-slate-500 font-medium">관리</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {data.items.map((booking: any) => (
                       <tr key={booking.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-5 py-3 font-mono text-xs text-slate-600">{booking.bookingNumber}</td>
+                        <td className="px-5 py-3 font-mono text-xs text-slate-600">
+                          <div className="flex items-center gap-1.5">
+                            {(booking as any)._source === 'reservation' && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">수기</span>
+                            )}
+                            <span>{booking.bookingNumber}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 text-xs hidden md:table-cell max-w-[130px]">
+                          <span className="truncate block">
+                            {(booking as any)._source === 'reservation'
+                              ? ((booking as any)._golfCourseName || (booking as any)._productName || '-')
+                              : ((booking as any).package?.title || '-')}
+                          </span>
+                        </td>
                         <td className="px-4 py-3 font-medium text-slate-800">{booking.leaderName}</td>
-                        <td className="px-4 py-3 text-slate-600">{booking.leaderPhone}</td>
-                        <td className="px-4 py-3 text-center text-slate-600">{booking.totalPeople}명</td>
+                        <td className="px-4 py-3 text-slate-600 hidden sm:table-cell">{booking.leaderPhone}</td>
+                        <td className="px-4 py-3 text-center text-slate-600 hidden sm:table-cell">{booking.totalPeople}명</td>
                         <td className="px-4 py-3 text-right font-medium text-slate-800">
                           {Number(booking.totalAmount).toLocaleString()}원
                         </td>
@@ -418,12 +433,12 @@ export default function BookingsPage() {
                             {STATUS_MAP[booking.status]?.label}
                           </Badge>
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="px-4 py-3 text-center hidden sm:table-cell">
                           <Badge className={`text-xs ${PAYMENT_MAP[booking.paymentStatus || "unpaid"]?.color}`}>
                             {PAYMENT_MAP[booking.paymentStatus || "unpaid"]?.label}
                           </Badge>
                         </td>
-                        <td className="px-4 py-3 text-slate-500 text-xs">
+                        <td className="px-4 py-3 text-slate-500 text-xs hidden lg:table-cell">
                           {new Date(booking.createdAt).toLocaleDateString("ko-KR")}
                         </td>
                         <td className="px-5 py-3 text-right">
