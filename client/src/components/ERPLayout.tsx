@@ -54,6 +54,7 @@ const navItems: NavItem[] = [
       { label: "두골프 마스터 🤖", href: "/erp/master-ai", icon: <MessageSquare size={14} /> },
       { label: "골프톡 관리", href: "/erp/golftalk-admin", icon: <Settings2 size={14} /> },
       { label: "두골프 매니저 관리", href: "/erp/manager-admin", icon: <UserCog size={14} /> },
+      { label: "OpenRouter 에이전트 ⚡", href: "/erp/openrouter-agent", icon: <Zap size={14} /> },
     ],
   },
   {

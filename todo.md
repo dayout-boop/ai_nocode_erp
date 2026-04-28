@@ -620,7 +620,7 @@ Detected
 - [x] ERP 대시보드에 Stripe 연동 상태 표시 위젯 추가
 
 ### Phase 2: Slack Webhook 등록 및 개발AI 알림 활성화
-- [ ] SLACK_WEBHOOK_URL 시크릿 등록 (사용자에게 Slack Incoming Webhook URL 요청)
+- [x] SLACK_WEBHOOK_URL 시크릿 등록 완료
 - [x] 개발AI 페이지에 Slack 연동 상태 표시 및 테스트 버튼 추가 (ERP 설정 페이지에 포함)
 
 ### Phase 3: 카카오 알림톡 Solapi 연동
@@ -674,7 +674,7 @@ Detected
 - [x] ReservationManagement.tsx 금액 탭에 RemittanceByType 컴포넌트 추가 (거래처별 송금 분리)
 - [x] TypeScript 빌드 오류 0개 확인
 - [x] 체크포인트 저장 (de5377f2)
-- [ ] SLACK_WEBHOOK_URL 등록 (사용자 직접 설정 필요 - hooks.slack.com/services/... 형식)
+- [x] SLACK_WEBHOOK_URL 등록 완료 (hooks.slack.com/services/... 형식)
 - [ ] KAKAO_API_KEY, KAKAO_SENDER_KEY 등록 (Solapi 가입 후 사용자 직접 설정 필요)
 
 ## 스프레드시트 실제 데이터 ERP DB 이식 (2026-04-28)
@@ -686,3 +686,14 @@ Detected
 - [x] 데파짓 시트 데이터 → prepaidRecords 테이블 이식 (4개)
 - [x] 데이터 이식 검증 완료 (2026-04-28)
 - [x] 체크포인트 저장
+
+## OpenRouter SDK 에이전트 구축 (2026-04-29)
+- [x] @openrouter/sdk 패키지 설치
+- [x] server/agent/agent.ts - 모듈형 에이전트 코어 구현 (도구 호출 루프, 대화 이력 관리)
+- [x] server/agent/tools.ts - 두골프 ERP 전용 도구 6개 정의 (get_current_time, get_erp_guide, get_reservation_stats, get_finance_summary, search_packages, get_system_status)
+- [x] server/agent/headless.ts - 헤드리스 실행 예제 및 테스트
+- [x] server/routers/openrouterAgent.ts - tRPC 라우터 (chat/getHistory/clearHistory/getModels/status)
+- [x] routers.ts에 openrouterAgent 라우터 등록
+- [x] client/src/pages/erp/OpenRouterAgent.tsx - ERP 에이전트 채팅 UI 구현
+- [x] App.tsx에 /erp/openrouter-agent 라우트 등록
+- [x] ERPLayout.tsx AI 챗봇 섹션에 "OpenRouter 에이전트 ⚡" 메뉴 추가
