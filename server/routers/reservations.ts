@@ -264,6 +264,7 @@ export const reservationsRouter = router({
         bankName: z.string().optional(),
         amount: z.number(),
         recipientName: z.string().optional(),
+        recipientType: z.enum(["golf_course", "accommodation", "transport", "other"]).optional(),
         detail: z.string().optional(),
         reservationNo: z.string().optional(),
         matchedReservationId: z.number().optional(),
@@ -475,6 +476,74 @@ export const reservationsRouter = router({
       return { id: (result as any).insertId };
     }),
 
+  // ─── 데파짓 사용금액 업데이트 ─────────────────────────────────
+  updatePrepaid: protectedProcedure
+    .input(z.object({
+      id: z.number(),
+      usedAmount: z.number().optional(),
+      prepaidAmount: z.number().optional(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const existing = await db.select().from(prepaidRecords).where(eq(prepaidRecords.id, input.id)).limit(1);
+      if (!existing.length) throw new TRPCError({ code: "NOT_FOUND" });
+      const current = existing[0];
+      const prepaidAmount = input.prepaidAmount ?? current.prepaidAmount;
+      const usedAmount = input.usedAmount ?? current.usedAmount ?? 0;
+      await db.update(prepaidRecords).set({
+        prepaidAmount,
+        usedAmount,
+        remainingAmount: prepaidAmount - usedAmount,
+        notes: input.notes ?? current.notes,
+      }).where(eq(prepaidRecords.id, input.id));
+      return { success: true };
+    }),
+  // ─── 충전 내역 예약번호 매칭 업데이트 ────────────────────────
+  matchCharge: protectedProcedure
+    .input(z.object({
+      id: z.number(),
+      reservationNo: z.string().optional(),
+      matchedReservationId: z.number().optional(),
+      golfCourseName: z.string().optional(),
+      matchStatus: z.enum(["unmatched", "matched", "partial"]).optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const { id, ...updateData } = input;
+      const matchStatus = updateData.matchedReservationId ? "matched" : (updateData.matchStatus ?? "unmatched");
+      await db.update(chargeRecords).set({ ...updateData, matchStatus }).where(eq(chargeRecords.id, id));
+      return { success: true };
+    }),
+  // ─── 예치금 삭제 ──────────────────────────────────────────────
+  deleteDeposit: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.delete(depositRecords).where(eq(depositRecords.id, input.id));
+      return { success: true };
+    }),
+  // ─── 충전 내역 삭제 ───────────────────────────────────────────
+  deleteCharge: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.delete(chargeRecords).where(eq(chargeRecords.id, input.id));
+      return { success: true };
+    }),
+  // ─── 데파짓 삭제 ──────────────────────────────────────────────
+  deletePrepaid: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await db.delete(prepaidRecords).where(eq(prepaidRecords.id, input.id));
+      return { success: true };
+    }),
   // ─── 대시보드 요약 통계 ───────────────────────────────────────
   summary: protectedProcedure.query(async () => {
     const db = await getDb();
@@ -511,3 +580,6 @@ export const reservationsRouter = router({
     };
   }),
 });
+
+// ─── 데파짓 사용금액 업데이트 ─────────────────────────────────
+// (파일 끝에 추가하지 않고 router 내부에 넣어야 하므로 별도 파일로 분리)

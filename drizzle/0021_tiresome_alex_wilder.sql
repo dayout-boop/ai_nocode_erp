@@ -1,0 +1,1 @@
+ALTER TABLE `remittance_records` ADD `recipientType` enum('golf_course','accommodation','transport','other') DEFAULT 'other';

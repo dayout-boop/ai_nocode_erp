@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, ArrowDownCircle, ArrowUpCircle, CreditCard, Wallet, Clipboard, CheckCircle } from "lucide-react";
+import { Plus, ArrowDownCircle, ArrowUpCircle, CreditCard, Wallet, Clipboard, CheckCircle, Trash2, Edit2, Link2, AlertCircle, TrendingUp, TrendingDown, PiggyBank } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 type TabType = "income" | "remittance" | "deposit" | "charge" | "prepaid";
@@ -127,11 +128,18 @@ export default function FinanceManagement() {
   });
   const [showChargeForm, setShowChargeForm] = useState(false);
 
-  // 데파짓 상태
+  // 데파짃 상태
   const [prepaidForm, setPrepaidForm] = useState({
     golfCourseName: "", prepaidAmount: 0, usedAmount: 0, notes: "",
   });
   const [showPrepaidForm, setShowPrepaidForm] = useState(false);
+  const [editPrepaid, setEditPrepaid] = useState<{ id: number; usedAmount: number; prepaidAmount: number; notes?: string } | null>(null);
+
+  // 필터 상태
+  const [depositTypeFilter, setDepositTypeFilter] = useState<"all" | "unpaid" | "expected" | "deduct_other" | "deduct_shinhan">("all");
+  const [chargeMatchFilter, setChargeMatchFilter] = useState<"all" | "unmatched" | "matched">("all");
+  const [matchChargeId, setMatchChargeId] = useState<number | null>(null);
+  const [matchReservationNo, setMatchReservationNo] = useState("");
 
   // 데이터 조회
   const { data: incomes, refetch: refetchIncome } = trpc.reservations.listIncome.useQuery({ page: 1, pageSize: 50 });
@@ -157,9 +165,46 @@ export default function FinanceManagement() {
     onError: (e) => toast.error(e.message),
   });
   const addPrepaidMut = trpc.reservations.addPrepaid.useMutation({
-    onSuccess: () => { toast.success("데파짓이 등록되었습니다."); setShowPrepaidForm(false); refetchPrepaid(); },
+    onSuccess: () => { toast.success("데파짃이 등록되었습니다."); setShowPrepaidForm(false); refetchPrepaid(); },
     onError: (e) => toast.error(e.message),
   });
+  const updatePrepaidMut = trpc.reservations.updatePrepaid.useMutation({
+    onSuccess: () => { toast.success("업데이트되었습니다."); setEditPrepaid(null); refetchPrepaid(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const deletePrepaidMut = trpc.reservations.deletePrepaid.useMutation({
+    onSuccess: () => { toast.success("삭제되었습니다."); refetchPrepaid(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteDepositMut = trpc.reservations.deleteDeposit.useMutation({
+    onSuccess: () => { toast.success("삭제되었습니다."); refetchDeposit(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const matchChargeMut = trpc.reservations.matchCharge.useMutation({
+    onSuccess: () => { toast.success("매칭되었습니다."); setMatchChargeId(null); setMatchReservationNo(""); refetchCharge(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteChargeMut = trpc.reservations.deleteCharge.useMutation({
+    onSuccess: () => { toast.success("삭제되었습니다."); refetchCharge(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  // 집계 계산
+  const totalIncome = (incomes ?? []).reduce((s, r) => s + r.amount, 0);
+  const totalRemit = (remittances ?? []).reduce((s, r) => s + r.amount, 0);
+  const unmatchedIncome = (incomes ?? []).filter(r => r.matchStatus === "unmatched").length;
+  const unmatchedRemit = (remittances ?? []).filter(r => r.matchStatus === "unmatched").length;
+  const totalDepositUnpaid = (deposits ?? []).filter(r => r.type === "unpaid").reduce((s, r) => s + r.amount, 0);
+  const totalDepositExpected = (deposits ?? []).filter(r => r.type === "expected").reduce((s, r) => s + r.amount, 0);
+  const totalChargeAmount = (charges ?? []).reduce((s, r) => s + r.amount, 0);
+  const unmatchedCharge = (charges ?? []).filter(r => r.matchStatus === "unmatched").length;
+  const totalPrepaidBalance = (prepaids ?? []).reduce((s, r) => s + (r.remainingAmount ?? 0), 0);
+
+  const filteredDeposits = depositTypeFilter === "all" ? (deposits ?? []) : (deposits ?? []).filter(r => r.type === depositTypeFilter);
+  const filteredCharges = chargeMatchFilter === "all" ? (charges ?? []) : (charges ?? []).filter(r => r.matchStatus === chargeMatchFilter);
+
+  const DEPOSIT_TYPE_LABELS: Record<string, string> = { unpaid: "미입금", expected: "입금예정", deduct_other: "타건차감", deduct_shinhan: "신한충전차감" };
+  const DEPOSIT_TYPE_COLORS: Record<string, string> = { unpaid: "bg-red-100 text-red-700", expected: "bg-blue-100 text-blue-700", deduct_other: "bg-orange-100 text-orange-700", deduct_shinhan: "bg-purple-100 text-purple-700" };
 
   // 은행 문자 파싱 → 입금 폼 자동 채우기
   function handleIncomeParse() {
@@ -239,8 +284,61 @@ export default function FinanceManagement() {
           </div>
         </div>
 
+        {/* 요약 카드 */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <Card className="border-green-200 bg-green-50">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingUp size={14} className="text-green-600" />
+                <span className="text-xs text-green-700 font-medium">총 입금</span>
+                {unmatchedIncome > 0 && <Badge variant="destructive" className="text-xs px-1 py-0 h-4">{unmatchedIncome}미매칭</Badge>}
+              </div>
+              <div className="text-base font-bold text-green-700">{totalIncome.toLocaleString()}원</div>
+            </CardContent>
+          </Card>
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingDown size={14} className="text-red-600" />
+                <span className="text-xs text-red-700 font-medium">총 송금</span>
+                {unmatchedRemit > 0 && <Badge variant="destructive" className="text-xs px-1 py-0 h-4">{unmatchedRemit}미매칭</Badge>}
+              </div>
+              <div className="text-base font-bold text-red-700">{totalRemit.toLocaleString()}원</div>
+            </CardContent>
+          </Card>
+          <Card className="border-orange-200 bg-orange-50">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <AlertCircle size={14} className="text-orange-600" />
+                <span className="text-xs text-orange-700 font-medium">미입금</span>
+              </div>
+              <div className="text-base font-bold text-orange-700">{totalDepositUnpaid.toLocaleString()}원</div>
+              <div className="text-xs text-orange-400">예정: {totalDepositExpected.toLocaleString()}원</div>
+            </CardContent>
+          </Card>
+          <Card className="border-purple-200 bg-purple-50">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <CreditCard size={14} className="text-purple-600" />
+                <span className="text-xs text-purple-700 font-medium">충전카드</span>
+                {unmatchedCharge > 0 && <Badge variant="destructive" className="text-xs px-1 py-0 h-4">{unmatchedCharge}미매칭</Badge>}
+              </div>
+              <div className="text-base font-bold text-purple-700">{totalChargeAmount.toLocaleString()}원</div>
+            </CardContent>
+          </Card>
+          <Card className="border-teal-200 bg-teal-50">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <PiggyBank size={14} className="text-teal-600" />
+                <span className="text-xs text-teal-700 font-medium">데파짓 잔액</span>
+              </div>
+              <div className="text-base font-bold text-teal-700">{totalPrepaidBalance.toLocaleString()}원</div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* 탭 */}
-        <div className="flex gap-1 border-b">
+        <div className="flex gap-1 border-b overflow-x-auto">
           {tabs.map(tab => (
             <button
               key={tab.id}
@@ -353,118 +451,211 @@ export default function FinanceManagement() {
 
         {/* 예치금 탭 */}
         {activeTab === "deposit" && (
-          <Card>
-            <CardContent className="p-0">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    {["유형", "예약번호", "금액", "메모", "등록일"].map(h => (
-                      <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-600">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(deposits ?? []).map(row => (
-                    <tr key={row.id} className="border-b hover:bg-gray-50">
-                      <td className="px-3 py-2">
-                        <span className="px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-700">
-                          {{ unpaid: "미입금", expected: "입금예정", deduct_other: "타건차감", deduct_shinhan: "신한충전차감" }[row.type]}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 font-mono text-xs text-blue-600">{row.reservationNo ?? "-"}</td>
-                      <td className="px-3 py-2 text-right font-bold">{formatKRW(row.amount)}원</td>
-                      <td className="px-3 py-2 text-xs text-gray-500">{row.memo ?? "-"}</td>
-                      <td className="px-3 py-2 text-xs">{formatDate(row.createdAt)}</td>
+          <div className="space-y-3">
+            {/* 유형별 필터 */}
+            <div className="flex flex-wrap gap-2">
+              {(["all", "unpaid", "expected", "deduct_other", "deduct_shinhan"] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setDepositTypeFilter(t)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                    depositTypeFilter === t
+                      ? "bg-orange-600 text-white border-orange-600"
+                      : "bg-white text-gray-600 border-gray-300 hover:border-orange-400"
+                  }`}
+                >
+                  {t === "all" ? `전체 (${deposits?.length ?? 0})` :
+                   t === "unpaid" ? `미입금 (${deposits?.filter(r => r.type === "unpaid").length ?? 0})` :
+                   t === "expected" ? `입금예정 (${deposits?.filter(r => r.type === "expected").length ?? 0})` :
+                   t === "deduct_other" ? `타건차감 (${deposits?.filter(r => r.type === "deduct_other").length ?? 0})` :
+                   `신한충전차감 (${deposits?.filter(r => r.type === "deduct_shinhan").length ?? 0})`}
+                </button>
+              ))}
+            </div>
+            {/* 유형별 합계 */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {[{t:"unpaid",label:"미입금",color:"text-red-700"},{t:"expected",label:"입금예정",color:"text-blue-700"},{t:"deduct_other",label:"타건차감",color:"text-orange-700"},{t:"deduct_shinhan",label:"신한충전차감",color:"text-purple-700"}].map(({t,label,color}) => (
+                <div key={t} className="bg-gray-50 rounded p-2 text-center">
+                  <div className="text-xs text-gray-500">{label}</div>
+                  <div className={`text-sm font-bold ${color}`}>{(deposits ?? []).filter(r => r.type === t).reduce((s,r) => s + r.amount, 0).toLocaleString()}원</div>
+                </div>
+              ))}
+            </div>
+            <Card>
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      {["유형", "예약번호", "금액", "메모", "등록일", "삭제"].map(h => (
+                        <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-600">{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                  {!deposits?.length && (
-                    <tr><td colSpan={5} className="text-center py-8 text-gray-400">예치금 내역이 없습니다.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
+                  </thead>
+                  <tbody>
+                    {filteredDeposits.map(row => (
+                      <tr key={row.id} className="border-b hover:bg-gray-50">
+                        <td className="px-3 py-2">
+                          <span className={`px-2 py-0.5 rounded-full text-xs ${DEPOSIT_TYPE_COLORS[row.type] ?? "bg-gray-100 text-gray-700"}`}>
+                            {DEPOSIT_TYPE_LABELS[row.type] ?? row.type}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 font-mono text-xs text-blue-600">{row.reservationNo ?? "-"}</td>
+                        <td className="px-3 py-2 text-right font-bold">{formatKRW(row.amount)}원</td>
+                        <td className="px-3 py-2 text-xs text-gray-500">{row.memo ?? "-"}</td>
+                        <td className="px-3 py-2 text-xs">{formatDate(row.createdAt)}</td>
+                        <td className="px-3 py-2">
+                          <button onClick={() => { if (confirm("삭제하시겠습니까?")) deleteDepositMut.mutate({ id: row.id }); }} className="text-red-400 hover:text-red-600">
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {!filteredDeposits.length && (
+                      <tr><td colSpan={6} className="text-center py-8 text-gray-400">예치금 내역이 없습니다.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* 충전-사용 탭 */}
         {activeTab === "charge" && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-gray-600">
-                총 충전: <span className="text-purple-700 font-bold text-base">
-                  {formatKRW(charges?.reduce((s, r) => s + r.amount, 0))}원
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    {["결제일", "카드사", "골프장명", "금액", "예약번호", "매칭상태"].map(h => (
-                      <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-600">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(charges ?? []).map(row => (
-                    <tr key={row.id} className="border-b hover:bg-gray-50">
-                      <td className="px-3 py-2 whitespace-nowrap">{formatDate(row.transactionDate)}</td>
-                      <td className="px-3 py-2">{row.cardCompany ?? "-"}</td>
-                      <td className="px-3 py-2">{row.golfCourseName ?? "-"}</td>
-                      <td className="px-3 py-2 text-right font-bold text-purple-700">{formatKRW(row.amount)}원</td>
-                      <td className="px-3 py-2 font-mono text-xs text-blue-600">{row.reservationNo ?? "-"}</td>
-                      <td className="px-3 py-2">
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${MATCH_COLORS[row.matchStatus]}`}>
-                          {MATCH_LABELS[row.matchStatus]}
-                        </span>
-                      </td>
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {(["all", "unmatched", "matched"] as const).map(f => (
+                <button key={f} onClick={() => setChargeMatchFilter(f)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                    chargeMatchFilter === f ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gray-600 border-gray-300 hover:border-purple-400"
+                  }`}>
+                  {f === "all" ? `전체 (${charges?.length ?? 0})` : f === "unmatched" ? `미매칭 (${charges?.filter(r => r.matchStatus === "unmatched").length ?? 0})` : `매칭완료 (${charges?.filter(r => r.matchStatus === "matched").length ?? 0})`}
+                </button>
+              ))}
+            </div>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-gray-600">
+                  총 충전: <span className="text-purple-700 font-bold text-base">{formatKRW(totalChargeAmount)}원</span>
+                  <span className="ml-4 text-red-500">미매칭: {unmatchedCharge}건</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      {["결제일", "카드사", "골프장명", "금액", "예약번호", "매칭상태", "관리"].map(h => (
+                        <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-600">{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                  {!charges?.length && (
-                    <tr><td colSpan={6} className="text-center py-8 text-gray-400">충전 내역이 없습니다.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
+                  </thead>
+                  <tbody>
+                    {filteredCharges.map(row => (
+                      <tr key={row.id} className="border-b hover:bg-gray-50">
+                        <td className="px-3 py-2 whitespace-nowrap">{formatDate(row.transactionDate)}</td>
+                        <td className="px-3 py-2">{row.cardCompany ?? "-"}</td>
+                        <td className="px-3 py-2">{row.golfCourseName ?? "-"}</td>
+                        <td className="px-3 py-2 text-right font-bold text-purple-700">{formatKRW(row.amount)}원</td>
+                        <td className="px-3 py-2 font-mono text-xs text-blue-600">{row.reservationNo ?? "-"}</td>
+                        <td className="px-3 py-2">
+                          <span className={`px-2 py-0.5 rounded-full text-xs ${MATCH_COLORS[row.matchStatus]}`}>
+                            {MATCH_LABELS[row.matchStatus]}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex gap-1">
+                            {row.matchStatus !== "matched" && (
+                              <button onClick={() => { setMatchChargeId(row.id); setMatchReservationNo(row.reservationNo ?? ""); }}
+                                className="text-blue-400 hover:text-blue-600" title="예약번호 매칭">
+                                <Link2 size={14} />
+                              </button>
+                            )}
+                            <button onClick={() => { if (confirm("삭제하시겠습니까?")) deleteChargeMut.mutate({ id: row.id }); }}
+                              className="text-red-400 hover:text-red-600">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {!filteredCharges.length && (
+                      <tr><td colSpan={7} className="text-center py-8 text-gray-400">충전 내역이 없습니다.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
-        {/* 데파짓 탭 */}
+        {/* 데파짃 탭 */}
         {activeTab === "prepaid" && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-gray-600">
-                총 잔액: <span className="text-teal-700 font-bold text-base">
-                  {formatKRW(prepaids?.reduce((s, r) => s + (r.remainingAmount ?? 0), 0))}원
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    {["골프장명", "선입금", "사용금액", "잔액", "메모"].map(h => (
-                      <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-600">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(prepaids ?? []).map(row => (
-                    <tr key={row.id} className="border-b hover:bg-gray-50">
-                      <td className="px-3 py-2 font-semibold">{row.golfCourseName}</td>
-                      <td className="px-3 py-2 text-right">{formatKRW(row.prepaidAmount)}원</td>
-                      <td className="px-3 py-2 text-right text-red-600">{formatKRW(row.usedAmount)}원</td>
-                      <td className="px-3 py-2 text-right font-bold text-teal-700">{formatKRW(row.remainingAmount)}원</td>
-                      <td className="px-3 py-2 text-xs text-gray-500">{row.notes ?? "-"}</td>
+          <div className="space-y-3">
+            {/* 골프장별 잔액 요약 카드 */}
+            {(prepaids ?? []).length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {(prepaids ?? []).map(row => (
+                  <div key={row.id} className={`rounded p-2 text-center border ${
+                    (row.remainingAmount ?? 0) <= 0 ? "bg-red-50 border-red-200" :
+                    (row.remainingAmount ?? 0) < (row.prepaidAmount ?? 0) * 0.2 ? "bg-orange-50 border-orange-200" :
+                    "bg-teal-50 border-teal-200"
+                  }`}>
+                    <div className="text-xs text-gray-600 font-medium truncate">{row.golfCourseName}</div>
+                    <div className={`text-sm font-bold ${
+                      (row.remainingAmount ?? 0) <= 0 ? "text-red-700" :
+                      (row.remainingAmount ?? 0) < (row.prepaidAmount ?? 0) * 0.2 ? "text-orange-700" :
+                      "text-teal-700"
+                    }`}>{formatKRW(row.remainingAmount)}원</div>
+                    <div className="text-xs text-gray-400">선입금 {formatKRW(row.prepaidAmount)}원</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-gray-600">
+                  총 잔액: <span className="text-teal-700 font-bold text-base">{formatKRW(totalPrepaidBalance)}원</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      {["골프장명", "선입금", "사용금액", "잔액", "메모", "관리"].map(h => (
+                        <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-600">{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                  {!prepaids?.length && (
-                    <tr><td colSpan={5} className="text-center py-8 text-gray-400">데파짓 내역이 없습니다.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
+                  </thead>
+                  <tbody>
+                    {(prepaids ?? []).map(row => (
+                      <tr key={row.id} className="border-b hover:bg-gray-50">
+                        <td className="px-3 py-2 font-semibold">{row.golfCourseName}</td>
+                        <td className="px-3 py-2 text-right">{formatKRW(row.prepaidAmount)}원</td>
+                        <td className="px-3 py-2 text-right text-red-600">{formatKRW(row.usedAmount)}원</td>
+                        <td className="px-3 py-2 text-right font-bold text-teal-700">{formatKRW(row.remainingAmount)}원</td>
+                        <td className="px-3 py-2 text-xs text-gray-500">{row.notes ?? "-"}</td>
+                        <td className="px-3 py-2">
+                          <div className="flex gap-1">
+                            <button onClick={() => setEditPrepaid({ id: row.id, usedAmount: row.usedAmount ?? 0, prepaidAmount: row.prepaidAmount ?? 0, notes: row.notes ?? "" })}
+                              className="text-blue-400 hover:text-blue-600">
+                              <Edit2 size={14} />
+                            </button>
+                            <button onClick={() => { if (confirm("삭제하시겠습니까?")) deletePrepaidMut.mutate({ id: row.id }); }}
+                              className="text-red-400 hover:text-red-600">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {!prepaids?.length && (
+                      <tr><td colSpan={6} className="text-center py-8 text-gray-400">데파짃 내역이 없습니다.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
 
@@ -664,7 +855,50 @@ export default function FinanceManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* 데파짓 등록 모달 */}
+      {/* 충전카드 매칭 모달 */}
+      <Dialog open={matchChargeId !== null} onOpenChange={() => setMatchChargeId(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Link2 size={16} className="text-blue-600" />예약번호 매칭</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500">충전 내역에 연결할 예약번호를 입력하세요.</p>
+            <div>
+              <Label>예약번호 *</Label>
+              <Input value={matchReservationNo} onChange={e => setMatchReservationNo(e.target.value)} placeholder="OY-202504-XXXX" className="font-mono" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMatchChargeId(null)}>취소</Button>
+            <Button onClick={() => {
+              if (!matchReservationNo.trim()) { toast.error("예약번호를 입력하세요."); return; }
+              matchChargeMut.mutate({ id: matchChargeId!, reservationNo: matchReservationNo });
+            }} className="bg-blue-700 hover:bg-blue-800 text-white">매칭 확정</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 데파짃 수정 모달 */}
+      <Dialog open={editPrepaid !== null} onOpenChange={() => setEditPrepaid(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>데파짃 수정</DialogTitle></DialogHeader>
+          {editPrepaid && (
+            <div className="space-y-3">
+              <div><Label>선입금 총액</Label><Input type="number" value={editPrepaid.prepaidAmount} onChange={e => setEditPrepaid(p => p ? {...p, prepaidAmount: Number(e.target.value)} : p)} /></div>
+              <div><Label>사용 금액</Label><Input type="number" value={editPrepaid.usedAmount} onChange={e => setEditPrepaid(p => p ? {...p, usedAmount: Number(e.target.value)} : p)} /></div>
+              <div><Label>메모</Label><Textarea value={editPrepaid.notes ?? ""} onChange={e => setEditPrepaid(p => p ? {...p, notes: e.target.value} : p)} rows={2} /></div>
+              <div className="bg-teal-50 rounded p-2 text-sm">잔액: <strong className="text-teal-700">{(editPrepaid.prepaidAmount - editPrepaid.usedAmount).toLocaleString()}원</strong></div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditPrepaid(null)}>취소</Button>
+            <Button onClick={() => {
+              if (!editPrepaid) return;
+              updatePrepaidMut.mutate({ id: editPrepaid.id, usedAmount: editPrepaid.usedAmount, prepaidAmount: editPrepaid.prepaidAmount, notes: editPrepaid.notes });
+            }} className="bg-teal-700 hover:bg-teal-800 text-white">저장</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 데파짃 등록 모달 */}
       <Dialog open={showPrepaidForm} onOpenChange={setShowPrepaidForm}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>데파짓 등록</DialogTitle></DialogHeader>

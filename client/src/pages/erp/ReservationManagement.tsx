@@ -527,6 +527,188 @@ function InquiryTabs({ reservationId, reservationNo }: InquiryTabsProps) {
   );
 }
 
+// ─── 거래처별 송금 분리 표시 컴포넌트 (내륙팩 구조) ─────────────────────────────────
+interface RemittanceByTypeProps {
+  reservationId: number;
+  reservationNo: string;
+}
+
+function RemittanceByType({ reservationId, reservationNo }: RemittanceByTypeProps) {
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newRemittance, setNewRemittance] = useState({
+    transactionDate: new Date().toISOString().split("T")[0],
+    bankName: "",
+    amount: 0,
+    recipientName: "",
+    recipientType: "golf_course" as "golf_course" | "accommodation" | "transport" | "other",
+    detail: "",
+  });
+
+  const utils = trpc.useUtils();
+  const { data: remittances, isLoading } = trpc.reservations.listRemittance.useQuery(
+    { search: reservationNo, page: 1, pageSize: 50 },
+    { enabled: !!reservationNo }
+  );
+
+  const addMut = trpc.reservations.addRemittance.useMutation({
+    onSuccess: () => {
+      toast.success("송금 내역이 등록되었습니다.");
+      utils.reservations.listRemittance.invalidate();
+      setShowAddForm(false);
+      setNewRemittance({ transactionDate: new Date().toISOString().split("T")[0], bankName: "", amount: 0, recipientName: "", recipientType: "golf_course", detail: "" });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const RECIPIENT_TYPE_LABELS: Record<string, string> = {
+    golf_course: "골프장",
+    accommodation: "숙소",
+    transport: "교통",
+    other: "기타",
+  };
+  const RECIPIENT_TYPE_COLORS: Record<string, string> = {
+    golf_course: "bg-green-100 text-green-700",
+    accommodation: "bg-blue-100 text-blue-700",
+    transport: "bg-orange-100 text-orange-700",
+    other: "bg-gray-100 text-gray-600",
+  };
+
+  // 거래처 유형별 합계
+  const remittanceList = Array.isArray(remittances) ? remittances : [];
+
+  const byType = remittanceList.reduce((acc: Record<string, number>, r) => {
+    const t = (r.recipientType as string) ?? "other";
+    acc[t] = (acc[t] ?? 0) + (r.amount ?? 0);
+    return acc;
+  }, {} as Record<string, number>);
+
+  const totalRemitted = Object.values(byType).reduce((s, v) => s + (v as number), 0);
+
+  return (
+    <div className="mt-4 border-t pt-4">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-semibold text-gray-700">거래처별 송금 내역</h4>
+        <Button size="sm" variant="outline" onClick={() => setShowAddForm(!showAddForm)}
+          className="h-7 text-xs gap-1">
+          <Plus className="w-3 h-3" /> 송금 추가
+        </Button>
+      </div>
+
+      {/* 유형별 합계 카드 */}
+      {totalRemitted > 0 && (
+        <div className="grid grid-cols-4 gap-2 mb-3">
+          {Object.entries(byType).map(([type, amount]) => (
+            <div key={type} className="text-center p-2 rounded-lg bg-gray-50">
+              <p className={`text-xs font-medium px-1.5 py-0.5 rounded-full inline-block mb-1 ${RECIPIENT_TYPE_COLORS[type]}`}>
+                {RECIPIENT_TYPE_LABELS[type] ?? type}
+              </p>
+              <p className="text-sm font-bold text-gray-800">{formatKRW(amount as number)}</p>
+            </div>
+          ))}
+          <div className="text-center p-2 rounded-lg bg-green-50">
+            <p className="text-xs font-medium text-green-700 mb-1">합계</p>
+            <p className="text-sm font-bold text-green-800">{formatKRW(totalRemitted)}</p>
+          </div>
+        </div>
+      )}
+
+      {/* 송금 내역 리스트 */}
+      {isLoading ? (
+        <div className="text-center py-3"><Loader2 className="w-4 h-4 animate-spin mx-auto text-gray-400" /></div>
+      ) : remittanceList.length === 0 ? (
+        <p className="text-xs text-gray-400 text-center py-3">등록된 송금 내역이 없습니다</p>
+      ) : (
+        <div className="space-y-1.5 max-h-40 overflow-y-auto">
+          {remittanceList.map((r) => (
+            <div key={r.id} className="flex items-center justify-between text-xs p-2 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${RECIPIENT_TYPE_COLORS[r.recipientType ?? "other"]}`}>
+                  {RECIPIENT_TYPE_LABELS[r.recipientType ?? "other"]}
+                </span>
+                <span className="text-gray-600">{r.recipientName ?? "-"}</span>
+                <span className="text-gray-400">{r.bankName ?? ""}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-gray-800">{formatKRW(r.amount)}원</span>
+                <span className="text-gray-400">{formatDate(r.transactionDate)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 송금 추가 폼 */}
+      {showAddForm && (
+        <div className="mt-3 p-3 border rounded-lg bg-gray-50 space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">송금일</Label>
+              <Input type="date" value={newRemittance.transactionDate}
+                onChange={e => setNewRemittance(f => ({ ...f, transactionDate: e.target.value }))}
+                className="mt-0.5 h-8 text-xs" />
+            </div>
+            <div>
+              <Label className="text-xs">송금액</Label>
+              <Input type="number" value={newRemittance.amount}
+                onChange={e => setNewRemittance(f => ({ ...f, amount: Number(e.target.value) || 0 }))}
+                className="mt-0.5 h-8 text-xs" />
+            </div>
+            <div>
+              <Label className="text-xs">거래처명</Label>
+              <Input value={newRemittance.recipientName}
+                onChange={e => setNewRemittance(f => ({ ...f, recipientName: e.target.value }))}
+                placeholder="골프장명..."
+                className="mt-0.5 h-8 text-xs" />
+            </div>
+            <div>
+              <Label className="text-xs">거래처 유형</Label>
+              <Select value={newRemittance.recipientType}
+                onValueChange={v => setNewRemittance(f => ({ ...f, recipientType: v as any }))}>
+                <SelectTrigger className="mt-0.5 h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="golf_course">골프장</SelectItem>
+                  <SelectItem value="accommodation">숙소</SelectItem>
+                  <SelectItem value="transport">교통</SelectItem>
+                  <SelectItem value="other">기타</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">은행명</Label>
+              <Input value={newRemittance.bankName}
+                onChange={e => setNewRemittance(f => ({ ...f, bankName: e.target.value }))}
+                placeholder="신한..."
+                className="mt-0.5 h-8 text-xs" />
+            </div>
+            <div>
+              <Label className="text-xs">상세</Label>
+              <Input value={newRemittance.detail}
+                onChange={e => setNewRemittance(f => ({ ...f, detail: e.target.value }))}
+                placeholder="상세 내역..."
+                className="mt-0.5 h-8 text-xs" />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button size="sm" variant="outline" onClick={() => setShowAddForm(false)}
+              className="h-7 text-xs">취소</Button>
+            <Button size="sm" onClick={() => addMut.mutate({
+              ...newRemittance,
+              reservationNo,
+              matchedReservationId: reservationId,
+            })} disabled={addMut.isPending}
+              className="h-7 text-xs bg-green-700 hover:bg-green-800 text-white">
+              {addMut.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+              등록
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── 예약 수정 다이얼로그 ────────────────────────────────────────────────
 interface EditDialogProps {
   item: any;
@@ -872,6 +1054,8 @@ function EditDialog({ item, onClose, onSuccess }: EditDialogProps) {
               <Input type="number" min={0} {...numField("profit")} className="mt-1" />
             </div>
           </div>
+          {/* 거래처별 송금 분리 표시 */}
+          <RemittanceByType reservationId={item.id} reservationNo={item.reservationNo} />
         </TabsContent>
 
         {/* 문의 관리 탭 */}

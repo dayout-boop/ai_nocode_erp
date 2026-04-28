@@ -963,6 +963,8 @@ export const remittanceRecords = mysqlTable("remittance_records", {
   amount: int("amount").notNull(),
   /** 수취인명 (거래처) */
   recipientName: varchar("recipientName", { length: 100 }),
+  /** 거래처 유형: golf_course | accommodation | transport | other */
+  recipientType: mysqlEnum("recipientType", ["golf_course", "accommodation", "transport", "other"]).default("other"),
   /** 상세내역 */
   detail: text("detail"),
   /** 예약번호 */
