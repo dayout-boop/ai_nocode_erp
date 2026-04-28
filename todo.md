@@ -615,22 +615,22 @@ Detected
 - ❌ 미설정: SLACK_WEBHOOK_URL, KAKAO_API_KEY, KAKAO_SENDER_KEY, RUNWAY_API_KEY, N8N_WEBHOOK_URL
 
 ### Phase 1: Stripe 웹훅 정상화
-- [ ] Stripe 대시보드에서 웹훅 엔드포인트 등록 안내 UI 추가 (ERP 설정 페이지)
-- [ ] Stripe 웹훅 URL: https://dogolf-tour-dkz3fsmp.manus.space/api/stripe/webhook 안내
-- [ ] ERP 대시보드에 Stripe 연동 상태 표시 위젯 추가
+- [x] Stripe 대시보드에서 웹훅 엔드포인트 등록 안내 UI 추가 (ERP 설정 페이지)
+- [x] Stripe 웹훅 URL: https://dogolf-tour-dkz3fsmp.manus.space/api/stripe/webhook 안내
+- [x] ERP 대시보드에 Stripe 연동 상태 표시 위젯 추가
 
 ### Phase 2: Slack Webhook 등록 및 개발AI 알림 활성화
 - [ ] SLACK_WEBHOOK_URL 시크릿 등록 (사용자에게 Slack Incoming Webhook URL 요청)
-- [ ] 개발AI 페이지에 Slack 연동 상태 표시 및 테스트 버튼 추가
+- [x] 개발AI 페이지에 Slack 연동 상태 표시 및 테스트 버튼 추가 (ERP 설정 페이지에 포함)
 
 ### Phase 3: 카카오 알림톡 Solapi 연동
-- [ ] KAKAO_API_KEY, KAKAO_SENDER_KEY 시크릿 등록 안내 (Solapi 가입 필요)
-- [ ] ERP 설정 페이지에 카카오 알림톡 연동 상태 및 가이드 추가
-- [ ] 알림톡 템플릿 코드 목록 정리 (DOGOLF_BOOKING_CONFIRMED 등)
+- [ ] KAKAO_API_KEY, KAKAO_SENDER_KEY 시크릿 등록 안내 (Solapi 가입 필요 - 사용자 직접 설정 필요)
+- [x] ERP 설정 페이지에 카카오 알림톡 연동 상태 및 가이드 추가
+- [x] 알림톡 템플릿 코드 목록 정리 (DOGOLF_BOOKING_CONFIRMED 등)
 
 ### Phase 4: Runway ML / n8n 미설정 UI 안내 개선
-- [ ] 동영상 생성 탭: API 키 미설정 시 "Runway ML API 키 필요" 안내 카드 표시
-- [ ] n8n 자동화 탭: 웹훅 미설정 시 "n8n 연동 필요" 안내 카드 표시
+- [x] 동영상 생성 탭: API 키 미설정 시 "Runway ML API 키 필요" 안내 카드 표시
+- [x] n8n 자동화 탭: 웹훅 미설정 시 "n8n 연동 필요" 안내 카드 표시
 
 ### Phase 5: Manus API 개발 파이프 수정
 - [x] manusPipe.ts API 엔드포인트 검증 (task.sendMessage → task.create 방식으로 수정)
@@ -658,8 +658,31 @@ Detected
 - [x] 체크포인트 저장 (b335b6a6)
 
 ## 버그 수정: 수기예약 확정 시 예약목록 미표시 (2026-04-28)
-- [ ] 수기예약 '확정' 상태 변경 시 bookings 테이블 연동 로직 확인
-- [ ] BookingManagement.tsx에서 reservations 확정 데이터 표시 여부 확인
-- [ ] 연동 로직 수정 및 검증
-- [ ] TypeScript 빌드 오류 0개 확인
-- [ ] 체크포인트 저장
+- [x] 수기예약 '확정' 상태 변경 시 bookings 테이블 연동 로직 확인
+- [x] BookingManagement.tsx에서 reservations 확정 데이터 표시 여부 확인
+- [x] 연동 로직 수정 및 검증
+- [x] TypeScript 빌드 오류 0개 확인
+- [x] 체크포인트 저장 (9baa1c93)
+
+## 구글 스프레드시트 → ERP 이식 (2026-04-28)
+- [x] 스프레드시트 7개 시트 분석 (내륙팩2/입금/송금/예치금/충전-사용2/충전-리스트/데파짓)
+- [x] remittanceRecords 테이블에 recipientType 컬럼 추가 (골프장/숙소/교통/기타)
+- [x] pnpm db:push 실행
+- [x] reservations.ts addRemittance에 recipientType 파라미터 추가
+- [x] updatePrepaid, matchCharge, deleteDeposit/deleteCharge/deletePrepaid 프로시저 추가
+- [x] FinanceManagement.tsx 개편 - 요약 카드, 예치금 유형별 필터, 충전카드 매칭 모달, 데파짓 수정 모달
+- [x] ReservationManagement.tsx 금액 탭에 RemittanceByType 컴포넌트 추가 (거래처별 송금 분리)
+- [x] TypeScript 빌드 오류 0개 확인
+- [x] 체크포인트 저장 (de5377f2)
+- [ ] SLACK_WEBHOOK_URL 등록 (사용자 직접 설정 필요 - hooks.slack.com/services/... 형식)
+- [ ] KAKAO_API_KEY, KAKAO_SENDER_KEY 등록 (Solapi 가입 후 사용자 직접 설정 필요)
+
+## 스프레드시트 실제 데이터 ERP DB 이식 (2026-04-28)
+- [x] 내륙팩2 시트 데이터 → reservations 테이블 이식 (2,043개)
+- [x] 입금 시트 데이터 → incomeRecords 테이블 이식 (2,096개)
+- [x] 송금 시트 데이터 → remittanceRecords 테이블 이식 (1,221개)
+- [x] 예치금 시트 데이터 → depositRecords 테이블 이식 (441개)
+- [x] 충전-리스트 시트 데이터 → chargeRecords 테이블 이식 (2,797개)
+- [x] 데파짓 시트 데이터 → prepaidRecords 테이블 이식 (4개)
+- [x] 데이터 이식 검증 완료 (2026-04-28)
+- [x] 체크포인트 저장
