@@ -903,6 +903,20 @@ export const reservations = mysqlTable("reservations", {
   /** 송금 합계 */
   remittedAmount: int("remittedAmount").default(0),
   notes: text("notes"),
+  /** 유저 구분: customer | partner | manager */
+  userType: mysqlEnum("userType", ["customer", "partner", "manager"]).default("customer"),
+  /** 파트너 ID (partners 테이블 참조) */
+  partnerId: int("partnerId"),
+  /** 파트너 업체명 */
+  partnerCompanyName: varchar("partnerCompanyName", { length: 200 }),
+  /** 파트너 담당자명 */
+  partnerContactName: varchar("partnerContactName", { length: 100 }),
+  /** 파트너 연락처 */
+  partnerContactPhone: varchar("partnerContactPhone", { length: 30 }),
+  /** 담당자명 (로그인 사용자) */
+  managerName: varchar("managerName", { length: 100 }),
+  /** 담당자 연락처 */
+  managerPhone: varchar("managerPhone", { length: 30 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -1027,3 +1041,55 @@ export const prepaidRecords = mysqlTable("prepaid_records", {
 });
 export type PrepaidRecord = typeof prepaidRecords.$inferSelect;
 export type InsertPrepaidRecord = typeof prepaidRecords.$inferInsert;
+
+// ============================================================
+// RESERVATION_INQUIRIES - 예약별 문의/자동/답변 관리
+// ============================================================
+export const reservationInquiries = mysqlTable("reservation_inquiries", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 연결된 예약 ID */
+  reservationId: int("reservationId").notNull(),
+  /** 예약번호 (빠른 조회용) */
+  reservationNo: varchar("reservationNo", { length: 30 }),
+  /** 순서 (같은 예약 내 여러 문의 세트) */
+  sortOrder: int("sortOrder").default(0),
+  /** 문의 내용 (거래처/고객 문의) */
+  inquiryText: text("inquiryText"),
+  /** 자동 변환된 문의 템플릿 (AI 생성) */
+  autoText: text("autoText"),
+  /** 골프장 답변 내용 */
+  replyText: text("replyText"),
+  /** 문의 상태: draft | sent | replied | confirmed */
+  inquiryStatus: mysqlEnum("inquiryStatus", ["draft", "sent", "replied", "confirmed"]).default("draft"),
+  /** 사용된 템플릿 ID */
+  templateId: int("templateId"),
+  /** 마지막 수정자 */
+  updatedBy: varchar("updatedBy", { length: 100 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ReservationInquiry = typeof reservationInquiries.$inferSelect;
+export type InsertReservationInquiry = typeof reservationInquiries.$inferInsert;
+
+// ============================================================
+// INQUIRY_TEMPLATES - 문의 자동화 템플릿 관리
+// ============================================================
+export const inquiryTemplates = mysqlTable("inquiry_templates", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 템플릿명 */
+  name: varchar("name", { length: 200 }).notNull(),
+  /** 카테고리 (golf_booking | accommodation | transport | general) */
+  category: mysqlEnum("category", ["golf_booking", "accommodation", "transport", "general"]).default("golf_booking"),
+  /** 템플릿 내용 ({{변수}} 형식 사용 가능) */
+  content: text("content").notNull(),
+  /** 사용 가능한 변수 목록 (JSON) */
+  variables: text("variables"),
+  /** 활성 여부 */
+  isActive: boolean("isActive").default(true).notNull(),
+  /** 사용 횟수 */
+  useCount: int("useCount").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type InquiryTemplate = typeof inquiryTemplates.$inferSelect;
+export type InsertInquiryTemplate = typeof inquiryTemplates.$inferInsert;

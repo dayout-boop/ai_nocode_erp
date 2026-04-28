@@ -95,6 +95,7 @@ const navItems: NavItem[] = [
       { label: "예약 목록", href: "/erp/bookings", icon: <ClipboardList size={14} /> },
       { label: "예약 문의", href: "/erp/inquiries", icon: <MessageCircleQuestion size={14} /> },
       { label: "수기 예약관리", href: "/erp/reservations", icon: <ClipboardList size={14} /> },
+      { label: "문의 자동화 템플릿", href: "/erp/reservations/templates", icon: <MessageCircleQuestion size={14} /> },
     ],
   },
   {

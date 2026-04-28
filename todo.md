@@ -640,4 +640,19 @@ Detected
 - [x] /erp/settings 페이지 신규 생성 (연동 서비스 상태 한눈에 확인)
 - [x] 각 서비스별 연동 상태 (✅/❌), 설정 방법 링크, 테스트 버튼 제공
 - [x] ERPLayout 사이드바에 "연동 설정" 메뉴 추가
-- [ ] 체크포인트 저장 (Publish 필요)
+- [x] 체크포인트 저장 (16d89e81)
+
+## 예약관리 자동화 개선 (2026-04-28)
+- [x] DB 스키마 확장 - reservationInquiries, inquiryTemplates 테이블 추가
+- [x] reservations 테이블에 userType, managerId, managerCompany 컬럼 추가
+- [x] pnpm db:push 실행
+- [x] reservationInquiries 라우터 생성 (CRUD + AI 자동화 + 예약목록 연동)
+- [x] reservations create/update 라우터에 유저 3단 구분 필드 추가
+- [x] ReservationManagement.tsx 전면 개편 - 신규예약 간소화 (5개 필드), 유저 3단 구분, 상태 아이콘, 문의/자동/답변 탭
+- [x] 대시보드 상태별 카드 (대기=신규접수, 확정=미수금, 완료=미매칭입금)
+- [x] 확정 클릭 시 예약목록(/erp/bookings)으로 데이터 이동
+- [x] InquiryTemplates.tsx 신규 생성 - 문의 자동화 템플릿 관리 페이지
+- [x] App.tsx에 /erp/reservations/templates 라우트 추가
+- [x] ERPLayout 사이드바에 "문의 자동화 템플릿" 메뉴 추가
+- [x] TypeScript 빌드 오류 0개 확인
+- [ ] 체크포인트 저장

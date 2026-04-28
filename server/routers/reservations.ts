@@ -130,12 +130,21 @@ export const reservationsRouter = router({
         profit: z.number().default(0),
         status: z.enum(["pending", "confirmed", "cancelled", "completed"]).default("pending"),
         notes: z.string().optional(),
+        userType: z.enum(["customer", "partner", "manager"]).default("customer").optional(),
+        partnerId: z.number().optional(),
+        partnerCompanyName: z.string().optional(),
+        partnerContactName: z.string().optional(),
+        partnerContactPhone: z.string().optional(),
+        managerName: z.string().optional(),
+        managerPhone: z.string().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const reservationNo = generateReservationNo();
+      // 담당자 정보 자동 기입
+      const managerName = input.managerName || ctx.user.name || ctx.user.email || undefined;
       const [result] = await db.insert(reservations).values({
         ...input,
         reservationNo,
@@ -143,6 +152,7 @@ export const reservationsRouter = router({
         paymentStatus: "unpaid",
         paidAmount: 0,
         remittedAmount: 0,
+        managerName,
       });
       return { id: (result as any).insertId, reservationNo };
     }),
@@ -174,6 +184,13 @@ export const reservationsRouter = router({
         paidAmount: z.number().optional(),
         remittedAmount: z.number().optional(),
         notes: z.string().optional(),
+        userType: z.enum(["customer", "partner", "manager"]).optional(),
+        partnerId: z.number().optional(),
+        partnerCompanyName: z.string().optional(),
+        partnerContactName: z.string().optional(),
+        partnerContactPhone: z.string().optional(),
+        managerName: z.string().optional(),
+        managerPhone: z.string().optional(),
       })
     )
     .mutation(async ({ input }) => {

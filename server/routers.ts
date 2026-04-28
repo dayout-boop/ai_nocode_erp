@@ -1,6 +1,7 @@
 import { reservationsRouter } from "./routers/reservations";
 import { affiliatesRouter } from "./routers/affiliates";
 import { settingsRouter } from "./routers/settings";
+import { reservationInquiriesRouter, inquiryTemplatesRouter } from "./routers/reservationInquiries";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -2566,5 +2567,7 @@ export const appRouter = router({
   reservations: reservationsRouter,
   affiliates: affiliatesRouter,
   settings: settingsRouter,
+  reservationInquiries: reservationInquiriesRouter,
+  inquiryTemplates: inquiryTemplatesRouter,
 });
 export type AppRouter = typeof appRouter;
