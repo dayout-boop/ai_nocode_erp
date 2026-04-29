@@ -22,8 +22,10 @@ import {
   XCircle, Award, User, Users, Briefcase, MessageSquare, Zap, MessageCircle,
   PlusCircle, Loader2, Copy, ChevronDown, ChevronUp,
   ArrowUp, ArrowDown, ArrowUpDown, TriangleAlert, Settings,
+  ExternalLink, Send,
 } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 
 type StatusType = "pending" | "confirmed" | "cancelled" | "completed";
 type PaymentStatusType = "unpaid" | "partial" | "paid";
@@ -382,14 +384,19 @@ function InquiryTabs({ reservationId, reservationNo, depositPrice = 0, salePrice
   const [selectedTemplate, setSelectedTemplate] = useState<Record<number, number>>({});
   const [pricePopup, setPricePopup] = useState<{ inqId: number; mode: "deposit" | "pinmegi" } | null>(null);
   const [creatingEstimateId, setCreatingEstimateId] = useState<number | null>(null);
-
+  // 견적서 생성 후 URL 표시 상태
+  const [estimateResult, setEstimateResult] = useState<{ inqId: number; token: string; url: string } | null>(null);
+  const [showSendModal, setShowSendModal] = useState<{ token: string; url: string } | null>(null);
+  const markSentMut = trpc.estimates.markSent.useMutation({
+    onSuccess: () => toast.success("발송 처리되었습니다."),
+  });
   const createEstimateMut = trpc.estimates.create.useMutation({
     onSuccess: (data) => {
       toast.success("견적서가 생성되었습니다!");
       setCreatingEstimateId(null);
-      // 견적서 링크 열기
       if (data?.token) {
-        window.open(`/estimate/${data.token}`, "_blank");
+        const url = `${window.location.origin}/estimate/${data.token}`;
+        setEstimateResult({ inqId: creatingEstimateId ?? 0, token: data.token, url });
       }
     },
     onError: (e) => { toast.error(e.message); setCreatingEstimateId(null); },
@@ -439,6 +446,58 @@ function InquiryTabs({ reservationId, reservationNo, depositPrice = 0, salePrice
   }
 
   return (
+    <>
+    {/* 발송 모달 */}
+    {showSendModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
+          <h3 className="font-bold text-gray-900 mb-1">견적서 발송</h3>
+          <p className="text-xs text-gray-500 mb-4">발송 방법을 선택하세요.</p>
+          <div className="bg-gray-50 rounded-lg p-3 mb-4">
+            <p className="text-xs text-gray-500 mb-1">견적서 URL</p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-700 truncate flex-1">{showSendModal.url}</span>
+              <button
+                type="button"
+                onClick={() => { navigator.clipboard.writeText(showSendModal.url); toast.success("복사되었습니다."); }}
+                className="p-1 bg-white border rounded hover:bg-gray-100 text-gray-500"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <a
+              href={`mailto:?subject=견적서 안내&body=안녕하세요.%0A%0A견적서를 안내드립니다.%0A${encodeURIComponent(showSendModal.url)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => markSentMut.mutate({ id: 0, sentVia: "email" })}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+            >
+              📧 이메일로 발송
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(showSendModal.url);
+                toast.success("카카오톡 발송용 URL이 복사되었습니다. 카카오톡에 붙여넣기 해주세요.");
+                markSentMut.mutate({ id: 0, sentVia: "kakao" });
+              }}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-yellow-400 text-gray-900 rounded-lg text-sm font-medium hover:bg-yellow-500"
+            >
+              💬 카카오톡으로 발송 (URL 복사)
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSendModal(null)}
+            className="mt-4 w-full py-2 text-sm text-gray-500 hover:text-gray-700"
+          >
+            닫기
+          </button>
+        </div>
+      </div>
+    )}
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-700">문의 관리</h3>
@@ -641,23 +700,63 @@ function InquiryTabs({ reservationId, reservationNo, depositPrice = 0, salePrice
                         <p className="text-xs text-gray-400">답변 입력 시 상태가 '답변완료'로 자동 변경됩니다.</p>
                         {/* 견적생성(자동) - 답변 입력된 경우 활성화 */}
                         {inq.replyText && (
-                          <button
-                            type="button"
-                            disabled={creatingEstimateId === inq.id}
-                            onClick={() => {
-                              setCreatingEstimateId(inq.id);
-                              createEstimateMut.mutate({
-                                reservationId,
-                                estimateType: "customer",
-                              });
-                            }}
-                            className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-indigo-300 text-indigo-700 hover:bg-indigo-50 text-xs font-medium transition-colors disabled:opacity-60"
-                          >
-                            {creatingEstimateId === inq.id
-                              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> 견적서 생성 중...</>
-                              : <><MessageSquare className="w-3.5 h-3.5" /> 견적생성(자동)</>
-                            }
-                          </button>
+                          <div className="space-y-2">
+                            <button
+                              type="button"
+                              disabled={creatingEstimateId === inq.id}
+                              onClick={() => {
+                                setCreatingEstimateId(inq.id);
+                                createEstimateMut.mutate({
+                                  reservationId,
+                                  estimateType: "customer",
+                                });
+                              }}
+                              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-indigo-300 text-indigo-700 hover:bg-indigo-50 text-xs font-medium transition-colors disabled:opacity-60"
+                            >
+                              {creatingEstimateId === inq.id
+                                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> 견적서 생성 중...</>
+                                : <><MessageSquare className="w-3.5 h-3.5" /> 견적생성(자동)</>
+                              }
+                            </button>
+                            {/* 견적서 URL 표시 */}
+                            {estimateResult?.inqId === inq.id && (
+                              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-2.5 space-y-2">
+                                <p className="text-xs font-semibold text-indigo-700">견적서 URL</p>
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    readOnly
+                                    value={estimateResult.url}
+                                    className="flex-1 text-xs bg-white border border-indigo-200 rounded px-2 py-1 text-gray-700 truncate"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => { navigator.clipboard.writeText(estimateResult.url); toast.success("복사되었습니다."); }}
+                                    className="p-1.5 bg-white border border-indigo-200 rounded hover:bg-indigo-100 text-indigo-600"
+                                    title="URL 복사"
+                                  >
+                                    <Copy className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => window.open(estimateResult.url, "_blank")}
+                                    className="p-1.5 bg-white border border-indigo-200 rounded hover:bg-indigo-100 text-indigo-600"
+                                    title="견적서 보기"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                                <div className="flex gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowSendModal({ token: estimateResult.token, url: estimateResult.url })}
+                                    className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 bg-indigo-600 text-white rounded text-xs font-medium hover:bg-indigo-700"
+                                  >
+                                    <Send className="w-3 h-3" /> 발송
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     </TabsContent>
@@ -669,10 +768,10 @@ function InquiryTabs({ reservationId, reservationNo, depositPrice = 0, salePrice
         </div>
       )}
     </div>
+    </>
   );
 }
-
-// ─── 거래처별 송금 분리 표시 컴포넌트 (내륙팩 구조) ─────────────────────────────────
+// ─── 거래처별 송금 분리 표시 컴포넌트 (내륙팩 구조) ──────────────────────────────────────────────────
 interface RemittanceByTypeProps {
   reservationId: number;
   reservationNo: string;
@@ -1301,6 +1400,54 @@ export default function ReservationManagement() {
     sortBy, sortOrder, warningOnly,
   });
   const { data: summary } = trpc.reservations.summary.useQuery();
+  const utils = trpc.useUtils();
+
+  // 엑셀 내보내기
+  const [isExporting, setIsExporting] = useState(false);
+  async function handleExportExcel() {
+    setIsExporting(true);
+    try {
+      const result = await utils.reservations.listAll.fetch({
+        search: search || undefined,
+        status: statusFilter,
+        paymentStatus: paymentFilter,
+        sortBy,
+        sortOrder,
+        warningOnly,
+      });
+      const STATUS_KO: Record<string, string> = { pending: "대기", confirmed: "확정", cancelled: "취소", completed: "완료" };
+      const PAY_KO: Record<string, string> = { unpaid: "미결제", partial: "부분입금", paid: "완납" };
+      const rows = result.items.map((r: any) => ({
+        "예약번호": r.reservationNo ?? "",
+        "고객명": r.customerName ?? "",
+        "연락처": r.customerPhone ?? "",
+        "상품명": r.productName ?? "",
+        "골프장": r.golfCourseName ?? "",
+        "출발일": r.departureDate ? new Date(r.departureDate).toLocaleDateString("ko-KR") : "",
+        "팀수": r.teams ?? 0,
+        "인원": r.headcount ?? 0,
+        "판매가": r.salePriceTotal ?? 0,
+        "입금가": r.depositPrice ?? 0,
+        "결제상태": PAY_KO[r.paymentStatus ?? ""] ?? r.paymentStatus ?? "",
+        "예약상태": STATUS_KO[r.status ?? ""] ?? r.status ?? "",
+        "담당자": r.assignedTo ?? r.managerName ?? "",
+        "유형": r.userType === "partner" ? (r.partnerCompanyName || "제휴사") : r.userType === "manager" ? "담당자" : "고객",
+        "예약일": r.createdAt ? new Date(r.createdAt).toLocaleDateString("ko-KR") : "",
+        "비고": r.notes ?? "",
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "예약목록");
+      const now = new Date();
+      const filename = `예약목록_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      toast.success(`엑셀 내보내기 완료 (${rows.length}건)`);
+    } catch (e) {
+      toast.error("엑셀 내보내기 실패");
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   const deleteMut = trpc.reservations.delete.useMutation({
     onSuccess: () => { toast.success("예약이 삭제되었습니다."); refetch(); },
@@ -1441,6 +1588,16 @@ export default function ReservationManagement() {
           <Button onClick={() => setShowQuickCreate(true)}
             className="bg-green-700 hover:bg-green-800 text-white h-9">
             <Plus className="w-4 h-4 mr-1" /> 신규 예약
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportExcel}
+            disabled={isExporting}
+            className="h-9 border-green-300 text-green-700 hover:bg-green-50 text-xs"
+            title="현재 필터 적용된 목록을 엑셀로 내보내기"
+          >
+            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>📥 엑셀</>}
           </Button>
         </div>
 

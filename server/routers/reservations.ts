@@ -570,7 +570,67 @@ export const reservationsRouter = router({
       await db.delete(prepaidRecords).where(eq(prepaidRecords.id, input.id));
       return { success: true };
     }),
-  // ─── 대시보드 요약 통계 ───────────────────────────────────────
+  // ─── 전체 목록 조회 (엑셀 내보내기용, 최대 5000건) ────────────────
+  listAll: protectedProcedure
+    .input(
+      z.object({
+        search: z.string().optional(),
+        status: z.enum(["pending", "confirmed", "cancelled", "completed", "all"]).default("all"),
+        paymentStatus: z.enum(["unpaid", "partial", "paid", "all"]).default("all"),
+        sortBy: z.enum(["departureDate", "createdAt", "headcount"]).default("departureDate"),
+        sortOrder: z.enum(["asc", "desc"]).default("desc"),
+        warningOnly: z.boolean().default(false),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const conditions: ReturnType<typeof eq>[] = [];
+      if (input.search) {
+        conditions.push(
+          or(
+            like(reservations.customerName, `%${input.search}%`),
+            like(reservations.reservationNo, `%${input.search}%`),
+            like(reservations.productName, `%${input.search}%`),
+            like(reservations.golfCourseName, `%${input.search}%`),
+            like(reservations.customerPhone, `%${input.search}%`)
+          ) as any
+        );
+      }
+      if (input.status !== "all") {
+        conditions.push(eq(reservations.status, input.status) as any);
+      }
+      if (input.paymentStatus !== "all") {
+        conditions.push(eq(reservations.paymentStatus, input.paymentStatus) as any);
+      }
+      if (input.warningOnly) {
+        const warningDate = new Date();
+        warningDate.setDate(warningDate.getDate() + 15);
+        conditions.push(lte(reservations.departureDate, warningDate) as any);
+        conditions.push(gte(reservations.departureDate, new Date()) as any);
+        conditions.push(
+          or(
+            eq(reservations.paymentStatus, "unpaid"),
+            eq(reservations.paymentStatus, "partial")
+          ) as any
+        );
+      }
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      const sortCol =
+        input.sortBy === "createdAt" ? reservations.createdAt
+        : input.sortBy === "headcount" ? reservations.headcount
+        : reservations.departureDate;
+      const orderExpr = input.sortOrder === "asc" ? asc(sortCol) : desc(sortCol);
+      const rows = await db
+        .select()
+        .from(reservations)
+        .where(whereClause)
+        .orderBy(orderExpr)
+        .limit(5000);
+      return { items: rows };
+    }),
+
+  // ─── 대시보드 요약 통계 ───────────────────────────
   summary: protectedProcedure.query(async () => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
