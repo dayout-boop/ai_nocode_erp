@@ -84,6 +84,8 @@ function DevRequestsTab() {
     priority: "all",
     limit: 50,
     offset: 0,
+  }, {
+    refetchInterval: 30000, // 30초마다 자동 갱신 (마스터 AI 요청 자동 반영)
   });
 
   const createMutation = trpc.devRequest.create.useMutation({
@@ -128,7 +130,18 @@ function DevRequestsTab() {
             </button>
           ))}
         </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => listQuery.refetch()}
+            disabled={listQuery.isFetching}
+            className="text-xs border-slate-200"
+          >
+            <RefreshCw size={12} className={`mr-1 ${listQuery.isFetching ? 'animate-spin' : ''}`} />
+            새로고침
+          </Button>
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
             <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
               <Plus size={14} className="mr-1" />
@@ -190,6 +203,7 @@ function DevRequestsTab() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* 테이블 */}

@@ -723,3 +723,40 @@ Detected
 - [x] 결제상태 "완납": 판매가 - 입금가 = 0인 경우
 - [x] 결제상태 "경고": 출발일 기준 15일 이내이면서 완납이 아닌 경우
 - [x] 예약목록 관리 아이콘 클릭 시 예약 상세관리 팝업 (EditDialog) 열기
+
+## 견적생성 실제 연동 & 고객 견적서 템플릿 & 예약목록 엑셀 (2026-04-29)
+
+### DB 스키마 추가
+- [ ] customerEstimateTemplates 테이블 생성 (id, name, includeItems, excludeItems, notes, schedule, isActive)
+- [ ] estimates 테이블 생성 (id, reservationId, token, templateId, customData, createdAt, sentAt)
+
+### 고객 견적서 템플릿 페이지 (/erp/reservations/estimate-templates)
+- [ ] 신규 페이지 생성 (CustomerEstimateTemplates.tsx)
+- [ ] 아이콘 클릭으로 변수 삽입 ({{고객명}}, {{출발일}}, {{인원}}, {{팀수}}, {{골프장}}, {{판매가}} 등)
+- [ ] 포함/불포함/일정/안내사항 섹션별 에디터
+- [ ] 템플릿 저장/수정/삭제
+- [ ] ERPLayout 사이드바에 "고객 견적서 템플릿" 메뉴 추가
+
+### 견적서 공개 URL 페이지 (/estimate/:token)
+- [ ] 공개 라우트 추가 (로그인 불필요)
+- [ ] 예약 데이터 + 템플릿으로 견적서 렌더링
+- [ ] 두골프 브랜드 스타일 (레퍼런스 tourlinks 구조 참고)
+- [ ] 인쇄/PDF 저장 버튼
+
+### 문의관리 탭 개선 (ReservationManagement.tsx InquiryTabs)
+- [ ] 답변 탭에 "거래처" 아이콘 버튼 추가 → 문의 자동화 템플릿 연결 생성
+- [ ] 답변 탭에 "고객" 아이콘 버튼 추가 → 고객 견적서 템플릿 연결 생성
+- [ ] 견적 생성 완료 시 URL 표시 + "보기" 아이콘 (팝업)
+- [ ] "이메일/카카오톡 발송" 아이콘 추가 (클릭 시 발송 모달)
+
+### 예약목록 엑셀 내보내기
+- [ ] xlsx 패키지 설치
+- [ ] 현재 필터(경고건, 출발일 범위, 검색어) 적용된 상태로 Excel 다운로드
+- [ ] 예약번호, 고객명, 출발일, 골프장, 인원, 판매가, 결제상태, 담당자 컬럼 포함
+
+## 2026-04-29 개선 작업
+- [x] ERP 좌측 하단 '홈페이지 보기' 위에 '개발대시보드' 링크 추가 (클릭 시 /erp/dev-dashboard 이동, iframe으로 https://dogolf-dash-mjywck97.manus.space/ 표시)
+- [x] /erp/dev-dashboard 페이지 신규 생성 (DevDashboard.tsx, ERPLayout 래핑)
+- [x] App.tsx에 /erp/dev-dashboard 라우트 추가
+- [x] /erp/ai-engine 개발 요청 탭에 30초 자동 갱신(refetchInterval) 추가 (마스터 AI 요청 자동 반영)
+- [x] /erp/ai-engine 개발 요청 탭에 수동 새로고침 버튼 추가

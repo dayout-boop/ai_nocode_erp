@@ -339,9 +339,11 @@ function QuickCreateForm({ onSuccess, onCancel, currentUser }: QuickCreateFormPr
 interface InquiryTabsProps {
   reservationId: number;
   reservationNo: string;
+  depositPrice?: number;
+  salePriceTotal?: number;
 }
 
-function InquiryTabs({ reservationId, reservationNo }: InquiryTabsProps) {
+function InquiryTabs({ reservationId, reservationNo, depositPrice = 0, salePriceTotal = 0 }: InquiryTabsProps) {
   const { data: inquiries, refetch } = trpc.reservationInquiries.listByReservation.useQuery({ reservationId });
   const { data: templates } = trpc.inquiryTemplates.list.useQuery({ category: "all" });
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -538,7 +540,36 @@ function InquiryTabs({ reservationId, reservationNo }: InquiryTabsProps) {
                     {/* 답변 탭 */}
                     <TabsContent value="reply">
                       <div className="space-y-2">
-                        <Label className="text-xs text-gray-500">골프장 답변 내용 (자동저장)</Label>
+                        {/* 입금가 / 판매가 / 핀메기 아이콘 */}
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs text-gray-500">골프장 답변 내용 (자동저장)</Label>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const base = depositPrice;
+                                toast.info(`입금가 기준 — 원가: ${base.toLocaleString()}원 / 제휴가: ${(base+5000).toLocaleString()}원 / 판매가: ${(base+20000).toLocaleString()}원`);
+                              }}
+                              title="입금가 기준 (원가=동일/제휴가=+5천/판매가=+2만)"
+                              className="flex items-center gap-1 px-2 py-1 rounded text-xs border bg-white text-green-700 border-green-300 hover:bg-green-50 transition-all"
+                            >
+                              <DollarSign className="w-3 h-3" />
+                              입금가
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const base = depositPrice;
+                                toast.info(`핀메기 기준 — 원가: ${(base-20000).toLocaleString()}원 / 제휴가: ${(base-15000).toLocaleString()}원 / 판매가: ${base.toLocaleString()}원`);
+                              }}
+                              title="핀메기 기준 (원가=-2만/제휴가=-1.5만/판매가=동일)"
+                              className="flex items-center gap-1 px-2 py-1 rounded text-xs border bg-white text-orange-700 border-orange-300 hover:bg-orange-50 transition-all"
+                            >
+                              <DollarSign className="w-3 h-3" />
+                              핀메기
+                            </button>
+                          </div>
+                        </div>
                         <Textarea
                           defaultValue={inq.replyText ?? ""}
                           onChange={e => handleReplyChange(inq.id, e.target.value)}
@@ -547,6 +578,17 @@ function InquiryTabs({ reservationId, reservationNo }: InquiryTabsProps) {
                           className="text-sm resize-none"
                         />
                         <p className="text-xs text-gray-400">답변 입력 시 상태가 '답변완료'로 자동 변경됩니다.</p>
+                        {/* 견적생성(자동) - 답변 입력된 경우 활성화 */}
+                        {inq.replyText && (
+                          <button
+                            type="button"
+                            onClick={() => toast.info("견적생성 기능은 고객 견적서 템플릿 연동 후 사용 가능합니다.")}
+                            className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-indigo-300 text-indigo-700 hover:bg-indigo-50 text-xs font-medium transition-colors"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            견적생성(자동)
+                          </button>
+                        )}
                       </div>
                     </TabsContent>
                   </Tabs>
@@ -1145,7 +1187,7 @@ function EditDialog({ item, onClose, onSuccess }: EditDialogProps) {
 
         {/* 문의 관리 탭 */}
         <TabsContent value="inquiry">
-          <InquiryTabs reservationId={item.id} reservationNo={item.reservationNo} />
+          <InquiryTabs reservationId={item.id} reservationNo={item.reservationNo} depositPrice={item.depositPrice ?? 0} salePriceTotal={item.salePriceTotal ?? 0} />
         </TabsContent>
       </Tabs>
     </div>

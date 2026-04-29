@@ -1097,3 +1097,57 @@ export const inquiryTemplates = mysqlTable("inquiry_templates", {
 });
 export type InquiryTemplate = typeof inquiryTemplates.$inferSelect;
 export type InsertInquiryTemplate = typeof inquiryTemplates.$inferInsert;
+
+// ============================================================
+// CUSTOMER_ESTIMATE_TEMPLATES - 고객 견적서 템플릿
+// ============================================================
+export const customerEstimateTemplates = mysqlTable("customer_estimate_templates", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 템플릿명 */
+  name: varchar("name", { length: 200 }).notNull(),
+  /** 포함사항 (줄바꿈 구분) */
+  includeItems: text("includeItems"),
+  /** 불포함사항 (줄바꿈 구분) */
+  excludeItems: text("excludeItems"),
+  /** 기타 안내사항 */
+  notes: text("notes"),
+  /** 세부 일정 (JSON: [{day, title, content}]) */
+  schedule: text("schedule"),
+  /** 활성 여부 */
+  isActive: boolean("isActive").default(true).notNull(),
+  /** 사용 횟수 */
+  useCount: int("useCount").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type CustomerEstimateTemplate = typeof customerEstimateTemplates.$inferSelect;
+export type InsertCustomerEstimateTemplate = typeof customerEstimateTemplates.$inferInsert;
+
+// ============================================================
+// ESTIMATES - 생성된 고객 견적서
+// ============================================================
+export const estimates = mysqlTable("estimates", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 연결된 예약 ID */
+  reservationId: int("reservationId").notNull(),
+  /** 공개 접근 토큰 (base64 인코딩된 ID) */
+  token: varchar("token", { length: 100 }).notNull().unique(),
+  /** 사용된 템플릿 ID */
+  templateId: int("templateId"),
+  /** 견적 유형: partner(거래처용) | customer(고객용) */
+  estimateType: mysqlEnum("estimateType", ["partner", "customer"]).default("customer"),
+  /** 커스텀 데이터 (JSON: 오버라이드 항목) */
+  customData: text("customData"),
+  /** 발송 여부 */
+  isSent: boolean("isSent").default(false),
+  /** 발송 일시 */
+  sentAt: timestamp("sentAt"),
+  /** 발송 방법: email | kakao */
+  sentVia: mysqlEnum("sentVia", ["email", "kakao"]).default("email"),
+  /** 생성자 */
+  createdBy: varchar("createdBy", { length: 100 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Estimate = typeof estimates.$inferSelect;
+export type InsertEstimate = typeof estimates.$inferInsert;

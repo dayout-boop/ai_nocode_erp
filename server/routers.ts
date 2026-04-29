@@ -2605,6 +2605,7 @@ import { aiRouter } from "./routers/ai";
 import { devRequestRouter } from "./routers/devRequest";
 import { chatRouter } from "./routers/chat";
 import { openrouterAgentRouter } from "./routers/openrouterAgent";
+import { customerEstimateTemplatesRouter, estimatesRouter } from "./routers/estimates";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -2641,5 +2642,7 @@ export const appRouter = router({
   reservationInquiries: reservationInquiriesRouter,
   inquiryTemplates: inquiryTemplatesRouter,
   openrouterAgent: openrouterAgentRouter,
+  customerEstimateTemplates: customerEstimateTemplatesRouter,
+  estimates: estimatesRouter,
 });
 export type AppRouter = typeof appRouter;

@@ -1,0 +1,395 @@
+import { useState } from "react";
+import { trpc } from "@/lib/trpc";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
+import {
+  Plus, Pencil, Trash2, Save, X, ChevronDown, ChevronUp,
+  User, Calendar, MapPin, Users, DollarSign, Phone, Briefcase,
+  Clock, Hotel, Info, FileText, Hash
+} from "lucide-react";
+import ERPLayout from "@/components/ERPLayout";
+
+// ─── 변수 삽입 아이콘 목록 ──────────────────────────────────────────
+const VARIABLE_BUTTONS = [
+  { label: "고객명", icon: <User size={12} />, value: "{{고객명}}" },
+  { label: "예약번호", icon: <Hash size={12} />, value: "{{예약번호}}" },
+  { label: "출발일", icon: <Calendar size={12} />, value: "{{출발일}}" },
+  { label: "귀국일", icon: <Calendar size={12} />, value: "{{귀국일}}" },
+  { label: "골프장", icon: <MapPin size={12} />, value: "{{골프장}}" },
+  { label: "인원", icon: <Users size={12} />, value: "{{인원}}" },
+  { label: "팀수", icon: <Users size={12} />, value: "{{팀수}}" },
+  { label: "판매가", icon: <DollarSign size={12} />, value: "{{판매가}}" },
+  { label: "1인가격", icon: <DollarSign size={12} />, value: "{{1인가격}}" },
+  { label: "담당자", icon: <Briefcase size={12} />, value: "{{담당자}}" },
+  { label: "연락처", icon: <Phone size={12} />, value: "{{연락처}}" },
+  { label: "티타임", icon: <Clock size={12} />, value: "{{티타임}}" },
+  { label: "숙소", icon: <Hotel size={12} />, value: "{{숙소}}" },
+  { label: "국가", icon: <MapPin size={12} />, value: "{{국가}}" },
+  { label: "발송일", icon: <Calendar size={12} />, value: "{{발송일}}" },
+];
+
+// ─── 변수 삽입 버튼 그룹 컴포넌트 ──────────────────────────────────
+function VariableButtons({ onInsert }: { onInsert: (v: string) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1 mb-2">
+      {VARIABLE_BUTTONS.map((btn) => (
+        <button
+          key={btn.value}
+          type="button"
+          onClick={() => onInsert(btn.value)}
+          className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-green-50 border border-green-200 text-green-700 rounded hover:bg-green-100 transition-colors"
+        >
+          {btn.icon}
+          {btn.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── 변수 삽입 가능한 Textarea 컴포넌트 ────────────────────────────
+function VariableTextarea({
+  label,
+  value,
+  onChange,
+  placeholder,
+  rows = 4,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  rows?: number;
+}) {
+  const insertVariable = (variable: string) => {
+    // 커서 위치에 삽입 (간단히 끝에 추가)
+    onChange(value + variable);
+  };
+
+  return (
+    <div className="space-y-1">
+      <Label className="text-sm font-medium">{label}</Label>
+      <VariableButtons onInsert={insertVariable} />
+      <Textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={rows}
+        className="text-sm resize-none font-mono"
+      />
+    </div>
+  );
+}
+
+// ─── 템플릿 폼 컴포넌트 ────────────────────────────────────────────
+interface TemplateFormData {
+  name: string;
+  includeItems: string;
+  excludeItems: string;
+  notes: string;
+  schedule: string;
+}
+
+const EMPTY_FORM: TemplateFormData = {
+  name: "",
+  includeItems: "",
+  excludeItems: "",
+  notes: "",
+  schedule: "",
+};
+
+function TemplateForm({
+  initial,
+  onSave,
+  onCancel,
+  isLoading,
+}: {
+  initial: TemplateFormData;
+  onSave: (data: TemplateFormData) => void;
+  onCancel: () => void;
+  isLoading: boolean;
+}) {
+  const [form, setForm] = useState<TemplateFormData>(initial);
+  const set = (key: keyof TemplateFormData) => (v: string) =>
+    setForm((f) => ({ ...f, [key]: v }));
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <Label className="text-sm font-medium">템플릿명 *</Label>
+        <Input
+          value={form.name}
+          onChange={(e) => set("name")(e.target.value)}
+          placeholder="예: 국내 1박2일 골프 패키지 견적"
+          className="mt-1"
+        />
+      </div>
+
+      <Separator />
+
+      <VariableTextarea
+        label="포함 사항"
+        value={form.includeItems}
+        onChange={set("includeItems")}
+        placeholder={"* 그린피 {{팀수}}팀 18홀\n* 숙소 ({{인원}}인실 * 1박)\n* 조식 1회"}
+        rows={5}
+      />
+
+      <VariableTextarea
+        label="불포함 사항"
+        value={form.excludeItems}
+        onChange={set("excludeItems")}
+        placeholder={"* 카트비&캐디피 - 1팀/18홀\n* 개인경비(식음료, 그늘집 이용료 등)"}
+        rows={4}
+      />
+
+      <VariableTextarea
+        label="세부 일정"
+        value={form.schedule}
+        onChange={set("schedule")}
+        placeholder={"1일차 {{출발일}}\n- {{골프장}} 라운딩 ({{티타임}})\n- {{숙소}} 체크인\n\n2일차\n- 조식 후 귀가"}
+        rows={6}
+      />
+
+      <VariableTextarea
+        label="기타 안내사항"
+        value={form.notes}
+        onChange={set("notes")}
+        placeholder={"* 티업시간 40분전 도착해주세요.\n* {{인원}}인({{팀수}}팀) 기준 견적으로, 인원 변경 시 견적이 변동될 수 있습니다.\n* 캐디피&카트비는 현장 지불 조건입니다."}
+        rows={5}
+      />
+
+      <div className="flex gap-2 justify-end pt-2">
+        <Button variant="outline" onClick={onCancel} disabled={isLoading}>
+          <X size={14} className="mr-1" /> 취소
+        </Button>
+        <Button
+          onClick={() => onSave(form)}
+          disabled={isLoading || !form.name.trim()}
+          className="bg-green-600 hover:bg-green-700 text-white"
+        >
+          <Save size={14} className="mr-1" />
+          {isLoading ? "저장 중..." : "저장"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── 메인 페이지 ───────────────────────────────────────────────────
+export default function CustomerEstimateTemplates() {
+  const [showCreate, setShowCreate] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  const { data: templates, refetch } = trpc.customerEstimateTemplates.list.useQuery();
+
+  const createMut = trpc.customerEstimateTemplates.create.useMutation({
+    onSuccess: () => {
+      toast.success("템플릿이 생성되었습니다.");
+      setShowCreate(false);
+      refetch();
+    },
+    onError: () => toast.error("생성 실패"),
+  });
+
+  const updateMut = trpc.customerEstimateTemplates.update.useMutation({
+    onSuccess: () => {
+      toast.success("템플릿이 수정되었습니다.");
+      setEditId(null);
+      refetch();
+    },
+    onError: () => toast.error("수정 실패"),
+  });
+
+  const deleteMut = trpc.customerEstimateTemplates.delete.useMutation({
+    onSuccess: () => {
+      toast.success("템플릿이 삭제되었습니다.");
+      refetch();
+    },
+    onError: () => toast.error("삭제 실패"),
+  });
+
+  const handleCreate = (data: TemplateFormData) => {
+    createMut.mutate(data);
+  };
+
+  const handleUpdate = (id: number, data: TemplateFormData) => {
+    updateMut.mutate({ id, ...data });
+  };
+
+  const handleDelete = (id: number, name: string) => {
+    if (!confirm(`"${name}" 템플릿을 삭제하시겠습니까?`)) return;
+    deleteMut.mutate({ id });
+  };
+
+  return (
+    <ERPLayout>
+      <div className="p-6 max-w-4xl mx-auto">
+        {/* 헤더 */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">고객 견적서 템플릿</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              고객에게 발송할 견적서 양식을 관리합니다. <code className="bg-gray-100 px-1 rounded text-xs">{"{{변수}}"}</code> 형식으로 예약 데이터가 자동 치환됩니다.
+            </p>
+          </div>
+          <Button
+            onClick={() => { setShowCreate(true); setEditId(null); }}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
+            <Plus size={14} className="mr-1" /> 새 템플릿
+          </Button>
+        </div>
+
+        {/* 변수 안내 */}
+        <Card className="mb-6 border-blue-100 bg-blue-50">
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-start gap-2">
+              <Info size={16} className="text-blue-500 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-blue-800 mb-1">사용 가능한 자동 치환 변수</p>
+                <div className="flex flex-wrap gap-1">
+                  {VARIABLE_BUTTONS.map((btn) => (
+                    <code key={btn.value} className="text-xs bg-white border border-blue-200 text-blue-700 px-1.5 py-0.5 rounded">
+                      {btn.value}
+                    </code>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 새 템플릿 생성 폼 */}
+        {showCreate && (
+          <Card className="mb-6 border-green-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base text-green-700">
+                <Plus size={16} className="inline mr-1" />새 템플릿 작성
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TemplateForm
+                initial={EMPTY_FORM}
+                onSave={handleCreate}
+                onCancel={() => setShowCreate(false)}
+                isLoading={createMut.isPending}
+              />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 템플릿 목록 */}
+        {!templates || templates.length === 0 ? (
+          <div className="text-center py-16 text-gray-400">
+            <FileText size={40} className="mx-auto mb-3 opacity-30" />
+            <p className="text-sm">등록된 템플릿이 없습니다.</p>
+            <p className="text-xs mt-1">상단 "새 템플릿" 버튼을 클릭해 첫 번째 템플릿을 만들어보세요.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {templates.map((tmpl) => (
+              <Card key={tmpl.id} className="border-gray-200">
+                <CardContent className="pt-4">
+                  {editId === tmpl.id ? (
+                    // 수정 폼
+                    <TemplateForm
+                      initial={{
+                        name: tmpl.name,
+                        includeItems: tmpl.includeItems ?? "",
+                        excludeItems: tmpl.excludeItems ?? "",
+                        notes: tmpl.notes ?? "",
+                        schedule: tmpl.schedule ?? "",
+                      }}
+                      onSave={(data) => handleUpdate(tmpl.id, data)}
+                      onCancel={() => setEditId(null)}
+                      isLoading={updateMut.isPending}
+                    />
+                  ) : (
+                    // 보기 모드
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-gray-900">{tmpl.name}</h3>
+                          <Badge variant="secondary" className="text-xs">
+                            사용 {tmpl.useCount ?? 0}회
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setExpandedId(expandedId === tmpl.id ? null : tmpl.id)}
+                            className="h-7 px-2 text-xs text-gray-500"
+                          >
+                            {expandedId === tmpl.id
+                              ? <><ChevronUp size={12} className="mr-1" />접기</>
+                              : <><ChevronDown size={12} className="mr-1" />미리보기</>
+                            }
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => { setEditId(tmpl.id); setShowCreate(false); }}
+                            className="h-7 px-2 text-blue-600 hover:text-blue-700"
+                          >
+                            <Pencil size={12} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(tmpl.id, tmpl.name)}
+                            className="h-7 px-2 text-red-500 hover:text-red-600"
+                          >
+                            <Trash2 size={12} />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* 미리보기 */}
+                      {expandedId === tmpl.id && (
+                        <div className="mt-4 space-y-3 text-sm border-t pt-3">
+                          {tmpl.includeItems && (
+                            <div>
+                              <p className="font-medium text-green-700 mb-1">✅ 포함 사항</p>
+                              <pre className="whitespace-pre-wrap text-xs text-gray-600 bg-green-50 p-2 rounded">{tmpl.includeItems}</pre>
+                            </div>
+                          )}
+                          {tmpl.excludeItems && (
+                            <div>
+                              <p className="font-medium text-red-600 mb-1">❌ 불포함 사항</p>
+                              <pre className="whitespace-pre-wrap text-xs text-gray-600 bg-red-50 p-2 rounded">{tmpl.excludeItems}</pre>
+                            </div>
+                          )}
+                          {tmpl.schedule && (
+                            <div>
+                              <p className="font-medium text-blue-700 mb-1">📅 세부 일정</p>
+                              <pre className="whitespace-pre-wrap text-xs text-gray-600 bg-blue-50 p-2 rounded">{tmpl.schedule}</pre>
+                            </div>
+                          )}
+                          {tmpl.notes && (
+                            <div>
+                              <p className="font-medium text-gray-700 mb-1">📋 기타 안내사항</p>
+                              <pre className="whitespace-pre-wrap text-xs text-gray-600 bg-gray-50 p-2 rounded">{tmpl.notes}</pre>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </ERPLayout>
+  );
+}

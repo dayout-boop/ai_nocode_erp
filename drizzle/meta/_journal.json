@@ -169,6 +169,13 @@
       "when": 1777451081975,
       "tag": "0023_mushy_lifeguard",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1777453191696,
+      "tag": "0024_sloppy_scarlet_witch",
+      "breakpoints": true
     }
   ]
 }

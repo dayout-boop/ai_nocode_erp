@@ -39,6 +39,9 @@ import MasterLogs from "./pages/erp/MasterLogs";
 import MasterCosts from "./pages/erp/MasterCosts";
 import ERPSettings from "./pages/erp/ERPSettings";
 import OpenRouterAgent from "./pages/erp/OpenRouterAgent";
+import CustomerEstimateTemplates from "./pages/erp/CustomerEstimateTemplates";
+import EstimateView from "./pages/EstimateView";
+import DevDashboard from "./pages/erp/DevDashboard";
 
 // Partner Pages
 import PartnerDashboard from "./pages/Partner/PartnerDashboard";
@@ -87,6 +90,9 @@ function Router() {
       <Route path={"/erp/manager-admin"} component={ManagerAdmin} />
       <Route path={"/erp/settings"} component={ERPSettings} />
       <Route path={"/erp/openrouter-agent"} component={OpenRouterAgent} />
+      <Route path={"/erp/reservations/estimate-templates"} component={CustomerEstimateTemplates} />
+      <Route path={"/estimate/:token"} component={EstimateView} />
+      <Route path={"/erp/dev-dashboard"} component={DevDashboard} />
 
       {/* /admin → /erp 리다이렉트 */}
       <Route path={"/admin"} component={() => { window.location.replace("/erp"); return null; }} />

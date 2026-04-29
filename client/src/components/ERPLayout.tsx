@@ -15,7 +15,7 @@ import {
   // 상품관리 하위
   PackageSearch, PackagePlus,
   // 예약관리 하위
-  ClipboardList, MessageCircleQuestion,
+  ClipboardList, MessageCircleQuestion, FileText,
   // 정산관리 하위
   ReceiptText, Building2,
   // CRM 하위
@@ -97,6 +97,7 @@ const navItems: NavItem[] = [
       { label: "예약 문의", href: "/erp/inquiries", icon: <MessageCircleQuestion size={14} /> },
       { label: "수기 예약관리", href: "/erp/reservations", icon: <ClipboardList size={14} /> },
       { label: "문의 자동화 템플릿", href: "/erp/reservations/templates", icon: <MessageCircleQuestion size={14} /> },
+      { label: "고객 견적서 템플릿", href: "/erp/reservations/estimate-templates", icon: <FileText size={14} /> },
     ],
   },
   {
@@ -314,6 +315,12 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
 
         {/* Bottom */}
         <div className="border-t border-slate-700/50 px-3 py-3 space-y-2">
+          <a href="/erp/dev-dashboard">
+            <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-indigo-300 hover:bg-slate-700 cursor-pointer transition-colors">
+              <ExternalLink size={16} className="shrink-0" />
+              {!sidebarCollapsed && <span className="text-xs">개발대시보드</span>}
+            </div>
+          </a>
           <a href="/" target="_blank" rel="noopener noreferrer">
             <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 cursor-pointer transition-colors">
               <ExternalLink size={16} className="shrink-0" />
