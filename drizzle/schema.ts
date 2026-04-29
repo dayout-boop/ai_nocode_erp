@@ -917,6 +917,8 @@ export const reservations = mysqlTable("reservations", {
   managerName: varchar("managerName", { length: 100 }),
   /** 담당자 연락처 */
   managerPhone: varchar("managerPhone", { length: 30 }),
+  /** 진행 상태: proceeding | impossible | confirmed | waiting */
+  progressStatus: mysqlEnum("progressStatus", ["proceeding", "impossible", "confirmed", "waiting"]).default("proceeding"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -1080,8 +1082,8 @@ export const inquiryTemplates = mysqlTable("inquiry_templates", {
   id: int("id").autoincrement().primaryKey(),
   /** 템플릿명 */
   name: varchar("name", { length: 200 }).notNull(),
-  /** 카테고리 (golf_booking | accommodation | transport | general) */
-  category: mysqlEnum("category", ["golf_booking", "accommodation", "transport", "general"]).default("golf_booking"),
+  /** 카테고리 (golf_booking | accommodation | transport | general | estimate) */
+  category: mysqlEnum("category", ["golf_booking", "accommodation", "transport", "general", "estimate"]).default("golf_booking"),
   /** 템플릿 내용 ({{변수}} 형식 사용 가능) */
   content: text("content").notNull(),
   /** 사용 가능한 변수 목록 (JSON) */

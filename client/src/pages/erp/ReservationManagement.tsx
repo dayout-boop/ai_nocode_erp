@@ -21,6 +21,7 @@ import {
   TrendingUp, AlertCircle, DollarSign, Calendar, Clock, CheckCircle,
   XCircle, Award, User, Users, Briefcase, MessageSquare, Zap, MessageCircle,
   PlusCircle, Loader2, Copy, ChevronDown, ChevronUp,
+  ArrowUp, ArrowDown, ArrowUpDown, TriangleAlert, Settings,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -44,13 +45,45 @@ const STATUS_ICONS: Record<StatusType, React.ReactNode> = {
   completed: <Award className="w-3.5 h-3.5" />,
 };
 const PAYMENT_LABELS: Record<PaymentStatusType, string> = {
-  unpaid: "미입금", partial: "부분입금", paid: "완납",
+  unpaid: "미결제", partial: "부분입금", paid: "완납",
 };
 const PAYMENT_COLORS: Record<PaymentStatusType, string> = {
   unpaid: "bg-red-100 text-red-700",
   partial: "bg-orange-100 text-orange-700",
   paid: "bg-green-100 text-green-700",
 };
+
+// 결제상태 계산 함수 (요청사항 기준)
+function calcPaymentStatus(item: any): { label: string; color: string; isWarning: boolean } {
+  const salePrice = item.salePriceTotal ?? 0;
+  const depositPrice = item.depositPrice ?? 0;
+  const paidAmount = item.paidAmount ?? 0;
+  const remittedAmount = item.remittedAmount ?? 0;
+
+  // 완납: 판매가 - 입금가 = 0
+  if (salePrice > 0 && salePrice - paidAmount <= 0) {
+    return { label: "완납", color: "bg-green-100 text-green-700", isWarning: false };
+  }
+  // 미결제: 입금 - 출금 = 0
+  if (paidAmount - remittedAmount <= 0) {
+    return { label: "미결제", color: "bg-red-100 text-red-700", isWarning: false };
+  }
+  return { label: "부분입금", color: "bg-orange-100 text-orange-700", isWarning: false };
+}
+
+// 경고 여부: 출발일 15일 이내이고 완납 아닌 경우
+function isWarningItem(item: any): boolean {
+  if (!item.departureDate) return false;
+  const dep = new Date(item.departureDate);
+  const now = new Date();
+  const diffDays = Math.ceil((dep.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0 || diffDays > 15) return false;
+  const ps = calcPaymentStatus(item);
+  return ps.label !== "완납";
+}
+
+type SortByType = "departureDate" | "createdAt" | "headcount";
+type SortOrderType = "asc" | "desc";
 const USER_TYPE_LABELS: Record<UserType, string> = {
   customer: "고객", partner: "제휴사", manager: "담당자",
 };
@@ -709,6 +742,58 @@ function RemittanceByType({ reservationId, reservationNo }: RemittanceByTypeProp
   );
 }
 
+// ─── 진행 상태 드롭박스 컴포넌트 ────────────────────────────────────────────
+type ProgressStatusType = "proceeding" | "impossible" | "confirmed" | "waiting";
+const PROGRESS_LABELS: Record<ProgressStatusType, string> = {
+  proceeding: "진행",
+  impossible: "불가",
+  confirmed: "확정",
+  waiting: "대기",
+};
+const PROGRESS_COLORS: Record<ProgressStatusType, string> = {
+  proceeding: "bg-blue-100 text-blue-700",
+  impossible: "bg-red-100 text-red-700",
+  confirmed: "bg-green-100 text-green-700",
+  waiting: "bg-yellow-100 text-yellow-700",
+};
+
+function ProgressDropdown({
+  reservationId,
+  currentProgress,
+  onSuccess,
+}: {
+  reservationId: number;
+  currentProgress: string;
+  onSuccess: () => void;
+}) {
+  const updateMut = trpc.reservations.update.useMutation({
+    onSuccess: () => { toast.success("진행 상태가 변경되었습니다."); onSuccess(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const val = (currentProgress as ProgressStatusType) || "waiting";
+  return (
+    <Select
+      value={val}
+      onValueChange={(v) =>
+        updateMut.mutate({ id: reservationId, progressStatus: v as ProgressStatusType })
+      }
+    >
+      <SelectTrigger className={`h-6 text-[11px] px-1.5 py-0 border-0 rounded font-medium min-w-[52px] ${PROGRESS_COLORS[val]}`}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {(Object.keys(PROGRESS_LABELS) as ProgressStatusType[]).map((k) => (
+          <SelectItem key={k} value={k} className="text-xs">
+            <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${PROGRESS_COLORS[k]}`}>
+              {PROGRESS_LABELS[k]}
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 // ─── 예약 수정 다이얼로그 ────────────────────────────────────────────────
 interface EditDialogProps {
   item: any;
@@ -1077,9 +1162,31 @@ export default function ReservationManagement() {
   const [paymentFilter, setPaymentFilter] = useState<"all" | PaymentStatusType>("all");
   const [showQuickCreate, setShowQuickCreate] = useState(false);
   const [editItem, setEditItem] = useState<any | null>(null);
+  const [sortBy, setSortBy] = useState<SortByType>("departureDate");
+  const [sortOrder, setSortOrder] = useState<SortOrderType>("desc");
+  const [warningOnly, setWarningOnly] = useState(false);
+
+  // 정렬 토글 함수
+  function handleSort(col: SortByType) {
+    if (sortBy === col) {
+      setSortOrder(o => o === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(col);
+      setSortOrder("desc");
+    }
+    setPage(1);
+  }
+
+  function SortIcon({ col }: { col: SortByType }) {
+    if (sortBy !== col) return <ArrowUpDown className="w-3 h-3 ml-0.5 text-gray-400 inline" />;
+    return sortOrder === "asc"
+      ? <ArrowUp className="w-3 h-3 ml-0.5 text-green-600 inline" />
+      : <ArrowDown className="w-3 h-3 ml-0.5 text-green-600 inline" />;
+  }
 
   const { data, refetch } = trpc.reservations.list.useQuery({
     page, pageSize: 20, search, status: statusFilter, paymentStatus: paymentFilter,
+    sortBy, sortOrder, warningOnly,
   });
   const { data: summary } = trpc.reservations.summary.useQuery();
 
@@ -1201,95 +1308,189 @@ export default function ReservationManagement() {
         {/* 예약 목록 테이블 */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">
-              예약 목록 <span className="text-gray-400 font-normal">({total.toLocaleString()}건)</span>
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">
+                예약 목록 <span className="text-gray-400 font-normal">({total.toLocaleString()}건)</span>
+              </CardTitle>
+              {/* 경고 아이콘 버튼 */}
+              <button
+                onClick={() => { setWarningOnly(w => !w); setPage(1); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  warningOnly
+                    ? "bg-red-500 text-white shadow-sm"
+                    : "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"
+                }`}
+                title="출발일 15일 이내 미완납 예약"
+              >
+                <TriangleAlert className="w-3.5 h-3.5" />
+                경고
+                {!warningOnly && (
+                  <span className="bg-red-500 text-white rounded-full px-1.5 py-0.5 text-[10px] leading-none">
+                    {items.filter(isWarningItem).length}
+                  </span>
+                )}
+              </button>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b">
                   <tr>
-                    {["예약번호", "골프장", "출발일", "팀/인원", "고객", "유형", "입금상태", "상태", ""].map((h) => (
-                      <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">{h}</th>
-                    ))}
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">예약번호</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">골프장</th>
+                    <th
+                      className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap cursor-pointer hover:text-green-700 select-none"
+                      onClick={() => handleSort("departureDate")}
+                    >
+                      출발일<SortIcon col="departureDate" />
+                    </th>
+                    <th
+                      className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap cursor-pointer hover:text-green-700 select-none"
+                      onClick={() => handleSort("headcount")}
+                    >
+                      팀/인원<SortIcon col="headcount" />
+                    </th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">고객</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">유형</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">담당자</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">결제상태</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">진행</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">상태</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="text-center py-12 text-gray-400">
-                        예약 내역이 없습니다.
+                      <td colSpan={11} className="text-center py-12 text-gray-400">
+                        {warningOnly ? "경고 예약이 없습니다." : "예약 내역이 없습니다."}
                       </td>
                     </tr>
                   ) : (
-                    items.map((item) => (
-                      <tr key={item.id} className="border-b hover:bg-gray-50 transition-colors">
-                        <td className="px-3 py-2.5">
-                          <span className="font-mono text-xs text-blue-600 font-bold">{item.reservationNo}</span>
-                        </td>
-                        <td className="px-3 py-2.5 max-w-[140px] truncate text-xs" title={item.golfCourseName ?? ""}>
-                          {item.golfCourseName ?? item.productName}
-                        </td>
-                        <td className="px-3 py-2.5 whitespace-nowrap text-xs">{formatDate(item.departureDate)}</td>
-                        <td className="px-3 py-2.5 text-xs text-center whitespace-nowrap">
-                          {item.teams}팀/{item.headcount}명
-                        </td>
-                        <td className="px-3 py-2.5 text-xs whitespace-nowrap">{item.customerName}</td>
-                        <td className="px-3 py-2.5">
-                          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${
-                            (item as any).userType === "partner" ? "bg-purple-100 text-purple-700" :
-                            (item as any).userType === "manager" ? "bg-gray-100 text-gray-700" :
-                            "bg-blue-100 text-blue-700"
-                          }`}>
-                            {USER_TYPE_ICONS[(item as any).userType as UserType ?? "customer"]}
-                            {USER_TYPE_LABELS[(item as any).userType as UserType ?? "customer"]}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PAYMENT_COLORS[item.paymentStatus as PaymentStatusType]}`}>
-                            {PAYMENT_LABELS[item.paymentStatus as PaymentStatusType]}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          {/* 상태 아이콘 버튼 */}
-                          <div className="flex gap-0.5">
-                            {(["pending", "confirmed", "cancelled", "completed"] as StatusType[]).map((s) => (
-                              <button
-                                key={s}
-                                title={STATUS_LABELS[s]}
-                                onClick={() => {
-                                  if (item.status !== s) {
-                                    // 빠른 상태 변경
-                                    setEditItem({ ...item, status: s });
-                                  }
-                                }}
-                                className={`p-1 rounded transition-all ${
-                                  item.status === s
-                                    ? STATUS_COLORS[s] + " border"
-                                    : "text-gray-300 hover:text-gray-500"
-                                }`}
-                              >
-                                {STATUS_ICONS[s]}
-                              </button>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <div className="flex gap-1">
-                            <button onClick={() => setEditItem(item)}
-                              className="p-1 hover:bg-yellow-50 rounded text-yellow-600" title="수정">
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => { if (confirm("삭제하시겠습니까?")) deleteMut.mutate({ id: item.id }); }}
-                              className="p-1 hover:bg-red-50 rounded text-red-500" title="삭제">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                    (() => {
+                      // 출발일/유형/담당자 라인 표시용 그룹 추적
+                      let prevDep = "";
+                      let prevType = "";
+                      let prevManager = "";
+                      return items.map((item) => {
+                        const depStr = formatDate(item.departureDate);
+                        const typeStr = (item as any).userType ?? "customer";
+                        const managerStr = (item as any).managerName ?? "-";
+                        const showDepLine = depStr !== prevDep;
+                        const showTypeLine = typeStr !== prevType;
+                        const showManagerLine = managerStr !== prevManager;
+                        prevDep = depStr;
+                        prevType = typeStr;
+                        prevManager = managerStr;
+                        const ps = calcPaymentStatus(item);
+                        const warning = isWarningItem(item);
+                        return (
+                          <tr
+                            key={item.id}
+                            className={`border-b hover:bg-gray-50 transition-colors ${
+                              warning ? "bg-red-50/40" : ""
+                            } ${
+                              showDepLine ? "border-t-2 border-t-green-200" : ""
+                            }`}
+                          >
+                            <td className="px-3 py-2.5">
+                              <div className="flex items-center gap-1">
+                                {warning && <TriangleAlert className="w-3 h-3 text-red-500 shrink-0" />}
+                                <span className="font-mono text-xs text-blue-600 font-bold">{item.reservationNo}</span>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2.5 max-w-[140px] truncate text-xs" title={item.golfCourseName ?? ""}>
+                              {item.golfCourseName ?? item.productName}
+                            </td>
+                            <td className={`px-3 py-2.5 whitespace-nowrap text-xs ${
+                              showDepLine ? "font-semibold text-green-700" : ""
+                            }`}>
+                              {depStr}
+                            </td>
+                            <td className="px-3 py-2.5 text-xs text-center whitespace-nowrap">
+                              {item.teams}팀/{item.headcount}명
+                            </td>
+                            <td className="px-3 py-2.5 text-xs whitespace-nowrap">{item.customerName}</td>
+                            <td className={`px-3 py-2.5 ${
+                              showTypeLine ? "border-l-2 border-l-purple-300" : ""
+                            }`}>
+                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${
+                                typeStr === "partner" ? "bg-purple-100 text-purple-700" :
+                                typeStr === "manager" ? "bg-gray-100 text-gray-700" :
+                                "bg-blue-100 text-blue-700"
+                              }`}>
+                                {USER_TYPE_ICONS[typeStr as UserType]}
+                                {/* 제휴사인 경우 제휴사명 표시 */}
+                                {typeStr === "partner"
+                                  ? ((item as any).partnerCompanyName || "제휴사")
+                                  : USER_TYPE_LABELS[typeStr as UserType]}
+                              </span>
+                            </td>
+                            <td className={`px-3 py-2.5 text-xs whitespace-nowrap ${
+                              showManagerLine ? "border-l-2 border-l-blue-200 font-semibold text-blue-700" : ""
+                            }`}>
+                              {managerStr}
+                            </td>
+                            <td className="px-3 py-2.5">
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ps.color}`}>
+                                {ps.label}
+                              </span>
+                            </td>
+                            {/* 진행 드롭박스 */}
+                            <td className="px-3 py-2.5">
+                              <ProgressDropdown
+                                reservationId={item.id}
+                                currentProgress={(item as any).progressStatus ?? ""}
+                                onSuccess={refetch}
+                              />
+                            </td>
+                            <td className="px-3 py-2.5">
+                              {/* 상태 아이콘 버튼 */}
+                              <div className="flex gap-0.5">
+                                {(["pending", "confirmed", "cancelled", "completed"] as StatusType[]).map((s) => (
+                                  <button
+                                    key={s}
+                                    title={STATUS_LABELS[s]}
+                                    onClick={() => {
+                                      if (item.status !== s) {
+                                        setEditItem({ ...item, status: s });
+                                      }
+                                    }}
+                                    className={`p-1 rounded transition-all ${
+                                      item.status === s
+                                        ? STATUS_COLORS[s] + " border"
+                                        : "text-gray-300 hover:text-gray-500"
+                                    }`}
+                                  >
+                                    {STATUS_ICONS[s]}
+                                  </button>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2.5">
+                              <div className="flex gap-1">
+                                {/* 관리 아이콘 - 클릭 시 예약 상세관리 팝업 */}
+                                <button
+                                  onClick={() => setEditItem(item)}
+                                  className="p-1 hover:bg-green-50 rounded text-green-600" title="상세관리">
+                                  <Settings className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={() => setEditItem(item)}
+                                  className="p-1 hover:bg-yellow-50 rounded text-yellow-600" title="수정">
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => { if (confirm("삭제하시겠습니까?")) deleteMut.mutate({ id: item.id }); }}
+                                  className="p-1 hover:bg-red-50 rounded text-red-500" title="삭제">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()
                   )}
                 </tbody>
               </table>

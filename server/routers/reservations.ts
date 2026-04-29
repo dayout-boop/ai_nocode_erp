@@ -9,7 +9,7 @@ import {
   chargeRecords,
   prepaidRecords,
 } from "../../drizzle/schema";
-import { eq, like, desc, and, gte, lte, or } from "drizzle-orm";
+import { eq, like, desc, asc, and, gte, lte, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { format } from "date-fns";
 
@@ -32,6 +32,9 @@ export const reservationsRouter = router({
         paymentStatus: z.enum(["unpaid", "partial", "paid", "all"]).default("all"),
         dateFrom: z.string().optional(),
         dateTo: z.string().optional(),
+        sortBy: z.enum(["departureDate", "createdAt", "headcount"]).default("departureDate"),
+        sortOrder: z.enum(["asc", "desc"]).default("desc"),
+        warningOnly: z.boolean().default(false),
       })
     )
     .query(async ({ input }) => {
@@ -64,14 +67,36 @@ export const reservationsRouter = router({
         conditions.push(lte(reservations.departureDate, new Date(input.dateTo)) as any);
       }
 
+      // 경고 필터: 출발일 15일 전 예약 중 완납 아닌 건
+      if (input.warningOnly) {
+        const warningDate = new Date();
+        warningDate.setDate(warningDate.getDate() + 15);
+        conditions.push(lte(reservations.departureDate, warningDate) as any);
+        conditions.push(gte(reservations.departureDate, new Date()) as any);
+        // 완납(paid) 아닌 것만
+        conditions.push(
+          or(
+            eq(reservations.paymentStatus, "unpaid"),
+            eq(reservations.paymentStatus, "partial")
+          ) as any
+        );
+      }
+
       const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+      // 동적 정렬
+      const sortCol =
+        input.sortBy === "createdAt" ? reservations.createdAt
+        : input.sortBy === "headcount" ? reservations.headcount
+        : reservations.departureDate;
+      const orderExpr = input.sortOrder === "asc" ? asc(sortCol) : desc(sortCol);
 
       const [rows, countRows] = await Promise.all([
         db
           .select()
           .from(reservations)
           .where(whereClause)
-          .orderBy(desc(reservations.departureDate))
+          .orderBy(orderExpr)
           .limit(input.pageSize)
           .offset(offset),
         db.select({ id: reservations.id }).from(reservations).where(whereClause),
@@ -191,6 +216,7 @@ export const reservationsRouter = router({
         partnerContactPhone: z.string().optional(),
         managerName: z.string().optional(),
         managerPhone: z.string().optional(),
+        progressStatus: z.enum(["proceeding", "impossible", "confirmed", "waiting"]).optional(),
       })
     )
     .mutation(async ({ input }) => {

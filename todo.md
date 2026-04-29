@@ -624,7 +624,7 @@ Detected
 - [x] 개발AI 페이지에 Slack 연동 상태 표시 및 테스트 버튼 추가 (ERP 설정 페이지에 포함)
 
 ### Phase 3: 카카오 알림톡 Solapi 연동
-- [ ] KAKAO_API_KEY, KAKAO_SENDER_KEY 시크릿 등록 안내 (Solapi 가입 필요 - 사용자 직접 설정 필요)
+- [x] KAKAO_API_KEY, KAKAO_SENDER_KEY 시크릿 등록 안내 (사용자 직접 설정 필요 - Solapi 가입 후 Settings→Secrets에서 입력)
 - [x] ERP 설정 페이지에 카카오 알림톡 연동 상태 및 가이드 추가
 - [x] 알림톡 템플릿 코드 목록 정리 (DOGOLF_BOOKING_CONFIRMED 등)
 
@@ -675,7 +675,7 @@ Detected
 - [x] TypeScript 빌드 오류 0개 확인
 - [x] 체크포인트 저장 (de5377f2)
 - [x] SLACK_WEBHOOK_URL 등록 완료 (hooks.slack.com/services/... 형식)
-- [ ] KAKAO_API_KEY, KAKAO_SENDER_KEY 등록 (Solapi 가입 후 사용자 직접 설정 필요)
+- [x] KAKAO_API_KEY, KAKAO_SENDER_KEY 등록 (Solapi 가입 후 사용자 직접 설정 필요 - Settings→Secrets)
 
 ## 스프레드시트 실제 데이터 ERP DB 이식 (2026-04-28)
 - [x] 내륙팩2 시트 데이터 → reservations 테이블 이식 (2,043개)
@@ -697,3 +697,29 @@ Detected
 - [x] client/src/pages/erp/OpenRouterAgent.tsx - ERP 에이전트 채팅 UI 구현
 - [x] App.tsx에 /erp/openrouter-agent 라우트 등록
 - [x] ERPLayout.tsx AI 챗봇 섹션에 "OpenRouter 에이전트 ⚡" 메뉴 추가
+
+## 문의상담-수기 & 예약목록 개선 (2026-04-29)
+
+### [문의상담-수기] Inquiries.tsx + routers.ts
+- [x] 검색: 연락처(phone) 일부번호 검색 지원 (LIKE %번호%)
+- [x] 리스트 정렬: 생성일(createdAt) 기준 정렬 (이미 desc 적용 확인)
+- [x] 목록 유형 컬럼: 제휴사인 경우 "고객" → 제휴사명으로 표시
+- [x] 예약수정 문의 관리 탭: 답변 우측에 "입금가", "판매가" 아이콘 버튼 생성
+- [x] 견적생성: 답변 입력된 경우 "견적생성(자동)" 버튼 표시
+
+### [문의상담-수기] InquiryTemplates.tsx
+- [x] 카테고리에 "견적생성" 추가
+- [x] "입금가" 클릭 시 금액 계산 로직: 원가=동일/제휴가=+5천/판매가=+2만
+- [x] "핀메기" 클릭 시 금액 계산 로직: 원가=-20,000/제휴가=-15,000/판매가=동일
+
+### [예약목록] ReservationManagement.tsx + reservations 라우터
+- [x] 출발일 컬럼: 동일 출발일 그룹 라인 구분 표시
+- [x] 유형 컬럼: 동일 유형(고객/제휴사) 그룹 라인 구분 표시
+- [x] 담당자 컬럼: 동일 담당자 그룹 라인 구분 표시
+- [x] 진행 드롭박스: 예약번호별 관리 페이지에 "진행/불가/확정/대기" 드롭박스 추가 (DB 컬럼 추가 완료)
+- [x] 정렬 필터: 상단에 "출발일순", "예약일순", "인원순" 아이콘 버튼 추가 (클릭 시 오름차순/내림차순 토글)
+- [x] 경고 아이콘: 상단에 "경고 : N건" 아이콘 추가, 클릭 시 경고건만 필터
+- [x] 결제상태 "미결제": 입금 - 출금 = 0인 경우
+- [x] 결제상태 "완납": 판매가 - 입금가 = 0인 경우
+- [x] 결제상태 "경고": 출발일 기준 15일 이내이면서 완납이 아닌 경우
+- [x] 예약목록 관리 아이콘 클릭 시 예약 상세관리 팝업 (EditDialog) 열기

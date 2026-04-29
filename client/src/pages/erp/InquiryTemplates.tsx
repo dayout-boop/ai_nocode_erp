@@ -20,6 +20,7 @@ const CATEGORIES = [
   { value: "accommodation", label: "숙소 문의" },
   { value: "transport", label: "교통 문의" },
   { value: "general", label: "일반 문의" },
+  { value: "estimate", label: "견적생성" },
 ];
 
 interface TemplateFormProps {

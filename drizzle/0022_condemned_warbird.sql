@@ -1,0 +1,1 @@
+ALTER TABLE `reservations` ADD `progressStatus` enum('proceeding','impossible','confirmed','waiting') DEFAULT 'proceeding';

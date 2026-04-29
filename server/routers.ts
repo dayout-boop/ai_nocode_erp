@@ -883,7 +883,12 @@ const inquiriesRouter = router({
     const offset = (input.page - 1) * input.limit;
     const conditions: any[] = [];
     if (input.status) conditions.push(eq(inquiries.status, input.status as any));
-    if (input.search) conditions.push(like(inquiries.name, `%${input.search}%`));
+    if (input.search) {
+      // 이름 또는 연락처(phone) 일부 번호로 검색
+      conditions.push(
+        sql`(${inquiries.name} LIKE ${`%${input.search}%`} OR ${inquiries.phone} LIKE ${`%${input.search}%`})`
+      );
+    }
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
     const items = await db.select().from(inquiries).where(whereClause).orderBy(desc(inquiries.createdAt)).limit(input.limit).offset(offset);
     const [total] = await db.select({ count: count() }).from(inquiries).where(whereClause);

@@ -195,7 +195,7 @@ export const inquiryTemplatesRouter = router({
   list: protectedProcedure
     .input(
       z.object({
-        category: z.enum(["golf_booking", "accommodation", "transport", "general", "all"]).default("all"),
+        category: z.enum(["golf_booking", "accommodation", "transport", "general", "estimate", "all"]).default("all"),
       })
     )
     .query(async ({ input }) => {
@@ -217,7 +217,7 @@ export const inquiryTemplatesRouter = router({
     .input(
       z.object({
         name: z.string().min(1),
-        category: z.enum(["golf_booking", "accommodation", "transport", "general"]).default("golf_booking"),
+        category: z.enum(["golf_booking", "accommodation", "transport", "general", "estimate"]).default("golf_booking"),
         content: z.string().min(1),
         variables: z.string().optional(),
       })
@@ -239,7 +239,7 @@ export const inquiryTemplatesRouter = router({
       z.object({
         id: z.number(),
         name: z.string().min(1).optional(),
-        category: z.enum(["golf_booking", "accommodation", "transport", "general"]).optional(),
+        category: z.enum(["golf_booking", "accommodation", "transport", "general", "estimate"]).optional(),
         content: z.string().min(1).optional(),
         variables: z.string().optional(),
         isActive: z.boolean().optional(),

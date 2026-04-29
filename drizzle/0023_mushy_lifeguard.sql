@@ -1,0 +1,1 @@
+ALTER TABLE `inquiry_templates` MODIFY COLUMN `category` enum('golf_booking','accommodation','transport','general','estimate') DEFAULT 'golf_booking';
