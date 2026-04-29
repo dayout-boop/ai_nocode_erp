@@ -124,7 +124,7 @@ function TemplateForm({ initial, onSave, onCancel, isSaving }: TemplateFormProps
 export default function InquiryTemplates() {
   const [showCreate, setShowCreate] = useState(false);
   const [editItem, setEditItem] = useState<any | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState<"golf_booking" | "accommodation" | "transport" | "general" | "all">("all");
+  const [categoryFilter, setCategoryFilter] = useState<"golf_booking" | "accommodation" | "transport" | "general" | "estimate" | "all">("all");
   const [previewItem, setPreviewItem] = useState<any | null>(null);
 
   const { data: templates, refetch } = trpc.inquiryTemplates.list.useQuery({ category: categoryFilter });

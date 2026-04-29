@@ -343,6 +343,35 @@ interface InquiryTabsProps {
   salePriceTotal?: number;
 }
 
+// 입금가/핀메기 가격 계산 팝업 컴포넌트
+function PriceCalcPopup({ base, mode, onClose }: { base: number; mode: "deposit" | "pinmegi"; onClose: () => void }) {
+  const prices = mode === "deposit"
+    ? { label: "입금가 기준", cost: base, affiliate: base + 5000, sale: base + 20000 }
+    : { label: "핀메기 기준", cost: base - 20000, affiliate: base - 15000, sale: base };
+  return (
+    <div className="absolute right-0 top-8 z-50 bg-white border border-gray-200 rounded-xl shadow-xl p-3 w-56" onClick={e => e.stopPropagation()}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-bold text-gray-700">{prices.label}</span>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+      </div>
+      <div className="space-y-1.5">
+        <div className="flex justify-between items-center py-1 px-2 bg-gray-50 rounded">
+          <span className="text-xs text-gray-500">원가</span>
+          <span className="text-xs font-bold text-gray-800">{prices.cost.toLocaleString()}원</span>
+        </div>
+        <div className="flex justify-between items-center py-1 px-2 bg-purple-50 rounded">
+          <span className="text-xs text-purple-600">제휴가</span>
+          <span className="text-xs font-bold text-purple-800">{prices.affiliate.toLocaleString()}원</span>
+        </div>
+        <div className="flex justify-between items-center py-1 px-2 bg-green-50 rounded">
+          <span className="text-xs text-green-600">판매가</span>
+          <span className="text-xs font-bold text-green-800">{prices.sale.toLocaleString()}원</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function InquiryTabs({ reservationId, reservationNo, depositPrice = 0, salePriceTotal = 0 }: InquiryTabsProps) {
   const { data: inquiries, refetch } = trpc.reservationInquiries.listByReservation.useQuery({ reservationId });
   const { data: templates } = trpc.inquiryTemplates.list.useQuery({ category: "all" });
@@ -351,6 +380,20 @@ function InquiryTabs({ reservationId, reservationNo, depositPrice = 0, salePrice
   const [replyDebounce, setReplyDebounce] = useState<Record<number, ReturnType<typeof setTimeout>>>({});
   const [generatingId, setGeneratingId] = useState<number | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<Record<number, number>>({});
+  const [pricePopup, setPricePopup] = useState<{ inqId: number; mode: "deposit" | "pinmegi" } | null>(null);
+  const [creatingEstimateId, setCreatingEstimateId] = useState<number | null>(null);
+
+  const createEstimateMut = trpc.estimates.create.useMutation({
+    onSuccess: (data) => {
+      toast.success("견적서가 생성되었습니다!");
+      setCreatingEstimateId(null);
+      // 견적서 링크 열기
+      if (data?.token) {
+        window.open(`/estimate/${data.token}`, "_blank");
+      }
+    },
+    onError: (e) => { toast.error(e.message); setCreatingEstimateId(null); },
+  });
 
   const createMut = trpc.reservationInquiries.create.useMutation({
     onSuccess: () => refetch(),
@@ -540,34 +583,52 @@ function InquiryTabs({ reservationId, reservationNo, depositPrice = 0, salePrice
                     {/* 답변 탭 */}
                     <TabsContent value="reply">
                       <div className="space-y-2">
-                        {/* 입금가 / 판매가 / 핀메기 아이콘 */}
+                        {/* 입금가 / 핀메기 아이콘 - 팝업 형태 */}
                         <div className="flex items-center justify-between">
                           <Label className="text-xs text-gray-500">골프장 답변 내용 (자동저장)</Label>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 relative">
                             <button
                               type="button"
-                              onClick={() => {
-                                const base = depositPrice;
-                                toast.info(`입금가 기준 — 원가: ${base.toLocaleString()}원 / 제휴가: ${(base+5000).toLocaleString()}원 / 판매가: ${(base+20000).toLocaleString()}원`);
-                              }}
+                              onClick={() => setPricePopup(
+                                pricePopup?.inqId === inq.id && pricePopup?.mode === "deposit"
+                                  ? null
+                                  : { inqId: inq.id, mode: "deposit" }
+                              )}
                               title="입금가 기준 (원가=동일/제휴가=+5천/판매가=+2만)"
-                              className="flex items-center gap-1 px-2 py-1 rounded text-xs border bg-white text-green-700 border-green-300 hover:bg-green-50 transition-all"
+                              className={`flex items-center gap-1 px-2 py-1 rounded text-xs border transition-all ${
+                                pricePopup?.inqId === inq.id && pricePopup?.mode === "deposit"
+                                  ? "bg-green-700 text-white border-green-700"
+                                  : "bg-white text-green-700 border-green-300 hover:bg-green-50"
+                              }`}
                             >
                               <DollarSign className="w-3 h-3" />
                               입금가
                             </button>
                             <button
                               type="button"
-                              onClick={() => {
-                                const base = depositPrice;
-                                toast.info(`핀메기 기준 — 원가: ${(base-20000).toLocaleString()}원 / 제휴가: ${(base-15000).toLocaleString()}원 / 판매가: ${base.toLocaleString()}원`);
-                              }}
+                              onClick={() => setPricePopup(
+                                pricePopup?.inqId === inq.id && pricePopup?.mode === "pinmegi"
+                                  ? null
+                                  : { inqId: inq.id, mode: "pinmegi" }
+                              )}
                               title="핀메기 기준 (원가=-2만/제휴가=-1.5만/판매가=동일)"
-                              className="flex items-center gap-1 px-2 py-1 rounded text-xs border bg-white text-orange-700 border-orange-300 hover:bg-orange-50 transition-all"
+                              className={`flex items-center gap-1 px-2 py-1 rounded text-xs border transition-all ${
+                                pricePopup?.inqId === inq.id && pricePopup?.mode === "pinmegi"
+                                  ? "bg-orange-600 text-white border-orange-600"
+                                  : "bg-white text-orange-700 border-orange-300 hover:bg-orange-50"
+                              }`}
                             >
                               <DollarSign className="w-3 h-3" />
                               핀메기
                             </button>
+                            {/* 가격 계산 팝업 */}
+                            {pricePopup?.inqId === inq.id && (
+                              <PriceCalcPopup
+                                base={depositPrice}
+                                mode={pricePopup.mode}
+                                onClose={() => setPricePopup(null)}
+                              />
+                            )}
                           </div>
                         </div>
                         <Textarea
@@ -582,11 +643,20 @@ function InquiryTabs({ reservationId, reservationNo, depositPrice = 0, salePrice
                         {inq.replyText && (
                           <button
                             type="button"
-                            onClick={() => toast.info("견적생성 기능은 고객 견적서 템플릿 연동 후 사용 가능합니다.")}
-                            className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-indigo-300 text-indigo-700 hover:bg-indigo-50 text-xs font-medium transition-colors"
+                            disabled={creatingEstimateId === inq.id}
+                            onClick={() => {
+                              setCreatingEstimateId(inq.id);
+                              createEstimateMut.mutate({
+                                reservationId,
+                                estimateType: "customer",
+                              });
+                            }}
+                            className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-indigo-300 text-indigo-700 hover:bg-indigo-50 text-xs font-medium transition-colors disabled:opacity-60"
                           >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            견적생성(자동)
+                            {creatingEstimateId === inq.id
+                              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> 견적서 생성 중...</>
+                              : <><MessageSquare className="w-3.5 h-3.5" /> 견적생성(자동)</>
+                            }
                           </button>
                         )}
                       </div>
@@ -1304,11 +1374,38 @@ export default function ReservationManagement() {
           ))}
         </div>
 
+        {/* 정렬 버튼 */}
+        <div className="flex flex-wrap gap-1.5 items-center">
+          <span className="text-xs text-gray-500 font-medium">정렬:</span>
+          {(["departureDate", "createdAt", "headcount"] as SortByType[]).map((col) => {
+            const labels: Record<SortByType, string> = { departureDate: "출발일순", createdAt: "예약일순", headcount: "인원순" };
+            const active = sortBy === col;
+            return (
+              <button
+                key={col}
+                onClick={() => handleSort(col)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
+                  active
+                    ? "bg-green-700 text-white border-green-700 shadow-sm"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-green-400 hover:text-green-700"
+                }`}
+              >
+                {labels[col]}
+                {active ? (
+                  sortOrder === "asc"
+                    ? <ArrowUp className="w-3 h-3" />
+                    : <ArrowDown className="w-3 h-3" />
+                ) : <ArrowUpDown className="w-3 h-3 text-gray-400" />}
+              </button>
+            );
+          })}
+        </div>
+
         {/* 검색 및 필터 */}
         <div className="flex flex-wrap gap-2 items-center">
           <div className="flex gap-2 flex-1 min-w-[200px]">
             <Input
-              placeholder="예약번호, 고객명, 상품명 검색..."
+              placeholder="예약번호, 고객명, 상품명, 연락처 검색..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { setSearch(searchInput); setPage(1); } }}
