@@ -2,6 +2,8 @@ import { reservationsRouter } from "./routers/reservations";
 import { affiliatesRouter } from "./routers/affiliates";
 import { settingsRouter } from "./routers/settings";
 import { reservationInquiriesRouter, inquiryTemplatesRouter } from "./routers/reservationInquiries";
+import { reservationItinerariesRouter } from "./routers/reservationItineraries";
+import { reservationAffiliateCostsRouter } from "./routers/reservationAffiliateCosts";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -170,6 +172,18 @@ const packagesRouter = router({
     includesGreenFee: z.boolean().optional(),
     includesHotel: z.boolean().optional(),
     sortOrder: z.number().optional(),
+    defaultItinerary: z.array(z.object({
+      dayIndex: z.number(),
+      dayType: z.string(),
+      holeCount: z.number().optional(),
+      teeTime: z.string().optional(),
+      golfAffiliateId: z.number().optional().nullable(),
+      accommodationAffiliateId: z.number().optional().nullable(),
+      roomType: z.string().optional(),
+      roomCount: z.number().optional(),
+      flightInfo: z.any().optional().nullable(),
+      notes: z.string().optional(),
+    })).optional().nullable(),
   })).mutation(async ({ input }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
@@ -2644,5 +2658,7 @@ export const appRouter = router({
   openrouterAgent: openrouterAgentRouter,
   customerEstimateTemplates: customerEstimateTemplatesRouter,
   estimates: estimatesRouter,
+  reservationItineraries: reservationItinerariesRouter,
+  reservationAffiliateCosts: reservationAffiliateCostsRouter,
 });
 export type AppRouter = typeof appRouter;

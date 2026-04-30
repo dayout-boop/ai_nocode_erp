@@ -15,7 +15,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Search, Edit, Trash2, Eye, Package } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye, Package, Calendar } from "lucide-react";
+import ReservationItineraryTab from "./ReservationItineraryTab";
 import { Link } from "wouter";
 
 const COUNTRY_MAP: Record<string, string> = {
@@ -62,6 +63,7 @@ function PackageFormDialog({
     includesGreenFee: editPackage?.includesGreenFee ?? true,
     includesHotel: editPackage?.includesHotel ?? true,
   });
+  const [showItineraryTemplate, setShowItineraryTemplate] = useState(false);
 
   const createMutation = trpc.packages.create.useMutation({
     onSuccess: () => {
@@ -258,6 +260,36 @@ function PackageFormDialog({
               </div>
             </div>
           </div>
+          {/* 기본 일정 템플릿 */}
+          {editPackage?.id && (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <Label className="flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5" /> 기본 일정 템플릿
+                </Label>
+                <button
+                  type="button"
+                  onClick={() => setShowItineraryTemplate(!showItineraryTemplate)}
+                  className="text-xs text-green-700 hover:text-green-900 border border-green-300 px-2 py-0.5 rounded"
+                >
+                  {showItineraryTemplate ? "접기" : "일정 템플릿 설정"}
+                </button>
+              </div>
+              {showItineraryTemplate && (
+                <div className="border rounded-lg p-3 bg-gray-50">
+                  <p className="text-xs text-gray-500 mb-2">
+                    상품에 기본 일정을 설정하면 이 상품으로 예약 생성 시 자동으로 일정이 복사됩니다.
+                  </p>
+                  <ReservationItineraryTab
+                    reservationId={-(editPackage.id)} 
+                    packageId={editPackage.id}
+                    isPackageTemplate
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div className="flex items-center gap-2">
               <Switch

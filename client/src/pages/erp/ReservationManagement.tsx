@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import ReservationItineraryTab from "./ReservationItineraryTab";
+import ReservationAffiliateCostTab from "./ReservationAffiliateCostTab";
 
 type StatusType = "pending" | "confirmed" | "cancelled" | "completed";
 type PaymentStatusType = "unpaid" | "partial" | "paid";
@@ -1120,6 +1122,8 @@ function EditDialog({ item, onClose, onSuccess }: EditDialogProps) {
           <TabsTrigger value="basic">기본 정보</TabsTrigger>
           <TabsTrigger value="contact">고객/파트너</TabsTrigger>
           <TabsTrigger value="price">금액</TabsTrigger>
+          <TabsTrigger value="itinerary">일정</TabsTrigger>
+          <TabsTrigger value="costs">제휴사 비용</TabsTrigger>
           <TabsTrigger value="inquiry">문의 관리</TabsTrigger>
         </TabsList>
 
@@ -1352,6 +1356,20 @@ function EditDialog({ item, onClose, onSuccess }: EditDialogProps) {
           </div>
           {/* 거래처별 송금 분리 표시 */}
           <RemittanceByType reservationId={item.id} reservationNo={item.reservationNo} />
+        </TabsContent>
+
+        {/* 일정 탭 */}
+        <TabsContent value="itinerary">
+          <ReservationItineraryTab
+            reservationId={item.id}
+            departureDate={item.departureDate ? new Date(item.departureDate).toISOString().split("T")[0] : undefined}
+            nights={item.nights ?? 0}
+          />
+        </TabsContent>
+
+        {/* 제휴사 비용 탭 */}
+        <TabsContent value="costs">
+          <ReservationAffiliateCostTab reservationId={item.id} />
         </TabsContent>
 
         {/* 문의 관리 탭 */}

@@ -60,6 +60,8 @@ export const packages = mysqlTable("packages", {
   includesHotel: boolean("includesHotel").default(false),
   sortOrder: int("sortOrder").default(0),
   viewCount: int("viewCount").default(0),
+  // 기본 일정 템플릿 (예약 생성 시 자동 적용)
+  defaultItinerary: json("defaultItinerary"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -1151,3 +1153,67 @@ export const estimates = mysqlTable("estimates", {
 });
 export type Estimate = typeof estimates.$inferSelect;
 export type InsertEstimate = typeof estimates.$inferInsert;
+
+// ============================================================
+// RESERVATION_ITINERARIES - 예약 일정 상세
+// ============================================================
+export const reservationItineraries = mysqlTable("reservation_itineraries", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 연결된 예약 ID */
+  reservationId: int("reservationId").notNull(),
+  /** 일차 인덱스 (0-based: 0=1일차, 1=2일차, ...) */
+  dayIndex: int("dayIndex").notNull(),
+  /** 해당 날짜 */
+  date: timestamp("date"),
+  /** 일자 유형: departure(출발일) | stay(체류일) | arrival(도착일) | daytrip(당일) */
+  dayType: mysqlEnum("dayType", ["departure", "stay", "arrival", "daytrip"]).default("stay"),
+  /** 골프장 제휴사 ID (affiliates 참조, nullable) */
+  golfAffiliateId: int("golfAffiliateId"),
+  /** 홀수 (0=라운딩없음, 9, 18, 27, 36) */
+  holeCount: int("holeCount").default(18),
+  /** 티오프 시간 (예: "08:30") */
+  teeTime: varchar("teeTime", { length: 10 }),
+  /** 숙소 제휴사 ID (affiliates 참조, nullable) */
+  accommodationAffiliateId: int("accommodationAffiliateId"),
+  /** 객실 타입 (예: "스탠다드 더블") */
+  roomType: varchar("roomType", { length: 100 }),
+  /** 객실 수 */
+  roomCount: int("roomCount").default(1),
+  /** 항공 정보 (JSON: {airline, depAirport, depTime, arrAirport, arrTime}) */
+  flightInfo: text("flightInfo"),
+  /** 비고 */
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+export type ReservationItinerary = typeof reservationItineraries.$inferSelect;
+export type InsertReservationItinerary = typeof reservationItineraries.$inferInsert;
+
+// ============================================================
+// RESERVATION_AFFILIATE_COSTS - 예약별 제휴사 비용
+// ============================================================
+export const reservationAffiliateCosts = mysqlTable("reservation_affiliate_costs", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 연결된 예약 ID */
+  reservationId: int("reservationId").notNull(),
+  /** 제휴사 ID (affiliates 참조, nullable) */
+  affiliateId: int("affiliateId"),
+  /** 제휴사명 (직접 입력 시 사용, affiliateId 없을 때) */
+  affiliateName: varchar("affiliateName", { length: 200 }),
+  /** 비용 유형: golf | accommodation | transport | other */
+  costType: mysqlEnum("costType", ["golf", "accommodation", "transport", "other"]).default("golf"),
+  /** 해당 날짜 */
+  date: timestamp("date"),
+  /** 확정 시간 (티오프시간 또는 체크인/아웃 시간, 예: "08:30") */
+  confirmedTime: varchar("confirmedTime", { length: 20 }),
+  /** 입금가 (원가) */
+  unitPrice: int("unitPrice").default(0),
+  /** 판매가 */
+  salePrice: int("salePrice").default(0),
+  /** 수량 */
+  quantity: int("quantity").default(1),
+  /** 비고 */
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+export type ReservationAffiliateCost = typeof reservationAffiliateCosts.$inferSelect;
+export type InsertReservationAffiliateCost = typeof reservationAffiliateCosts.$inferInsert;

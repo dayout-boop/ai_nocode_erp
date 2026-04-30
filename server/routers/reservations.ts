@@ -8,6 +8,8 @@ import {
   depositRecords,
   chargeRecords,
   prepaidRecords,
+  packages,
+  reservationItineraries,
 } from "../../drizzle/schema";
 import { eq, like, desc, asc, and, gte, lte, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
@@ -162,6 +164,7 @@ export const reservationsRouter = router({
         partnerContactPhone: z.string().optional(),
         managerName: z.string().optional(),
         managerPhone: z.string().optional(),
+        packageId: z.number().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -170,8 +173,9 @@ export const reservationsRouter = router({
       const reservationNo = generateReservationNo();
       // 담당자 정보 자동 기입
       const managerName = input.managerName || ctx.user.name || ctx.user.email || undefined;
+      const { packageId, ...restInput } = input;
       const [result] = await db.insert(reservations).values({
-        ...input,
+        ...restInput,
         reservationNo,
         departureDate: new Date(input.departureDate),
         paymentStatus: "unpaid",
@@ -179,7 +183,54 @@ export const reservationsRouter = router({
         remittedAmount: 0,
         managerName,
       });
-      return { id: (result as any).insertId, reservationNo };
+      const newReservationId = (result as any).insertId as number;
+
+      // 상품의 기본 일정 템플릿 자동 복사
+      if (packageId) {
+        try {
+          const [pkg] = await db.select().from(packages).where(eq(packages.id, packageId));
+          const defaultItinerary = pkg?.defaultItinerary as Array<{
+            dayIndex: number;
+            dayType: string;
+            holeCount?: number;
+            teeTime?: string;
+            golfAffiliateId?: number;
+            accommodationAffiliateId?: number;
+            roomType?: string;
+            roomCount?: number;
+            flightInfo?: unknown;
+            notes?: string;
+          }> | null;
+
+          if (defaultItinerary && defaultItinerary.length > 0) {
+            const departureDateObj = new Date(input.departureDate);
+            const itineraryValues = defaultItinerary.map((row) => {
+              const d = new Date(departureDateObj);
+              d.setDate(d.getDate() + row.dayIndex);
+              return {
+                reservationId: newReservationId,
+                dayIndex: row.dayIndex,
+                date: d,
+                dayType: (row.dayType ?? "stay") as "departure" | "stay" | "arrival" | "daytrip",
+                holeCount: row.holeCount ?? 18,
+                teeTime: row.teeTime ?? null,
+                golfAffiliateId: row.golfAffiliateId ?? null,
+                accommodationAffiliateId: row.accommodationAffiliateId ?? null,
+                roomType: row.roomType ?? null,
+                roomCount: row.roomCount ?? 1,
+                flightInfo: row.flightInfo ? JSON.stringify(row.flightInfo) : null,
+                notes: row.notes ?? null,
+              };
+            });
+            await db.insert(reservationItineraries).values(itineraryValues);
+          }
+        } catch (e) {
+          // 일정 복사 실패는 예약 생성을 막지 않음
+          console.error("[create reservation] 기본 일정 복사 실패:", e);
+        }
+      }
+
+      return { id: newReservationId, reservationNo };
     }),
 
   // ─── 예약 수정 ────────────────────────────────────────────────

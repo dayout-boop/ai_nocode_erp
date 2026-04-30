@@ -176,6 +176,20 @@
       "when": 1777453191696,
       "tag": "0024_sloppy_scarlet_witch",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1777515728012,
+      "tag": "0025_closed_moira_mactaggert",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "5",
+      "when": 1777516460084,
+      "tag": "0026_free_imperial_guard",
+      "breakpoints": true
     }
   ]
 }

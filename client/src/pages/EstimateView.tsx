@@ -4,11 +4,59 @@
  */
 import { useParams } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { Phone, Mail, Calendar, MapPin, Users, DollarSign, CheckCircle2, XCircle, Info, Printer } from "lucide-react";
+import { Phone, Mail, Calendar, MapPin, Users, DollarSign, CheckCircle2, XCircle, Info, Printer, Plane, Hotel, Flag } from "lucide-react";
+
+// 일정 타입
+type ItineraryItem = {
+  id: number;
+  dayIndex: number;
+  date: Date | null;
+  dayType: string | null;
+  holeCount: number | null;
+  teeTime: string | null;
+  roomType: string | null;
+  roomCount: number | null;
+  flightInfo: unknown;
+  notes: string | null;
+  golfAffiliateName: string | null;
+  accommodationAffiliateName: string | null;
+};
+
+const DAY_TYPE_KO: Record<string, string> = {
+  departure: "출발일",
+  stay: "체류일",
+  arrival: "도착일",
+  daytrip: "당일",
+};
 
 // 변수 치환 함수
-function replaceVariables(template: string, reservation: Record<string, unknown>): string {
+function replaceVariables(
+  template: string,
+  reservation: Record<string, unknown>,
+  itineraries?: ItineraryItem[]
+): string {
   if (!template) return "";
+
+  // 일정 자동 치환: {{일정표}} → 일자별 텍스트 블록
+  let scheduleBlock = "";
+  if (itineraries && itineraries.length > 0) {
+    scheduleBlock = itineraries
+      .map((row) => {
+        const dateStr = row.date ? new Date(row.date).toLocaleDateString("ko-KR") : "";
+        const dayLabel = DAY_TYPE_KO[row.dayType ?? ""] ?? row.dayType ?? "";
+        const golf = row.golfAffiliateName ? `골프장: ${row.golfAffiliateName}` : "";
+        const hole = row.holeCount ? `${row.holeCount}홀` : "";
+        const tee = row.teeTime ? `티오프: ${row.teeTime}` : "";
+        const hotel = row.accommodationAffiliateName ? `숙소: ${row.accommodationAffiliateName}` : "";
+        const room = row.roomType ? `(${row.roomType})` : "";
+        const fi = row.flightInfo as { airline?: string; depAirport?: string; depTime?: string; arrAirport?: string; arrTime?: string } | null;
+        const flight = fi?.airline ? `항공: ${fi.airline} ${fi.depAirport ?? ""}→${fi.arrAirport ?? ""} ${fi.depTime ?? ""}-${fi.arrTime ?? ""}` : "";
+        const parts = [golf, hole && golf ? `(${hole})` : hole, tee, hotel + room, flight, row.notes].filter(Boolean);
+        return `[${row.dayIndex + 1}일차 ${dayLabel}${dateStr ? " " + dateStr : ""}]\n${parts.join(" / ") || "-"}`;
+      })
+      .join("\n\n");
+  }
+
   return template
     .replace(/\{\{고객명\}\}/g, String(reservation.customerName ?? ""))
     .replace(/\{\{예약번호\}\}/g, String(reservation.reservationNo ?? ""))
@@ -26,7 +74,9 @@ function replaceVariables(template: string, reservation: Record<string, unknown>
     .replace(/\{\{티타임\}\}/g, String(reservation.teeTime ?? ""))
     .replace(/\{\{숙소\}\}/g, String(reservation.accommodationName ?? ""))
     .replace(/\{\{국가\}\}/g, String(reservation.country ?? ""))
-    .replace(/\{\{발송일\}\}/g, new Date().toLocaleDateString("ko-KR"));
+    .replace(/\{\{발송일\}\}/g, new Date().toLocaleDateString("ko-KR"))
+    .replace(/\{\{일정표\}\}/g, scheduleBlock)
+    .replace(/\{\{상품군\}\}/g, String(reservation.packageType ?? ""));
 }
 
 export default function EstimateView() {
@@ -61,17 +111,18 @@ export default function EstimateView() {
     );
   }
 
-  const { estimate, reservation, template } = data;
+  const { estimate, reservation, template, itineraries } = data as typeof data & { itineraries?: ItineraryItem[] };
   if (!reservation) {
     return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">예약 정보가 없습니다.</p></div>;
   }
 
   const res = reservation as Record<string, unknown>;
 
-  const includeItems = template?.includeItems ? replaceVariables(template.includeItems, res) : null;
-  const excludeItems = template?.excludeItems ? replaceVariables(template.excludeItems, res) : null;
-  const schedule = template?.schedule ? replaceVariables(template.schedule, res) : null;
-  const notes = template?.notes ? replaceVariables(template.notes, res) : null;
+  const includeItems = template?.includeItems ? replaceVariables(template.includeItems, res, itineraries) : null;
+  const excludeItems = template?.excludeItems ? replaceVariables(template.excludeItems, res, itineraries) : null;
+  const schedule = template?.schedule ? replaceVariables(template.schedule, res, itineraries) : null;
+  const notes = template?.notes ? replaceVariables(template.notes, res, itineraries) : null;
+  const hasItineraries = itineraries && itineraries.length > 0;
 
   const departureDate = res.departureDate ? new Date(res.departureDate as string).toLocaleDateString("ko-KR") : "-";
   const returnDate = res.returnDate ? new Date(res.returnDate as string).toLocaleDateString("ko-KR") : "-";
@@ -190,7 +241,7 @@ export default function EstimateView() {
           </div>
         )}
 
-        {/* 세부 일정 */}
+        {/* 세부 일정 (템플릿 텍스트) */}
         {schedule && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-5 mb-4">
             <div className="flex items-center gap-2 mb-3">
@@ -198,6 +249,63 @@ export default function EstimateView() {
               <h2 className="font-bold text-gray-900">세부 일정</h2>
             </div>
             <pre className="whitespace-pre-wrap text-sm text-gray-700 leading-relaxed font-sans">{schedule}</pre>
+          </div>
+        )}
+
+        {/* 일정 테이블 (reservation_itineraries 데이터) */}
+        {hasItineraries && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-5 mb-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Calendar size={16} className="text-green-600" />
+              <h2 className="font-bold text-gray-900">여행 일정</h2>
+            </div>
+            <div className="space-y-3">
+              {itineraries!.map((row, idx) => {
+                const dateStr = row.date ? new Date(row.date).toLocaleDateString("ko-KR") : "";
+                const dayLabel = DAY_TYPE_KO[row.dayType ?? ""] ?? row.dayType ?? "";
+                const fi = row.flightInfo as { airline?: string; depAirport?: string; depTime?: string; arrAirport?: string; arrTime?: string } | null;
+                return (
+                  <div key={idx} className="border rounded-xl p-3 bg-gray-50">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-bold text-gray-700 bg-white border px-2 py-0.5 rounded-full">
+                        {row.dayIndex + 1}일차
+                      </span>
+                      <span className="text-xs text-gray-500">{dayLabel}</span>
+                      {dateStr && <span className="text-xs text-gray-400">{dateStr}</span>}
+                    </div>
+                    <div className="grid grid-cols-1 gap-1.5 text-sm">
+                      {row.golfAffiliateName && (
+                        <div className="flex items-center gap-2 text-gray-700">
+                          <Flag size={12} className="text-green-600 flex-shrink-0" />
+                          <span className="font-medium">{row.golfAffiliateName}</span>
+                          {row.holeCount ? <span className="text-gray-400 text-xs">{row.holeCount}홀</span> : null}
+                          {row.teeTime ? <span className="text-gray-400 text-xs">티오프 {row.teeTime}</span> : null}
+                        </div>
+                      )}
+                      {row.accommodationAffiliateName && (
+                        <div className="flex items-center gap-2 text-gray-700">
+                          <Hotel size={12} className="text-blue-600 flex-shrink-0" />
+                          <span>{row.accommodationAffiliateName}</span>
+                          {row.roomType ? <span className="text-gray-400 text-xs">({row.roomType})</span> : null}
+                        </div>
+                      )}
+                      {fi?.airline && (
+                        <div className="flex items-center gap-2 text-gray-700">
+                          <Plane size={12} className="text-purple-600 flex-shrink-0" />
+                          <span>{fi.airline}</span>
+                          {fi.depAirport && fi.arrAirport && (
+                            <span className="text-gray-400 text-xs">{fi.depAirport}→{fi.arrAirport} {fi.depTime}-{fi.arrTime}</span>
+                          )}
+                        </div>
+                      )}
+                      {row.notes && (
+                        <p className="text-xs text-gray-500 mt-1">{row.notes}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 

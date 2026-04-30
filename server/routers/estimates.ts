@@ -7,6 +7,8 @@ import {
   customerEstimateTemplates,
   estimates,
   reservations,
+  reservationItineraries,
+  affiliates,
 } from "../../drizzle/schema";
 
 // ─── 고객 견적서 템플릿 라우터 ──────────────────────────────────────
@@ -208,7 +210,43 @@ export const estimatesRouter = router({
         template = tmpl ?? null;
       }
 
-      return { estimate, reservation, template };
+      // 일정 데이터 조회 (골프장/숙소 제휴사명 포함)
+      const itineraryRows = await db
+        .select({
+          id: reservationItineraries.id,
+          dayIndex: reservationItineraries.dayIndex,
+          date: reservationItineraries.date,
+          dayType: reservationItineraries.dayType,
+          holeCount: reservationItineraries.holeCount,
+          teeTime: reservationItineraries.teeTime,
+          roomType: reservationItineraries.roomType,
+          roomCount: reservationItineraries.roomCount,
+          flightInfo: reservationItineraries.flightInfo,
+          notes: reservationItineraries.notes,
+          golfAffiliateName: affiliates.name,
+        })
+        .from(reservationItineraries)
+        .leftJoin(affiliates, eq(reservationItineraries.golfAffiliateId, affiliates.id))
+        .where(eq(reservationItineraries.reservationId, estimate.reservationId))
+        .orderBy(reservationItineraries.dayIndex);
+
+      // 숙소 이름 별도 조회
+      const itinerariesWithAccom = await Promise.all(
+        itineraryRows.map(async (row) => {
+          const fullRow = await db
+            .select({ accommodationAffiliateName: affiliates.name })
+            .from(reservationItineraries)
+            .leftJoin(affiliates, eq(reservationItineraries.accommodationAffiliateId, affiliates.id))
+            .where(eq(reservationItineraries.id, row.id))
+            .limit(1);
+          return {
+            ...row,
+            accommodationAffiliateName: fullRow[0]?.accommodationAffiliateName ?? null,
+          };
+        })
+      );
+
+      return { estimate, reservation, template, itineraries: itinerariesWithAccom };
     }),
 
   // 발송 처리

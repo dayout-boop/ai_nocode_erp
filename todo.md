@@ -778,3 +778,39 @@ Detected
 - [x] 핀메기 버튼 클릭 시 팝업으로 원가/제휴가/판매가 계산 표시 (원가=-2만/제휴가=-1.5만/판매가=동일)
 - [x] 견적생성(자동) 버튼 - 실제 estimates.create API 연동 + 새 탭으로 견적서 열기
 - [x] InquiryTemplates categoryFilter 타입에 estimate 추가 (견적생성 카테고리 필터 정상 동작)
+
+## 2026-04-30 예약 일정 상세 구조 신규 구축
+
+### DB 스키마
+- [x] reservation_itineraries 테이블 생성 (reservationId, dayIndex, date, dayType, golfAffiliateId, holeCount, teeTime, accommodationAffiliateId, roomType, roomCount, flightInfo JSON, notes)
+- [x] reservation_affiliate_costs 테이블 생성 (reservationId, affiliateId, costType, date, unitPrice, salePrice, quantity, confirmedTime, notes)
+- [x] pnpm db:push 마이그레이션 실행
+
+### 백엔드 API
+- [x] reservationItineraries 라우터 생성 (list, upsert, delete)
+- [x] reservationAffiliateCosts 라우터 생성 (list, upsert, delete, summary)
+- [x] routers.ts에 두 라우터 등록
+
+### 예약 수정 UI
+- [x] 예약수정 모달에 "일정" 탭 추가
+- [x] 상품군 선택 (당일/1발1일/1발2일/2발3일/3발4일/3발5일/기타)
+- [x] 상품군 선택 시 일자별 행 자동 생성
+- [x] 각 행: 날짜, dayType(출발/체류/도착/당일), 골프장(제휴사 검색), 홈수(드롭박스 9/18/27/36), 티오프시간, 숙소(제휴사 검색), 객실타입/수량, 항공정보
+- [x] 항공 입력: 항공사, 출발공항/시간, 도착공항/시간 (없으면 "개별항공" 표시)
+- [x] 저장 시 reservation_itineraries upsert
+
+### 제휴사 비용 탭
+- [x] 예약수정 모달에 "제휴사 비용" 탭 추가
+- [x] 일정 탭 데이터 기반 제휴사별 비용 자동 생성
+- [x] 각 행: 제휴사명, 유형(골프/숙소/교통/기타), 날짜, 확정시간, 입금가, 판매가, 수량
+- [x] 합계 집계 (총 입금가 / 총 판매가 / 수익)
+- [x] 저장 시 reservation_affiliate_costs upsert
+
+### 견적서 변수 치환 확장
+- [x] EstimateView.tsx replaceVariables 함수에 신규 변수 추가 ({{일정표}}, {{상품군}})
+- [x] 견적서에 일정 테이블 자동 렌더링 (reservation_itineraries 데이터)
+
+### 상품관리 연동
+- [x] packages 테이블에 defaultItinerary JSON 필드 추가 + DB 마이그레이션
+- [x] 상품 수정 모달에 "기본 일정 템플릿" 설정 UI 추가
+- [x] 예약 생성 시 상품 기본 일정 자동 복사 적용
