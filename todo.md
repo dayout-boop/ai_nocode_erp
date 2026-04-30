@@ -837,3 +837,11 @@ Detected
 - [x] VariablePickerButton.tsx에 validateVariables 유틸리티 함수 추가 (잘못된 변수 추출)
 - [x] CustomerEstimateTemplates.tsx 저장 시 유효성 검사 및 경고 UI 표시
 - [x] InquiryTemplates.tsx 저장 시 유효성 검사 및 경고 UI 표시
+
+## 2026-04-30 {{변수명}} 실시간 파싱 → variables 자동 동기화
+
+- [ ] CustomerEstimateTemplates.tsx - content 변경 시 {{변수명}} 파싱 후 variables 배열 자동 추가/삭제
+- [ ] InquiryTemplates.tsx - content 변경 시 {{변수명}} 파싱 후 variables 배열 자동 추가/삭제
+- [ ] 유효 변수(VALID_VARIABLES 목록 내)는 초록 배지, 미등록 변수는 주황 배지로 구분 표시
+- [ ] TypeScript 오류 없음 확인
+- [ ] 체크포인트 저장

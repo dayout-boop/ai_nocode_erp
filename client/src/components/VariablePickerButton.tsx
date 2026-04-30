@@ -116,6 +116,32 @@ export function validateVariables(texts: string[]): string[] {
   return Array.from(invalid);
 }
 
+/**
+ * 텍스트에서 {{변수명}} 패턴을 모두 추출하여 반환합니다.
+ * 유효 변수와 미등록 변수를 구분하여 반환합니다.
+ *
+ * @param texts 검사할 텍스트 배열
+ * @returns { valid: string[], invalid: string[] } 유효/미등록 변수 목록 (중복 제거)
+ */
+export function extractVariables(texts: string[]): { valid: string[]; invalid: string[] } {
+  const pattern = /\{\{([^}]+)\}\}/g;
+  const valid = new Set<string>();
+  const invalid = new Set<string>();
+  for (const text of texts) {
+    const p = /\{\{([^}]+)\}\}/g;
+    let match: RegExpExecArray | null;
+    while ((match = p.exec(text)) !== null) {
+      const full = `{{${match[1]}}}`;
+      if (VALID_VARIABLE_SET.has(full)) {
+        valid.add(full);
+      } else {
+        invalid.add(full);
+      }
+    }
+  }
+  return { valid: Array.from(valid), invalid: Array.from(invalid) };
+}
+
 // ─── 컴포넌트 ────────────────────────────────────────────────────
 interface VariablePickerButtonProps {
   /** 변수 클릭 시 호출되는 콜백 */

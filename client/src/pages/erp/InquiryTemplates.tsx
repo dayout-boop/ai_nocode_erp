@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Edit2, Trash2, Zap, Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import VariablePickerButton, { validateVariables } from "@/components/VariablePickerButton";
+import VariablePickerButton, { validateVariables, extractVariables } from "@/components/VariablePickerButton";
 import { useRef } from "react";
 import { AlertTriangle } from "lucide-react";
 
@@ -44,6 +44,9 @@ function TemplateForm({ initial, onSave, onCancel, isSaving }: TemplateFormProps
   });
   const [invalidVars, setInvalidVars] = useState<string[]>([]);
   const [confirmSave, setConfirmSave] = useState(false);
+
+  // 실시간 변수 파싱: content 필드에서 {{변수명}} 추출
+  const { valid: usedValidVars, invalid: usedInvalidVars } = extractVariables([form.content]);
 
   function handleSaveClick() {
     if (!form.name || !form.content) {
@@ -133,16 +136,34 @@ function TemplateForm({ initial, onSave, onCancel, isSaving }: TemplateFormProps
         />
       </div>
 
-      <div>
-        <Label className="text-sm">
-          변수 목록
-          <span className="text-xs text-gray-400 ml-2">쉼표로 구분 (예: 골프장명, 출발일, 인원)</span>
-        </Label>
-        <Input value={form.variables}
-          onChange={e => setForm(f => ({ ...f, variables: e.target.value }))}
-          placeholder="골프장명, 출발일, 인원, 팀수"
-          className="mt-1" />
-      </div>
+      {/* 실시간 변수 목록 (자동 파싱) */}
+      {(usedValidVars.length > 0 || usedInvalidVars.length > 0) ? (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+          <div className="flex items-center gap-1.5 text-gray-600 font-medium text-xs">
+            <span className="text-gray-500">#</span>
+            현재 템플릿에 사용된 변수
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {usedValidVars.map((v) => (
+              <span key={v} className="font-mono text-xs bg-green-50 border border-green-300 text-green-800 px-2 py-0.5 rounded">
+                {v}
+              </span>
+            ))}
+            {usedInvalidVars.map((v) => (
+              <span key={v} className="font-mono text-xs bg-orange-50 border border-orange-300 text-orange-800 px-2 py-0.5 rounded">
+                {v} ⚠
+              </span>
+            ))}
+          </div>
+          {usedInvalidVars.length > 0 && (
+            <p className="text-xs text-orange-600">주황색 변수는 자동 치환 목록에 없는 변수입니다.</p>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+          <p className="text-xs text-gray-400">템플릿 내용에 <code className="bg-gray-200 px-1 rounded">{'{{'}변수명{'}}'}</code> 형식으로 입력하면 여기에 자동으로 표시됩니다.</p>
+        </div>
+      )}
 
       {/* 잘못된 변수 경고 */}
       {invalidVars.length > 0 && (
