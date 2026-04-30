@@ -1,5 +1,4 @@
 import { useState, useCallback, useRef } from "react";
-import ERPLayout from "@/components/ERPLayout";
 import { AIChatBox, type Message } from "@/components/AIChatBox";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -516,7 +515,6 @@ export default function GeminiAssistant() {
   const chatMessages: Message[] = displayMessages.filter((m) => !m.isError).map(({ role, content }) => ({ role, content }));
 
   return (
-    <ERPLayout>
       <div className="space-y-4 max-w-5xl mx-auto">
         {/* 헤더 */}
         <div className="flex items-start gap-4">
@@ -660,6 +658,5 @@ export default function GeminiAssistant() {
           </CardContent>
         </Card>
       </div>
-    </ERPLayout>
   );
 }

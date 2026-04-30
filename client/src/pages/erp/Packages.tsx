@@ -1,5 +1,4 @@
 import { useState } from "react";
-import ERPLayout from "@/components/ERPLayout";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -367,179 +366,178 @@ export default function PackagesPage() {
   };
 
   return (
-    <ERPLayout>
+    <>
       <div className="space-y-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">상품관리</h1>
-            <p className="text-slate-500 text-sm mt-1">골프 패키지 상품을 관리합니다</p>
-          </div>
-          <Button
-            onClick={() => { setEditPackage(null); setShowForm(true); }}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white"
-          >
-            <Plus size={16} className="mr-1" /> 상품 등록
-          </Button>
-        </div>
-
-        {/* Filters */}
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex flex-wrap gap-3">
-              <div className="relative flex-1 min-w-48">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input
-                  placeholder="상품명 검색..."
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                  className="pl-8 h-9"
-                />
-              </div>
-              <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v === "all" ? "" : v); setPage(1); }}>
-                <SelectTrigger className="w-32 h-9">
-                  <SelectValue placeholder="상태" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">전체 상태</SelectItem>
-                  <SelectItem value="active">활성</SelectItem>
-                  <SelectItem value="draft">초안</SelectItem>
-                  <SelectItem value="inactive">비활성</SelectItem>
-                  <SelectItem value="sold_out">매진</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={countryFilter} onValueChange={(v) => { setCountryFilter(v === "all" ? "" : v); setPage(1); }}>
-                <SelectTrigger className="w-36 h-9">
-                  <SelectValue placeholder="국가" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">전체 국가</SelectItem>
-                  {Object.entries(COUNTRY_MAP).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800">상품관리</h1>
+              <p className="text-slate-500 text-sm mt-1">골프 패키지 상품을 관리합니다</p>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Table */}
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="py-20 text-center text-slate-400">로딩 중...</div>
-            ) : !data?.items?.length ? (
-              <div className="py-20 text-center">
-                <Package size={40} className="text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-400">등록된 상품이 없습니다</p>
-                <Button
-                  onClick={() => setShowForm(true)}
-                  className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white"
-                  size="sm"
-                >
-                  첫 상품 등록하기
+            <Button
+              onClick={() => { setEditPackage(null); setShowForm(true); }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              <Plus size={16} className="mr-1" /> 상품 등록
+            </Button>
+          </div>
+  
+          {/* Filters */}
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-4">
+              <div className="flex flex-wrap gap-3">
+                <div className="relative flex-1 min-w-48">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="상품명 검색..."
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                    className="pl-8 h-9"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v === "all" ? "" : v); setPage(1); }}>
+                  <SelectTrigger className="w-32 h-9">
+                    <SelectValue placeholder="상태" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체 상태</SelectItem>
+                    <SelectItem value="active">활성</SelectItem>
+                    <SelectItem value="draft">초안</SelectItem>
+                    <SelectItem value="inactive">비활성</SelectItem>
+                    <SelectItem value="sold_out">매진</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={countryFilter} onValueChange={(v) => { setCountryFilter(v === "all" ? "" : v); setPage(1); }}>
+                  <SelectTrigger className="w-36 h-9">
+                    <SelectValue placeholder="국가" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체 국가</SelectItem>
+                    {Object.entries(COUNTRY_MAP).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+  
+          {/* Table */}
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-0">
+              {isLoading ? (
+                <div className="py-20 text-center text-slate-400">로딩 중...</div>
+              ) : !data?.items?.length ? (
+                <div className="py-20 text-center">
+                  <Package size={40} className="text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-400">등록된 상품이 없습니다</p>
+                  <Button
+                    onClick={() => setShowForm(true)}
+                    className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white"
+                    size="sm"
+                  >
+                    첫 상품 등록하기
+                  </Button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100 bg-slate-50">
+                        <th className="text-left px-5 py-3 text-slate-500 font-medium">상품명</th>
+                        <th className="text-left px-4 py-3 text-slate-500 font-medium">국가</th>
+                        <th className="text-left px-4 py-3 text-slate-500 font-medium">기간</th>
+                        <th className="text-left px-4 py-3 text-slate-500 font-medium">라운딩</th>
+                        <th className="text-left px-4 py-3 text-slate-500 font-medium">상태</th>
+                        <th className="text-left px-4 py-3 text-slate-500 font-medium">태그</th>
+                        <th className="text-right px-5 py-3 text-slate-500 font-medium">관리</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {data.items.map((pkg: any) => (
+                        <tr key={pkg.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-5 py-3">
+                            <div className="font-medium text-slate-800">{pkg.title}</div>
+                            {pkg.region && <div className="text-xs text-slate-400">{pkg.region}</div>}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">
+                            {COUNTRY_MAP[pkg.country] || pkg.country}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">{pkg.duration || "-"}</td>
+                          <td className="px-4 py-3 text-slate-600">{pkg.roundCount}회</td>
+                          <td className="px-4 py-3">
+                            <Badge className={`text-xs ${STATUS_MAP[pkg.status]?.color}`}>
+                              {STATUS_MAP[pkg.status]?.label}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-1">
+                              {pkg.isFeatured && (
+                                <Badge className="text-xs bg-indigo-50 text-indigo-700">추천</Badge>
+                              )}
+                              {pkg.isPopular && (
+                                <Badge className="text-xs bg-rose-50 text-rose-700">인기</Badge>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-5 py-3">
+                            <div className="flex items-center justify-end gap-1">
+                              <Link href={`/erp/packages/${pkg.id}`}>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-indigo-600">
+                                  <Eye size={14} />
+                                </Button>
+                              </Link>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-slate-400 hover:text-amber-600"
+                                onClick={() => { setEditPackage(pkg); setShowForm(true); }}
+                              >
+                                <Edit size={14} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-slate-400 hover:text-red-600"
+                                onClick={() => handleDelete(pkg.id, pkg.title)}
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+  
+          {/* Pagination */}
+          {data && data.total > 15 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-slate-500">
+                총 {data.total}개 상품
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+                  이전
+                </Button>
+                <span className="text-sm text-slate-600 px-3 py-1.5">
+                  {page} / {Math.ceil(data.total / 15)}
+                </span>
+                <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={page >= Math.ceil(data.total / 15)}>
+                  다음
                 </Button>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50">
-                      <th className="text-left px-5 py-3 text-slate-500 font-medium">상품명</th>
-                      <th className="text-left px-4 py-3 text-slate-500 font-medium">국가</th>
-                      <th className="text-left px-4 py-3 text-slate-500 font-medium">기간</th>
-                      <th className="text-left px-4 py-3 text-slate-500 font-medium">라운딩</th>
-                      <th className="text-left px-4 py-3 text-slate-500 font-medium">상태</th>
-                      <th className="text-left px-4 py-3 text-slate-500 font-medium">태그</th>
-                      <th className="text-right px-5 py-3 text-slate-500 font-medium">관리</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {data.items.map((pkg: any) => (
-                      <tr key={pkg.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-5 py-3">
-                          <div className="font-medium text-slate-800">{pkg.title}</div>
-                          {pkg.region && <div className="text-xs text-slate-400">{pkg.region}</div>}
-                        </td>
-                        <td className="px-4 py-3 text-slate-600">
-                          {COUNTRY_MAP[pkg.country] || pkg.country}
-                        </td>
-                        <td className="px-4 py-3 text-slate-600">{pkg.duration || "-"}</td>
-                        <td className="px-4 py-3 text-slate-600">{pkg.roundCount}회</td>
-                        <td className="px-4 py-3">
-                          <Badge className={`text-xs ${STATUS_MAP[pkg.status]?.color}`}>
-                            {STATUS_MAP[pkg.status]?.label}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-1">
-                            {pkg.isFeatured && (
-                              <Badge className="text-xs bg-indigo-50 text-indigo-700">추천</Badge>
-                            )}
-                            {pkg.isPopular && (
-                              <Badge className="text-xs bg-rose-50 text-rose-700">인기</Badge>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-5 py-3">
-                          <div className="flex items-center justify-end gap-1">
-                            <Link href={`/erp/packages/${pkg.id}`}>
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-indigo-600">
-                                <Eye size={14} />
-                              </Button>
-                            </Link>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-slate-400 hover:text-amber-600"
-                              onClick={() => { setEditPackage(pkg); setShowForm(true); }}
-                            >
-                              <Edit size={14} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-slate-400 hover:text-red-600"
-                              onClick={() => handleDelete(pkg.id, pkg.title)}
-                            >
-                              <Trash2 size={14} />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Pagination */}
-        {data && data.total > 15 && (
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-500">
-              총 {data.total}개 상품
-            </p>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
-                이전
-              </Button>
-              <span className="text-sm text-slate-600 px-3 py-1.5">
-                {page} / {Math.ceil(data.total / 15)}
-              </span>
-              <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={page >= Math.ceil(data.total / 15)}>
-                다음
-              </Button>
             </div>
-          </div>
-        )}
-      </div>
-
-      <PackageFormDialog
-        open={showForm}
-        onClose={() => { setShowForm(false); setEditPackage(null); }}
-        editPackage={editPackage}
-      />
-    </ERPLayout>
-  );
+          )}
+        </div>
+  
+        <PackageFormDialog
+          open={showForm}
+          onClose={() => { setShowForm(false); setEditPackage(null); }}
+          editPackage={editPackage}
+        />
+    </>);
 }

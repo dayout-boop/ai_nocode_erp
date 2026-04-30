@@ -51,7 +51,6 @@ import {
   Layers,
   Sparkles,
 } from "lucide-react";
-import ERPLayout from "@/components/ERPLayout";
 
 // ────────────────────────────────────────────────────────────────────────────
 // 상수
@@ -741,7 +740,6 @@ function RecentLogs() {
 
 export default function DevAIOrchestrator() {
   return (
-    <ERPLayout>
       <div className="space-y-6">
         {/* 헤더 */}
         <div className="flex items-center justify-between flex-wrap gap-3">
@@ -790,6 +788,5 @@ export default function DevAIOrchestrator() {
           </TabsContent>
         </Tabs>
       </div>
-    </ERPLayout>
   );
 }

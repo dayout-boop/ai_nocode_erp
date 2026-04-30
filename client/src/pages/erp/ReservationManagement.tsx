@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import ERPLayout from "@/components/ERPLayout";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -1526,379 +1525,378 @@ export default function ReservationManagement() {
   ];
 
   return (
-    <ERPLayout>
+    <>
       <div className="p-4 md:p-6 space-y-5">
-        {/* 대시보드 상태별 카드 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {dashboardCards.map((card) => (
-            <Card
-              key={card.label}
-              className={`cursor-pointer hover:shadow-md transition-shadow ${card.filter ? "hover:border-green-400" : ""}`}
-              onClick={() => card.filter && setStatusFilter(card.filter)}
-            >
-              <CardContent className="pt-4 pb-3">
-                <div className="flex items-start gap-2">
-                  {card.icon}
-                  <div className="min-w-0">
-                    <p className="text-xs text-gray-500 truncate">{card.label}</p>
-                    <p className={`text-lg font-bold ${card.color}`}>
-                      {card.unit === "원" ? formatKRW(card.value as number) : (card.value as number).toLocaleString()}
-                      <span className="text-xs font-normal ml-0.5">{card.unit}</span>
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* 정렬 버튼 */}
-        <div className="flex flex-wrap gap-1.5 items-center">
-          <span className="text-xs text-gray-500 font-medium">정렬:</span>
-          {(["departureDate", "createdAt", "headcount"] as SortByType[]).map((col) => {
-            const labels: Record<SortByType, string> = { departureDate: "출발일순", createdAt: "예약일순", headcount: "인원순" };
-            const active = sortBy === col;
-            return (
-              <button
-                key={col}
-                onClick={() => handleSort(col)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
-                  active
-                    ? "bg-green-700 text-white border-green-700 shadow-sm"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-green-400 hover:text-green-700"
-                }`}
+          {/* 대시보드 상태별 카드 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {dashboardCards.map((card) => (
+              <Card
+                key={card.label}
+                className={`cursor-pointer hover:shadow-md transition-shadow ${card.filter ? "hover:border-green-400" : ""}`}
+                onClick={() => card.filter && setStatusFilter(card.filter)}
               >
-                {labels[col]}
-                {active ? (
-                  sortOrder === "asc"
-                    ? <ArrowUp className="w-3 h-3" />
-                    : <ArrowDown className="w-3 h-3" />
-                ) : <ArrowUpDown className="w-3 h-3 text-gray-400" />}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* 검색 및 필터 */}
-        <div className="flex flex-wrap gap-2 items-center">
-          <div className="flex gap-2 flex-1 min-w-[200px]">
-            <Input
-              placeholder="예약번호, 고객명, 상품명, 연락처 검색..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { setSearch(searchInput); setPage(1); } }}
-              className="h-9"
-            />
-            <Button variant="outline" size="sm" onClick={() => { setSearch(searchInput); setPage(1); }}>
-              <Search className="w-4 h-4" />
+                <CardContent className="pt-4 pb-3">
+                  <div className="flex items-start gap-2">
+                    {card.icon}
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-500 truncate">{card.label}</p>
+                      <p className={`text-lg font-bold ${card.color}`}>
+                        {card.unit === "원" ? formatKRW(card.value as number) : (card.value as number).toLocaleString()}
+                        <span className="text-xs font-normal ml-0.5">{card.unit}</span>
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+  
+          {/* 정렬 버튼 */}
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <span className="text-xs text-gray-500 font-medium">정렬:</span>
+            {(["departureDate", "createdAt", "headcount"] as SortByType[]).map((col) => {
+              const labels: Record<SortByType, string> = { departureDate: "출발일순", createdAt: "예약일순", headcount: "인원순" };
+              const active = sortBy === col;
+              return (
+                <button
+                  key={col}
+                  onClick={() => handleSort(col)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
+                    active
+                      ? "bg-green-700 text-white border-green-700 shadow-sm"
+                      : "bg-white text-gray-600 border-gray-200 hover:border-green-400 hover:text-green-700"
+                  }`}
+                >
+                  {labels[col]}
+                  {active ? (
+                    sortOrder === "asc"
+                      ? <ArrowUp className="w-3 h-3" />
+                      : <ArrowDown className="w-3 h-3" />
+                  ) : <ArrowUpDown className="w-3 h-3 text-gray-400" />}
+                </button>
+              );
+            })}
+          </div>
+  
+          {/* 검색 및 필터 */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <div className="flex gap-2 flex-1 min-w-[200px]">
+              <Input
+                placeholder="예약번호, 고객명, 상품명, 연락처 검색..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { setSearch(searchInput); setPage(1); } }}
+                className="h-9"
+              />
+              <Button variant="outline" size="sm" onClick={() => { setSearch(searchInput); setPage(1); }}>
+                <Search className="w-4 h-4" />
+              </Button>
+            </div>
+            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v as any); setPage(1); }}>
+              <SelectTrigger className="w-28 h-9">
+                <SelectValue placeholder="상태" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 상태</SelectItem>
+                <SelectItem value="pending">대기</SelectItem>
+                <SelectItem value="confirmed">확정</SelectItem>
+                <SelectItem value="cancelled">취소</SelectItem>
+                <SelectItem value="completed">완료</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={paymentFilter} onValueChange={(v) => { setPaymentFilter(v as any); setPage(1); }}>
+              <SelectTrigger className="w-32 h-9">
+                <SelectValue placeholder="입금상태" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 입금</SelectItem>
+                <SelectItem value="unpaid">미입금</SelectItem>
+                <SelectItem value="partial">부분입금</SelectItem>
+                <SelectItem value="paid">완납</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={() => setShowQuickCreate(true)}
+              className="bg-green-700 hover:bg-green-800 text-white h-9">
+              <Plus className="w-4 h-4 mr-1" /> 신규 예약
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportExcel}
+              disabled={isExporting}
+              className="h-9 border-green-300 text-green-700 hover:bg-green-50 text-xs"
+              title="현재 필터 적용된 목록을 엑셀로 내보내기"
+            >
+              {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>📥 엑셀</>}
             </Button>
           </div>
-          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v as any); setPage(1); }}>
-            <SelectTrigger className="w-28 h-9">
-              <SelectValue placeholder="상태" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">전체 상태</SelectItem>
-              <SelectItem value="pending">대기</SelectItem>
-              <SelectItem value="confirmed">확정</SelectItem>
-              <SelectItem value="cancelled">취소</SelectItem>
-              <SelectItem value="completed">완료</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={paymentFilter} onValueChange={(v) => { setPaymentFilter(v as any); setPage(1); }}>
-            <SelectTrigger className="w-32 h-9">
-              <SelectValue placeholder="입금상태" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">전체 입금</SelectItem>
-              <SelectItem value="unpaid">미입금</SelectItem>
-              <SelectItem value="partial">부분입금</SelectItem>
-              <SelectItem value="paid">완납</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button onClick={() => setShowQuickCreate(true)}
-            className="bg-green-700 hover:bg-green-800 text-white h-9">
-            <Plus className="w-4 h-4 mr-1" /> 신규 예약
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportExcel}
-            disabled={isExporting}
-            className="h-9 border-green-300 text-green-700 hover:bg-green-50 text-xs"
-            title="현재 필터 적용된 목록을 엑셀로 내보내기"
-          >
-            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>📥 엑셀</>}
-          </Button>
-        </div>
-
-        {/* 예약 목록 테이블 */}
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold">
-                예약 목록 <span className="text-gray-400 font-normal">({total.toLocaleString()}건)</span>
-              </CardTitle>
-              {/* 경고 아이콘 버튼 */}
-              <button
-                onClick={() => { setWarningOnly(w => !w); setPage(1); }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  warningOnly
-                    ? "bg-red-500 text-white shadow-sm"
-                    : "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"
-                }`}
-                title="출발일 15일 이내 미완납 예약"
-              >
-                <TriangleAlert className="w-3.5 h-3.5" />
-                경고
-                {!warningOnly && (
-                  <span className="bg-red-500 text-white rounded-full px-1.5 py-0.5 text-[10px] leading-none">
-                    {items.filter(isWarningItem).length}
-                  </span>
-                )}
-              </button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">예약번호</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">골프장</th>
-                    <th
-                      className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap cursor-pointer hover:text-green-700 select-none"
-                      onClick={() => handleSort("departureDate")}
-                    >
-                      출발일<SortIcon col="departureDate" />
-                    </th>
-                    <th
-                      className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap cursor-pointer hover:text-green-700 select-none"
-                      onClick={() => handleSort("headcount")}
-                    >
-                      팀/인원<SortIcon col="headcount" />
-                    </th>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">고객</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">유형</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">담당자</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">결제상태</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">진행</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">상태</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.length === 0 ? (
-                    <tr>
-                      <td colSpan={11} className="text-center py-12 text-gray-400">
-                        {warningOnly ? "경고 예약이 없습니다." : "예약 내역이 없습니다."}
-                      </td>
-                    </tr>
-                  ) : (
-                    (() => {
-                      // 출발일/유형/담당자 라인 표시용 그룹 추적
-                      let prevDep = "";
-                      let prevType = "";
-                      let prevManager = "";
-                      return items.map((item) => {
-                        const depStr = formatDate(item.departureDate);
-                        const typeStr = (item as any).userType ?? "customer";
-                        const managerStr = (item as any).managerName ?? "-";
-                        const showDepLine = depStr !== prevDep;
-                        const showTypeLine = typeStr !== prevType;
-                        const showManagerLine = managerStr !== prevManager;
-                        prevDep = depStr;
-                        prevType = typeStr;
-                        prevManager = managerStr;
-                        const ps = calcPaymentStatus(item);
-                        const warning = isWarningItem(item);
-                        return (
-                          <tr
-                            key={item.id}
-                            className={`border-b hover:bg-gray-50 transition-colors ${
-                              warning ? "bg-red-50/40" : ""
-                            } ${
-                              showDepLine ? "border-t-2 border-t-green-200" : ""
-                            }`}
-                          >
-                            <td className="px-3 py-2.5">
-                              <div className="flex items-center gap-1">
-                                {warning && <TriangleAlert className="w-3 h-3 text-red-500 shrink-0" />}
-                                <span className="font-mono text-xs text-blue-600 font-bold">{item.reservationNo}</span>
-                              </div>
-                            </td>
-                            <td className="px-3 py-2.5 max-w-[140px] truncate text-xs" title={item.golfCourseName ?? ""}>
-                              {item.golfCourseName ?? item.productName}
-                            </td>
-                            <td className={`px-3 py-2.5 whitespace-nowrap text-xs ${
-                              showDepLine ? "font-semibold text-green-700" : ""
-                            }`}>
-                              {depStr}
-                            </td>
-                            <td className="px-3 py-2.5 text-xs text-center whitespace-nowrap">
-                              {item.teams}팀/{item.headcount}명
-                            </td>
-                            <td className="px-3 py-2.5 text-xs whitespace-nowrap">{item.customerName}</td>
-                            <td className={`px-3 py-2.5 ${
-                              showTypeLine ? "border-l-2 border-l-purple-300" : ""
-                            }`}>
-                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${
-                                typeStr === "partner" ? "bg-purple-100 text-purple-700" :
-                                typeStr === "manager" ? "bg-gray-100 text-gray-700" :
-                                "bg-blue-100 text-blue-700"
-                              }`}>
-                                {USER_TYPE_ICONS[typeStr as UserType]}
-                                {/* 제휴사인 경우 제휴사명 표시 */}
-                                {typeStr === "partner"
-                                  ? ((item as any).partnerCompanyName || "제휴사")
-                                  : USER_TYPE_LABELS[typeStr as UserType]}
-                              </span>
-                            </td>
-                            <td className={`px-3 py-2.5 text-xs whitespace-nowrap ${
-                              showManagerLine ? "border-l-2 border-l-blue-200 font-semibold text-blue-700" : ""
-                            }`}>
-                              {managerStr}
-                            </td>
-                            <td className="px-3 py-2.5">
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ps.color}`}>
-                                {ps.label}
-                              </span>
-                            </td>
-                            {/* 진행 드롭박스 */}
-                            <td className="px-3 py-2.5">
-                              <ProgressDropdown
-                                reservationId={item.id}
-                                currentProgress={(item as any).progressStatus ?? ""}
-                                onSuccess={refetch}
-                              />
-                            </td>
-                            <td className="px-3 py-2.5">
-                              {/* 상태 아이콘 버튼 */}
-                              <div className="flex gap-0.5">
-                                {(["pending", "confirmed", "cancelled", "completed"] as StatusType[]).map((s) => (
-                                  <button
-                                    key={s}
-                                    title={STATUS_LABELS[s]}
-                                    onClick={() => {
-                                      if (item.status !== s) {
-                                        setEditItem({ ...item, status: s });
-                                      }
-                                    }}
-                                    className={`p-1 rounded transition-all ${
-                                      item.status === s
-                                        ? STATUS_COLORS[s] + " border"
-                                        : "text-gray-300 hover:text-gray-500"
-                                    }`}
-                                  >
-                                    {STATUS_ICONS[s]}
-                                  </button>
-                                ))}
-                              </div>
-                            </td>
-                            <td className="px-3 py-2.5">
-                              <div className="flex gap-1">
-                                {/* 견적서 미리보기 버튼 */}
-                                <button
-                                  onClick={() => setPreviewItem({ id: item.id, reservationNo: item.reservationNo ?? undefined, customerName: item.customerName ?? undefined })}
-                                  className="p-1 hover:bg-indigo-50 rounded text-indigo-500" title="견적서 미리보기">
-                                  <ExternalLink className="w-3.5 h-3.5" />
-                                </button>
-                                {/* 관리 아이콘 - 클릭 시 예약 상세관리 팝업 */}
-                                <button
-                                  onClick={() => setEditItem(item)}
-                                  className="p-1 hover:bg-green-50 rounded text-green-600" title="상세관리">
-                                  <Settings className="w-3.5 h-3.5" />
-                                </button>
-                                <button onClick={() => setEditItem(item)}
-                                  className="p-1 hover:bg-yellow-50 rounded text-yellow-600" title="수정">
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => { if (confirm("삭제하시겠습니까?")) deleteMut.mutate({ id: item.id }); }}
-                                  className="p-1 hover:bg-red-50 rounded text-red-500" title="삭제">
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      });
-                    })()
+  
+          {/* 예약 목록 테이블 */}
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold">
+                  예약 목록 <span className="text-gray-400 font-normal">({total.toLocaleString()}건)</span>
+                </CardTitle>
+                {/* 경고 아이콘 버튼 */}
+                <button
+                  onClick={() => { setWarningOnly(w => !w); setPage(1); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    warningOnly
+                      ? "bg-red-500 text-white shadow-sm"
+                      : "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"
+                  }`}
+                  title="출발일 15일 이내 미완납 예약"
+                >
+                  <TriangleAlert className="w-3.5 h-3.5" />
+                  경고
+                  {!warningOnly && (
+                    <span className="bg-red-500 text-white rounded-full px-1.5 py-0.5 text-[10px] leading-none">
+                      {items.filter(isWarningItem).length}
+                    </span>
                   )}
-                </tbody>
-              </table>
-            </div>
-
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 p-4">
-                <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <span className="text-sm text-gray-600">{page} / {totalPages}</span>
-                <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
+                </button>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 신규 예약 간소화 모달 */}
-      <Dialog open={showQuickCreate} onOpenChange={setShowQuickCreate}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-green-700" /> 신규 예약 등록
-            </DialogTitle>
-          </DialogHeader>
-          <QuickCreateForm
-            onSuccess={() => { setShowQuickCreate(false); refetch(); }}
-            onCancel={() => setShowQuickCreate(false)}
-            currentUser={user}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* 예약 수정 모달 */}
-      <Dialog open={editItem !== null} onOpenChange={() => setEditItem(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-sm">
-              <Edit2 className="w-4 h-4" />
-              예약 수정
-              <span className="font-mono text-blue-600 text-xs">{editItem?.reservationNo}</span>
-            </DialogTitle>
-          </DialogHeader>
-          {editItem && (
-            <EditDialog
-              item={editItem}
-              onClose={() => setEditItem(null)}
-              onSuccess={() => { setEditItem(null); refetch(); }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* 견적서 실시간 미리보기 슬라이드 패널 */}
-      {previewItem && (
-        <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setPreviewItem(null)}>
-          {/* 반투명 오버레이 */}
-          <div className="absolute inset-0 bg-black/20" />
-          {/* 패널 */}
-          <div
-            className="relative w-full max-w-md h-full bg-gray-50 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <EstimatePreviewPanel
-              reservationId={previewItem.id}
-              reservationNo={previewItem.reservationNo}
-              customerName={previewItem.customerName}
-              onClose={() => setPreviewItem(null)}
-            />
-          </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">예약번호</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">골프장</th>
+                      <th
+                        className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap cursor-pointer hover:text-green-700 select-none"
+                        onClick={() => handleSort("departureDate")}
+                      >
+                        출발일<SortIcon col="departureDate" />
+                      </th>
+                      <th
+                        className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap cursor-pointer hover:text-green-700 select-none"
+                        onClick={() => handleSort("headcount")}
+                      >
+                        팀/인원<SortIcon col="headcount" />
+                      </th>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">고객</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">유형</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">담당자</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">결제상태</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">진행</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">상태</th>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.length === 0 ? (
+                      <tr>
+                        <td colSpan={11} className="text-center py-12 text-gray-400">
+                          {warningOnly ? "경고 예약이 없습니다." : "예약 내역이 없습니다."}
+                        </td>
+                      </tr>
+                    ) : (
+                      (() => {
+                        // 출발일/유형/담당자 라인 표시용 그룹 추적
+                        let prevDep = "";
+                        let prevType = "";
+                        let prevManager = "";
+                        return items.map((item) => {
+                          const depStr = formatDate(item.departureDate);
+                          const typeStr = (item as any).userType ?? "customer";
+                          const managerStr = (item as any).managerName ?? "-";
+                          const showDepLine = depStr !== prevDep;
+                          const showTypeLine = typeStr !== prevType;
+                          const showManagerLine = managerStr !== prevManager;
+                          prevDep = depStr;
+                          prevType = typeStr;
+                          prevManager = managerStr;
+                          const ps = calcPaymentStatus(item);
+                          const warning = isWarningItem(item);
+                          return (
+                            <tr
+                              key={item.id}
+                              className={`border-b hover:bg-gray-50 transition-colors ${
+                                warning ? "bg-red-50/40" : ""
+                              } ${
+                                showDepLine ? "border-t-2 border-t-green-200" : ""
+                              }`}
+                            >
+                              <td className="px-3 py-2.5">
+                                <div className="flex items-center gap-1">
+                                  {warning && <TriangleAlert className="w-3 h-3 text-red-500 shrink-0" />}
+                                  <span className="font-mono text-xs text-blue-600 font-bold">{item.reservationNo}</span>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2.5 max-w-[140px] truncate text-xs" title={item.golfCourseName ?? ""}>
+                                {item.golfCourseName ?? item.productName}
+                              </td>
+                              <td className={`px-3 py-2.5 whitespace-nowrap text-xs ${
+                                showDepLine ? "font-semibold text-green-700" : ""
+                              }`}>
+                                {depStr}
+                              </td>
+                              <td className="px-3 py-2.5 text-xs text-center whitespace-nowrap">
+                                {item.teams}팀/{item.headcount}명
+                              </td>
+                              <td className="px-3 py-2.5 text-xs whitespace-nowrap">{item.customerName}</td>
+                              <td className={`px-3 py-2.5 ${
+                                showTypeLine ? "border-l-2 border-l-purple-300" : ""
+                              }`}>
+                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${
+                                  typeStr === "partner" ? "bg-purple-100 text-purple-700" :
+                                  typeStr === "manager" ? "bg-gray-100 text-gray-700" :
+                                  "bg-blue-100 text-blue-700"
+                                }`}>
+                                  {USER_TYPE_ICONS[typeStr as UserType]}
+                                  {/* 제휴사인 경우 제휴사명 표시 */}
+                                  {typeStr === "partner"
+                                    ? ((item as any).partnerCompanyName || "제휴사")
+                                    : USER_TYPE_LABELS[typeStr as UserType]}
+                                </span>
+                              </td>
+                              <td className={`px-3 py-2.5 text-xs whitespace-nowrap ${
+                                showManagerLine ? "border-l-2 border-l-blue-200 font-semibold text-blue-700" : ""
+                              }`}>
+                                {managerStr}
+                              </td>
+                              <td className="px-3 py-2.5">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ps.color}`}>
+                                  {ps.label}
+                                </span>
+                              </td>
+                              {/* 진행 드롭박스 */}
+                              <td className="px-3 py-2.5">
+                                <ProgressDropdown
+                                  reservationId={item.id}
+                                  currentProgress={(item as any).progressStatus ?? ""}
+                                  onSuccess={refetch}
+                                />
+                              </td>
+                              <td className="px-3 py-2.5">
+                                {/* 상태 아이콘 버튼 */}
+                                <div className="flex gap-0.5">
+                                  {(["pending", "confirmed", "cancelled", "completed"] as StatusType[]).map((s) => (
+                                    <button
+                                      key={s}
+                                      title={STATUS_LABELS[s]}
+                                      onClick={() => {
+                                        if (item.status !== s) {
+                                          setEditItem({ ...item, status: s });
+                                        }
+                                      }}
+                                      className={`p-1 rounded transition-all ${
+                                        item.status === s
+                                          ? STATUS_COLORS[s] + " border"
+                                          : "text-gray-300 hover:text-gray-500"
+                                      }`}
+                                    >
+                                      {STATUS_ICONS[s]}
+                                    </button>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="px-3 py-2.5">
+                                <div className="flex gap-1">
+                                  {/* 견적서 미리보기 버튼 */}
+                                  <button
+                                    onClick={() => setPreviewItem({ id: item.id, reservationNo: item.reservationNo ?? undefined, customerName: item.customerName ?? undefined })}
+                                    className="p-1 hover:bg-indigo-50 rounded text-indigo-500" title="견적서 미리보기">
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </button>
+                                  {/* 관리 아이콘 - 클릭 시 예약 상세관리 팝업 */}
+                                  <button
+                                    onClick={() => setEditItem(item)}
+                                    className="p-1 hover:bg-green-50 rounded text-green-600" title="상세관리">
+                                    <Settings className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button onClick={() => setEditItem(item)}
+                                    className="p-1 hover:bg-yellow-50 rounded text-yellow-600" title="수정">
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => { if (confirm("삭제하시겠습니까?")) deleteMut.mutate({ id: item.id }); }}
+                                    className="p-1 hover:bg-red-50 rounded text-red-500" title="삭제">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()
+                    )}
+                  </tbody>
+                </table>
+              </div>
+  
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 p-4">
+                  <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <span className="text-sm text-gray-600">{page} / {totalPages}</span>
+                  <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
-      )}
-    </ERPLayout>
-  );
+  
+        {/* 신규 예약 간소화 모달 */}
+        <Dialog open={showQuickCreate} onOpenChange={setShowQuickCreate}>
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Plus className="w-5 h-5 text-green-700" /> 신규 예약 등록
+              </DialogTitle>
+            </DialogHeader>
+            <QuickCreateForm
+              onSuccess={() => { setShowQuickCreate(false); refetch(); }}
+              onCancel={() => setShowQuickCreate(false)}
+              currentUser={user}
+            />
+          </DialogContent>
+        </Dialog>
+  
+        {/* 예약 수정 모달 */}
+        <Dialog open={editItem !== null} onOpenChange={() => setEditItem(null)}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-sm">
+                <Edit2 className="w-4 h-4" />
+                예약 수정
+                <span className="font-mono text-blue-600 text-xs">{editItem?.reservationNo}</span>
+              </DialogTitle>
+            </DialogHeader>
+            {editItem && (
+              <EditDialog
+                item={editItem}
+                onClose={() => setEditItem(null)}
+                onSuccess={() => { setEditItem(null); refetch(); }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+  
+        {/* 견적서 실시간 미리보기 슬라이드 패널 */}
+        {previewItem && (
+          <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setPreviewItem(null)}>
+            {/* 반투명 오버레이 */}
+            <div className="absolute inset-0 bg-black/20" />
+            {/* 패널 */}
+            <div
+              className="relative w-full max-w-md h-full bg-gray-50 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <EstimatePreviewPanel
+                reservationId={previewItem.id}
+                reservationNo={previewItem.reservationNo}
+                customerName={previewItem.customerName}
+                onClose={() => setPreviewItem(null)}
+              />
+            </div>
+          </div>
+        )}
+    </>);
 }

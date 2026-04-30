@@ -1,5 +1,4 @@
 import { useState } from "react";
-import ERPLayout from "@/components/ERPLayout";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,7 +52,6 @@ export default function SettlementsPage() {
   const summary = data?.summary;
 
   return (
-    <ERPLayout>
       <div className="space-y-5">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">정산관리</h1>
@@ -234,6 +232,5 @@ export default function SettlementsPage() {
           </div>
         )}
       </div>
-    </ERPLayout>
   );
 }

@@ -10,7 +10,6 @@
 import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
-import ERPLayout from "@/components/ERPLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -245,7 +244,6 @@ export default function FeatureCatalog() {
   const plannedCount = (data?.features ?? []).filter((f: Feature) => f.status === "planned").length;
 
   return (
-    <ERPLayout>
       <div className="p-6 space-y-5">
         {/* 헤더 */}
         <div className="flex items-center justify-between flex-wrap gap-3">
@@ -428,6 +426,5 @@ export default function FeatureCatalog() {
           </TabsContent>
         </Tabs>
       </div>
-    </ERPLayout>
   );
 }

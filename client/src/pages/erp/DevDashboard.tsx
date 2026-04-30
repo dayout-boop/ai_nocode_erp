@@ -1,10 +1,8 @@
-import ERPLayout from "@/components/ERPLayout";
 
 const DEV_DASHBOARD_URL = "https://dogolf-dash-mjywck97.manus.space/";
 
 export default function DevDashboard() {
   return (
-    <ERPLayout>
       <div className="flex flex-col h-[calc(100vh-8rem)]">
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -29,6 +27,5 @@ export default function DevDashboard() {
           />
         </div>
       </div>
-    </ERPLayout>
   );
 }

@@ -11,40 +11,11 @@ import Notice from "./pages/Notice";
 import Inquiry from './pages/Inquiry';
 import PackageDetail from './pages/PackageDetail';
 
-// ERP Admin Pages
-import ERPDashboard from "./pages/erp/Dashboard";
-import ERPPackages from "./pages/erp/Packages";
-import ERPPackageDetail from "./pages/erp/PackageDetail";
-import ERPBookings from "./pages/erp/Bookings";
-import ERPInquiries from "./pages/erp/Inquiries";
-import ERPSettlements from "./pages/erp/Settlements";
-import ERPCRMCustomers from "./pages/erp/CRMCustomers";
-import ERPCRMPartners from "./pages/erp/CRMPartners";
-import ERPCMSNotices from "./pages/erp/CMSNotices";
-import ERPCMSBanners from "./pages/erp/CMSBanners";
-import ERPCMSVariables from "./pages/erp/cms/VariableManagement";
-import GeminiAssistant from "./pages/erp/GeminiAssistant";
-import AILogs from "./pages/erp/AILogs";
-import DevAI from "./pages/erp/DevAI";
-import DevAIOrchestrator from "./pages/erp/DevAIOrchestrator";
-import AIDevEngine from "./pages/erp/AIDevEngine";
-import MasterAI from "./pages/erp/MasterAI";
-import AIEngine from "./pages/erp/AIEngine";
-import FeatureCatalog from "./pages/erp/FeatureCatalog";
-import HomepageManagement from "./pages/erp/HomepageManagement";
-import ReservationManagement from "./pages/erp/ReservationManagement";
-import InquiryTemplates from "./pages/erp/InquiryTemplates";
-import FinanceManagement from "./pages/erp/FinanceManagement";
-import AffiliateManagement from "./pages/erp/AffiliateManagement";
-import GolfTalkAdmin from "./pages/erp/GolfTalkAdmin";
-import ManagerAdmin from "./pages/erp/ManagerAdmin";
-import MasterLogs from "./pages/erp/MasterLogs";
-import MasterCosts from "./pages/erp/MasterCosts";
-import ERPSettings from "./pages/erp/ERPSettings";
-import OpenRouterAgent from "./pages/erp/OpenRouterAgent";
-import CustomerEstimateTemplates from "./pages/erp/CustomerEstimateTemplates";
+// ERP Layout (handles all /erp/* routing internally)
+import ERPLayout from "./components/ERPLayout";
+
+// Other Pages
 import EstimateView from "./pages/EstimateView";
-import DevDashboard from "./pages/erp/DevDashboard";
 
 // Partner Pages
 import PartnerDashboard from "./pages/Partner/PartnerDashboard";
@@ -63,46 +34,15 @@ function Router() {
       <Route path={"/notice"} component={Notice} />
       <Route path={"/inquiry"} component={Inquiry} />
 
-      {/* ERP 관리자 백오피스 */}
-      <Route path={"/erp"} component={ERPDashboard} />
-      <Route path={"/erp/dashboard"} component={ERPDashboard} />
-      <Route path={"/erp/packages"} component={ERPPackages} />
-      <Route path={"/erp/packages/:id"} component={ERPPackageDetail} />
-      <Route path={"/erp/bookings"} component={ERPBookings} />
-      <Route path={"/erp/inquiries"} component={ERPInquiries} />
-      <Route path={"/erp/settlements"} component={ERPSettlements} />
-      <Route path={"/erp/crm"} component={ERPCRMCustomers} />
-      <Route path={"/erp/crm/partners"} component={ERPCRMPartners} />
-      <Route path={"/erp/crm/affiliates"} component={AffiliateManagement} />
-      <Route path={"/erp/reservations"} component={ReservationManagement} />
-      <Route path={"/erp/reservations/templates"} component={InquiryTemplates} />
-      <Route path={"/erp/finance"} component={FinanceManagement} />
-      <Route path={"/erp/cms"} component={() => { window.location.replace('/erp/cms/notices'); return null; }} />
-      <Route path={"/erp/cms/notices"} component={ERPCMSNotices} />
-      <Route path={"/erp/cms/banners"} component={ERPCMSBanners} />
-      <Route path={"/erp/cms/homepage"} component={HomepageManagement} />
-      <Route path={"/erp/cms/variables"} component={ERPCMSVariables} />
-      <Route path={"/erp/gemini"} component={GeminiAssistant} />
-      <Route path={"/erp/ai-logs"} component={AILogs} />
-      <Route path={"/erp/dev-ai"} component={DevAI} />
-      <Route path={"/erp/orchestrator"} component={DevAIOrchestrator} />
-      <Route path={"/erp/ai-dev-engine"} component={AIDevEngine} />
-      <Route path={"/erp/master-ai"} component={MasterAI} />
-      <Route path={"/erp/master-ai/logs"} component={MasterLogs} />
-      <Route path={"/erp/master-ai/costs"} component={MasterCosts} />
-      <Route path={"/erp/ai-engine"} component={AIEngine} />
-      <Route path={"/erp/ai-engine/features"} component={FeatureCatalog} />
-      <Route path={"/erp/golftalk-admin"} component={GolfTalkAdmin} />
-      <Route path={"/erp/manager-admin"} component={ManagerAdmin} />
-      <Route path={"/erp/settings"} component={ERPSettings} />
-      <Route path={"/erp/openrouter-agent"} component={OpenRouterAgent} />
-      <Route path={"/erp/reservations/estimate-templates"} component={CustomerEstimateTemplates} />
-      <Route path={"/estimate/:token"} component={EstimateView} />
-      <Route path={"/erp/dev-dashboard"} component={DevDashboard} />
+      {/* ERP 관리자 백오피스 - ERPLayout이 내부 라우팅 처리 */}
+      <Route path={"/erp"} nest component={ERPLayout} />
 
       {/* /admin → /erp 리다이렉트 */}
       <Route path={"/admin"} component={() => { window.location.replace("/erp"); return null; }} />
       <Route path={"/admin/:rest*"} component={() => { window.location.replace("/erp"); return null; }} />
+
+      {/* 기타 */}
+      <Route path={"/estimate/:token"} component={EstimateView} />
 
       {/* 파트너 센터 */}
       <Route path={"/partner"} component={PartnerDashboard} />

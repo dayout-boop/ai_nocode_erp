@@ -13,7 +13,6 @@ import {
   User, Calendar, MapPin, Users, DollarSign, Phone, Briefcase,
   Clock, Hotel, Info, FileText, Hash, AlertTriangle
 } from "lucide-react";
-import ERPLayout from "@/components/ERPLayout";
 import VariablePickerButton, { VARIABLE_CATEGORIES, validateVariables, extractVariables } from "@/components/VariablePickerButton";
 
 // ─── 변수 삽입 가능한 Textarea 컴포넌트 ────────────────────────────
@@ -293,7 +292,6 @@ export default function CustomerEstimateTemplates() {
   };
 
   return (
-    <ERPLayout>
       <div className="p-6 max-w-4xl mx-auto">
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-6">
@@ -453,6 +451,5 @@ export default function CustomerEstimateTemplates() {
           </div>
         )}
       </div>
-    </ERPLayout>
   );
 }

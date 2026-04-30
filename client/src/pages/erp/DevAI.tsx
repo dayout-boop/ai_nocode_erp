@@ -1,5 +1,4 @@
 import { useState } from "react";
-import ERPLayout from "@/components/ERPLayout";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
@@ -232,750 +231,649 @@ export default function DevAI() {
   });
 
   return (
-    <ERPLayout>
+    <>
       <div className="space-y-6">
-        {/* 헤더 */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
-              <Code2 size={18} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-800">두골프 개발AI</h1>
-              <p className="text-sm text-slate-500">개발 요청 관리 · 기능 이력 · 롤백 관리 · Slack 연동</p>
-            </div>
-          </div>
-        </div>
-
-        {/* 탭 */}
-        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit flex-wrap">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  activeTab === tab.id
-                    ? "bg-white text-violet-700 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                <Icon size={15} />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* ===== 대시보드 탭 ===== */}
-        {activeTab === "dashboard" && (
-          <div className="space-y-6">
-            <div className="flex justify-end">
-              <Button variant="outline" size="sm" onClick={() => { refetchDash(); refetchCircuit(); refetchVersions(); }} className="gap-2">
-                <RefreshCw size={14} />
-                새로고침
-              </Button>
-            </div>
-            {dashLoading ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="h-28 bg-slate-100 rounded-xl animate-pulse" />
-                ))}
+          {/* 헤더 */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
+                <Code2 size={18} className="text-white" />
               </div>
-            ) : (
-              <>
-                {/* 요청 통계 카드 */}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {[
-                    { label: "전체 요청", value: dashStats?.totalRequests ?? 0, color: "from-violet-500 to-indigo-600", icon: ListTodo },
-                    { label: "대기중", value: dashStats?.pendingRequests ?? 0, color: "from-amber-400 to-orange-500", icon: Clock },
-                    { label: "진행중", value: dashStats?.inProgressRequests ?? 0, color: "from-blue-500 to-cyan-500", icon: Zap },
-                    { label: "완료", value: dashStats?.completedRequests ?? 0, color: "from-green-500 to-emerald-600", icon: CheckCircle2 },
-                    { label: "활성 기능", value: dashStats?.activeFeatures ?? 0, color: "from-purple-500 to-pink-500", icon: Package },
-                    { label: "총 버전", value: dashStats?.totalVersions ?? 0, color: "from-slate-500 to-slate-700", icon: GitBranch },
-                  ].map((stat) => {
-                    const Icon = stat.icon;
-                    return (
-                      <Card key={stat.label} className="border-slate-200 overflow-hidden">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-xs text-slate-500 mb-1">{stat.label}</p>
-                              <p className="text-2xl font-bold text-slate-800">{stat.value.toLocaleString()}</p>
-                            </div>
-                            <div className={`w-10 h-10 bg-gradient-to-br ${stat.color} rounded-xl flex items-center justify-center`}>
-                              <Icon size={18} className="text-white" />
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-
-                {/* 빠른 액션 */}
-                <Card className="border-slate-200">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-semibold text-slate-700">빠른 액션</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-3">
-                      <Button
-                        className="bg-violet-600 hover:bg-violet-700 gap-2"
-                        onClick={() => { setActiveTab("requests"); setCreateReqOpen(true); }}
-                      >
-                        <Plus size={15} />
-                        개발 요청 등록
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="gap-2"
-                        onClick={() => { setActiveTab("features"); setCreateFeatureOpen(true); }}
-                      >
-                        <Package size={15} />
-                        기능 등록
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="gap-2"
-                        onClick={() => { setActiveTab("versions"); setCreateVersionOpen(true); }}
-                      >
-                        <Tag size={15} />
-                        버전 기록
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* 서킷 브레이커 상태 위젯 */}
-                {circuitData && (
-                  <Card className="border-slate-200">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                        <ShieldAlert size={15} className="text-violet-600" />
-                        Gemini API 서킷 브레이커 상태
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-wrap gap-2">
-                        {(circuitData.regions ?? []).map((region: any) => {
-                          const cb = circuitData.status?.[region.name];
-                          const isOpen = cb?.isOpen ?? false;
-                          return (
-                            <div key={region.name} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium ${
-                              isOpen ? "bg-red-50 border-red-200 text-red-700" : "bg-green-50 border-green-200 text-green-700"
-                            }`}>
-                              <span className={`w-2 h-2 rounded-full ${isOpen ? "bg-red-500" : "bg-green-500"}`} />
-                              <span>{region.label}</span>
-                              {isOpen && cb?.failures != null && (
-                                <span className="text-red-400">({cb.failures}회 실패)</span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {Object.values(circuitData.status ?? {}).every((s: any) => !s.isOpen) && (
-                        <p className="text-xs text-green-600 mt-2">모든 리전 정상 운영 중</p>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* 최근 배포 이력 위젯 */}
-                {(recentVersions ?? []).length > 0 && (
-                  <Card className="border-slate-200">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                        <Rocket size={15} className="text-violet-600" />
-                        최근 배포 이력
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        {(recentVersions ?? []).slice(0, 5).map((ver: any) => (
-                          <div key={ver.id} className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0">
-                            <div className="flex items-center gap-2">
-                              <Badge className={`text-[10px] px-1.5 py-0 ${CHANGE_TYPE_CONFIG[ver.changeType ?? "feature"]?.color ?? "bg-slate-100 text-slate-600"}`}>
-                                {CHANGE_TYPE_CONFIG[ver.changeType ?? "feature"]?.label ?? ver.changeType}
-                              </Badge>
-                              <span className="text-xs text-slate-700 font-medium line-clamp-1">{ver.description}</span>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-[10px] font-mono text-violet-600">v{ver.version}</span>
-                              {ver.checkpointId && (
-                                <Badge className="text-[10px] px-1.5 py-0 bg-indigo-50 text-indigo-600 border-indigo-200 font-mono cursor-pointer"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(ver.checkpointId);
-                                    toast.success(`체크포인트 ID ${ver.checkpointId} 복사됨`);
-                                  }}
-                                >
-                                  #{ver.checkpointId.slice(0, 8)}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="mt-2 text-xs text-violet-600 hover:text-violet-700 gap-1 w-full justify-center"
-                        onClick={() => setActiveTab("versions")}
-                      >
-                        <History size={12} />
-                        전체 이력 보기
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Slack 설정 안내 */}
-                <Card className="border-slate-200 bg-slate-50">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                      <Slack size={15} className="text-purple-600" />
-                      Slack 연동 안내
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      개발 요청을 Slack으로 자동 전송하려면 Slack Incoming Webhook URL을 환경변수
-                      <code className="mx-1 px-1.5 py-0.5 bg-slate-200 rounded text-[11px] font-mono">SLACK_WEBHOOK_URL</code>
-                      에 설정하거나, 요청 전송 시 직접 입력할 수 있습니다.
-                    </p>
-                    <div className="flex gap-2">
-                      <a
-                        href="https://api.slack.com/messaging/webhooks"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-violet-600 hover:underline"
-                      >
-                        Slack Webhook 설정 가이드 →
-                      </a>
-                    </div>
-                  </CardContent>
-                </Card>
-              </>
-            )}
+              <div>
+                <h1 className="text-xl font-bold text-slate-800">두골프 개발AI</h1>
+                <p className="text-sm text-slate-500">개발 요청 관리 · 기능 이력 · 롤백 관리 · Slack 연동</p>
+              </div>
+            </div>
           </div>
-        )}
-
-        {/* ===== 개발 요청 탭 ===== */}
-        {activeTab === "requests" && (
-          <div className="space-y-4">
-            {/* 필터 + 등록 버튼 */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-32 h-9 text-sm">
-                  <SelectValue placeholder="상태" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">전체 상태</SelectItem>
-                  <SelectItem value="pending">대기</SelectItem>
-                  <SelectItem value="in_progress">진행중</SelectItem>
-                  <SelectItem value="completed">완료</SelectItem>
-                  <SelectItem value="rejected">반려</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-32 h-9 text-sm">
-                  <SelectValue placeholder="우선순위" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">전체 우선순위</SelectItem>
-                  <SelectItem value="high">높음</SelectItem>
-                  <SelectItem value="medium">보통</SelectItem>
-                  <SelectItem value="low">낮음</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="ml-auto">
-                <Button
-                  className="bg-violet-600 hover:bg-violet-700 gap-2"
-                  onClick={() => setCreateReqOpen(true)}
+  
+          {/* 탭 */}
+          <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit flex-wrap">
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    activeTab === tab.id
+                      ? "bg-white text-violet-700 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
                 >
-                  <Plus size={15} />
-                  요청 등록
+                  <Icon size={15} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+  
+          {/* ===== 대시보드 탭 ===== */}
+          {activeTab === "dashboard" && (
+            <div className="space-y-6">
+              <div className="flex justify-end">
+                <Button variant="outline" size="sm" onClick={() => { refetchDash(); refetchCircuit(); refetchVersions(); }} className="gap-2">
+                  <RefreshCw size={14} />
+                  새로고침
                 </Button>
               </div>
-            </div>
-
-            {/* 요청 목록 */}
-            {reqLoading ? (
-              <div className="space-y-3">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="h-20 bg-slate-100 rounded-xl animate-pulse" />
-                ))}
-              </div>
-            ) : (reqData?.items ?? []).length === 0 ? (
-              <Card className="border-dashed border-slate-200">
-                <CardContent className="py-16 flex flex-col items-center gap-3 text-slate-400">
-                  <ListTodo size={32} className="opacity-40" />
-                  <p className="text-sm font-medium">등록된 개발 요청이 없습니다.</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCreateReqOpen(true)}
-                    className="gap-2"
-                  >
-                    <Plus size={14} />
-                    첫 요청 등록하기
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {reqData!.items.map((req) => {
-                  const isExpanded = expandedReqId === req.id;
-                  const statusCfg = STATUS_CONFIG[req.status] ?? STATUS_CONFIG.pending;
-                  const priorityCfg = PRIORITY_CONFIG[req.priority] ?? PRIORITY_CONFIG.medium;
-                  const StatusIcon = statusCfg.icon;
-                  return (
-                    <Card key={req.id} className="border-slate-200 hover:border-violet-200 transition-colors">
-                      <CardHeader className="pb-2 pt-4 px-5">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                              <span className="text-xs text-slate-400">#{req.id}</span>
-                              <Badge className={`text-[10px] px-1.5 py-0 border ${statusCfg.color}`}>
-                                <StatusIcon size={9} className="mr-0.5" />
-                                {statusCfg.label}
-                              </Badge>
-                              <Badge className={`text-[10px] px-1.5 py-0 border ${priorityCfg.color}`}>
-                                {priorityCfg.label}
-                              </Badge>
-                            </div>
-                            <p className="text-sm font-semibold text-slate-800 line-clamp-1">{req.title}</p>
-                            <div className="flex items-center gap-3 mt-1">
-                              <span className="text-xs text-slate-400">
-                                {req.createdByName ?? "알 수 없음"} · {new Date(req.createdAt).toLocaleDateString("ko-KR")}
-                              </span>
-                              {req.slackMessageTs && (
-                                <span className="text-[10px] text-purple-500 flex items-center gap-0.5">
-                                  <Slack size={9} />
-                                  Slack 전송됨
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-slate-400 hover:text-violet-600"
-                              title="Slack 전송"
-                              onClick={() => {
-                                if (slackWebhookInput) {
-                                  sendSlackMutation.mutate({ requestId: req.id, webhookUrl: slackWebhookInput });
-                                } else {
-                                  sendSlackMutation.mutate({ requestId: req.id });
-                                }
-                              }}
-                            >
-                              <Send size={13} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-slate-400 hover:text-blue-600"
-                              title="편집"
-                              onClick={() => {
-                                setEditReqForm({ ...req });
-                                setEditReqOpen(true);
-                              }}
-                            >
-                              <Edit3 size={13} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-slate-400 hover:text-indigo-600"
-                              onClick={() => setExpandedReqId(isExpanded ? null : req.id)}
-                            >
-                              {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-red-500">
-                                  <Trash2 size={13} />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>요청 삭제</AlertDialogTitle>
-                                  <AlertDialogDescription>이 개발 요청을 삭제하시겠습니까?</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>취소</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    className="bg-red-500 hover:bg-red-600"
-                                    onClick={() => deleteReqMutation.mutate({ id: req.id })}
-                                  >
-                                    삭제
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      {isExpanded && (
-                        <CardContent className="px-5 pb-4 pt-0">
-                          <div className="border-t border-slate-100 pt-3 space-y-3">
-                            <div>
-                              <p className="text-xs font-semibold text-slate-500 mb-1">요청 내용</p>
-                              <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{req.description}</p>
-                            </div>
-                            {req.result && (
+              {dashLoading ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="h-28 bg-slate-100 rounded-xl animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <>
+                  {/* 요청 통계 카드 */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {[
+                      { label: "전체 요청", value: dashStats?.totalRequests ?? 0, color: "from-violet-500 to-indigo-600", icon: ListTodo },
+                      { label: "대기중", value: dashStats?.pendingRequests ?? 0, color: "from-amber-400 to-orange-500", icon: Clock },
+                      { label: "진행중", value: dashStats?.inProgressRequests ?? 0, color: "from-blue-500 to-cyan-500", icon: Zap },
+                      { label: "완료", value: dashStats?.completedRequests ?? 0, color: "from-green-500 to-emerald-600", icon: CheckCircle2 },
+                      { label: "활성 기능", value: dashStats?.activeFeatures ?? 0, color: "from-purple-500 to-pink-500", icon: Package },
+                      { label: "총 버전", value: dashStats?.totalVersions ?? 0, color: "from-slate-500 to-slate-700", icon: GitBranch },
+                    ].map((stat) => {
+                      const Icon = stat.icon;
+                      return (
+                        <Card key={stat.label} className="border-slate-200 overflow-hidden">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
                               <div>
-                                <p className="text-xs font-semibold text-slate-500 mb-1">결과물</p>
-                                <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed bg-green-50 rounded-lg p-3">
-                                  {req.result}
-                                </p>
+                                <p className="text-xs text-slate-500 mb-1">{stat.label}</p>
+                                <p className="text-2xl font-bold text-slate-800">{stat.value.toLocaleString()}</p>
                               </div>
-                            )}
-                            {/* 상태 변경 빠른 버튼 */}
-                            <div className="flex gap-2 flex-wrap">
-                              {["pending", "in_progress", "completed", "rejected"].map((s) => (
-                                <Button
-                                  key={s}
-                                  variant="outline"
-                                  size="sm"
-                                  className={`text-xs h-7 ${req.status === s ? "border-violet-400 text-violet-700 bg-violet-50" : ""}`}
-                                  onClick={() => updateReqMutation.mutate({ id: req.id, status: s as any })}
-                                  disabled={req.status === s}
-                                >
-                                  {STATUS_CONFIG[s]?.label}
-                                </Button>
-                              ))}
+                              <div className={`w-10 h-10 bg-gradient-to-br ${stat.color} rounded-xl flex items-center justify-center`}>
+                                <Icon size={18} className="text-white" />
+                              </div>
                             </div>
-                          </div>
-                        </CardContent>
-                      )}
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ===== 기능 목록 탭 ===== */}
-        {activeTab === "features" && (
-          <div className="space-y-4">
-            <div className="flex justify-end">
-              <Button className="bg-violet-600 hover:bg-violet-700 gap-2" onClick={() => setCreateFeatureOpen(true)}>
-                <Plus size={15} />
-                기능 등록
-              </Button>
-            </div>
-            {featuresLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="h-28 bg-slate-100 rounded-xl animate-pulse" />
-                ))}
-              </div>
-            ) : (features ?? []).length === 0 ? (
-              <Card className="border-dashed border-slate-200">
-                <CardContent className="py-16 flex flex-col items-center gap-3 text-slate-400">
-                  <Package size={32} className="opacity-40" />
-                  <p className="text-sm font-medium">등록된 기능이 없습니다.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {features!.map((feat) => (
-                  <Card key={feat.id} className="border-slate-200 hover:border-violet-200 transition-colors">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge className="text-[10px] px-1.5 py-0 bg-slate-100 text-slate-600 border-slate-200">
-                              {CATEGORY_LABELS[feat.category ?? "system"] ?? feat.category}
-                            </Badge>
-                            <Badge className={`text-[10px] px-1.5 py-0 ${
-                              feat.status === "active" ? "bg-green-100 text-green-700" :
-                              feat.status === "deprecated" ? "bg-red-100 text-red-700" :
-                              "bg-amber-100 text-amber-700"
-                            }`}>
-                              {feat.status === "active" ? "활성" : feat.status === "deprecated" ? "지원종료" : "실험적"}
-                            </Badge>
-                          </div>
-                          <p className="text-sm font-semibold text-slate-800">{feat.name}</p>
-                          {feat.description && (
-                            <p className="text-xs text-slate-500 mt-1 line-clamp-2">{feat.description}</p>
-                          )}
-                        </div>
-                        <div className="text-right shrink-0">
-                          <div className="flex items-center gap-1 text-xs text-violet-600 font-semibold">
-                            <Tag size={11} />
-                            v{feat.currentVersion}
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs text-slate-400 hover:text-violet-600 mt-1 gap-1"
-                            onClick={() => {
-                              setSelectedFeatureId(feat.id);
-                              setActiveTab("versions");
-                            }}
-                          >
-                            <History size={11} />
-                            이력 보기
-                          </Button>
-                        </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+  
+                  {/* 빠른 액션 */}
+                  <Card className="border-slate-200">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-semibold text-slate-700">빠른 액션</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-wrap gap-3">
+                        <Button
+                          className="bg-violet-600 hover:bg-violet-700 gap-2"
+                          onClick={() => { setActiveTab("requests"); setCreateReqOpen(true); }}
+                        >
+                          <Plus size={15} />
+                          개발 요청 등록
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="gap-2"
+                          onClick={() => { setActiveTab("features"); setCreateFeatureOpen(true); }}
+                        >
+                          <Package size={15} />
+                          기능 등록
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="gap-2"
+                          onClick={() => { setActiveTab("versions"); setCreateVersionOpen(true); }}
+                        >
+                          <Tag size={15} />
+                          버전 기록
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ===== 버전 이력 탭 ===== */}
-        {activeTab === "versions" && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 flex-wrap">
-              <Select
-                value={selectedFeatureId ? String(selectedFeatureId) : "all"}
-                onValueChange={(v) => setSelectedFeatureId(v === "all" ? null : Number(v))}
-              >
-                <SelectTrigger className="w-48 h-9 text-sm">
-                  <SelectValue placeholder="기능 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">전체 기능</SelectItem>
-                  {(features ?? []).map((f) => (
-                    <SelectItem key={f.id} value={String(f.id)}>{f.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="ml-auto">
-                <Button className="bg-violet-600 hover:bg-violet-700 gap-2" onClick={() => setCreateVersionOpen(true)}>
-                  <Plus size={15} />
-                  버전 기록
-                </Button>
-              </div>
-            </div>
-
-            {versionsLoading ? (
-              <div className="space-y-3">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="h-20 bg-slate-100 rounded-xl animate-pulse" />
-                ))}
-              </div>
-            ) : (versions ?? []).length === 0 ? (
-              <Card className="border-dashed border-slate-200">
-                <CardContent className="py-16 flex flex-col items-center gap-3 text-slate-400">
-                  <History size={32} className="opacity-40" />
-                  <p className="text-sm font-medium">버전 이력이 없습니다.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {versions!.map((ver, idx) => {
-                  const changeCfg = CHANGE_TYPE_CONFIG[ver.changeType ?? "feature"] ?? CHANGE_TYPE_CONFIG.feature;
-                  const featureName = features?.find(f => f.id === ver.featureId)?.name ?? `기능 #${ver.featureId}`;
-                  return (
-                    <Card key={ver.id} className="border-slate-200">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-start gap-3">
-                            {/* 타임라인 점 */}
-                            <div className="flex flex-col items-center mt-1">
-                              <div className={`w-3 h-3 rounded-full ${idx === 0 ? "bg-violet-500" : "bg-slate-300"}`} />
-                              {idx < (versions?.length ?? 0) - 1 && (
-                                <div className="w-px h-full bg-slate-200 mt-1" />
-                              )}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2 flex-wrap mb-1">
-                                <span className="text-sm font-bold text-violet-700">v{ver.version}</span>
-                                <Badge className={`text-[10px] px-1.5 py-0 ${changeCfg.color}`}>
-                                  {changeCfg.label}
-                                </Badge>
-                                <span className="text-xs text-slate-500">{featureName}</span>
+  
+                  {/* 서킷 브레이커 상태 위젯 */}
+                  {circuitData && (
+                    <Card className="border-slate-200">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                          <ShieldAlert size={15} className="text-violet-600" />
+                          Gemini API 서킷 브레이커 상태
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-wrap gap-2">
+                          {(circuitData.regions ?? []).map((region: any) => {
+                            const cb = circuitData.status?.[region.name];
+                            const isOpen = cb?.isOpen ?? false;
+                            return (
+                              <div key={region.name} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium ${
+                                isOpen ? "bg-red-50 border-red-200 text-red-700" : "bg-green-50 border-green-200 text-green-700"
+                              }`}>
+                                <span className={`w-2 h-2 rounded-full ${isOpen ? "bg-red-500" : "bg-green-500"}`} />
+                                <span>{region.label}</span>
+                                {isOpen && cb?.failures != null && (
+                                  <span className="text-red-400">({cb.failures}회 실패)</span>
+                                )}
                               </div>
-                              <p className="text-sm text-slate-700">{ver.description}</p>
-                              <div className="flex items-center gap-3 mt-1.5">
-                                <span className="text-xs text-slate-400">
-                                  {ver.createdByName ?? "알 수 없음"} · {new Date(ver.createdAt).toLocaleDateString("ko-KR")}
-                                </span>
+                            );
+                          })}
+                        </div>
+                        {Object.values(circuitData.status ?? {}).every((s: any) => !s.isOpen) && (
+                          <p className="text-xs text-green-600 mt-2">모든 리전 정상 운영 중</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+  
+                  {/* 최근 배포 이력 위젯 */}
+                  {(recentVersions ?? []).length > 0 && (
+                    <Card className="border-slate-200">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                          <Rocket size={15} className="text-violet-600" />
+                          최근 배포 이력
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {(recentVersions ?? []).slice(0, 5).map((ver: any) => (
+                            <div key={ver.id} className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0">
+                              <div className="flex items-center gap-2">
+                                <Badge className={`text-[10px] px-1.5 py-0 ${CHANGE_TYPE_CONFIG[ver.changeType ?? "feature"]?.color ?? "bg-slate-100 text-slate-600"}`}>
+                                  {CHANGE_TYPE_CONFIG[ver.changeType ?? "feature"]?.label ?? ver.changeType}
+                                </Badge>
+                                <span className="text-xs text-slate-700 font-medium line-clamp-1">{ver.description}</span>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-[10px] font-mono text-violet-600">v{ver.version}</span>
                                 {ver.checkpointId && (
-                                  <Badge
-                                    className="text-[10px] px-1.5 py-0 bg-indigo-50 text-indigo-600 border-indigo-200 font-mono cursor-pointer hover:bg-indigo-100 transition-colors"
+                                  <Badge className="text-[10px] px-1.5 py-0 bg-indigo-50 text-indigo-600 border-indigo-200 font-mono cursor-pointer"
                                     onClick={() => {
-                                      navigator.clipboard.writeText(ver.checkpointId!);
+                                      navigator.clipboard.writeText(ver.checkpointId);
                                       toast.success(`체크포인트 ID ${ver.checkpointId} 복사됨`);
                                     }}
-                                    title="클릭하여 복사"
                                   >
                                     #{ver.checkpointId.slice(0, 8)}
                                   </Badge>
                                 )}
                               </div>
                             </div>
-                          </div>
-                          {ver.isRollbackable && ver.checkpointId && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="shrink-0 gap-1.5 text-xs text-amber-600 border-amber-300 hover:bg-amber-50"
-                              onClick={() => {
-                                toast.info(
-                                  `롤백하려면 Management UI > Version History에서 체크포인트 ID "${ver.checkpointId?.slice(0, 8)}"를 선택하세요.`,
-                                  { duration: 5000 }
-                                );
-                              }}
-                            >
-                              <RotateCcw size={12} />
-                              롤백 안내
-                            </Button>
-                          )}
+                          ))}
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="mt-2 text-xs text-violet-600 hover:text-violet-700 gap-1 w-full justify-center"
+                          onClick={() => setActiveTab("versions")}
+                        >
+                          <History size={12} />
+                          전체 이력 보기
+                        </Button>
                       </CardContent>
                     </Card>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ===== 개발 요청 등록 다이얼로그 ===== */}
-      <Dialog open={createReqOpen} onOpenChange={setCreateReqOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>개발 요청 등록</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
-              <label className="text-xs font-semibold text-slate-600 mb-1.5 block">제목 *</label>
-              <Input
-                value={reqForm.title}
-                onChange={(e) => setReqForm((f) => ({ ...f, title: e.target.value }))}
-                placeholder="예: Gemini AI 응답 캐싱 기능 추가"
-              />
+                  )}
+  
+                  {/* Slack 설정 안내 */}
+                  <Card className="border-slate-200 bg-slate-50">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        <Slack size={15} className="text-purple-600" />
+                        Slack 연동 안내
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        개발 요청을 Slack으로 자동 전송하려면 Slack Incoming Webhook URL을 환경변수
+                        <code className="mx-1 px-1.5 py-0.5 bg-slate-200 rounded text-[11px] font-mono">SLACK_WEBHOOK_URL</code>
+                        에 설정하거나, 요청 전송 시 직접 입력할 수 있습니다.
+                      </p>
+                      <div className="flex gap-2">
+                        <a
+                          href="https://api.slack.com/messaging/webhooks"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-violet-600 hover:underline"
+                        >
+                          Slack Webhook 설정 가이드 →
+                        </a>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
             </div>
-            <div>
-              <label className="text-xs font-semibold text-slate-600 mb-1.5 block">요청 내용 *</label>
-              <Textarea
-                value={reqForm.description}
-                onChange={(e) => setReqForm((f) => ({ ...f, description: e.target.value }))}
-                placeholder="구체적인 요청 내용을 작성해 주세요."
-                rows={4}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">우선순위</label>
-                <Select value={reqForm.priority} onValueChange={(v) => setReqForm((f) => ({ ...f, priority: v }))}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
+          )}
+  
+          {/* ===== 개발 요청 탭 ===== */}
+          {activeTab === "requests" && (
+            <div className="space-y-4">
+              {/* 필터 + 등록 버튼 */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-32 h-9 text-sm">
+                    <SelectValue placeholder="상태" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all">전체 상태</SelectItem>
+                    <SelectItem value="pending">대기</SelectItem>
+                    <SelectItem value="in_progress">진행중</SelectItem>
+                    <SelectItem value="completed">완료</SelectItem>
+                    <SelectItem value="rejected">반려</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                  <SelectTrigger className="w-32 h-9 text-sm">
+                    <SelectValue placeholder="우선순위" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체 우선순위</SelectItem>
                     <SelectItem value="high">높음</SelectItem>
                     <SelectItem value="medium">보통</SelectItem>
                     <SelectItem value="low">낮음</SelectItem>
                   </SelectContent>
                 </Select>
+                <div className="ml-auto">
+                  <Button
+                    className="bg-violet-600 hover:bg-violet-700 gap-2"
+                    onClick={() => setCreateReqOpen(true)}
+                  >
+                    <Plus size={15} />
+                    요청 등록
+                  </Button>
+                </div>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">관련 기능</label>
-                <Select value={reqForm.featureId} onValueChange={(v) => setReqForm((f) => ({ ...f, featureId: v }))}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="선택 (선택사항)" />
+  
+              {/* 요청 목록 */}
+              {reqLoading ? (
+                <div className="space-y-3">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="h-20 bg-slate-100 rounded-xl animate-pulse" />
+                  ))}
+                </div>
+              ) : (reqData?.items ?? []).length === 0 ? (
+                <Card className="border-dashed border-slate-200">
+                  <CardContent className="py-16 flex flex-col items-center gap-3 text-slate-400">
+                    <ListTodo size={32} className="opacity-40" />
+                    <p className="text-sm font-medium">등록된 개발 요청이 없습니다.</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCreateReqOpen(true)}
+                      className="gap-2"
+                    >
+                      <Plus size={14} />
+                      첫 요청 등록하기
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {reqData!.items.map((req) => {
+                    const isExpanded = expandedReqId === req.id;
+                    const statusCfg = STATUS_CONFIG[req.status] ?? STATUS_CONFIG.pending;
+                    const priorityCfg = PRIORITY_CONFIG[req.priority] ?? PRIORITY_CONFIG.medium;
+                    const StatusIcon = statusCfg.icon;
+                    return (
+                      <Card key={req.id} className="border-slate-200 hover:border-violet-200 transition-colors">
+                        <CardHeader className="pb-2 pt-4 px-5">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                                <span className="text-xs text-slate-400">#{req.id}</span>
+                                <Badge className={`text-[10px] px-1.5 py-0 border ${statusCfg.color}`}>
+                                  <StatusIcon size={9} className="mr-0.5" />
+                                  {statusCfg.label}
+                                </Badge>
+                                <Badge className={`text-[10px] px-1.5 py-0 border ${priorityCfg.color}`}>
+                                  {priorityCfg.label}
+                                </Badge>
+                              </div>
+                              <p className="text-sm font-semibold text-slate-800 line-clamp-1">{req.title}</p>
+                              <div className="flex items-center gap-3 mt-1">
+                                <span className="text-xs text-slate-400">
+                                  {req.createdByName ?? "알 수 없음"} · {new Date(req.createdAt).toLocaleDateString("ko-KR")}
+                                </span>
+                                {req.slackMessageTs && (
+                                  <span className="text-[10px] text-purple-500 flex items-center gap-0.5">
+                                    <Slack size={9} />
+                                    Slack 전송됨
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-slate-400 hover:text-violet-600"
+                                title="Slack 전송"
+                                onClick={() => {
+                                  if (slackWebhookInput) {
+                                    sendSlackMutation.mutate({ requestId: req.id, webhookUrl: slackWebhookInput });
+                                  } else {
+                                    sendSlackMutation.mutate({ requestId: req.id });
+                                  }
+                                }}
+                              >
+                                <Send size={13} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-slate-400 hover:text-blue-600"
+                                title="편집"
+                                onClick={() => {
+                                  setEditReqForm({ ...req });
+                                  setEditReqOpen(true);
+                                }}
+                              >
+                                <Edit3 size={13} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-slate-400 hover:text-indigo-600"
+                                onClick={() => setExpandedReqId(isExpanded ? null : req.id)}
+                              >
+                                {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-red-500">
+                                    <Trash2 size={13} />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>요청 삭제</AlertDialogTitle>
+                                    <AlertDialogDescription>이 개발 요청을 삭제하시겠습니까?</AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>취소</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className="bg-red-500 hover:bg-red-600"
+                                      onClick={() => deleteReqMutation.mutate({ id: req.id })}
+                                    >
+                                      삭제
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        {isExpanded && (
+                          <CardContent className="px-5 pb-4 pt-0">
+                            <div className="border-t border-slate-100 pt-3 space-y-3">
+                              <div>
+                                <p className="text-xs font-semibold text-slate-500 mb-1">요청 내용</p>
+                                <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{req.description}</p>
+                              </div>
+                              {req.result && (
+                                <div>
+                                  <p className="text-xs font-semibold text-slate-500 mb-1">결과물</p>
+                                  <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed bg-green-50 rounded-lg p-3">
+                                    {req.result}
+                                  </p>
+                                </div>
+                              )}
+                              {/* 상태 변경 빠른 버튼 */}
+                              <div className="flex gap-2 flex-wrap">
+                                {["pending", "in_progress", "completed", "rejected"].map((s) => (
+                                  <Button
+                                    key={s}
+                                    variant="outline"
+                                    size="sm"
+                                    className={`text-xs h-7 ${req.status === s ? "border-violet-400 text-violet-700 bg-violet-50" : ""}`}
+                                    onClick={() => updateReqMutation.mutate({ id: req.id, status: s as any })}
+                                    disabled={req.status === s}
+                                  >
+                                    {STATUS_CONFIG[s]?.label}
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          </CardContent>
+                        )}
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+  
+          {/* ===== 기능 목록 탭 ===== */}
+          {activeTab === "features" && (
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <Button className="bg-violet-600 hover:bg-violet-700 gap-2" onClick={() => setCreateFeatureOpen(true)}>
+                  <Plus size={15} />
+                  기능 등록
+                </Button>
+              </div>
+              {featuresLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="h-28 bg-slate-100 rounded-xl animate-pulse" />
+                  ))}
+                </div>
+              ) : (features ?? []).length === 0 ? (
+                <Card className="border-dashed border-slate-200">
+                  <CardContent className="py-16 flex flex-col items-center gap-3 text-slate-400">
+                    <Package size={32} className="opacity-40" />
+                    <p className="text-sm font-medium">등록된 기능이 없습니다.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {features!.map((feat) => (
+                    <Card key={feat.id} className="border-slate-200 hover:border-violet-200 transition-colors">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge className="text-[10px] px-1.5 py-0 bg-slate-100 text-slate-600 border-slate-200">
+                                {CATEGORY_LABELS[feat.category ?? "system"] ?? feat.category}
+                              </Badge>
+                              <Badge className={`text-[10px] px-1.5 py-0 ${
+                                feat.status === "active" ? "bg-green-100 text-green-700" :
+                                feat.status === "deprecated" ? "bg-red-100 text-red-700" :
+                                "bg-amber-100 text-amber-700"
+                              }`}>
+                                {feat.status === "active" ? "활성" : feat.status === "deprecated" ? "지원종료" : "실험적"}
+                              </Badge>
+                            </div>
+                            <p className="text-sm font-semibold text-slate-800">{feat.name}</p>
+                            {feat.description && (
+                              <p className="text-xs text-slate-500 mt-1 line-clamp-2">{feat.description}</p>
+                            )}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="flex items-center gap-1 text-xs text-violet-600 font-semibold">
+                              <Tag size={11} />
+                              v{feat.currentVersion}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs text-slate-400 hover:text-violet-600 mt-1 gap-1"
+                              onClick={() => {
+                                setSelectedFeatureId(feat.id);
+                                setActiveTab("versions");
+                              }}
+                            >
+                              <History size={11} />
+                              이력 보기
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+  
+          {/* ===== 버전 이력 탭 ===== */}
+          {activeTab === "versions" && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <Select
+                  value={selectedFeatureId ? String(selectedFeatureId) : "all"}
+                  onValueChange={(v) => setSelectedFeatureId(v === "all" ? null : Number(v))}
+                >
+                  <SelectTrigger className="w-48 h-9 text-sm">
+                    <SelectValue placeholder="기능 선택" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all">전체 기능</SelectItem>
                     {(features ?? []).map((f) => (
                       <SelectItem key={f.id} value={String(f.id)}>{f.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <div className="ml-auto">
+                  <Button className="bg-violet-600 hover:bg-violet-700 gap-2" onClick={() => setCreateVersionOpen(true)}>
+                    <Plus size={15} />
+                    버전 기록
+                  </Button>
+                </div>
               </div>
+  
+              {versionsLoading ? (
+                <div className="space-y-3">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="h-20 bg-slate-100 rounded-xl animate-pulse" />
+                  ))}
+                </div>
+              ) : (versions ?? []).length === 0 ? (
+                <Card className="border-dashed border-slate-200">
+                  <CardContent className="py-16 flex flex-col items-center gap-3 text-slate-400">
+                    <History size={32} className="opacity-40" />
+                    <p className="text-sm font-medium">버전 이력이 없습니다.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {versions!.map((ver, idx) => {
+                    const changeCfg = CHANGE_TYPE_CONFIG[ver.changeType ?? "feature"] ?? CHANGE_TYPE_CONFIG.feature;
+                    const featureName = features?.find(f => f.id === ver.featureId)?.name ?? `기능 #${ver.featureId}`;
+                    return (
+                      <Card key={ver.id} className="border-slate-200">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                              {/* 타임라인 점 */}
+                              <div className="flex flex-col items-center mt-1">
+                                <div className={`w-3 h-3 rounded-full ${idx === 0 ? "bg-violet-500" : "bg-slate-300"}`} />
+                                {idx < (versions?.length ?? 0) - 1 && (
+                                  <div className="w-px h-full bg-slate-200 mt-1" />
+                                )}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap mb-1">
+                                  <span className="text-sm font-bold text-violet-700">v{ver.version}</span>
+                                  <Badge className={`text-[10px] px-1.5 py-0 ${changeCfg.color}`}>
+                                    {changeCfg.label}
+                                  </Badge>
+                                  <span className="text-xs text-slate-500">{featureName}</span>
+                                </div>
+                                <p className="text-sm text-slate-700">{ver.description}</p>
+                                <div className="flex items-center gap-3 mt-1.5">
+                                  <span className="text-xs text-slate-400">
+                                    {ver.createdByName ?? "알 수 없음"} · {new Date(ver.createdAt).toLocaleDateString("ko-KR")}
+                                  </span>
+                                  {ver.checkpointId && (
+                                    <Badge
+                                      className="text-[10px] px-1.5 py-0 bg-indigo-50 text-indigo-600 border-indigo-200 font-mono cursor-pointer hover:bg-indigo-100 transition-colors"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(ver.checkpointId!);
+                                        toast.success(`체크포인트 ID ${ver.checkpointId} 복사됨`);
+                                      }}
+                                      title="클릭하여 복사"
+                                    >
+                                      #{ver.checkpointId.slice(0, 8)}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            {ver.isRollbackable && ver.checkpointId && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="shrink-0 gap-1.5 text-xs text-amber-600 border-amber-300 hover:bg-amber-50"
+                                onClick={() => {
+                                  toast.info(
+                                    `롤백하려면 Management UI > Version History에서 체크포인트 ID "${ver.checkpointId?.slice(0, 8)}"를 선택하세요.`,
+                                    { duration: 5000 }
+                                  );
+                                }}
+                              >
+                                <RotateCcw size={12} />
+                                롤백 안내
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            <div>
-              <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Slack Webhook URL (선택사항)</label>
-              <Input
-                value={slackWebhookInput}
-                onChange={(e) => setSlackWebhookInput(e.target.value)}
-                placeholder="https://hooks.slack.com/services/..."
-                className="text-xs"
-              />
-              <p className="text-[10px] text-slate-400 mt-1">입력 시 등록 후 Slack으로 자동 전송됩니다.</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateReqOpen(false)}>취소</Button>
-            <Button
-              className="bg-violet-600 hover:bg-violet-700"
-              disabled={!reqForm.title || !reqForm.description || createReqMutation.isPending}
-              onClick={() => {
-                createReqMutation.mutate({
-                  title: reqForm.title,
-                  description: reqForm.description,
-                  priority: reqForm.priority as any,
-                  featureId: reqForm.featureId ? Number(reqForm.featureId) : undefined,
-                });
-              }}
-            >
-              {createReqMutation.isPending ? "등록 중..." : "등록"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ===== 요청 편집 다이얼로그 ===== */}
-      <Dialog open={editReqOpen} onOpenChange={setEditReqOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>요청 편집</DialogTitle>
-          </DialogHeader>
-          {editReqForm && (
+          )}
+        </div>
+  
+        {/* ===== 개발 요청 등록 다이얼로그 ===== */}
+        <Dialog open={createReqOpen} onOpenChange={setCreateReqOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>개발 요청 등록</DialogTitle>
+            </DialogHeader>
             <div className="space-y-4 py-2">
               <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">제목</label>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">제목 *</label>
                 <Input
-                  value={editReqForm.title}
-                  onChange={(e) => setEditReqForm((f: any) => ({ ...f, title: e.target.value }))}
+                  value={reqForm.title}
+                  onChange={(e) => setReqForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="예: Gemini AI 응답 캐싱 기능 추가"
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">내용</label>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">요청 내용 *</label>
                 <Textarea
-                  value={editReqForm.description}
-                  onChange={(e) => setEditReqForm((f: any) => ({ ...f, description: e.target.value }))}
+                  value={reqForm.description}
+                  onChange={(e) => setReqForm((f) => ({ ...f, description: e.target.value }))}
+                  placeholder="구체적인 요청 내용을 작성해 주세요."
                   rows={4}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">결과물</label>
-                <Textarea
-                  value={editReqForm.result ?? ""}
-                  onChange={(e) => setEditReqForm((f: any) => ({ ...f, result: e.target.value }))}
-                  placeholder="완료된 결과물을 기록합니다."
-                  rows={3}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">상태</label>
-                  <Select value={editReqForm.status} onValueChange={(v) => setEditReqForm((f: any) => ({ ...f, status: v }))}>
-                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">대기</SelectItem>
-                      <SelectItem value="in_progress">진행중</SelectItem>
-                      <SelectItem value="completed">완료</SelectItem>
-                      <SelectItem value="rejected">반려</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
                   <label className="text-xs font-semibold text-slate-600 mb-1.5 block">우선순위</label>
-                  <Select value={editReqForm.priority} onValueChange={(v) => setEditReqForm((f: any) => ({ ...f, priority: v }))}>
-                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <Select value={reqForm.priority} onValueChange={(v) => setReqForm((f) => ({ ...f, priority: v }))}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="high">높음</SelectItem>
                       <SelectItem value="medium">보통</SelectItem>
@@ -983,172 +881,272 @@ export default function DevAI() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">관련 기능</label>
+                  <Select value={reqForm.featureId} onValueChange={(v) => setReqForm((f) => ({ ...f, featureId: v }))}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="선택 (선택사항)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(features ?? []).map((f) => (
+                        <SelectItem key={f.id} value={String(f.id)}>{f.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Slack Webhook URL (선택사항)</label>
+                <Input
+                  value={slackWebhookInput}
+                  onChange={(e) => setSlackWebhookInput(e.target.value)}
+                  placeholder="https://hooks.slack.com/services/..."
+                  className="text-xs"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">입력 시 등록 후 Slack으로 자동 전송됩니다.</p>
               </div>
             </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditReqOpen(false)}>취소</Button>
-            <Button
-              className="bg-violet-600 hover:bg-violet-700"
-              disabled={updateReqMutation.isPending}
-              onClick={() => {
-                updateReqMutation.mutate({
-                  id: editReqForm.id,
-                  title: editReqForm.title,
-                  description: editReqForm.description,
-                  status: editReqForm.status,
-                  priority: editReqForm.priority,
-                  result: editReqForm.result || undefined,
-                });
-              }}
-            >
-              {updateReqMutation.isPending ? "저장 중..." : "저장"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ===== 기능 등록 다이얼로그 ===== */}
-      <Dialog open={createFeatureOpen} onOpenChange={setCreateFeatureOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>기능 등록</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
-              <label className="text-xs font-semibold text-slate-600 mb-1.5 block">기능명 *</label>
-              <Input
-                value={featureForm.name}
-                onChange={(e) => setFeatureForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="예: Gemini AI 어시스턴트"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-slate-600 mb-1.5 block">설명</label>
-              <Textarea
-                value={featureForm.description}
-                onChange={(e) => setFeatureForm((f) => ({ ...f, description: e.target.value }))}
-                rows={3}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCreateReqOpen(false)}>취소</Button>
+              <Button
+                className="bg-violet-600 hover:bg-violet-700"
+                disabled={!reqForm.title || !reqForm.description || createReqMutation.isPending}
+                onClick={() => {
+                  createReqMutation.mutate({
+                    title: reqForm.title,
+                    description: reqForm.description,
+                    priority: reqForm.priority as any,
+                    featureId: reqForm.featureId ? Number(reqForm.featureId) : undefined,
+                  });
+                }}
+              >
+                {createReqMutation.isPending ? "등록 중..." : "등록"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+  
+        {/* ===== 요청 편집 다이얼로그 ===== */}
+        <Dialog open={editReqOpen} onOpenChange={setEditReqOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>요청 편집</DialogTitle>
+            </DialogHeader>
+            {editReqForm && (
+              <div className="space-y-4 py-2">
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">제목</label>
+                  <Input
+                    value={editReqForm.title}
+                    onChange={(e) => setEditReqForm((f: any) => ({ ...f, title: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">내용</label>
+                  <Textarea
+                    value={editReqForm.description}
+                    onChange={(e) => setEditReqForm((f: any) => ({ ...f, description: e.target.value }))}
+                    rows={4}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">결과물</label>
+                  <Textarea
+                    value={editReqForm.result ?? ""}
+                    onChange={(e) => setEditReqForm((f: any) => ({ ...f, result: e.target.value }))}
+                    placeholder="완료된 결과물을 기록합니다."
+                    rows={3}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 mb-1.5 block">상태</label>
+                    <Select value={editReqForm.status} onValueChange={(v) => setEditReqForm((f: any) => ({ ...f, status: v }))}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">대기</SelectItem>
+                        <SelectItem value="in_progress">진행중</SelectItem>
+                        <SelectItem value="completed">완료</SelectItem>
+                        <SelectItem value="rejected">반려</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 mb-1.5 block">우선순위</label>
+                    <Select value={editReqForm.priority} onValueChange={(v) => setEditReqForm((f: any) => ({ ...f, priority: v }))}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="high">높음</SelectItem>
+                        <SelectItem value="medium">보통</SelectItem>
+                        <SelectItem value="low">낮음</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditReqOpen(false)}>취소</Button>
+              <Button
+                className="bg-violet-600 hover:bg-violet-700"
+                disabled={updateReqMutation.isPending}
+                onClick={() => {
+                  updateReqMutation.mutate({
+                    id: editReqForm.id,
+                    title: editReqForm.title,
+                    description: editReqForm.description,
+                    status: editReqForm.status,
+                    priority: editReqForm.priority,
+                    result: editReqForm.result || undefined,
+                  });
+                }}
+              >
+                {updateReqMutation.isPending ? "저장 중..." : "저장"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+  
+        {/* ===== 기능 등록 다이얼로그 ===== */}
+        <Dialog open={createFeatureOpen} onOpenChange={setCreateFeatureOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>기능 등록</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
               <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">카테고리</label>
-                <Select value={featureForm.category} onValueChange={(v) => setFeatureForm((f) => ({ ...f, category: v }))}>
-                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">기능명 *</label>
+                <Input
+                  value={featureForm.name}
+                  onChange={(e) => setFeatureForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="예: Gemini AI 어시스턴트"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">설명</label>
+                <Textarea
+                  value={featureForm.description}
+                  onChange={(e) => setFeatureForm((f) => ({ ...f, description: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">카테고리</label>
+                  <Select value={featureForm.category} onValueChange={(v) => setFeatureForm((f) => ({ ...f, category: v }))}>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">초기 버전</label>
+                  <Input
+                    value={featureForm.currentVersion}
+                    onChange={(e) => setFeatureForm((f) => ({ ...f, currentVersion: e.target.value }))}
+                    placeholder="1.0.0"
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCreateFeatureOpen(false)}>취소</Button>
+              <Button
+                className="bg-violet-600 hover:bg-violet-700"
+                disabled={!featureForm.name || createFeatureMutation.isPending}
+                onClick={() => createFeatureMutation.mutate(featureForm)}
+              >
+                {createFeatureMutation.isPending ? "등록 중..." : "등록"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+  
+        {/* ===== 버전 기록 다이얼로그 ===== */}
+        <Dialog open={createVersionOpen} onOpenChange={setCreateVersionOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>버전 기록</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">기능 *</label>
+                <Select value={versionForm.featureId} onValueChange={(v) => setVersionForm((f) => ({ ...f, featureId: v }))}>
+                  <SelectTrigger className="h-9"><SelectValue placeholder="기능 선택" /></SelectTrigger>
                   <SelectContent>
-                    {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
-                      <SelectItem key={k} value={k}>{v}</SelectItem>
+                    {(features ?? []).map((f) => (
+                      <SelectItem key={f.id} value={String(f.id)}>{f.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">초기 버전</label>
-                <Input
-                  value={featureForm.currentVersion}
-                  onChange={(e) => setFeatureForm((f) => ({ ...f, currentVersion: e.target.value }))}
-                  placeholder="1.0.0"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">버전 *</label>
+                  <Input
+                    value={versionForm.version}
+                    onChange={(e) => setVersionForm((f) => ({ ...f, version: e.target.value }))}
+                    placeholder="예: 1.2.0"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">변경 유형</label>
+                  <Select value={versionForm.changeType} onValueChange={(v) => setVersionForm((f) => ({ ...f, changeType: v }))}>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="feature">기능 추가</SelectItem>
+                      <SelectItem value="bugfix">버그 수정</SelectItem>
+                      <SelectItem value="refactor">리팩터링</SelectItem>
+                      <SelectItem value="hotfix">핫픽스</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateFeatureOpen(false)}>취소</Button>
-            <Button
-              className="bg-violet-600 hover:bg-violet-700"
-              disabled={!featureForm.name || createFeatureMutation.isPending}
-              onClick={() => createFeatureMutation.mutate(featureForm)}
-            >
-              {createFeatureMutation.isPending ? "등록 중..." : "등록"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ===== 버전 기록 다이얼로그 ===== */}
-      <Dialog open={createVersionOpen} onOpenChange={setCreateVersionOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>버전 기록</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
-              <label className="text-xs font-semibold text-slate-600 mb-1.5 block">기능 *</label>
-              <Select value={versionForm.featureId} onValueChange={(v) => setVersionForm((f) => ({ ...f, featureId: v }))}>
-                <SelectTrigger className="h-9"><SelectValue placeholder="기능 선택" /></SelectTrigger>
-                <SelectContent>
-                  {(features ?? []).map((f) => (
-                    <SelectItem key={f.id} value={String(f.id)}>{f.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">버전 *</label>
-                <Input
-                  value={versionForm.version}
-                  onChange={(e) => setVersionForm((f) => ({ ...f, version: e.target.value }))}
-                  placeholder="예: 1.2.0"
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">변경 내용 *</label>
+                <Textarea
+                  value={versionForm.description}
+                  onChange={(e) => setVersionForm((f) => ({ ...f, description: e.target.value }))}
+                  placeholder="이 버전에서 변경된 내용을 기록합니다."
+                  rows={3}
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">변경 유형</label>
-                <Select value={versionForm.changeType} onValueChange={(v) => setVersionForm((f) => ({ ...f, changeType: v }))}>
-                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="feature">기능 추가</SelectItem>
-                    <SelectItem value="bugfix">버그 수정</SelectItem>
-                    <SelectItem value="refactor">리팩터링</SelectItem>
-                    <SelectItem value="hotfix">핫픽스</SelectItem>
-                  </SelectContent>
-                </Select>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 block">체크포인트 ID (롤백 가능)</label>
+                <Input
+                  value={versionForm.checkpointId}
+                  onChange={(e) => setVersionForm((f) => ({ ...f, checkpointId: e.target.value }))}
+                  placeholder="예: 92182260 (Management UI에서 확인)"
+                  className="font-mono text-xs"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  체크포인트 ID 입력 시 해당 버전으로 롤백 안내가 제공됩니다.
+                </p>
               </div>
             </div>
-            <div>
-              <label className="text-xs font-semibold text-slate-600 mb-1.5 block">변경 내용 *</label>
-              <Textarea
-                value={versionForm.description}
-                onChange={(e) => setVersionForm((f) => ({ ...f, description: e.target.value }))}
-                placeholder="이 버전에서 변경된 내용을 기록합니다."
-                rows={3}
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-slate-600 mb-1.5 block">체크포인트 ID (롤백 가능)</label>
-              <Input
-                value={versionForm.checkpointId}
-                onChange={(e) => setVersionForm((f) => ({ ...f, checkpointId: e.target.value }))}
-                placeholder="예: 92182260 (Management UI에서 확인)"
-                className="font-mono text-xs"
-              />
-              <p className="text-[10px] text-slate-400 mt-1">
-                체크포인트 ID 입력 시 해당 버전으로 롤백 안내가 제공됩니다.
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateVersionOpen(false)}>취소</Button>
-            <Button
-              className="bg-violet-600 hover:bg-violet-700"
-              disabled={!versionForm.featureId || !versionForm.version || !versionForm.description || createVersionMutation.isPending}
-              onClick={() => {
-                createVersionMutation.mutate({
-                  featureId: Number(versionForm.featureId),
-                  version: versionForm.version,
-                  description: versionForm.description,
-                  changeType: versionForm.changeType as any,
-                  checkpointId: versionForm.checkpointId || undefined,
-                  isRollbackable: !!versionForm.checkpointId,
-                });
-              }}
-            >
-              {createVersionMutation.isPending ? "저장 중..." : "저장"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </ERPLayout>
-  );
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCreateVersionOpen(false)}>취소</Button>
+              <Button
+                className="bg-violet-600 hover:bg-violet-700"
+                disabled={!versionForm.featureId || !versionForm.version || !versionForm.description || createVersionMutation.isPending}
+                onClick={() => {
+                  createVersionMutation.mutate({
+                    featureId: Number(versionForm.featureId),
+                    version: versionForm.version,
+                    description: versionForm.description,
+                    changeType: versionForm.changeType as any,
+                    checkpointId: versionForm.checkpointId || undefined,
+                    isRollbackable: !!versionForm.checkpointId,
+                  });
+                }}
+              >
+                {createVersionMutation.isPending ? "저장 중..." : "저장"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+    </>);
 }

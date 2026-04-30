@@ -6,7 +6,6 @@
  * 탭 4: 시스템 프롬프트 관리
  */
 import { useState } from "react";
-import ERPLayout from "@/components/ERPLayout";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -818,7 +817,6 @@ function SystemSettingsTab() {
 // ─── 메인 페이지 ─────────────────────────────────────────────────────────────
 export default function AIEngine() {
   return (
-    <ERPLayout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center gap-3">
@@ -873,6 +871,5 @@ export default function AIEngine() {
           </TabsContent>
         </Tabs>
       </div>
-    </ERPLayout>
   );
 }

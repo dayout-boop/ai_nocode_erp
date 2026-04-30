@@ -1,5 +1,4 @@
 import { useState } from "react";
-import ERPLayout from "@/components/ERPLayout";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -126,7 +125,6 @@ export default function AILogs() {
   const totalPages = Math.ceil(total / LIMIT);
 
   return (
-    <ERPLayout>
       <div className="space-y-6">
         {/* 헤더 */}
         <div className="flex items-start justify-between gap-4">
@@ -593,6 +591,5 @@ export default function AILogs() {
           </div>
         )}
       </div>
-    </ERPLayout>
   );
 }

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import ERPLayout from "@/components/ERPLayout";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +12,6 @@ export default function MasterCosts() {
   const periodLabel = { today: "오늘", week: "이번 주", month: "이번 달" }[period];
 
   return (
-    <ERPLayout>
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -162,6 +160,5 @@ export default function MasterCosts() {
           <div className="text-center py-12 text-gray-400">비용 데이터가 없습니다.</div>
         )}
       </div>
-    </ERPLayout>
   );
 }

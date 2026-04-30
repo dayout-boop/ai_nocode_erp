@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 import { useRoute } from "wouter";
-import ERPLayout from "@/components/ERPLayout";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -265,11 +264,10 @@ export default function PackageDetail() {
     handleFileSelect(e.dataTransfer.files);
   };
 
-  if (isLoading) return <ERPLayout><div className="py-20 text-center text-slate-400">로딩 중...</div></ERPLayout>;
-  if (!data) return <ERPLayout><div className="py-20 text-center text-slate-400">상품을 찾을 수 없습니다.</div></ERPLayout>;
+  if (isLoading) return <div className="py-20 text-center text-slate-400">로딩 중...</div>;
+  if (!data) return <div className="py-20 text-center text-slate-400">상품을 찾을 수 없습니다.</div>;
 
   return (
-    <ERPLayout>
       <div className="space-y-5">
         <div className="flex items-center gap-3">
           <Link href="/erp/packages">
@@ -1285,7 +1283,6 @@ export default function PackageDetail() {
           </TabsContent>
         </Tabs>
       </div>
-    </ERPLayout>
   );
 }
 

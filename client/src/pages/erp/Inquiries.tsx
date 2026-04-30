@@ -1,5 +1,4 @@
 import { useState } from "react";
-import ERPLayout from "@/components/ERPLayout";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -278,146 +277,145 @@ export default function InquiriesPage() {
   });
 
   return (
-    <ERPLayout>
+    <>
       <div className="space-y-5">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">문의관리 (수기)</h1>
-          <p className="text-slate-500 text-sm mt-1">고객 예약 문의를 관리합니다 · 생성일 최신순 정렬</p>
-        </div>
-
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex flex-wrap gap-3">
-              {/* 검색: 이름 또는 연락처 일부번호 */}
-              <div className="relative flex-1 min-w-48">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input
-                  placeholder="문의자명 또는 연락처 일부번호 검색..."
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") { setSearch(searchInput); setPage(1); }
-                  }}
-                  className="pl-8 h-9"
-                />
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9"
-                onClick={() => { setSearch(searchInput); setPage(1); }}
-              >
-                <Search size={14} />
-              </Button>
-              <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v === "all" ? "" : v); setPage(1); }}>
-                <SelectTrigger className="w-32 h-9">
-                  <SelectValue placeholder="상태" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">전체</SelectItem>
-                  <SelectItem value="new">신규</SelectItem>
-                  <SelectItem value="in_progress">처리중</SelectItem>
-                  <SelectItem value="replied">답변완료</SelectItem>
-                  <SelectItem value="closed">종료</SelectItem>
-                </SelectContent>
-              </Select>
-              {/* 정렬 기준 표시 (생성일 내림차순 고정) */}
-              <div className="flex items-center gap-1 text-xs text-slate-500 border rounded px-2 h-9 bg-slate-50">
-                <ArrowDownUp size={12} />
-                생성일 최신순
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="py-20 text-center text-slate-400">로딩 중...</div>
-            ) : !data?.items?.length ? (
-              <div className="py-20 text-center">
-                <MessageSquare size={40} className="text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-400">문의 내역이 없습니다</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50">
-                      <th className="text-left px-5 py-3 text-slate-500 font-medium">문의자</th>
-                      <th className="text-left px-4 py-3 text-slate-500 font-medium">연락처</th>
-                      <th className="text-left px-4 py-3 text-slate-500 font-medium">유형</th>
-                      <th className="text-left px-4 py-3 text-slate-500 font-medium">희망 패키지</th>
-                      <th className="text-center px-4 py-3 text-slate-500 font-medium">인원</th>
-                      <th className="text-center px-4 py-3 text-slate-500 font-medium">상태</th>
-                      <th className="text-left px-4 py-3 text-slate-500 font-medium">문의일</th>
-                      <th className="text-right px-5 py-3 text-slate-500 font-medium">관리</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {data.items.map((inquiry: any) => {
-                      // 유형: 제휴사인 경우 제휴사명 표시, 일반 고객은 "고객"
-                      const isAffiliate = inquiry.affiliateId || inquiry.affiliateName || inquiry.partnerCompanyName;
-                      const typeLabel = isAffiliate
-                        ? (inquiry.affiliateName || inquiry.partnerCompanyName || "제휴사")
-                        : "고객";
-                      const typeColor = isAffiliate
-                        ? "bg-purple-100 text-purple-700"
-                        : "bg-blue-100 text-blue-700";
-
-                      return (
-                        <tr
-                          key={inquiry.id}
-                          className={`hover:bg-slate-50 transition-colors cursor-pointer ${inquiry.status === "new" ? "bg-blue-50/30" : ""}`}
-                          onClick={() => setSelectedInquiry(inquiry)}
-                        >
-                          <td className="px-5 py-3 font-medium text-slate-800">{inquiry.name}</td>
-                          <td className="px-4 py-3 text-slate-600 font-mono text-xs">{inquiry.phone}</td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${typeColor}`}>
-                              {typeLabel}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-slate-600 max-w-40 truncate">{inquiry.packageName || "-"}</td>
-                          <td className="px-4 py-3 text-center text-slate-600">{inquiry.peopleCount ? `${inquiry.peopleCount}명` : "-"}</td>
-                          <td className="px-4 py-3 text-center">
-                            <Badge className={`text-xs ${STATUS_MAP[inquiry.status]?.color}`}>
-                              {STATUS_MAP[inquiry.status]?.label}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3 text-slate-500 text-xs">
-                            {new Date(inquiry.createdAt).toLocaleDateString("ko-KR")}
-                          </td>
-                          <td className="px-5 py-3 text-right">
-                            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-indigo-600 hover:text-indigo-800">
-                              답변
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {data && data.total > 15 && (
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-500">총 {data.total}건</p>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>이전</Button>
-              <span className="text-sm text-slate-600 px-3 py-1.5">{page} / {Math.ceil(data.total / 15)}</span>
-              <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={page >= Math.ceil(data.total / 15)}>다음</Button>
-            </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">문의관리 (수기)</h1>
+            <p className="text-slate-500 text-sm mt-1">고객 예약 문의를 관리합니다 · 생성일 최신순 정렬</p>
           </div>
+  
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-4">
+              <div className="flex flex-wrap gap-3">
+                {/* 검색: 이름 또는 연락처 일부번호 */}
+                <div className="relative flex-1 min-w-48">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="문의자명 또는 연락처 일부번호 검색..."
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { setSearch(searchInput); setPage(1); }
+                    }}
+                    className="pl-8 h-9"
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                  onClick={() => { setSearch(searchInput); setPage(1); }}
+                >
+                  <Search size={14} />
+                </Button>
+                <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v === "all" ? "" : v); setPage(1); }}>
+                  <SelectTrigger className="w-32 h-9">
+                    <SelectValue placeholder="상태" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체</SelectItem>
+                    <SelectItem value="new">신규</SelectItem>
+                    <SelectItem value="in_progress">처리중</SelectItem>
+                    <SelectItem value="replied">답변완료</SelectItem>
+                    <SelectItem value="closed">종료</SelectItem>
+                  </SelectContent>
+                </Select>
+                {/* 정렬 기준 표시 (생성일 내림차순 고정) */}
+                <div className="flex items-center gap-1 text-xs text-slate-500 border rounded px-2 h-9 bg-slate-50">
+                  <ArrowDownUp size={12} />
+                  생성일 최신순
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+  
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-0">
+              {isLoading ? (
+                <div className="py-20 text-center text-slate-400">로딩 중...</div>
+              ) : !data?.items?.length ? (
+                <div className="py-20 text-center">
+                  <MessageSquare size={40} className="text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-400">문의 내역이 없습니다</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100 bg-slate-50">
+                        <th className="text-left px-5 py-3 text-slate-500 font-medium">문의자</th>
+                        <th className="text-left px-4 py-3 text-slate-500 font-medium">연락처</th>
+                        <th className="text-left px-4 py-3 text-slate-500 font-medium">유형</th>
+                        <th className="text-left px-4 py-3 text-slate-500 font-medium">희망 패키지</th>
+                        <th className="text-center px-4 py-3 text-slate-500 font-medium">인원</th>
+                        <th className="text-center px-4 py-3 text-slate-500 font-medium">상태</th>
+                        <th className="text-left px-4 py-3 text-slate-500 font-medium">문의일</th>
+                        <th className="text-right px-5 py-3 text-slate-500 font-medium">관리</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {data.items.map((inquiry: any) => {
+                        // 유형: 제휴사인 경우 제휴사명 표시, 일반 고객은 "고객"
+                        const isAffiliate = inquiry.affiliateId || inquiry.affiliateName || inquiry.partnerCompanyName;
+                        const typeLabel = isAffiliate
+                          ? (inquiry.affiliateName || inquiry.partnerCompanyName || "제휴사")
+                          : "고객";
+                        const typeColor = isAffiliate
+                          ? "bg-purple-100 text-purple-700"
+                          : "bg-blue-100 text-blue-700";
+  
+                        return (
+                          <tr
+                            key={inquiry.id}
+                            className={`hover:bg-slate-50 transition-colors cursor-pointer ${inquiry.status === "new" ? "bg-blue-50/30" : ""}`}
+                            onClick={() => setSelectedInquiry(inquiry)}
+                          >
+                            <td className="px-5 py-3 font-medium text-slate-800">{inquiry.name}</td>
+                            <td className="px-4 py-3 text-slate-600 font-mono text-xs">{inquiry.phone}</td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${typeColor}`}>
+                                {typeLabel}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-slate-600 max-w-40 truncate">{inquiry.packageName || "-"}</td>
+                            <td className="px-4 py-3 text-center text-slate-600">{inquiry.peopleCount ? `${inquiry.peopleCount}명` : "-"}</td>
+                            <td className="px-4 py-3 text-center">
+                              <Badge className={`text-xs ${STATUS_MAP[inquiry.status]?.color}`}>
+                                {STATUS_MAP[inquiry.status]?.label}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 text-slate-500 text-xs">
+                              {new Date(inquiry.createdAt).toLocaleDateString("ko-KR")}
+                            </td>
+                            <td className="px-5 py-3 text-right">
+                              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-indigo-600 hover:text-indigo-800">
+                                답변
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+  
+          {data && data.total > 15 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-slate-500">총 {data.total}건</p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>이전</Button>
+                <span className="text-sm text-slate-600 px-3 py-1.5">{page} / {Math.ceil(data.total / 15)}</span>
+                <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={page >= Math.ceil(data.total / 15)}>다음</Button>
+              </div>
+            </div>
+          )}
+        </div>
+  
+        {selectedInquiry && (
+          <InquiryDetailDialog inquiry={selectedInquiry} onClose={() => setSelectedInquiry(null)} />
         )}
-      </div>
-
-      {selectedInquiry && (
-        <InquiryDetailDialog inquiry={selectedInquiry} onClose={() => setSelectedInquiry(null)} />
-      )}
-    </ERPLayout>
-  );
+    </>);
 }

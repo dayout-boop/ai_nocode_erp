@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { Link, useLocation } from "wouter";
+import { useState, useRef, useEffect, Suspense } from "react";
+import { Link, useLocation, Switch, Route } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import {
@@ -29,6 +29,39 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
+import ERPDashboard from "@/pages/erp/Dashboard";
+import ERPPackages from "@/pages/erp/Packages";
+import ERPPackageDetail from "@/pages/erp/PackageDetail";
+import ERPBookings from "@/pages/erp/Bookings";
+import ERPInquiries from "@/pages/erp/Inquiries";
+import ERPSettlements from "@/pages/erp/Settlements";
+import ERPCRMCustomers from "@/pages/erp/CRMCustomers";
+import ERPCRMPartners from "@/pages/erp/CRMPartners";
+import ERPCMSNotices from "@/pages/erp/CMSNotices";
+import ERPCMSBanners from "@/pages/erp/CMSBanners";
+import ERPCMSVariables from "@/pages/erp/cms/VariableManagement";
+import GeminiAssistant from "@/pages/erp/GeminiAssistant";
+import AILogs from "@/pages/erp/AILogs";
+import DevAI from "@/pages/erp/DevAI";
+import DevAIOrchestrator from "@/pages/erp/DevAIOrchestrator";
+import AIDevEngine from "@/pages/erp/AIDevEngine";
+import MasterAI from "@/pages/erp/MasterAI";
+import MasterLogs from "@/pages/erp/MasterLogs";
+import MasterCosts from "@/pages/erp/MasterCosts";
+import AIEngine from "@/pages/erp/AIEngine";
+import FeatureCatalog from "@/pages/erp/FeatureCatalog";
+import HomepageManagement from "@/pages/erp/HomepageManagement";
+import ReservationManagement from "@/pages/erp/ReservationManagement";
+import InquiryTemplates from "@/pages/erp/InquiryTemplates";
+import FinanceManagement from "@/pages/erp/FinanceManagement";
+import AffiliateManagement from "@/pages/erp/AffiliateManagement";
+import GolfTalkAdmin from "@/pages/erp/GolfTalkAdmin";
+import ManagerAdmin from "@/pages/erp/ManagerAdmin";
+import ERPSettings from "@/pages/erp/ERPSettings";
+import OpenRouterAgent from "@/pages/erp/OpenRouterAgent";
+import CustomerEstimateTemplates from "@/pages/erp/CustomerEstimateTemplates";
+import DevDashboard from "@/pages/erp/DevDashboard";
+import { Loader2 } from "lucide-react";
 
 interface NavChild {
   label: string;
@@ -51,90 +84,90 @@ const navItems: NavItem[] = [
     label: "AI 챗봇",
     icon: <Bot size={18} />,
     children: [
-      { label: "두골프 마스터 🤖", href: "/erp/master-ai", icon: <MessageSquare size={14} /> },
-      { label: "골프톡 관리", href: "/erp/golftalk-admin", icon: <Settings2 size={14} /> },
-      { label: "두골프 매니저 관리", href: "/erp/manager-admin", icon: <UserCog size={14} /> },
-      { label: "OpenRouter 에이전트 ⚡", href: "/erp/openrouter-agent", icon: <Zap size={14} /> },
+      { label: "두골프 마스터 🤖", href: "/master-ai", icon: <MessageSquare size={14} /> },
+      { label: "골프톡 관리", href: "/golftalk-admin", icon: <Settings2 size={14} /> },
+      { label: "두골프 매니저 관리", href: "/manager-admin", icon: <UserCog size={14} /> },
+      { label: "OpenRouter 에이전트 ⚡", href: "/openrouter-agent", icon: <Zap size={14} /> },
     ],
   },
   {
     label: "AI 마스터",
     icon: <Sparkles size={18} />,
     children: [
-      { label: "두골프 마스터 채팅", href: "/erp/master-ai", icon: <BrainCircuit size={14} /> },
-      { label: "대화 이력", href: "/erp/master-ai/logs", icon: <History size={14} /> },
-      { label: "AI 비용 현황", href: "/erp/master-ai/costs", icon: <DollarSign size={14} /> },
+      { label: "두골프 마스터 채팅", href: "/master-ai", icon: <BrainCircuit size={14} /> },
+      { label: "대화 이력", href: "/master-ai/logs", icon: <History size={14} /> },
+      { label: "AI 비용 현황", href: "/master-ai/costs", icon: <DollarSign size={14} /> },
     ],
   },
   {
     label: "AI 엔진 관리",
     icon: <Zap size={18} />,
     children: [
-      { label: "엔진 대시보드", href: "/erp/ai-engine", icon: <Gauge size={14} /> },
-      { label: "개발 요청", href: "/erp/dev-ai?tab=requests", icon: <ListChecks size={14} /> },
-      { label: "기능 목록", href: "/erp/ai-engine/features", icon: <LayoutList size={14} /> },
-      { label: "버전 이력", href: "/erp/dev-ai?tab=versions", icon: <GitBranch size={14} /> },
-      { label: "오류 로그", href: "/erp/ai-dev-engine", icon: <AlertTriangle size={14} /> },
+      { label: "엔진 대시보드", href: "/ai-engine", icon: <Gauge size={14} /> },
+      { label: "개발 요청", href: "/dev-ai?tab=requests", icon: <ListChecks size={14} /> },
+      { label: "기능 목록", href: "/ai-engine/features", icon: <LayoutList size={14} /> },
+      { label: "버전 이력", href: "/dev-ai?tab=versions", icon: <GitBranch size={14} /> },
+      { label: "오류 로그", href: "/ai-dev-engine", icon: <AlertTriangle size={14} /> },
     ],
   },
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 운영 카테고리
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  { label: "대시보드", icon: <LayoutDashboard size={18} />, href: "/erp" },
+  { label: "대시보드", icon: <LayoutDashboard size={18} />, href: "/" },
   {
     label: "상품관리",
     icon: <Package size={18} />,
     children: [
-      { label: "상품 목록", href: "/erp/packages", icon: <PackageSearch size={14} /> },
-      { label: "상품 등록", href: "/erp/packages/new", icon: <PackagePlus size={14} /> },
+      { label: "상품 목록", href: "/packages", icon: <PackageSearch size={14} /> },
+      { label: "상품 등록", href: "/packages/new", icon: <PackagePlus size={14} /> },
     ],
   },
   {
     label: "예약관리",
     icon: <Calendar size={18} />,
     children: [
-      { label: "예약 목록", href: "/erp/bookings", icon: <ClipboardList size={14} /> },
-      { label: "예약 문의", href: "/erp/inquiries", icon: <MessageCircleQuestion size={14} /> },
-      { label: "수기 예약관리", href: "/erp/reservations", icon: <ClipboardList size={14} /> },
-      { label: "문의 자동화 템플릿", href: "/erp/reservations/templates", icon: <MessageCircleQuestion size={14} /> },
-      { label: "고객 견적서 템플릿", href: "/erp/reservations/estimate-templates", icon: <FileText size={14} /> },
+      { label: "예약 목록", href: "/bookings", icon: <ClipboardList size={14} /> },
+      { label: "예약 문의", href: "/inquiries", icon: <MessageCircleQuestion size={14} /> },
+      { label: "수기 예약관리", href: "/reservations", icon: <ClipboardList size={14} /> },
+      { label: "문의 자동화 템플릿", href: "/reservations/templates", icon: <MessageCircleQuestion size={14} /> },
+      { label: "고객 견적서 템플릿", href: "/reservations/estimate-templates", icon: <FileText size={14} /> },
     ],
   },
   {
     label: "자금관리",
     icon: <CreditCard size={18} />,
     children: [
-      { label: "자금 현황", href: "/erp/finance", icon: <ReceiptText size={14} /> },
+      { label: "자금 현황", href: "/finance", icon: <ReceiptText size={14} /> },
     ],
   },
   {
     label: "정산관리",
     icon: <CreditCard size={18} />,
     children: [
-      { label: "정산 목록", href: "/erp/settlements", icon: <ReceiptText size={14} /> },
-      { label: "공급처별 정산", href: "/erp/settlements/suppliers", icon: <Building2 size={14} /> },
+      { label: "정산 목록", href: "/settlements", icon: <ReceiptText size={14} /> },
+      { label: "공급처별 정산", href: "/settlements/suppliers", icon: <Building2 size={14} /> },
     ],
   },
   {
     label: "CRM",
     icon: <Users size={18} />,
     children: [
-      { label: "고객 검색", href: "/erp/crm", icon: <Search size={14} /> },
-      { label: "파트너 관리", href: "/erp/crm/partners", icon: <Building2 size={14} /> },
-      { label: "제휴사 관리", href: "/erp/crm/affiliates", icon: <Building2 size={14} /> },
+      { label: "고객 검색", href: "/crm", icon: <Search size={14} /> },
+      { label: "파트너 관리", href: "/crm/partners", icon: <Building2 size={14} /> },
+      { label: "제휴사 관리", href: "/crm/affiliates", icon: <Building2 size={14} /> },
     ],
   },
   {
     label: "CMS",
     icon: <Megaphone size={18} />,
     children: [
-      { label: "홈페이지 관리", href: "/erp/cms/homepage", icon: <Globe size={14} /> },
-      { label: "공지사항", href: "/erp/cms/notices", icon: <BellIcon size={14} /> },
-      { label: "배너 관리", href: "/erp/cms/banners", icon: <Image size={14} /> },
-      { label: "자동 치환 변수", href: "/erp/cms/variables", icon: <Code2 size={14} /> },
+      { label: "홈페이지 관리", href: "/cms/homepage", icon: <Globe size={14} /> },
+      { label: "공지사항", href: "/cms/notices", icon: <BellIcon size={14} /> },
+      { label: "배너 관리", href: "/cms/banners", icon: <Image size={14} /> },
+      { label: "자동 치환 변수", href: "/cms/variables", icon: <Code2 size={14} /> },
     ],
   },
-  { label: "연동 설정", icon: <Settings size={18} />, href: "/erp/settings" },
+  { label: "연동 설정", icon: <Settings size={18} />, href: "/settings" },
 ];
 
 // ⚠️ ERP 내부 메뉴는 반드시 wouter <Link>를 사용하여 SPA 내부 라우팅으로 처리해야 합니다.
@@ -209,12 +242,71 @@ function NavItemComponent({ item, collapsed, onNavigate }: { item: NavItem; coll
   );
 }
 
-export default function ERPLayout({ children }: { children: React.ReactNode }) {
+function ERPContent() {
+  const [location] = useLocation();
+  const mainRef = useRef<HTMLElement>(null);
+
+  // 라우트 변경 시 스크롤 위치 초기화
+  useEffect(() => {
+    if (mainRef.current) {
+      mainRef.current.scrollTop = 0;
+    }
+  }, [location]);
+
+  return (
+    <main ref={mainRef} className="flex-1 overflow-auto">
+      <Suspense fallback={
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+        </div>
+      }>
+        <Switch>
+          <Route path="/" component={ERPDashboard} />
+          <Route path="/dashboard" component={ERPDashboard} />
+          <Route path="/packages" component={ERPPackages} />
+          <Route path="/packages/:id" component={ERPPackageDetail} />
+          <Route path="/bookings" component={ERPBookings} />
+          <Route path="/inquiries" component={ERPInquiries} />
+          <Route path="/settlements" component={ERPSettlements} />
+          <Route path="/crm" component={ERPCRMCustomers} />
+          <Route path="/crm/partners" component={ERPCRMPartners} />
+          <Route path="/crm/affiliates" component={AffiliateManagement} />
+          <Route path="/reservations" component={ReservationManagement} />
+          <Route path="/reservations/templates" component={InquiryTemplates} />
+          <Route path="/reservations/estimate-templates" component={CustomerEstimateTemplates} />
+          <Route path="/finance" component={FinanceManagement} />
+          <Route path="/cms" component={() => { window.location.replace('/erp/cms/notices'); return null; }} />
+          <Route path="/cms/notices" component={ERPCMSNotices} />
+          <Route path="/cms/banners" component={ERPCMSBanners} />
+          <Route path="/cms/homepage" component={HomepageManagement} />
+          <Route path="/cms/variables" component={ERPCMSVariables} />
+          <Route path="/gemini" component={GeminiAssistant} />
+          <Route path="/ai-logs" component={AILogs} />
+          <Route path="/dev-ai" component={DevAI} />
+          <Route path="/orchestrator" component={DevAIOrchestrator} />
+          <Route path="/ai-dev-engine" component={AIDevEngine} />
+          <Route path="/master-ai" component={MasterAI} />
+          <Route path="/master-ai/logs" component={MasterLogs} />
+          <Route path="/master-ai/costs" component={MasterCosts} />
+          <Route path="/ai-engine" component={AIEngine} />
+          <Route path="/ai-engine/features" component={FeatureCatalog} />
+          <Route path="/golftalk-admin" component={GolfTalkAdmin} />
+          <Route path="/manager-admin" component={ManagerAdmin} />
+          <Route path="/settings" component={ERPSettings} />
+          <Route path="/openrouter-agent" component={OpenRouterAgent} />
+          <Route path="/dev-dashboard" component={DevDashboard} />
+          <Route component={ERPDashboard} />
+        </Switch>
+      </Suspense>
+    </main>
+  );
+}
+
+export default function ERPLayout() {
   const { user, loading, isAuthenticated, logout } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  // 이번주 일정 위젯 상태
+  // 이번주 일정 위젯 상태태
   const [showWeeklyPopup, setShowWeeklyPopup] = useState(false);
   const weeklyPopupRef = useRef<HTMLDivElement>(null);
 
@@ -324,13 +416,13 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
 
         {/* Bottom */}
         <div className="border-t border-slate-700/50 px-3 py-3 space-y-2">
-          <Link href="/erp/dev-dashboard" onClick={() => setMobileOpen(false)}>
+          <Link href="/dev-dashboard" onClick={() => setMobileOpen(false)}>
             <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-indigo-300 hover:bg-slate-700 cursor-pointer transition-colors">
               <ExternalLink size={16} className="shrink-0" />
               {!sidebarCollapsed && <span className="text-xs">개발대시보드</span>}
             </div>
           </Link>
-          <a href="/" target="_blank" rel="noopener noreferrer">
+          <a href={window.location.origin} target="_blank" rel="noopener noreferrer">
             <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 cursor-pointer transition-colors">
               <ExternalLink size={16} className="shrink-0" />
               {!sidebarCollapsed && <span className="text-xs">홈페이지 보기</span>}
@@ -439,7 +531,7 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
                   )}
                 </div>
                 <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50">
-                  <Link href="/erp/crm/partners">
+                  <Link href="/crm/partners">
                     <button
                       onClick={() => setShowWeeklyPopup(false)}
                       className="w-full text-xs text-emerald-600 font-medium hover:underline flex items-center justify-center gap-1"
@@ -474,10 +566,8 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 p-6 overflow-auto">
-          {children}
-        </main>
+        {/* Page content - ERPContent handles internal routing */}
+        <ERPContent />
       </div>
     </div>
   );

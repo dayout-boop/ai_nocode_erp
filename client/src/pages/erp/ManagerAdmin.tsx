@@ -1,5 +1,4 @@
 import { useState, useMemo } from "react";
-import ERPLayout from "@/components/ERPLayout";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -46,7 +45,6 @@ export default function ManagerAdmin() {
   }, [logsData]);
 
   return (
-    <ERPLayout>
       <div className="p-6 space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -161,6 +159,5 @@ export default function ManagerAdmin() {
           </CardContent>
         </Card>
       </div>
-    </ERPLayout>
   );
 }

@@ -1,4 +1,3 @@
-import ERPLayout from "@/components/ERPLayout";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +54,6 @@ export default function Dashboard() {
   })) || [];
 
   return (
-    <ERPLayout>
       <div className="space-y-6">
         {/* Header */}
         <div>
@@ -228,6 +226,5 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
-    </ERPLayout>
   );
 }

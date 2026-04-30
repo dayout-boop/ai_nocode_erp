@@ -1,5 +1,4 @@
 import { useState } from "react";
-import ERPLayout from "@/components/ERPLayout";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -232,193 +231,192 @@ export default function InquiryTemplates() {
   });
 
   return (
-    <ERPLayout>
+    <>
       <div className="p-4 md:p-6 space-y-5">
-        {/* 헤더 */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">문의 자동화 템플릿</h1>
-            <p className="text-sm text-gray-500 mt-0.5">
-              골프장/숙소 문의 시 사용할 자동화 템플릿을 관리합니다.
-            </p>
+          {/* 헤더 */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">문의 자동화 템플릿</h1>
+              <p className="text-sm text-gray-500 mt-0.5">
+                골프장/숙소 문의 시 사용할 자동화 템플릿을 관리합니다.
+              </p>
+            </div>
+            <Button onClick={() => setShowCreate(true)}
+              className="bg-green-700 hover:bg-green-800 text-white">
+              <Plus className="w-4 h-4 mr-1" /> 템플릿 추가
+            </Button>
           </div>
-          <Button onClick={() => setShowCreate(true)}
-            className="bg-green-700 hover:bg-green-800 text-white">
-            <Plus className="w-4 h-4 mr-1" /> 템플릿 추가
-          </Button>
-        </div>
-
-        {/* 카테고리 필터 */}
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => setCategoryFilter("all")}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-              categoryFilter === "all"
-                ? "bg-green-700 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            전체
-          </button>
-          {CATEGORIES.map(c => (
+  
+          {/* 카테고리 필터 */}
+          <div className="flex gap-2 flex-wrap">
             <button
-              key={c.value}
-              onClick={() => setCategoryFilter(c.value as any)}
+              onClick={() => setCategoryFilter("all")}
               className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                categoryFilter === c.value
+                categoryFilter === "all"
                   ? "bg-green-700 text-white"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
-              {c.label}
+              전체
             </button>
-          ))}
-        </div>
-
-        {/* 템플릿 목록 */}
-        {!templates || templates.length === 0 ? (
-          <div className="text-center py-16 text-gray-400 border-2 border-dashed rounded-xl">
-            <Zap className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">등록된 템플릿이 없습니다.</p>
-            <p className="text-sm mt-1">템플릿 추가 버튼을 클릭하여 첫 번째 템플릿을 만들어보세요.</p>
+            {CATEGORIES.map(c => (
+              <button
+                key={c.value}
+                onClick={() => setCategoryFilter(c.value as any)}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                  categoryFilter === c.value
+                    ? "bg-green-700 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {templates.map((tpl) => (
-              <Card key={tpl.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <CardTitle className="text-sm font-semibold truncate">{tpl.name}</CardTitle>
-                      <span className={`inline-block text-xs px-2 py-0.5 rounded-full mt-1 font-medium ${
-                        tpl.category === "golf_booking" ? "bg-green-100 text-green-700" :
-                        tpl.category === "accommodation" ? "bg-blue-100 text-blue-700" :
-                        tpl.category === "transport" ? "bg-orange-100 text-orange-700" :
-                        "bg-gray-100 text-gray-600"
-                      }`}>
-                        {CATEGORIES.find(c => c.value === tpl.category)?.label ?? tpl.category}
-                      </span>
+  
+          {/* 템플릿 목록 */}
+          {!templates || templates.length === 0 ? (
+            <div className="text-center py-16 text-gray-400 border-2 border-dashed rounded-xl">
+              <Zap className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">등록된 템플릿이 없습니다.</p>
+              <p className="text-sm mt-1">템플릿 추가 버튼을 클릭하여 첫 번째 템플릿을 만들어보세요.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {templates.map((tpl) => (
+                <Card key={tpl.id} className="hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <CardTitle className="text-sm font-semibold truncate">{tpl.name}</CardTitle>
+                        <span className={`inline-block text-xs px-2 py-0.5 rounded-full mt-1 font-medium ${
+                          tpl.category === "golf_booking" ? "bg-green-100 text-green-700" :
+                          tpl.category === "accommodation" ? "bg-blue-100 text-blue-700" :
+                          tpl.category === "transport" ? "bg-orange-100 text-orange-700" :
+                          "bg-gray-100 text-gray-600"
+                        }`}>
+                          {CATEGORIES.find(c => c.value === tpl.category)?.label ?? tpl.category}
+                        </span>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <button
+                          onClick={() => setPreviewItem(tpl)}
+                          className="p-1.5 hover:bg-amber-50 rounded text-amber-500" title="미리보기"
+                        >
+                          <Zap className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setEditItem(tpl)}
+                          className="p-1.5 hover:bg-yellow-50 rounded text-yellow-600" title="수정"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => { if (confirm("삭제하시겠습니까?")) deleteMut.mutate({ id: tpl.id }); }}
+                          className="p-1.5 hover:bg-red-50 rounded text-red-500" title="삭제"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-1 shrink-0">
-                      <button
-                        onClick={() => setPreviewItem(tpl)}
-                        className="p-1.5 hover:bg-amber-50 rounded text-amber-500" title="미리보기"
-                      >
-                        <Zap className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setEditItem(tpl)}
-                        className="p-1.5 hover:bg-yellow-50 rounded text-yellow-600" title="수정"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => { if (confirm("삭제하시겠습니까?")) deleteMut.mutate({ id: tpl.id }); }}
-                        className="p-1.5 hover:bg-red-50 rounded text-red-500" title="삭제"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="bg-gray-50 rounded-lg p-2.5 text-xs text-gray-600 font-mono whitespace-pre-wrap line-clamp-4 max-h-24 overflow-hidden">
+                      {tpl.content}
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="bg-gray-50 rounded-lg p-2.5 text-xs text-gray-600 font-mono whitespace-pre-wrap line-clamp-4 max-h-24 overflow-hidden">
-                    {tpl.content}
-                  </div>
-                  {tpl.variables && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {tpl.variables.split(",").map((v: string) => (
-                        <span key={v.trim()} className="text-xs bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200">
+                    {tpl.variables && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {tpl.variables.split(",").map((v: string) => (
+                          <span key={v.trim()} className="text-xs bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200">
+                            {"{{"}{v.trim()}{"}}"}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+  
+        {/* 신규 등록 모달 */}
+        <Dialog open={showCreate} onOpenChange={setShowCreate}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Plus className="w-5 h-5 text-green-700" /> 템플릿 추가
+              </DialogTitle>
+            </DialogHeader>
+            <TemplateForm
+              onSave={(data) => createMut.mutate({ name: data.name, category: data.category, content: data.content, variables: data.variables })}
+              onCancel={() => setShowCreate(false)}
+              isSaving={createMut.isPending}
+            />
+          </DialogContent>
+        </Dialog>
+  
+        {/* 수정 모달 */}
+        <Dialog open={editItem !== null} onOpenChange={() => setEditItem(null)}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Edit2 className="w-4 h-4" /> 템플릿 수정
+              </DialogTitle>
+            </DialogHeader>
+            {editItem && (
+              <TemplateForm
+                initial={editItem}
+                onSave={(data) => updateMut.mutate({ id: editItem.id, name: data.name, category: data.category, content: data.content, variables: data.variables })}
+                onCancel={() => setEditItem(null)}
+                isSaving={updateMut.isPending}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+  
+        {/* 미리보기 모달 */}
+        <Dialog open={previewItem !== null} onOpenChange={() => setPreviewItem(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-amber-500" /> 템플릿 미리보기
+              </DialogTitle>
+            </DialogHeader>
+            {previewItem && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-sm">{previewItem.name}</span>
+                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                    {CATEGORIES.find(c => c.value === previewItem.category)?.label}
+                  </span>
+                </div>
+                <div className="relative bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">
+                    {previewItem.content}
+                  </pre>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(previewItem.content); toast.success("복사됨"); }}
+                    className="absolute top-2 right-2 p-1.5 bg-white rounded border hover:bg-gray-50"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-gray-500" />
+                  </button>
+                </div>
+                {previewItem.variables && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">사용 변수:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {previewItem.variables.split(",").map((v: string) => (
+                        <span key={v.trim()} className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200">
                           {"{{"}{v.trim()}{"}}"}
                         </span>
                       ))}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* 신규 등록 모달 */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-green-700" /> 템플릿 추가
-            </DialogTitle>
-          </DialogHeader>
-          <TemplateForm
-            onSave={(data) => createMut.mutate({ name: data.name, category: data.category, content: data.content, variables: data.variables })}
-            onCancel={() => setShowCreate(false)}
-            isSaving={createMut.isPending}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* 수정 모달 */}
-      <Dialog open={editItem !== null} onOpenChange={() => setEditItem(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Edit2 className="w-4 h-4" /> 템플릿 수정
-            </DialogTitle>
-          </DialogHeader>
-          {editItem && (
-            <TemplateForm
-              initial={editItem}
-              onSave={(data) => updateMut.mutate({ id: editItem.id, name: data.name, category: data.category, content: data.content, variables: data.variables })}
-              onCancel={() => setEditItem(null)}
-              isSaving={updateMut.isPending}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* 미리보기 모달 */}
-      <Dialog open={previewItem !== null} onOpenChange={() => setPreviewItem(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-amber-500" /> 템플릿 미리보기
-            </DialogTitle>
-          </DialogHeader>
-          {previewItem && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm">{previewItem.name}</span>
-                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                  {CATEGORIES.find(c => c.value === previewItem.category)?.label}
-                </span>
-              </div>
-              <div className="relative bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">
-                  {previewItem.content}
-                </pre>
-                <button
-                  onClick={() => { navigator.clipboard.writeText(previewItem.content); toast.success("복사됨"); }}
-                  className="absolute top-2 right-2 p-1.5 bg-white rounded border hover:bg-gray-50"
-                >
-                  <Copy className="w-3.5 h-3.5 text-gray-500" />
-                </button>
-              </div>
-              {previewItem.variables && (
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">사용 변수:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {previewItem.variables.split(",").map((v: string) => (
-                      <span key={v.trim()} className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200">
-                        {"{{"}{v.trim()}{"}}"}
-                      </span>
-                    ))}
                   </div>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </ERPLayout>
-  );
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+    </>);
 }

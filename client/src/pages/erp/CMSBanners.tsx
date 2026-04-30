@@ -5,7 +5,6 @@
 // 3. 자동 3개 생성 (국가 선택 → AI 일괄 생성)
 // ============================================================
 import { useState, useRef } from "react";
-import ERPLayout from "@/components/ERPLayout";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -455,162 +454,161 @@ export default function CMSBannersPage() {
   });
 
   return (
-    <ERPLayout>
+    <>
       <div className="space-y-5">
-        {/* 헤더 */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">배너 관리</h1>
-            <p className="text-slate-500 text-sm mt-1">홈페이지 메인 슬라이드 배너를 관리합니다</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setShowBatch(true)}
-              className="border-purple-200 text-purple-700 hover:bg-purple-50"
-            >
-              <Sparkles size={15} className="mr-1" /> AI 자동 생성
-            </Button>
-            <Button
-              onClick={() => { setEditBanner(null); setShowForm(true); }}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
-            >
-              <Plus size={16} className="mr-1" /> 배너 등록
-            </Button>
-          </div>
-        </div>
-
-        {/* 안내 카드 */}
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { icon: <Upload size={16} />, title: "직접 업로드", desc: "로컬 이미지 파일을 S3에 업로드 (자동 최적화)", color: "bg-blue-50 text-blue-700 border-blue-100" },
-            { icon: <Wand2 size={16} />, title: "AI 이미지 생성", desc: "국가/지역 선택 후 AI가 골프 배너 이미지 생성", color: "bg-purple-50 text-purple-700 border-purple-100" },
-            { icon: <Sparkles size={16} />, title: "자동 일괄 생성", desc: "국가별 배너를 AI가 한 번에 자동 생성", color: "bg-amber-50 text-amber-700 border-amber-100" },
-          ].map((item) => (
-            <div key={item.title} className={`rounded-xl border p-3 ${item.color}`}>
-              <div className="flex items-center gap-2 mb-1">
-                {item.icon}
-                <span className="text-sm font-semibold">{item.title}</span>
-              </div>
-              <p className="text-xs opacity-80">{item.desc}</p>
+          {/* 헤더 */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800">배너 관리</h1>
+              <p className="text-slate-500 text-sm mt-1">홈페이지 메인 슬라이드 배너를 관리합니다</p>
             </div>
-          ))}
-        </div>
-
-        {/* 배너 목록 */}
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="py-20 text-center text-slate-400">
-                <Loader2 size={28} className="animate-spin mx-auto mb-3" />
-                <p>배너 목록 로딩 중...</p>
-              </div>
-            ) : !data?.length ? (
-              <div className="py-20 text-center">
-                <Image size={40} className="text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-400 mb-2">등록된 배너가 없습니다</p>
-                <p className="text-xs text-slate-400 mb-4">AI 자동 생성으로 빠르게 배너를 만들어 보세요</p>
-                <div className="flex items-center justify-center gap-2">
-                  <Button onClick={() => setShowBatch(true)} variant="outline" size="sm" className="border-purple-200 text-purple-700">
-                    <Sparkles size={13} className="mr-1" /> AI 자동 생성
-                  </Button>
-                  <Button onClick={() => setShowForm(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white" size="sm">
-                    <Plus size={13} className="mr-1" /> 직접 등록
-                  </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowBatch(true)}
+                className="border-purple-200 text-purple-700 hover:bg-purple-50"
+              >
+                <Sparkles size={15} className="mr-1" /> AI 자동 생성
+              </Button>
+              <Button
+                onClick={() => { setEditBanner(null); setShowForm(true); }}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                <Plus size={16} className="mr-1" /> 배너 등록
+              </Button>
+            </div>
+          </div>
+  
+          {/* 안내 카드 */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { icon: <Upload size={16} />, title: "직접 업로드", desc: "로컬 이미지 파일을 S3에 업로드 (자동 최적화)", color: "bg-blue-50 text-blue-700 border-blue-100" },
+              { icon: <Wand2 size={16} />, title: "AI 이미지 생성", desc: "국가/지역 선택 후 AI가 골프 배너 이미지 생성", color: "bg-purple-50 text-purple-700 border-purple-100" },
+              { icon: <Sparkles size={16} />, title: "자동 일괄 생성", desc: "국가별 배너를 AI가 한 번에 자동 생성", color: "bg-amber-50 text-amber-700 border-amber-100" },
+            ].map((item) => (
+              <div key={item.title} className={`rounded-xl border p-3 ${item.color}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  {item.icon}
+                  <span className="text-sm font-semibold">{item.title}</span>
                 </div>
+                <p className="text-xs opacity-80">{item.desc}</p>
               </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {data.map((banner: any) => (
-                  <div key={banner.id} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-colors">
-                    {/* 드래그 핸들 */}
-                    <GripVertical size={16} className="text-slate-300 shrink-0 cursor-grab" />
-
-                    {/* 이미지 썸네일 */}
-                    <div className="w-28 h-16 rounded-lg overflow-hidden bg-slate-100 shrink-0">
-                      {banner.imageUrl ? (
-                        <img
-                          src={banner.imageUrl}
-                          alt={banner.title}
-                          className="w-full h-full object-cover"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-300">
-                          <Image size={20} />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 정보 */}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-800 truncate">{banner.title}</p>
-                      {banner.subtitle && (
-                        <p className="text-xs text-slate-500 truncate mt-0.5">{banner.subtitle}</p>
-                      )}
-                      {banner.linkUrl && (
-                        <p className="text-xs text-indigo-400 truncate mt-0.5">{banner.linkUrl}</p>
-                      )}
-                    </div>
-
-                    {/* 메타 */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs text-slate-400">순서 {banner.sortOrder}</span>
-                      <Badge className={`text-xs ${banner.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
-                        {banner.isActive ? "활성" : "비활성"}
-                      </Badge>
-                    </div>
-
-                    {/* 액션 버튼 */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className={`h-7 w-7 p-0 ${banner.isActive ? "text-green-500 hover:text-slate-400" : "text-slate-300 hover:text-green-500"}`}
-                        title={banner.isActive ? "비활성화" : "활성화"}
-                        onClick={() => toggleActiveMutation.mutate({ id: banner.id, isActive: !banner.isActive })}
-                      >
-                        {banner.isActive ? <Eye size={14} /> : <EyeOff size={14} />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-slate-400 hover:text-amber-600"
-                        onClick={() => { setEditBanner(banner); setShowForm(true); }}
-                      >
-                        <Edit size={14} />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-slate-400 hover:text-red-600"
-                        onClick={() => {
-                          if (confirm(`"${banner.title}" 배너를 삭제하시겠습니까?`)) {
-                            deleteMutation.mutate({ id: banner.id });
-                          }
-                        }}
-                      >
-                        <Trash2 size={14} />
-                      </Button>
-                    </div>
+            ))}
+          </div>
+  
+          {/* 배너 목록 */}
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-0">
+              {isLoading ? (
+                <div className="py-20 text-center text-slate-400">
+                  <Loader2 size={28} className="animate-spin mx-auto mb-3" />
+                  <p>배너 목록 로딩 중...</p>
+                </div>
+              ) : !data?.length ? (
+                <div className="py-20 text-center">
+                  <Image size={40} className="text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-400 mb-2">등록된 배너가 없습니다</p>
+                  <p className="text-xs text-slate-400 mb-4">AI 자동 생성으로 빠르게 배너를 만들어 보세요</p>
+                  <div className="flex items-center justify-center gap-2">
+                    <Button onClick={() => setShowBatch(true)} variant="outline" size="sm" className="border-purple-200 text-purple-700">
+                      <Sparkles size={13} className="mr-1" /> AI 자동 생성
+                    </Button>
+                    <Button onClick={() => setShowForm(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white" size="sm">
+                      <Plus size={13} className="mr-1" /> 직접 등록
+                    </Button>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 다이얼로그 */}
-      <BannerFormDialog
-        open={showForm}
-        onClose={() => { setShowForm(false); setEditBanner(null); }}
-        editBanner={editBanner}
-      />
-      <BatchGenerateDialog
-        open={showBatch}
-        onClose={() => setShowBatch(false)}
-      />
-    </ERPLayout>
-  );
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {data.map((banner: any) => (
+                    <div key={banner.id} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-colors">
+                      {/* 드래그 핸들 */}
+                      <GripVertical size={16} className="text-slate-300 shrink-0 cursor-grab" />
+  
+                      {/* 이미지 썸네일 */}
+                      <div className="w-28 h-16 rounded-lg overflow-hidden bg-slate-100 shrink-0">
+                        {banner.imageUrl ? (
+                          <img
+                            src={banner.imageUrl}
+                            alt={banner.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-300">
+                            <Image size={20} />
+                          </div>
+                        )}
+                      </div>
+  
+                      {/* 정보 */}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-800 truncate">{banner.title}</p>
+                        {banner.subtitle && (
+                          <p className="text-xs text-slate-500 truncate mt-0.5">{banner.subtitle}</p>
+                        )}
+                        {banner.linkUrl && (
+                          <p className="text-xs text-indigo-400 truncate mt-0.5">{banner.linkUrl}</p>
+                        )}
+                      </div>
+  
+                      {/* 메타 */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-slate-400">순서 {banner.sortOrder}</span>
+                        <Badge className={`text-xs ${banner.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
+                          {banner.isActive ? "활성" : "비활성"}
+                        </Badge>
+                      </div>
+  
+                      {/* 액션 버튼 */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={`h-7 w-7 p-0 ${banner.isActive ? "text-green-500 hover:text-slate-400" : "text-slate-300 hover:text-green-500"}`}
+                          title={banner.isActive ? "비활성화" : "활성화"}
+                          onClick={() => toggleActiveMutation.mutate({ id: banner.id, isActive: !banner.isActive })}
+                        >
+                          {banner.isActive ? <Eye size={14} /> : <EyeOff size={14} />}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-slate-400 hover:text-amber-600"
+                          onClick={() => { setEditBanner(banner); setShowForm(true); }}
+                        >
+                          <Edit size={14} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-slate-400 hover:text-red-600"
+                          onClick={() => {
+                            if (confirm(`"${banner.title}" 배너를 삭제하시겠습니까?`)) {
+                              deleteMutation.mutate({ id: banner.id });
+                            }
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+  
+        {/* 다이얼로그 */}
+        <BannerFormDialog
+          open={showForm}
+          onClose={() => { setShowForm(false); setEditBanner(null); }}
+          editBanner={editBanner}
+        />
+        <BatchGenerateDialog
+          open={showBatch}
+          onClose={() => setShowBatch(false)}
+        />
+    </>);
 }

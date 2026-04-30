@@ -1102,3 +1102,20 @@ Detected
 - [x] Node.js fetch 환경에서 API 연동 테스트 성공 (project.list 200 OK, task.sendMessage 200 OK)
 - [x] 서버 환경변수 확인 (MANUS_API_KEY, MANUS_PROJECT_ID, MANUS_DOGOLF_TASK_ID 모두 정상)
 - [x] manusPipe.ts Node.js fetch 기반 API 호출 정상 동작 확인
+
+## 2026-05-01 ERP 중첩 라우팅 (사이드바 고정 + 우측 컨텐츠만 교체) [ID: 150001]
+- [ ] App.tsx: `/erp` 경로를 wouter `nest` prop으로 중첩 라우팅 구조로 변경
+- [ ] ERPLayout.tsx: `children` prop 대신 내부 `<Switch>` 라우팅으로 변경 (모든 ERP 라우트 포함)
+- [ ] ERPLayout.tsx: 페이지 전환 시 로딩 인디케이터 추가 (Suspense + 스피너)
+- [ ] ERPLayout.tsx: 라우트 변경 시 스크롤 위치 초기화 (useEffect + useLocation)
+- [ ] 각 ERP 페이지에서 ERPLayout 래핑 제거 (컨텐츠만 반환하도록 변경)
+- [ ] TypeScript 오류 0개 확인
+
+## 2026-05-01 ERP 중첩 라우팅 (사이드바 고정, 우측 컨텐츠만 교체)
+- [x] App.tsx: ERP 라우트를 단일 <Route path="/erp" nest>로 통합
+- [x] ERPLayout.tsx: 내부 Switch 라우팅으로 변경 (children 제거)
+- [x] 27개 ERP 페이지에서 <ERPLayout> 래핑 제거
+- [x] 사이드바 href를 상대 경로로 변경 (wouter nest 컨텍스트)
+- [x] 스크롤 위치 초기화 (라우트 변경 시)
+- [x] Suspense 로딩 인디케이터 추가
+- [x] 현재 선택된 메뉴 하이라이트 동작 확인
