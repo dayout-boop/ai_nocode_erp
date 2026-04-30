@@ -137,7 +137,9 @@ const navItems: NavItem[] = [
   { label: "연동 설정", icon: <Settings size={18} />, href: "/erp/settings" },
 ];
 
-function NavItemComponent({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
+// ⚠️ ERP 내부 메뉴는 반드시 wouter <Link>를 사용하여 SPA 내부 라우팅으로 처리해야 합니다.
+// <a href>를 사용하면 새 탭/페이지 이동이 발생합니다.
+function NavItemComponent({ item, collapsed, onNavigate }: { item: NavItem; collapsed: boolean; onNavigate?: () => void }) {
   const [location] = useLocation();
   const [open, setOpen] = useState(() => {
     if (!item.children) return false;
@@ -148,7 +150,7 @@ function NavItemComponent({ item, collapsed }: { item: NavItem; collapsed: boole
 
   if (item.href) {
     return (
-      <Link href={item.href}>
+      <Link href={item.href} onClick={onNavigate}>
         <div
           className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-150 ${
             isActive
@@ -186,7 +188,7 @@ function NavItemComponent({ item, collapsed }: { item: NavItem; collapsed: boole
       {!collapsed && open && (
         <div className="ml-4 mt-1 space-y-0.5 border-l border-slate-700/60 pl-3">
           {item.children?.map((child) => (
-            <Link key={child.href} href={child.href}>
+            <Link key={child.href} href={child.href} onClick={onNavigate}>
               <div
                 className={`flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm cursor-pointer transition-colors ${
                   location === child.href || location.startsWith(child.href + "?")
@@ -311,18 +313,23 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           {navItems.map((item) => (
-            <NavItemComponent key={item.label} item={item} collapsed={sidebarCollapsed} />
+            <NavItemComponent
+              key={item.label}
+              item={item}
+              collapsed={sidebarCollapsed}
+              onNavigate={() => setMobileOpen(false)}
+            />
           ))}
         </nav>
 
         {/* Bottom */}
         <div className="border-t border-slate-700/50 px-3 py-3 space-y-2">
-          <a href="/erp/dev-dashboard">
+          <Link href="/erp/dev-dashboard" onClick={() => setMobileOpen(false)}>
             <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-indigo-300 hover:bg-slate-700 cursor-pointer transition-colors">
               <ExternalLink size={16} className="shrink-0" />
               {!sidebarCollapsed && <span className="text-xs">개발대시보드</span>}
             </div>
-          </a>
+          </Link>
           <a href="/" target="_blank" rel="noopener noreferrer">
             <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 cursor-pointer transition-colors">
               <ExternalLink size={16} className="shrink-0" />

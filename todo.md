@@ -978,3 +978,8 @@ Detected
 - [x] Header.tsx — DB 네비 데이터 연동 (trpc.siteSettings.getNavItems, isVisible 필터, 폴백 기본값)
 - [x] Home.tsx — 히어로 슬라이드 DB 연동 (trpc.siteSettings.getHeroSlides, isActive 필터, sortOrder 정렬, 폴백 정적데이터)
 - [x] Home.tsx — 노출 상품 DB 연동 (기존 trpc.packages.publicList 사용 중 — 이미 DB 기반)
+## 2026-04-30 ERPLayout 사이드바 SPA 라우팅 수정
+
+- [x] ERPLayout.tsx NavItemComponent에 onNavigate 콜백 추가 (모바일 클릭 시 사이드바 자동 닫힌)
+- [x] 하단 "개발대시보드" `<a href>` → wouter `<Link>`로 교체 (새 탭 방지)
+- [x] 향후 모든 ERP 내부 메뉴는 반드시 wouter Link 사용 원칙 주석 추가 (코드 상단 주석 완료)
