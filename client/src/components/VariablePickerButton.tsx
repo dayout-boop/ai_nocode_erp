@@ -89,6 +89,33 @@ export const VARIABLE_CATEGORIES: VariableCategory[] = [
   },
 ];
 
+// ─── 유효 변수 Set (빠른 조회용) ─────────────────────────────────
+export const VALID_VARIABLE_SET: Set<string> = new Set(
+  VARIABLE_CATEGORIES.flatMap((cat) => cat.items.map((item) => item.value))
+);
+
+/**
+ * 텍스트에서 {{변수명}} 패턴을 추출하고
+ * 유효하지 않은 변수 목록을 반환합니다.
+ *
+ * @param texts 검사할 텍스트 배열 (여러 필드를 한 번에 검사)
+ * @returns 잘못된 변수 문자열 배열 (중복 제거)
+ */
+export function validateVariables(texts: string[]): string[] {
+  const pattern = /\{\{([^}]+)\}\}/g;
+  const invalid = new Set<string>();
+  for (const text of texts) {
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text)) !== null) {
+      const full = `{{${match[1]}}}`;
+      if (!VALID_VARIABLE_SET.has(full)) {
+        invalid.add(full);
+      }
+    }
+  }
+  return Array.from(invalid);
+}
+
 // ─── 컴포넌트 ────────────────────────────────────────────────────
 interface VariablePickerButtonProps {
   /** 변수 클릭 시 호출되는 콜백 */

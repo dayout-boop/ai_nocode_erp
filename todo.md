@@ -831,3 +831,9 @@ Detected
 - [x] InquiryTemplates.tsx - 템플릿 내용 Textarea 라벨 옆에 버튼 추가
 - [x] ReservationManagement.tsx - 예약 수정 모달 메모 입력란 옆에 버튼 추가
 - [x] ReservationItineraryTab.tsx - 일정 행 비고 Input 옆에 버튼 추가
+
+## 2026-04-30 변수 유효성 검사 기능 구현
+
+- [x] VariablePickerButton.tsx에 validateVariables 유틸리티 함수 추가 (잘못된 변수 추출)
+- [x] CustomerEstimateTemplates.tsx 저장 시 유효성 검사 및 경고 UI 표시
+- [x] InquiryTemplates.tsx 저장 시 유효성 검사 및 경고 UI 표시

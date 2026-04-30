@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,11 +11,10 @@ import { toast } from "sonner";
 import {
   Plus, Pencil, Trash2, Save, X, ChevronDown, ChevronUp,
   User, Calendar, MapPin, Users, DollarSign, Phone, Briefcase,
-  Clock, Hotel, Info, FileText, Hash
+  Clock, Hotel, Info, FileText, Hash, AlertTriangle
 } from "lucide-react";
 import ERPLayout from "@/components/ERPLayout";
-import VariablePickerButton, { VARIABLE_CATEGORIES } from "@/components/VariablePickerButton";
-import { useRef } from "react";
+import VariablePickerButton, { VARIABLE_CATEGORIES, validateVariables } from "@/components/VariablePickerButton";
 
 // ─── 변수 삽입 가능한 Textarea 컴포넌트 ────────────────────────────
 function VariableTextarea({
@@ -97,8 +96,31 @@ function TemplateForm({
   isLoading: boolean;
 }) {
   const [form, setForm] = useState<TemplateFormData>(initial);
-  const set = (key: keyof TemplateFormData) => (v: string) =>
+  const [invalidVars, setInvalidVars] = useState<string[]>([]);
+  const [confirmSave, setConfirmSave] = useState(false);
+  const set = (key: keyof TemplateFormData) => (v: string) => {
     setForm((f) => ({ ...f, [key]: v }));
+    // 필드 수정 시 경고 초기화
+    setInvalidVars([]);
+    setConfirmSave(false);
+  };
+
+  function handleSaveClick() {
+    const bad = validateVariables([
+      form.includeItems,
+      form.excludeItems,
+      form.schedule,
+      form.notes,
+    ]);
+    if (bad.length > 0 && !confirmSave) {
+      setInvalidVars(bad);
+      setConfirmSave(true);
+      return;
+    }
+    setInvalidVars([]);
+    setConfirmSave(false);
+    onSave(form);
+  }
 
   return (
     <div className="space-y-5">
@@ -146,12 +168,42 @@ function TemplateForm({
         rows={5}
       />
 
+      {/* 잘못된 변수 경고 */}
+      {invalidVars.length > 0 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
+          <div className="flex items-center gap-2 text-amber-700 font-medium text-sm">
+            <AlertTriangle size={15} />
+            알 수 없는 변수가 포함되어 있습니다
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {invalidVars.map((v) => (
+              <span key={v} className="font-mono text-xs bg-amber-100 border border-amber-300 text-amber-800 px-2 py-0.5 rounded">
+                {v}
+              </span>
+            ))}
+          </div>
+          <p className="text-xs text-amber-600">
+            위 변수는 자동 치환되지 않습니다. 그래도 저장하려면 아래 <strong>강제 저장</strong> 버튼을 클릭하세요.
+          </p>
+        </div>
+      )}
+
       <div className="flex gap-2 justify-end pt-2">
         <Button variant="outline" onClick={onCancel} disabled={isLoading}>
           <X size={14} className="mr-1" /> 취소
         </Button>
+        {confirmSave && (
+          <Button
+            variant="outline"
+            onClick={() => { setInvalidVars([]); setConfirmSave(false); onSave(form); }}
+            disabled={isLoading}
+            className="border-amber-400 text-amber-700 hover:bg-amber-50"
+          >
+            <AlertTriangle size={14} className="mr-1" /> 강제 저장
+          </Button>
+        )}
         <Button
-          onClick={() => onSave(form)}
+          onClick={handleSaveClick}
           disabled={isLoading || !form.name.trim()}
           className="bg-green-600 hover:bg-green-700 text-white"
         >

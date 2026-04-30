@@ -14,8 +14,9 @@ import {
 } from "@/components/ui/select";
 import { Plus, Edit2, Trash2, Zap, Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import VariablePickerButton from "@/components/VariablePickerButton";
+import VariablePickerButton, { validateVariables } from "@/components/VariablePickerButton";
 import { useRef } from "react";
+import { AlertTriangle } from "lucide-react";
 
 const CATEGORIES = [
   { value: "golf_booking", label: "골프장 문의" },
@@ -41,6 +42,24 @@ function TemplateForm({ initial, onSave, onCancel, isSaving }: TemplateFormProps
     content: initial?.content ?? "",
     variables: initial?.variables ?? "",
   });
+  const [invalidVars, setInvalidVars] = useState<string[]>([]);
+  const [confirmSave, setConfirmSave] = useState(false);
+
+  function handleSaveClick() {
+    if (!form.name || !form.content) {
+      toast.error("템플릿명과 내용은 필수입니다.");
+      return;
+    }
+    const bad = validateVariables([form.content]);
+    if (bad.length > 0 && !confirmSave) {
+      setInvalidVars(bad);
+      setConfirmSave(true);
+      return;
+    }
+    setInvalidVars([]);
+    setConfirmSave(false);
+    onSave(form);
+  }
 
   return (
     <div className="space-y-4">
@@ -125,16 +144,40 @@ function TemplateForm({ initial, onSave, onCancel, isSaving }: TemplateFormProps
           className="mt-1" />
       </div>
 
+      {/* 잘못된 변수 경고 */}
+      {invalidVars.length > 0 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
+          <div className="flex items-center gap-2 text-amber-700 font-medium text-sm">
+            <AlertTriangle size={15} />
+            알 수 없는 변수가 포함되어 있습니다
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {invalidVars.map((v) => (
+              <span key={v} className="font-mono text-xs bg-amber-100 border border-amber-300 text-amber-800 px-2 py-0.5 rounded">
+                {v}
+              </span>
+            ))}
+          </div>
+          <p className="text-xs text-amber-600">
+            위 변수는 자동 치환되지 않습니다. 그래도 저장하려면 아래 <strong>강제 저장</strong> 버튼을 클릭하세요.
+          </p>
+        </div>
+      )}
+
       <div className="flex gap-2 pt-2">
         <Button variant="outline" onClick={onCancel} className="flex-1">취소</Button>
+        {confirmSave && (
+          <Button
+            variant="outline"
+            onClick={() => { setInvalidVars([]); setConfirmSave(false); onSave(form); }}
+            disabled={isSaving}
+            className="border-amber-400 text-amber-700 hover:bg-amber-50"
+          >
+            <AlertTriangle size={14} className="mr-1" /> 강제 저장
+          </Button>
+        )}
         <Button
-          onClick={() => {
-            if (!form.name || !form.content) {
-              toast.error("템플릿명과 내용은 필수입니다.");
-              return;
-            }
-            onSave(form);
-          }}
+          onClick={handleSaveClick}
           disabled={isSaving}
           className="flex-1 bg-green-700 hover:bg-green-800 text-white"
         >
