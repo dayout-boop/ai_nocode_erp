@@ -1076,13 +1076,13 @@ Detected
 
 ## 2026-05-01 스마트 Manus 라우팅 + 채팅형 개발 문의 UI
 
-- [ ] M1: DB에 manusProjectId 필드 추가 (devRequests 테이블)
-- [ ] M2: manusPipe.ts 스마트 라우팅 엔진 구현 (task.sendMessage vs task.create 자동 분기)
-- [ ] M3: MANUS_PROJECT_ID 환경변수 추가
-- [ ] M4: devRequest 라우터에 스마트 전송 로직 연결
-- [ ] M5: MasterAI.tsx 채팅형 개발 문의 UI 개선 (선택형 카드 + 채팅 대화 방식)
-- [ ] M6: AI 분류 엔진 연결 (요청 유형/우선순위/모듈 자동 분류)
-- [ ] M7: 라우팅 결과 표시 UI (신규 생성 vs 기존 스레드 추가 구분)
+- [x] M1: DB에 manusProjectId 필드 추가 (devRequests 테이블)
+- [x] M2: manusPipe.ts 스마트 라우팅 엔진 구현 (task.sendMessage vs task.create 자동 분기)
+- [x] M3: MANUS_PROJECT_ID 환경변수 추가
+- [x] M4: devRequest 라우터에 스마트 전송 로직 연결
+- [x] M5: MasterAI.tsx 채팅형 개발 문의 UI 개선 (선택형 카드 + 채팅 대화 방식)
+- [x] M6: AI 분류 엔진 연결 (요청 유형/우선순위/모듈 자동 분류)
+- [x] M7: 라우팅 결과 표시 UI (신규 생성 vs 기존 스레드 추가 구분)
 
 ## 2026-05-01 Manus 스마트 라우팅 엔진 구현
 - [x] manusPipe.ts 스마트 라우팅 엔진으로 전면 개선 (AI 분류 + 기존 태스크 재사용 판단)
