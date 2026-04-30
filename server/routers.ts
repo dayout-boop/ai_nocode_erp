@@ -184,6 +184,13 @@ const packagesRouter = router({
       flightInfo: z.any().optional().nullable(),
       notes: z.string().optional(),
     })).optional().nullable(),
+    itinerary: z.array(z.object({
+      day: z.number(),
+      title: z.string(),
+      content: z.string(),
+      meals: z.array(z.string()).optional(),
+    })).optional().nullable(),
+    cancellationPolicy: z.string().optional().nullable(),
   })).mutation(async ({ input }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });

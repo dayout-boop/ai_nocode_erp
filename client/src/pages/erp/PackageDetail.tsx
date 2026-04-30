@@ -5,6 +5,7 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -289,6 +290,8 @@ export default function PackageDetail() {
             <TabsTrigger value="slots">출발일/재고</TabsTrigger>
             <TabsTrigger value="video">동영상 생성</TabsTrigger>
             <TabsTrigger value="automation">자동화</TabsTrigger>
+            <TabsTrigger value="itinerary">여행일정</TabsTrigger>
+            <TabsTrigger value="policy">취소정책</TabsTrigger>
           </TabsList>
 
           {/* IMAGES TAB */}
@@ -1255,6 +1258,16 @@ export default function PackageDetail() {
           <TabsContent value="automation" className="space-y-4">
             <AutomationTab packageId={id} packageData={data} />
           </TabsContent>
+
+          {/* 여행일정 탭 */}
+          <TabsContent value="itinerary" className="space-y-4">
+            <ItineraryTab packageId={id} packageData={data} />
+          </TabsContent>
+
+          {/* 취소정책 탭 */}
+          <TabsContent value="policy" className="space-y-4">
+            <CancellationPolicyTab packageId={id} packageData={data} />
+          </TabsContent>
         </Tabs>
       </div>
     </ERPLayout>
@@ -1497,6 +1510,174 @@ function AutomationTab({ packageId, packageData }: { packageId: number; packageD
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+
+// ─── 여행일정 탭 컴포넌트 ────────────────────────────────────
+function ItineraryTab({ packageId, packageData }: { packageId: number; packageData: any }) {
+  const utils = trpc.useUtils();
+  const [itinerary, setItinerary] = useState<Array<{ day: number; title: string; content: string; meals: string[] }>>(
+    Array.isArray(packageData?.itinerary) ? packageData.itinerary : []
+  );
+  const [isSaving, setIsSaving] = useState(false);
+
+  const updateMutation = trpc.packages.update.useMutation({
+    onSuccess: () => {
+      toast.success("여행일정이 저장되었습니다.");
+      utils.packages.get.invalidate({ id: packageId });
+      setIsSaving(false);
+    },
+    onError: (e) => { toast.error(e.message); setIsSaving(false); },
+  });
+
+  const addDay = () => {
+    setItinerary(prev => [...prev, { day: prev.length + 1, title: `${prev.length + 1}일차`, content: '', meals: [] }]);
+  };
+
+  const removeDay = (idx: number) => {
+    setItinerary(prev => prev.filter((_, i) => i !== idx).map((d, i) => ({ ...d, day: i + 1 })));
+  };
+
+  const updateDay = (idx: number, field: string, value: any) => {
+    setItinerary(prev => prev.map((d, i) => i === idx ? { ...d, [field]: value } : d));
+  };
+
+  const toggleMeal = (idx: number, meal: string) => {
+    setItinerary(prev => prev.map((d, i) => {
+      if (i !== idx) return d;
+      const meals = d.meals.includes(meal) ? d.meals.filter(m => m !== meal) : [...d.meals, meal];
+      return { ...d, meals };
+    }));
+  };
+
+  const handleSave = () => {
+    setIsSaving(true);
+    updateMutation.mutate({ id: packageId, itinerary });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-800">여행 일정 관리</h3>
+          <p className="text-xs text-slate-500 mt-0.5">홈페이지 상품 상세 페이지의 "여행일정" 탭에 표시됩니다.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={addDay}>
+            <Plus size={14} className="mr-1" /> 일차 추가
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? <Loader2 size={14} className="mr-1 animate-spin" /> : null}
+            저장
+          </Button>
+        </div>
+      </div>
+
+      {itinerary.length === 0 ? (
+        <div className="text-center py-12 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
+          <p className="text-sm">여행 일정이 없습니다.</p>
+          <p className="text-xs mt-1">위 "일차 추가" 버튼으로 일정을 등록하세요.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {itinerary.map((day, idx) => (
+            <div key={idx} className="border border-slate-200 rounded-xl p-4 bg-white">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 bg-dogolf-green text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">
+                  {day.day}
+                </div>
+                <Input
+                  value={day.title}
+                  onChange={(e) => updateDay(idx, 'title', e.target.value)}
+                  placeholder={`${day.day}일차 제목 (예: 인천 출발 → 방콕 도착)`}
+                  className="flex-1 h-8 text-sm"
+                />
+                <Button size="sm" variant="ghost" onClick={() => removeDay(idx)} className="text-red-400 hover:text-red-600 h-8 px-2">
+                  <X size={14} />
+                </Button>
+              </div>
+              <div className="mb-3">
+                <div className="flex gap-2 mb-2">
+                  {['조식', '중식', '석식'].map((meal) => (
+                    <button
+                      key={meal}
+                      onClick={() => toggleMeal(idx, meal)}
+                      className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                        day.meals.includes(meal)
+                          ? 'bg-amber-100 border-amber-400 text-amber-700 font-semibold'
+                          : 'border-slate-200 text-slate-400 hover:border-amber-300'
+                      }`}
+                    >
+                      {meal}
+                    </button>
+                  ))}
+                </div>
+                <Textarea
+                  value={day.content}
+                  onChange={(e) => updateDay(idx, 'content', e.target.value)}
+                  placeholder="일정 내용을 입력하세요..."
+                  className="text-sm min-h-[80px]"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── 취소정책 탭 컴포넌트 ────────────────────────────────────
+function CancellationPolicyTab({ packageId, packageData }: { packageId: number; packageData: any }) {
+  const utils = trpc.useUtils();
+  const [policy, setPolicy] = useState<string>(packageData?.cancellationPolicy || '');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const updateMutation = trpc.packages.update.useMutation({
+    onSuccess: () => {
+      toast.success("취소/환불 정책이 저장되었습니다.");
+      utils.packages.get.invalidate({ id: packageId });
+      setIsSaving(false);
+    },
+    onError: (e) => { toast.error(e.message); setIsSaving(false); },
+  });
+
+  const DEFAULT_POLICY = `출발 30일 전 이상: 취소 수수료 없음 (전액 환불)
+출발 20~29일 전: 여행 요금의 10%
+출발 10~19일 전: 여행 요금의 15%
+출발 8~9일 전: 여행 요금의 20%
+출발 1~7일 전: 여행 요금의 30%
+출발 당일: 여행 요금의 50%
+
+※ 항공권 포함 상품의 경우 항공사 규정에 따라 달라질 수 있습니다.
+※ 정확한 취소 규정은 예약 확인서를 참고하시거나 담당자에게 문의해 주세요.`;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-800">취소/환불 정책</h3>
+          <p className="text-xs text-slate-500 mt-0.5">홈페이지 상품 상세 페이지의 "약관/환불" 탭에 표시됩니다. 비워두면 기본 정책이 표시됩니다.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setPolicy(DEFAULT_POLICY)}>
+            기본 정책 불러오기
+          </Button>
+          <Button size="sm" onClick={() => { setIsSaving(true); updateMutation.mutate({ id: packageId, cancellationPolicy: policy }); }} disabled={isSaving}>
+            {isSaving ? <Loader2 size={14} className="mr-1 animate-spin" /> : null}
+            저장
+          </Button>
+        </div>
+      </div>
+      <Textarea
+        value={policy}
+        onChange={(e) => setPolicy(e.target.value)}
+        placeholder="취소/환불 정책을 입력하세요. 비워두면 기본 정책이 표시됩니다."
+        className="min-h-[300px] text-sm font-mono"
+      />
+      <p className="text-xs text-slate-400">※ 줄바꿈이 그대로 표시됩니다. 마크다운은 지원하지 않습니다.</p>
     </div>
   );
 }

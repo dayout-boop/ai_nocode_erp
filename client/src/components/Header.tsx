@@ -1,11 +1,10 @@
 // ============================================================
 // DOGOLF Header — Verdant Journey Design
-// Sticky navigation with logo, destination menu, CTA
+// Sticky navigation with logo, destination menu, search, CTA
 // ============================================================
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'wouter';
-import { Menu, X, Phone, ChevronDown } from 'lucide-react';
+import { Menu, X, Phone, Search } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 
 const DEFAULT_NAV_ITEMS = [
@@ -22,27 +21,44 @@ const DEFAULT_NAV_ITEMS = [
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // DB 네비게이션 데이터 연동 (폴백: 기본값 사용)
   const { data: dbNavItems } = trpc.siteSettings.getNavItems.useQuery(undefined, {
-    staleTime: 5 * 60 * 1000, // 5분 캐시
+    staleTime: 5 * 60 * 1000,
   });
   const navItems = (dbNavItems && dbNavItems.length > 0)
     ? dbNavItems.filter((item) => item.isVisible)
     : DEFAULT_NAV_ITEMS;
-  const [location] = useLocation();
+
+  const [location, navigate] = useLocation();
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 60);
-    };
+    const handleScroll = () => setIsScrolled(window.scrollY > 60);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   useEffect(() => {
     setIsMobileOpen(false);
+    setIsSearchOpen(false);
   }, [location]);
+
+  useEffect(() => {
+    if (isSearchOpen && searchInputRef.current) {
+      setTimeout(() => searchInputRef.current?.focus(), 100);
+    }
+  }, [isSearchOpen]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/packages?q=${encodeURIComponent(searchQuery.trim())}`);
+      setIsSearchOpen(false);
+      setSearchQuery('');
+    }
+  };
 
   const isHome = location === '/';
 
@@ -62,6 +78,49 @@ export default function Header() {
           </div>
         </div>
       </div>
+
+      {/* 검색 오버레이 */}
+      {isSearchOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-[60] flex items-start justify-center pt-20 px-4"
+          onClick={(e) => e.target === e.currentTarget && setIsSearchOpen(false)}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-4">
+            <form onSubmit={handleSearch} className="flex items-center gap-3">
+              <Search size={20} className="text-dogolf-green shrink-0" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="골프 패키지 검색 (예: 태국 3박4일, 제주도...)"
+                className="flex-1 text-base font-body outline-none placeholder-gray-400"
+              />
+              <button
+                type="button"
+                onClick={() => setIsSearchOpen(false)}
+                className="p-1 text-gray-400 hover:text-gray-600"
+              >
+                <X size={18} />
+              </button>
+            </form>
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-xs text-gray-400 font-body mb-2">인기 검색어</p>
+              <div className="flex flex-wrap gap-2">
+                {['태국 3박4일', '제주도 골프', '베트남 다낭', '필리핀 세부', '일본 온천'].map((kw) => (
+                  <button
+                    key={kw}
+                    onClick={() => { setSearchQuery(kw); navigate(`/packages?q=${encodeURIComponent(kw)}`); setIsSearchOpen(false); setSearchQuery(''); }}
+                    className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-body rounded-full hover:bg-green-50 hover:text-dogolf-green transition-colors"
+                  >
+                    {kw}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main header */}
       <header
@@ -103,8 +162,16 @@ export default function Header() {
               ))}
             </nav>
 
-            {/* CTA Buttons */}
-            <div className="hidden lg:flex items-center gap-3">
+            {/* CTA Buttons + Search */}
+            <div className="hidden lg:flex items-center gap-2">
+              {/* 검색 버튼 */}
+              <button
+                onClick={() => setIsSearchOpen(true)}
+                className="p-2 text-gray-600 hover:text-dogolf-green transition-colors rounded-lg hover:bg-gray-50"
+                aria-label="검색"
+              >
+                <Search size={20} />
+              </button>
               <Link href="/inquiry">
                 <button className="px-4 py-2 text-sm font-semibold font-body text-dogolf-green border-2 border-dogolf-green rounded-lg hover:bg-dogolf-green hover:text-white transition-all duration-200">
                   예약 문의
@@ -118,14 +185,23 @@ export default function Header() {
               </button>
             </div>
 
-            {/* Mobile Menu Button */}
-            <button
-              className="lg:hidden p-2 text-gray-700 hover:text-dogolf-green transition-colors"
-              onClick={() => setIsMobileOpen(!isMobileOpen)}
-              aria-label="메뉴"
-            >
-              {isMobileOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
+            {/* Mobile: Search + Menu Button */}
+            <div className="lg:hidden flex items-center gap-1">
+              <button
+                onClick={() => setIsSearchOpen(true)}
+                className="p-2 text-gray-700 hover:text-dogolf-green transition-colors"
+                aria-label="검색"
+              >
+                <Search size={22} />
+              </button>
+              <button
+                className="p-2 text-gray-700 hover:text-dogolf-green transition-colors"
+                onClick={() => setIsMobileOpen(!isMobileOpen)}
+                aria-label="메뉴"
+              >
+                {isMobileOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+            </div>
           </div>
         </div>
 

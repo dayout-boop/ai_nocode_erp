@@ -62,6 +62,10 @@ export const packages = mysqlTable("packages", {
   viewCount: int("viewCount").default(0),
   // 기본 일정 템플릿 (예약 생성 시 자동 적용)
   defaultItinerary: json("defaultItinerary"),
+  // 여행 일정 (탭 표시용: [{day, title, content, meals}])
+  itinerary: json("itinerary"),
+  // 취소/환불 정책 (텍스트)
+  cancellationPolicy: text("cancellationPolicy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

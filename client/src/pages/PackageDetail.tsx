@@ -7,13 +7,14 @@ import { useParams, Link } from 'wouter';
 import {
   ArrowLeft, Clock, RotateCcw, MapPin, CheckCircle2, XCircle,
   Calendar, Users, Phone, MessageCircle, Loader2, ChevronDown, ChevronUp,
-  ChevronLeft, ChevronRight, X, ZoomIn
+  ChevronLeft, ChevronRight, X, ZoomIn, Plus, Minus, FileText, Route, ShieldAlert, Heart
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import GolfTalkWidget from '@/components/GolfTalkWidget';
 import DepartureDateCalendar from '@/components/DepartureDateCalendar';
 import { trpc } from '@/lib/trpc';
+import { useWishlist } from '@/hooks/useWishlist';
 
 const countryFlagMap: Record<string, string> = {
   korea: '🇰🇷', thailand: '🇹🇭', vietnam: '🇻🇳',
@@ -94,6 +95,11 @@ export default function PackageDetail() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState(0);
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'info' | 'itinerary' | 'policy'>('info');
+  const [adultCount, setAdultCount] = useState(2);
+  const [childCount, setChildCount] = useState(0);
+  const [infantCount, setInfantCount] = useState(0);
+  const { toggle: toggleWish, isWished } = useWishlist();
 
   const { data, isLoading, isError } = trpc.packages.publicGet.useQuery(
     { id },
@@ -255,9 +261,20 @@ export default function PackageDetail() {
                   {flag} {countryName} {pkg.region ? `· ${pkg.region}` : ''}
                 </span>
               </div>
-              <h1 className="font-display-ko text-2xl md:text-4xl font-bold text-white leading-tight">
-                {pkg.title}
-              </h1>
+              <div className="flex items-start justify-between gap-4">
+                <h1 className="font-display-ko text-2xl md:text-4xl font-bold text-white leading-tight">
+                  {pkg.title}
+                </h1>
+                <button
+                  onClick={() => toggleWish(pkg.id)}
+                  className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm transition-all mt-1 ${
+                    isWished(pkg.id) ? 'bg-red-500 text-white' : 'bg-white/20 text-white hover:bg-white/30'
+                  }`}
+                  aria-label={isWished(pkg.id) ? '찜 취소' : '찜하기'}
+                >
+                  <Heart size={18} fill={isWished(pkg.id) ? 'currentColor' : 'none'} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -327,6 +344,29 @@ export default function PackageDetail() {
 
             {/* Left: Details */}
             <div className="lg:col-span-2 space-y-6">
+              {/* 탭 메뉴 */}
+              <div className="flex gap-1 bg-white rounded-2xl p-1.5 shadow-sm">
+                {[
+                  { key: 'info', label: '📋 상품정보' },
+                  { key: 'itinerary', label: '🗓 여행일정' },
+                  { key: 'policy', label: '📜 약관·환불' },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key as any)}
+                    className={`flex-1 py-2.5 text-sm font-semibold font-body rounded-xl transition-all ${
+                      activeTab === tab.key
+                        ? 'bg-dogolf-green text-white shadow-sm'
+                        : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* 상품정보 탭 */}
+              {activeTab === 'info' && <>
 
               {/* Quick info */}
               <div className="bg-white rounded-2xl p-6 shadow-sm">
@@ -494,6 +534,84 @@ export default function PackageDetail() {
                   )}
                 </div>
               )}
+              </> /* end activeTab === 'info' */}
+
+              {/* 여행일정 탭 */}
+              {activeTab === 'itinerary' && (
+                <div className="bg-white rounded-2xl p-6 shadow-sm">
+                  <h2 className="font-display-ko text-lg font-bold text-gray-900 mb-6">🗓 여행 일정</h2>
+                  {Array.isArray((pkg as any).itinerary) && (pkg as any).itinerary.length > 0 ? (
+                    <div className="space-y-4">
+                      {((pkg as any).itinerary as Array<{ day: number; title: string; content: string; meals?: string[] }>).map((day, idx) => (
+                        <div key={idx} className="flex gap-4">
+                          <div className="shrink-0 flex flex-col items-center">
+                            <div className="w-10 h-10 bg-dogolf-green text-white rounded-full flex items-center justify-center text-sm font-bold">
+                              {day.day}
+                            </div>
+                            {idx < (pkg as any).itinerary.length - 1 && (
+                              <div className="w-0.5 flex-1 bg-gray-200 mt-2 min-h-[24px]" />
+                            )}
+                          </div>
+                          <div className="flex-1 pb-4">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-semibold text-gray-900 font-body">{day.title}</h3>
+                              {day.meals && day.meals.length > 0 && (
+                                <div className="flex gap-1">
+                                  {day.meals.map((meal: string) => (
+                                    <span key={meal} className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-body">{meal}</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600 font-body leading-relaxed whitespace-pre-wrap">{day.content}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-gray-400">
+                      <p className="text-sm">여행 일정이 아직 등록되지 않았습니다.</p>
+                      <p className="text-xs mt-2">자세한 일정은 담당자에게 문의해 주세요.</p>
+                      <a href="tel:1668-1739" className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-dogolf-green text-white text-sm font-semibold rounded-xl hover:bg-dogolf-green-dark transition-colors">
+                        📞 1668-1739 문의하기
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 약관·환불 탭 */}
+              {activeTab === 'policy' && (
+                <div className="bg-white rounded-2xl p-6 shadow-sm">
+                  <h2 className="font-display-ko text-lg font-bold text-gray-900 mb-6">📜 취소·환불 규정</h2>
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
+                    <p className="text-xs text-amber-700 font-body font-semibold">⚠️ 안내사항</p>
+                    <p className="text-xs text-amber-600 font-body mt-1">취소·환불 규정은 여행사 및 항공사 정책에 따라 변경될 수 있습니다. 정확한 내용은 담당자에게 확인하세요.</p>
+                  </div>
+                  {(pkg as any).cancellationPolicy ? (
+                    <pre className="text-sm text-gray-700 font-body whitespace-pre-wrap leading-relaxed">
+                      {(pkg as any).cancellationPolicy}
+                    </pre>
+                  ) : (
+                    <div className="space-y-3">
+                      {[
+                        { period: '출발 30일 전 이상', fee: '취소 수수료 없음 (전액 환불)', color: 'text-green-600' },
+                        { period: '출발 20~29일 전', fee: '여행 요금의 10%', color: 'text-yellow-600' },
+                        { period: '출발 10~19일 전', fee: '여행 요금의 15%', color: 'text-orange-500' },
+                        { period: '출발 8~9일 전', fee: '여행 요금의 20%', color: 'text-orange-600' },
+                        { period: '출발 1~7일 전', fee: '여행 요금의 30%', color: 'text-red-500' },
+                        { period: '출발 당일', fee: '여행 요금의 50%', color: 'text-red-700' },
+                      ].map((row, i) => (
+                        <div key={i} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
+                          <p className="text-sm text-gray-700 font-body">{row.period}</p>
+                          <p className={`text-sm font-semibold font-body ${row.color}`}>{row.fee}</p>
+                        </div>
+                      ))}
+                      <p className="text-xs text-gray-400 font-body mt-4">※ 항공권 포함 상품의 경우 항공사 규정에 따라 달라질 수 있습니다.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Right: Booking sidebar */}
@@ -598,9 +716,58 @@ export default function PackageDetail() {
                   })()}
                 </div>
 
+                {/* 인원 선택 + 총금액 계산 */}
+                {selectedSlotId && (() => {
+                  const sel = slots.find((s: any) => s.id === selectedSlotId) as any;
+                  if (!sel) return null;
+                  const adultP = sel.adultPrice ? Number(sel.adultPrice) : sel.priceOverride ? Number(sel.priceOverride) : (minPrice > 0 ? minPrice : 0);
+                  const childP = sel.childPrice ? Number(sel.childPrice) : Math.round(adultP * 0.7);
+                  const infantP = sel.infantPrice ? Number(sel.infantPrice) : Math.round(adultP * 0.1);
+                  const totalAmount = adultP * adultCount + childP * childCount + infantP * infantCount;
+                  return (
+                    <div className="border border-gray-100 rounded-xl p-4 space-y-3 bg-gray-50">
+                      <p className="text-xs font-semibold text-gray-700 font-body">인원 선택</p>
+                      {[
+                        { label: '성인', sub: '만 12세 이상', count: adultCount, setCount: setAdultCount, price: adultP, min: 1 },
+                        { label: '아동', sub: '만 2~11세', count: childCount, setCount: setChildCount, price: childP, min: 0 },
+                        { label: '유아', sub: '만 2세 미만', count: infantCount, setCount: setInfantCount, price: infantP, min: 0 },
+                      ].map(({ label, sub, count, setCount, price, min }) => (
+                        <div key={label} className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-800 font-body">{label}</p>
+                            <p className="text-xs text-gray-400 font-body">{sub} · {price.toLocaleString()}원</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setCount(Math.max(min, count - 1))}
+                              className="w-7 h-7 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition-colors disabled:opacity-30"
+                              disabled={count <= min}
+                            >
+                              <Minus size={12} />
+                            </button>
+                            <span className="w-6 text-center text-sm font-bold font-number">{count}</span>
+                            <button
+                              onClick={() => setCount(count + 1)}
+                              className="w-7 h-7 rounded-full border border-dogolf-green text-dogolf-green flex items-center justify-center hover:bg-green-50 transition-colors"
+                            >
+                              <Plus size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {totalAmount > 0 && (
+                        <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
+                          <p className="text-sm font-semibold text-gray-700 font-body">예상 총금액</p>
+                          <p className="text-lg font-bold text-dogolf-green font-number">{totalAmount.toLocaleString()}원</p>
+                        </div>
+                      )}
+                      <p className="text-[10px] text-gray-400 font-body">※ 실제 요금은 예약 확정 후 안내됩니다</p>
+                    </div>
+                  );
+                })()}
                 {/* CTA buttons */}
                 <div className="space-y-2">
-                  <Link href={`/inquiry?package=${pkg.id}&name=${encodeURIComponent(pkg.title)}`}>
+                  <Link href={`/inquiry?package=${pkg.id}&name=${encodeURIComponent(pkg.title)}&slot=${selectedSlotId ?? ''}&adults=${adultCount}&children=${childCount}&infants=${infantCount}`}>
                     <button className="w-full py-3.5 bg-dogolf-green text-white font-bold font-body rounded-xl hover:bg-dogolf-green-dark transition-colors flex items-center justify-center gap-2 shadow-md">
                       <Users size={16} /> 온라인 예약 문의
                     </button>

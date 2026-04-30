@@ -2,9 +2,10 @@
 // DOGOLF Packages Page — DB 연동 버전 (자동 개선 사이클 적용)
 // ============================================================
 
-import { useState, useMemo } from 'react';
-import { useParams, Link } from 'wouter';
-import { Search, Loader2, Plane, Flag, Hotel } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { useParams, Link, useLocation } from 'wouter';
+import { Search, Loader2, Plane, Flag, Hotel, Heart } from 'lucide-react';
+import { useWishlist } from '@/hooks/useWishlist';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import GolfTalkWidget from '@/components/GolfTalkWidget';
@@ -91,7 +92,16 @@ const MONTHLY_POPULAR = [
 export default function Packages() {
   const params = useParams<{ destination?: string }>();
   const [activeDestination, setActiveDestination] = useState(params.destination || 'all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [location] = useLocation();
+  // URL 파라미터 q= 처리 (헤더 검색에서 넘어온 경우)
+  const urlQ = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('q') || '';
+    }
+    return '';
+  }, [location]);
+  const [searchQuery, setSearchQuery] = useState(urlQ);
+  useEffect(() => { if (urlQ) setSearchQuery(urlQ); }, [urlQ]);
   const [sortBy, setSortBy] = useState('popular');
   const [activeCourseType, setActiveCourseType] = useState('all');
   const [activeDeparture, setActiveDeparture] = useState('all');
@@ -359,6 +369,8 @@ interface DBPkg {
 }
 
 function DBPackageCard({ pkg }: { pkg: DBPkg }) {
+  const { toggle, isWished } = useWishlist();
+  const wished = isWished(pkg.id);
   const flag = countryFlagMap[pkg.country] ?? '🌏';
   const countryName = countryNameMap[pkg.country] ?? pkg.country;
   const image = pkg.imageUrl || '/manus-storage/hero_main_aa4ec84e.jpg';
@@ -412,10 +424,21 @@ function DBPackageCard({ pkg }: { pkg: DBPkg }) {
             )}
           </div>
 
-          {/* 상단 우측: 국가 */}
-          <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
-            <span className="text-sm">{flag}</span>
-            <span className="text-xs font-semibold text-gray-700 font-body">{countryName}</span>
+          {/* 상단 우측: 찜하기 + 국가 */}
+          <div className="absolute top-3 right-3 flex items-center gap-1.5">
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggle(pkg.id); }}
+              className={`w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm transition-all ${
+                wished ? 'bg-red-500 text-white' : 'bg-white/90 text-gray-400 hover:text-red-400'
+              }`}
+              aria-label={wished ? '찜 취소' : '찜하기'}
+            >
+              <Heart size={14} fill={wished ? 'currentColor' : 'none'} />
+            </button>
+            <div className="bg-white/90 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1">
+              <span className="text-sm">{flag}</span>
+              <span className="text-xs font-semibold text-gray-700 font-body">{countryName}</span>
+            </div>
           </div>
 
           {/* 하단: 기간/라운딩 + 포함항목 아이콘 */}

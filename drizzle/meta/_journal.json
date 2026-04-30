@@ -211,6 +211,13 @@
       "when": 1777547197509,
       "tag": "0029_wakeful_lord_hawal",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "5",
+      "when": 1777548721377,
+      "tag": "0030_ancient_the_stranger",
+      "breakpoints": true
     }
   ]
 }
