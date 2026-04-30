@@ -1,16 +1,17 @@
-import { drizzle } from 'drizzle-orm/mysql2';
-import { int, mysqlTable, varchar, text, boolean, decimal, timestamp, mysqlEnum } from 'drizzle-orm/mysql-core';
-import dotenv from 'dotenv';
-dotenv.config();
+import mysql from 'mysql2/promise';
 
-const packages = mysqlTable('packages', {
-  id: int('id').autoincrement().primaryKey(),
-  status: varchar('status', { length: 32 }),
-  title: text('title'),
-  country: varchar('country', { length: 64 }),
-});
+const url = process.env.DATABASE_URL;
+if (!url) { console.log('No DATABASE_URL'); process.exit(1); }
 
-const db = drizzle(process.env.DATABASE_URL);
-const rows = await db.select().from(packages);
-console.log('packages count:', rows.length);
-console.log(JSON.stringify(rows, null, 2));
+const conn = await mysql.createConnection(url);
+console.log('--- reservation_itineraries ---');
+const [rows] = await conn.execute('DESCRIBE reservation_itineraries');
+rows.forEach(r => console.log(r.Field, '|', r.Type));
+console.log('\n--- custom_variables ---');
+try {
+  const [rows2] = await conn.execute('DESCRIBE custom_variables');
+  rows2.forEach(r => console.log(r.Field, '|', r.Type));
+} catch(e) {
+  console.log('custom_variables not yet created:', e.message);
+}
+await conn.end();

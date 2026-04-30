@@ -1171,7 +1171,11 @@ export const reservationItineraries = mysqlTable("reservation_itineraries", {
   golfAffiliateId: int("golfAffiliateId"),
   /** 홀수 (0=라운딩없음, 9, 18, 27, 36) */
   holeCount: int("holeCount").default(18),
-  /** 티오프 시간 (예: "08:30") */
+  /** 견적 티오프 시간 (예: "08:30") — 견적 단계에서 입력 */
+  estimatedTeeTime: varchar("estimatedTeeTime", { length: 10 }),
+  /** 확정 티오프 시간 (예: "08:30") — 예약 확정 후 입력 */
+  confirmedTeeTime: varchar("confirmedTeeTime", { length: 10 }),
+  /** @deprecated 구 티오프 필드 (하위 호환성 유지) — estimatedTeeTime 사용 권장 */
   teeTime: varchar("teeTime", { length: 10 }),
   /** 숙소 제휴사 ID (affiliates 참조, nullable) */
   accommodationAffiliateId: int("accommodationAffiliateId"),
@@ -1217,3 +1221,28 @@ export const reservationAffiliateCosts = mysqlTable("reservation_affiliate_costs
 });
 export type ReservationAffiliateCost = typeof reservationAffiliateCosts.$inferSelect;
 export type InsertReservationAffiliateCost = typeof reservationAffiliateCosts.$inferInsert;
+
+// ============================================================
+// CUSTOM_VARIABLES - 자동 치환 변수 관리
+// ============================================================
+export const customVariables = mysqlTable("custom_variables", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 카테고리 (예: 고객 정보, 예약 정보, 금액 정보, 커스텀 등) */
+  category: varchar("category", { length: 100 }).notNull(),
+  /** 표시 라벨 (예: 고객명) */
+  label: varchar("label", { length: 100 }).notNull(),
+  /** 변수 키값 (예: {{고객명}}) — 중괄호 포함 저장 */
+  variableKey: varchar("variableKey", { length: 100 }).notNull().unique(),
+  /** 설명 (예: 예약자 이름) */
+  description: varchar("description", { length: 300 }),
+  /** 시스템 기본 변수 여부 (true이면 삭제 불가) */
+  isSystem: boolean("isSystem").default(false).notNull(),
+  /** 활성화 여부 */
+  isActive: boolean("isActive").default(true).notNull(),
+  /** 정렬 순서 */
+  sortOrder: int("sortOrder").default(0),
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
+});
+export type CustomVariable = typeof customVariables.$inferSelect;
+export type InsertCustomVariable = typeof customVariables.$inferInsert;

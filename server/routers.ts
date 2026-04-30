@@ -2,7 +2,7 @@ import { reservationsRouter } from "./routers/reservations";
 import { affiliatesRouter } from "./routers/affiliates";
 import { settingsRouter } from "./routers/settings";
 import { reservationInquiriesRouter, inquiryTemplatesRouter } from "./routers/reservationInquiries";
-import { reservationItinerariesRouter } from "./routers/reservationItineraries";
+import { reservationItinerariesRouter, customVariablesRouter } from "./routers/reservationItineraries";
 import { reservationAffiliateCostsRouter } from "./routers/reservationAffiliateCosts";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
@@ -2660,5 +2660,6 @@ export const appRouter = router({
   estimates: estimatesRouter,
   reservationItineraries: reservationItinerariesRouter,
   reservationAffiliateCosts: reservationAffiliateCostsRouter,
+  customVariables: customVariablesRouter,
 });
 export type AppRouter = typeof appRouter;

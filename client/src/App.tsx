@@ -22,6 +22,7 @@ import ERPCRMCustomers from "./pages/erp/CRMCustomers";
 import ERPCRMPartners from "./pages/erp/CRMPartners";
 import ERPCMSNotices from "./pages/erp/CMSNotices";
 import ERPCMSBanners from "./pages/erp/CMSBanners";
+import ERPCMSVariables from "./pages/erp/cms/VariableManagement";
 import GeminiAssistant from "./pages/erp/GeminiAssistant";
 import AILogs from "./pages/erp/AILogs";
 import DevAI from "./pages/erp/DevAI";
@@ -77,6 +78,7 @@ function Router() {
       <Route path={"/erp/cms"} component={() => { window.location.replace('/erp/cms/notices'); return null; }} />
       <Route path={"/erp/cms/notices"} component={ERPCMSNotices} />
       <Route path={"/erp/cms/banners"} component={ERPCMSBanners} />
+      <Route path={"/erp/cms/variables"} component={ERPCMSVariables} />
       <Route path={"/erp/gemini"} component={GeminiAssistant} />
       <Route path={"/erp/ai-logs"} component={AILogs} />
       <Route path={"/erp/dev-ai"} component={DevAI} />

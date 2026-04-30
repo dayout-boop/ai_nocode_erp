@@ -21,7 +21,7 @@ import {
   // CRM 하위
   Search,
   // CMS 하위
-  Bell as BellIcon, Image,
+  Bell as BellIcon, Image, Code2,
   // 설정
   Settings,
 } from "lucide-react";
@@ -130,6 +130,7 @@ const navItems: NavItem[] = [
     children: [
       { label: "공지사항", href: "/erp/cms/notices", icon: <BellIcon size={14} /> },
       { label: "배너 관리", href: "/erp/cms/banners", icon: <Image size={14} /> },
+      { label: "자동 치환 변수", href: "/erp/cms/variables", icon: <Code2 size={14} /> },
     ],
   },
   { label: "연동 설정", icon: <Settings size={18} />, href: "/erp/settings" },

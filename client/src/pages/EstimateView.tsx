@@ -13,7 +13,10 @@ type ItineraryItem = {
   date: Date | null;
   dayType: string | null;
   holeCount: number | null;
-  teeTime: string | null;
+  /** @deprecated use estimatedTeeTime or confirmedTeeTime */
+  teeTime?: string | null;
+  estimatedTeeTime?: string | null;
+  confirmedTeeTime?: string | null;
   roomType: string | null;
   roomCount: number | null;
   flightInfo: unknown;
@@ -37,25 +40,71 @@ function replaceVariables(
 ): string {
   if (!template) return "";
 
-  // 일정 자동 치환: {{일정표}} → 일자별 텍스트 블록
+  // 일정 자동 치환: {{일정표}} → 일자별 구조화 텍스트 블록
+  // 미입력 항목은 자동 제외, 상품군별 일차 자동 매핑
   let scheduleBlock = "";
   if (itineraries && itineraries.length > 0) {
     scheduleBlock = itineraries
       .map((row) => {
         const dateStr = row.date ? new Date(row.date).toLocaleDateString("ko-KR") : "";
         const dayLabel = DAY_TYPE_KO[row.dayType ?? ""] ?? row.dayType ?? "";
-        const golf = row.golfAffiliateName ? `골프장: ${row.golfAffiliateName}` : "";
-        const hole = row.holeCount ? `${row.holeCount}홀` : "";
-        const tee = row.teeTime ? `티오프: ${row.teeTime}` : "";
-        const hotel = row.accommodationAffiliateName ? `숙소: ${row.accommodationAffiliateName}` : "";
-        const room = row.roomType ? `(${row.roomType})` : "";
+        const dayNum = row.dayIndex + 1;
+        const lines: string[] = [];
+
+        // 헤더: N일차 [타입] (날짜)
+        const header = `■ ${dayNum}일차 [${dayLabel}]${dateStr ? " (" + dateStr + ")" : ""}`;
+        lines.push(header);
+
+        // 항공 (출발일/도착일에만 표시)
         const fi = row.flightInfo as { airline?: string; depAirport?: string; depTime?: string; arrAirport?: string; arrTime?: string } | null;
-        const flight = fi?.airline ? `항공: ${fi.airline} ${fi.depAirport ?? ""}→${fi.arrAirport ?? ""} ${fi.depTime ?? ""}-${fi.arrTime ?? ""}` : "";
-        const parts = [golf, hole && golf ? `(${hole})` : hole, tee, hotel + room, flight, row.notes].filter(Boolean);
-        return `[${row.dayIndex + 1}일차 ${dayLabel}${dateStr ? " " + dateStr : ""}]\n${parts.join(" / ") || "-"}`;
+        if (fi?.airline) {
+          const flightStr = [fi.airline, fi.depAirport && fi.arrAirport ? `${fi.depAirport}→${fi.arrAirport}` : "", fi.depTime && fi.arrTime ? `${fi.depTime}-${fi.arrTime}` : ""].filter(Boolean).join(" ");
+          lines.push(`  ✈ 항공: ${flightStr}`);
+        } else if (row.dayType === "departure" || row.dayType === "arrival") {
+          lines.push(`  ✈ 항공: 개별항공`);
+        }
+
+        // 골프장 (입력된 경우만)
+        if (row.golfAffiliateName) {
+          const teeVal = row.confirmedTeeTime || row.estimatedTeeTime || (row as any).teeTime;
+          const holeStr = row.holeCount ? ` ${row.holeCount}홀` : "";
+          const teeStr = teeVal ? ` / 티오프 ${teeVal}` : "";
+          lines.push(`  ⛳ 골프: ${row.golfAffiliateName}${holeStr}${teeStr}`);
+        }
+
+        // 숙소 (도착일 제외, 입력된 경우만)
+        if (row.accommodationAffiliateName && row.dayType !== "arrival") {
+          const roomStr = row.roomType ? ` (${row.roomType}${row.roomCount ? ` ${row.roomCount}실` : ""})` : "";
+          lines.push(`  🏨 숙소: ${row.accommodationAffiliateName}${roomStr}`);
+        }
+
+        // 비고
+        if (row.notes) {
+          lines.push(`  📝 ${row.notes}`);
+        }
+
+        return lines.join("\n");
       })
       .join("\n\n");
   }
+
+  // N일차 개별 변수 치환: {{1일차-골프}}, {{2일차-숙소}}, {{3일차-티타임}} 등
+  let result = template;
+  if (itineraries && itineraries.length > 0) {
+    itineraries.forEach((row) => {
+      const n = row.dayIndex + 1;
+      const teeVal = row.confirmedTeeTime || row.estimatedTeeTime || (row as any).teeTime || "";
+      const fi = row.flightInfo as { airline?: string; depAirport?: string; depTime?: string; arrAirport?: string; arrTime?: string } | null;
+      result = result
+        .replace(new RegExp(`\\{\\{${n}일차-골프\\}\\}`, "g"), row.golfAffiliateName ?? "")
+        .replace(new RegExp(`\\{\\{${n}일차-숙소\\}\\}`, "g"), row.accommodationAffiliateName ?? "")
+        .replace(new RegExp(`\\{\\{${n}일차-티타임\\}\\}`, "g"), teeVal)
+        .replace(new RegExp(`\\{\\{${n}일차-홀수\\}\\}`, "g"), row.holeCount ? String(row.holeCount) + "홀" : "")
+        .replace(new RegExp(`\\{\\{${n}일차-항공\\}\\}`, "g"), fi?.airline ? `${fi.airline} ${fi.depAirport ?? ""}→${fi.arrAirport ?? ""} ${fi.depTime ?? ""}-${fi.arrTime ?? ""}`.trim() : "개별항공")
+        .replace(new RegExp(`\\{\\{${n}일차-날짜\\}\\}`, "g"), row.date ? new Date(row.date).toLocaleDateString("ko-KR") : "");
+    });
+  }
+  template = result;
 
   return template
     .replace(/\{\{고객명\}\}/g, String(reservation.customerName ?? ""))
@@ -65,13 +114,25 @@ function replaceVariables(
     .replace(/\{\{골프장\}\}/g, String(reservation.golfCourseName ?? ""))
     .replace(/\{\{인원\}\}/g, String(reservation.numberOfPeople ?? ""))
     .replace(/\{\{팀수\}\}/g, String(reservation.numberOfTeams ?? ""))
-    .replace(/\{\{판매가\}\}/g, reservation.salePrice ? Number(reservation.salePrice).toLocaleString() + "원" : "")
-    .replace(/\{\{1인가격\}\}/g, reservation.numberOfPeople && reservation.salePrice
-      ? Math.round(Number(reservation.salePrice) / Number(reservation.numberOfPeople)).toLocaleString() + "원"
+    .replace(/\{\{판매가\}\}/g, reservation.salePriceTotal ? Number(reservation.salePriceTotal).toLocaleString() + "원" : (reservation.salePrice ? Number(reservation.salePrice).toLocaleString() + "원" : ""))
+    .replace(/\{\{입금가\}\}/g, reservation.depositPrice ? Number(reservation.depositPrice).toLocaleString() + "원" : (reservation.paidAmount ? Number(reservation.paidAmount).toLocaleString() + "원" : ""))
+    .replace(/\{\{제휴가\}\}/g, reservation.remittedAmount ? Number(reservation.remittedAmount).toLocaleString() + "원" : "")
+    .replace(/\{\{결제상태\}\}/g, (() => {
+      const ps = reservation.paymentStatus as string | undefined;
+      if (ps === "paid") return "완납";
+      if (ps === "partial") return "부분납";
+      if (ps === "unpaid") return "미납";
+      return ps ?? "";
+    })())
+    .replace(/\{\{1인가격\}\}/g, reservation.numberOfPeople && (reservation.salePriceTotal || reservation.salePrice)
+      ? Math.round(Number(reservation.salePriceTotal ?? reservation.salePrice) / Number(reservation.numberOfPeople)).toLocaleString() + "원"
       : "")
-    .replace(/\{\{담당자\}\}/g, String(reservation.managerName ?? ""))
-    .replace(/\{\{연락처\}\}/g, String(reservation.phone ?? ""))
-    .replace(/\{\{티타임\}\}/g, String(reservation.teeTime ?? ""))
+    .replace(/\{\{담당자\}\}/g, String(reservation.managerName ?? reservation.assignedTo ?? ""))
+    .replace(/\{\{연락처\}\}/g, String(reservation.customerPhone ?? reservation.phone ?? ""))
+    .replace(/\{\{이메일\}\}/g, String(reservation.customerEmail ?? reservation.email ?? ""))
+    .replace(/\{\{견적시간\}\}/g, String(reservation.estimatedTeeTime ?? ""))
+    .replace(/\{\{확정시간\}\}/g, String(reservation.confirmedTeeTime ?? ""))
+    .replace(/\{\{티타임\}\}/g, String(reservation.confirmedTeeTime ?? reservation.estimatedTeeTime ?? (reservation as any).teeTime ?? ""))
     .replace(/\{\{숙소\}\}/g, String(reservation.accommodationName ?? ""))
     .replace(/\{\{국가\}\}/g, String(reservation.country ?? ""))
     .replace(/\{\{발송일\}\}/g, new Date().toLocaleDateString("ko-KR"))
@@ -279,7 +340,7 @@ export default function EstimateView() {
                           <Flag size={12} className="text-green-600 flex-shrink-0" />
                           <span className="font-medium">{row.golfAffiliateName}</span>
                           {row.holeCount ? <span className="text-gray-400 text-xs">{row.holeCount}홀</span> : null}
-                          {row.teeTime ? <span className="text-gray-400 text-xs">티오프 {row.teeTime}</span> : null}
+                          {(row.confirmedTeeTime || row.estimatedTeeTime || (row as any).teeTime) ? <span className="text-gray-400 text-xs">티오프 {row.confirmedTeeTime || row.estimatedTeeTime || (row as any).teeTime}</span> : null}
                         </div>
                       )}
                       {row.accommodationAffiliateName && (

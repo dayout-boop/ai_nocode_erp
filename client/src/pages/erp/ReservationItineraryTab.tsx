@@ -35,7 +35,8 @@ interface ItineraryRow {
   golfAffiliateId: number | null;
   golfAffiliateName: string;
   holeCount: number;
-  teeTime: string;
+  estimatedTeeTime: string;
+  confirmedTeeTime: string;
   accommodationAffiliateId: number | null;
   accommodationAffiliateName: string;
   roomType: string;
@@ -92,7 +93,8 @@ function createEmptyRow(dayIndex: number, dayType: DayType, baseDate?: string): 
     golfAffiliateId: null,
     golfAffiliateName: "",
     holeCount: dayType === "arrival" ? 0 : 18,
-    teeTime: "",
+    estimatedTeeTime: "",
+    confirmedTeeTime: "",
     accommodationAffiliateId: null,
     accommodationAffiliateName: "",
     roomType: "",
@@ -342,7 +344,8 @@ export default function ReservationItineraryTab({
           golfAffiliateId: r.golfAffiliateId ?? null,
           golfAffiliateName: r.golfAffiliate?.name ?? "",
           holeCount: r.holeCount ?? 18,
-          teeTime: r.teeTime ?? "",
+          estimatedTeeTime: r.estimatedTeeTime ?? r.teeTime ?? "",
+          confirmedTeeTime: r.confirmedTeeTime ?? "",
           accommodationAffiliateId: r.accommodationAffiliateId ?? null,
           accommodationAffiliateName: r.accommodationAffiliate?.name ?? "",
           roomType: r.roomType ?? "",
@@ -406,7 +409,8 @@ export default function ReservationItineraryTab({
           dayIndex: r.dayIndex,
           dayType: r.dayType,
           holeCount: r.holeCount,
-          teeTime: r.teeTime || undefined,
+          estimatedTeeTime: r.estimatedTeeTime || undefined,
+          confirmedTeeTime: r.confirmedTeeTime || undefined,
           golfAffiliateId: r.golfAffiliateId,
           accommodationAffiliateId: r.accommodationAffiliateId,
           roomType: r.roomType || undefined,
@@ -424,7 +428,8 @@ export default function ReservationItineraryTab({
           dayType: r.dayType,
           golfAffiliateId: r.golfAffiliateId,
           holeCount: r.holeCount,
-          teeTime: r.teeTime || null,
+          estimatedTeeTime: r.estimatedTeeTime || null,
+          confirmedTeeTime: r.confirmedTeeTime || null,
           accommodationAffiliateId: r.accommodationAffiliateId,
           roomType: r.roomType || null,
           roomCount: r.roomCount,
@@ -563,12 +568,24 @@ export default function ReservationItineraryTab({
                 </Select>
               </div>
               <div>
-                <Label className="text-xs text-gray-500 mb-0.5 block">티오프시간</Label>
+                <Label className="text-xs text-gray-500 mb-0.5 block">견적시간</Label>
                 <Input
-                  value={row.teeTime}
-                  onChange={e => updateRow(idx, { teeTime: e.target.value })}
+                  value={row.estimatedTeeTime}
+                  onChange={e => updateRow(idx, { estimatedTeeTime: e.target.value })}
                   placeholder="08:30"
                   className="h-7 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500 mb-0.5 flex items-center gap-1 block">
+                  확정시간
+                  <span className="text-green-600 font-medium">(우선)</span>
+                </Label>
+                <Input
+                  value={row.confirmedTeeTime}
+                  onChange={e => updateRow(idx, { confirmedTeeTime: e.target.value })}
+                  placeholder="08:30"
+                  className="h-7 text-xs border-green-300 focus:border-green-500"
                 />
               </div>
             </div>

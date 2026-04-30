@@ -34,6 +34,7 @@ export const VARIABLE_CATEGORIES: VariableCategory[] = [
     items: [
       { label: "고객명", value: "{{고객명}}", description: "예약자 이름" },
       { label: "연락처", value: "{{연락처}}", description: "예약자 전화번호" },
+      { label: "이메일", value: "{{이메일}}", description: "예약자 이메일 주소" },
     ],
   },
   {
@@ -54,7 +55,9 @@ export const VARIABLE_CATEGORIES: VariableCategory[] = [
     color: "bg-emerald-50 border-emerald-200 text-emerald-700",
     items: [
       { label: "골프장", value: "{{골프장}}", description: "골프장 이름" },
-      { label: "티타임", value: "{{티타임}}", description: "티오프 시간" },
+      { label: "티타임", value: "{{티타임}}", description: "확정시간 우선, 없으면 견적시간 표시" },
+      { label: "견적시간", value: "{{견적시간}}", description: "티오프 견적 시간 (수기 입력)" },
+      { label: "확정시간", value: "{{확정시간}}", description: "티오프 확정 시간 (확정 후 입력)" },
     ],
   },
   {
@@ -69,6 +72,9 @@ export const VARIABLE_CATEGORIES: VariableCategory[] = [
     color: "bg-amber-50 border-amber-200 text-amber-700",
     items: [
       { label: "판매가", value: "{{판매가}}", description: "총 판매 금액 (원 단위 포함)" },
+      { label: "입금가", value: "{{입금가}}", description: "공급가/입금 금액" },
+      { label: "제휴가", value: "{{제휴가}}", description: "제휴사 송금 금액" },
+      { label: "결제상태", value: "{{결제상태}}", description: "완납 / 부분납 / 미납" },
       { label: "1인가격", value: "{{1인가격}}", description: "1인당 가격 (판매가 ÷ 인원)" },
     ],
   },
@@ -84,7 +90,12 @@ export const VARIABLE_CATEGORIES: VariableCategory[] = [
     category: "일정 정보",
     color: "bg-teal-50 border-teal-200 text-teal-700",
     items: [
-      { label: "일정표", value: "{{일정표}}", description: "일자별 골프장·숙소·항공 일정 자동 생성" },
+      { label: "일정표", value: "{{일정표}}", description: "전체 일정 자동 생성 (미입력 항목 제외)" },
+      { label: "N일차-골프", value: "{{1일차-골프}}", description: "N일차 골프장명 (1일차, 2일차... 숫자 변경 가능)" },
+      { label: "N일차-숙소", value: "{{1일차-숙소}}", description: "N일차 숙소명" },
+      { label: "N일차-티타임", value: "{{1일차-티타임}}", description: "N일차 티오프 시간" },
+      { label: "N일차-항공", value: "{{1일차-항공}}", description: "N일차 항공 정보" },
+      { label: "N일차-날짜", value: "{{1일차-날짜}}", description: "N일차 날짜" },
     ],
   },
 ];
@@ -101,14 +112,20 @@ export const VALID_VARIABLE_SET: Set<string> = new Set(
  * @param texts 검사할 텍스트 배열 (여러 필드를 한 번에 검사)
  * @returns 잘못된 변수 문자열 배열 (중복 제거)
  */
+// N일차 동적 변수 패턴 (예: {{1일차-골프}}, {{3일차-숙소}})
+const DYNAMIC_VARIABLE_PATTERN = /^\d+일차-(골프|숙소|티타임|홀수|항공|날짜)$/;
+
 export function validateVariables(texts: string[]): string[] {
   const pattern = /\{\{([^}]+)\}\}/g;
   const invalid = new Set<string>();
   for (const text of texts) {
+    const p = /\{\{([^}]+)\}\}/g;
     let match: RegExpExecArray | null;
-    while ((match = pattern.exec(text)) !== null) {
+    while ((match = p.exec(text)) !== null) {
       const full = `{{${match[1]}}}`;
-      if (!VALID_VARIABLE_SET.has(full)) {
+      const inner = match[1];
+      // 정적 변수 목록 또는 동적 N일차 패턴이면 유효
+      if (!VALID_VARIABLE_SET.has(full) && !DYNAMIC_VARIABLE_PATTERN.test(inner)) {
         invalid.add(full);
       }
     }
@@ -124,7 +141,6 @@ export function validateVariables(texts: string[]): string[] {
  * @returns { valid: string[], invalid: string[] } 유효/미등록 변수 목록 (중복 제거)
  */
 export function extractVariables(texts: string[]): { valid: string[]; invalid: string[] } {
-  const pattern = /\{\{([^}]+)\}\}/g;
   const valid = new Set<string>();
   const invalid = new Set<string>();
   for (const text of texts) {
@@ -132,7 +148,8 @@ export function extractVariables(texts: string[]): { valid: string[]; invalid: s
     let match: RegExpExecArray | null;
     while ((match = p.exec(text)) !== null) {
       const full = `{{${match[1]}}}`;
-      if (VALID_VARIABLE_SET.has(full)) {
+      const inner = match[1];
+      if (VALID_VARIABLE_SET.has(full) || DYNAMIC_VARIABLE_PATTERN.test(inner)) {
         valid.add(full);
       } else {
         invalid.add(full);

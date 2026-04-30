@@ -840,8 +840,42 @@ Detected
 
 ## 2026-04-30 {{변수명}} 실시간 파싱 → variables 자동 동기화
 
-- [ ] CustomerEstimateTemplates.tsx - content 변경 시 {{변수명}} 파싱 후 variables 배열 자동 추가/삭제
-- [ ] InquiryTemplates.tsx - content 변경 시 {{변수명}} 파싱 후 variables 배열 자동 추가/삭제
-- [ ] 유효 변수(VALID_VARIABLES 목록 내)는 초록 배지, 미등록 변수는 주황 배지로 구분 표시
-- [ ] TypeScript 오류 없음 확인
-- [ ] 체크포인트 저장
+- [x] CustomerEstimateTemplates.tsx - content 변경 시 {{변수명}} 파싱 후 variables 배열 자동 추가/삭제
+- [x] InquiryTemplates.tsx - content 변경 시 {{변수명}} 파싱 후 variables 배열 자동 추가/삭제
+- [x] 유효 변수(VALID_VARIABLES 목록 내)는 초록 배지, 미등록 변수는 주황 배지로 구분 표시
+- [x] TypeScript 오류 없음 확인
+- [x] 체크포인트 저장
+
+## 2026-04-30 자동 치환 변수 관리 시스템 고도화
+
+### DB 스키마
+- [x] custom_variables 테이블 추가 (id, category, label, key, description, isSystem, isActive, sortOrder)
+- [x] reservation_itineraries.teeTime → estimatedTeeTime + confirmedTeeTime 분리
+- [x] pnpm db:push 마이그레이션
+
+### CMS > 자동 치환 변수 관리 페이지
+- [x] /erp/cms/variables 신규 페이지 생성
+- [x] ERPLayout CMS 섹션에 "자동 치환 변수 관리" 메뉴 추가
+- [x] App.tsx 라우트 등록
+- [x] 카테고리별 변수 목록 테이블 (시스템 변수 + 커스텀 변수)
+- [x] 신규 변수 추가 (카테고리/라벨/키값/설명 입력)
+- [x] 변수 수정/삭제 (시스템 변수는 삭제 불가)
+- [x] VariablePickerButton이 DB 커스텀 변수도 포함하여 표시
+
+### 금액 변수 추가
+- [x] {{입금가}}, {{제휴가}}, {{판매가}}, {{결제상태}} VARIABLE_CATEGORIES 금액 정보에 추가
+- [x] EstimateView.tsx replaceVariables에 금액 변수 치환 로직 추가
+
+### 티타임 변수 분리
+- [x] reservation_itineraries에서 teeTime → estimatedTeeTime + confirmedTeeTime
+- [x] ReservationItineraryTab.tsx UI에 견적시간/확정시간 2개 입력란 표시
+- [x] {{티타임}} 변수: confirmedTeeTime 우선, 없으면 estimatedTeeTime 사용
+- [x] {{견적시간}}, {{확정시간}} 개별 변수도 VARIABLE_CATEGORIES에 추가
+
+### 일정 동적 변수 ({{일정표}} 렌더링 고도화)
+- [x] EstimateView.tsx {{일정표}} 렌더링 로직 개선 (미입력 항목 자동 제외)
+- [x] dayType별 표시 형식 (출발일/체류일/도착일/당일)
+- [x] 골프장+홀수+티타임 / 숙소 / 포함사항 행 구조화
+- [x] 상품군(1박2일 등) 자동 매핑 (dayIndex 기반)
+- [x] {{N일차-골프}}, {{N일차-숙소}}, {{N일차-티타임}}, {{N일차-항공}}, {{N일차-날짜}} 개별 일차 변수 지원
+- [x] validateVariables/extractVariables에 동적 N일차 패턴 유효 변수로 인식

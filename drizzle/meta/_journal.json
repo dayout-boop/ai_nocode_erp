@@ -190,6 +190,13 @@
       "when": 1777516460084,
       "tag": "0026_free_imperial_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "5",
+      "when": 1777526466856,
+      "tag": "0027_remarkable_frank_castle",
+      "breakpoints": true
     }
   ]
 }
