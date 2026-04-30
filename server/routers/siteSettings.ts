@@ -205,7 +205,18 @@ export const siteSettingsRouter = router({
   getHeroSlides: publicProcedure.query(async () => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    return db.select().from(siteHeroSlides).orderBy(asc(siteHeroSlides.sortOrder));
+    const slides = await db.select().from(siteHeroSlides).orderBy(asc(siteHeroSlides.sortOrder));
+    const now = new Date();
+    // startAt/endAt 기반 isActive 자동 계산:
+    // - startAt/endAt 둘 다 null이면 수동 isActive 토글 우선 적용
+    // - 하나라도 설정되어 있으면 날짜 범위 기준으로 자동 활성화/비활성화
+    return slides.map((slide) => {
+      const hasSchedule = slide.startAt != null || slide.endAt != null;
+      if (!hasSchedule) return slide;
+      const afterStart = slide.startAt == null || now >= new Date(slide.startAt as Date);
+      const beforeEnd = slide.endAt == null || now <= new Date(slide.endAt as Date);
+      return { ...slide, isActive: afterStart && beforeEnd };
+    });
   }),
 
   createHeroSlide: protectedProcedure

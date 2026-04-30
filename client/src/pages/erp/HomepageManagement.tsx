@@ -222,6 +222,7 @@ function HeroSlidesTab() {
   const emptySlide = () => ({
     title: "", subtitle: "", description: "", imageUrl: "", mobileImageUrl: "",
     ctaText: "패키지 보기", ctaLink: "/packages", destination: "", sortOrder: 0, isActive: true,
+    startAt: "", endAt: "",
   });
 
   const [showForm, setShowForm] = useState(false);
@@ -297,14 +298,46 @@ function HeroSlidesTab() {
                 </select>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">게시 시작일 (선택)</Label>
+                <Input
+                  type="datetime-local"
+                  value={newSlide.startAt}
+                  onChange={(e) => setNewSlide((p) => ({ ...p, startAt: e.target.value }))}
+                  className="text-sm"
+                />
+                <p className="text-xs text-gray-400 mt-0.5">설정 시 자동 활성화 시작</p>
+              </div>
+              <div>
+                <Label className="text-xs">게시 종료일 (선택)</Label>
+                <Input
+                  type="datetime-local"
+                  value={newSlide.endAt}
+                  onChange={(e) => setNewSlide((p) => ({ ...p, endAt: e.target.value }))}
+                  className="text-sm"
+                />
+                <p className="text-xs text-gray-400 mt-0.5">설정 시 자동 비활성화</p>
+              </div>
+            </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <Switch checked={newSlide.isActive} onCheckedChange={(v) => setNewSlide((p) => ({ ...p, isActive: v }))} />
-                <Label className="text-xs">활성화</Label>
+                <Switch
+                  checked={newSlide.isActive}
+                  onCheckedChange={(v) => setNewSlide((p) => ({ ...p, isActive: v }))}
+                  disabled={!!(newSlide.startAt || newSlide.endAt)}
+                />
+                <Label className="text-xs">
+                  {(newSlide.startAt || newSlide.endAt) ? "자동 제어 (날짜 범위 설정됨)" : "활성화"}
+                </Label>
               </div>
               <div className="flex gap-2 ml-auto">
                 <Button variant="outline" size="sm" onClick={() => { setShowForm(false); setNewSlide(emptySlide()); }}>취소</Button>
-                <Button size="sm" onClick={() => createMutation.mutate(newSlide)} disabled={createMutation.isPending}>
+                <Button size="sm" onClick={() => createMutation.mutate({
+                  ...newSlide,
+                  startAt: newSlide.startAt ? new Date(newSlide.startAt) : undefined,
+                  endAt: newSlide.endAt ? new Date(newSlide.endAt) : undefined,
+                })} disabled={createMutation.isPending}>
                   {createMutation.isPending ? "저장 중..." : "추가"}
                 </Button>
               </div>
