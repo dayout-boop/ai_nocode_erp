@@ -1092,3 +1092,13 @@ Detected
 - [x] settings.ts - testManus에 project_id 포함 + getManusConfig 프로시저 추가
 - [x] ERPSettings.tsx - Manus 스마트 라우팅 설정 현황 카드 추가
 - [x] MasterAI.tsx - DevRequestCard에 routingType/routingReason 표시 + sentRequestResults 상태 추가
+
+## 2026-05-01 Manus API 키 교체 및 최종 검증
+- [x] 새 Manus Open API 키 발급 (sk-l4CYDmYBIAcaGtMlBAgotXuNl5VGz8Rece...)
+- [x] MANUS_API_KEY 환경변수 업데이트 (새 키로 교체)
+- [x] MANUS_PROJECT_ID 환경변수 설정 (GVziMvdQmQTJAbrZbBGmnr)
+- [x] Python requests 라이브러리로 API 연동 테스트 성공 (project.list 200 OK)
+- [x] Python requests로 task.create 성공 (project_id 포함, task_id: dZYE2GjrQKR7ERZVJjquHG)
+- [x] Node.js fetch 환경에서 API 연동 테스트 성공 (project.list 200 OK, task.sendMessage 200 OK)
+- [x] 서버 환경변수 확인 (MANUS_API_KEY, MANUS_PROJECT_ID, MANUS_DOGOLF_TASK_ID 모두 정상)
+- [x] manusPipe.ts Node.js fetch 기반 API 호출 정상 동작 확인
