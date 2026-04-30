@@ -14,44 +14,8 @@ import {
   Clock, Hotel, Info, FileText, Hash
 } from "lucide-react";
 import ERPLayout from "@/components/ERPLayout";
-
-// ─── 변수 삽입 아이콘 목록 ──────────────────────────────────────────
-const VARIABLE_BUTTONS = [
-  { label: "고객명", icon: <User size={12} />, value: "{{고객명}}" },
-  { label: "예약번호", icon: <Hash size={12} />, value: "{{예약번호}}" },
-  { label: "출발일", icon: <Calendar size={12} />, value: "{{출발일}}" },
-  { label: "귀국일", icon: <Calendar size={12} />, value: "{{귀국일}}" },
-  { label: "골프장", icon: <MapPin size={12} />, value: "{{골프장}}" },
-  { label: "인원", icon: <Users size={12} />, value: "{{인원}}" },
-  { label: "팀수", icon: <Users size={12} />, value: "{{팀수}}" },
-  { label: "판매가", icon: <DollarSign size={12} />, value: "{{판매가}}" },
-  { label: "1인가격", icon: <DollarSign size={12} />, value: "{{1인가격}}" },
-  { label: "담당자", icon: <Briefcase size={12} />, value: "{{담당자}}" },
-  { label: "연락처", icon: <Phone size={12} />, value: "{{연락처}}" },
-  { label: "티타임", icon: <Clock size={12} />, value: "{{티타임}}" },
-  { label: "숙소", icon: <Hotel size={12} />, value: "{{숙소}}" },
-  { label: "국가", icon: <MapPin size={12} />, value: "{{국가}}" },
-  { label: "발송일", icon: <Calendar size={12} />, value: "{{발송일}}" },
-];
-
-// ─── 변수 삽입 버튼 그룹 컴포넌트 ──────────────────────────────────
-function VariableButtons({ onInsert }: { onInsert: (v: string) => void }) {
-  return (
-    <div className="flex flex-wrap gap-1 mb-2">
-      {VARIABLE_BUTTONS.map((btn) => (
-        <button
-          key={btn.value}
-          type="button"
-          onClick={() => onInsert(btn.value)}
-          className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-green-50 border border-green-200 text-green-700 rounded hover:bg-green-100 transition-colors"
-        >
-          {btn.icon}
-          {btn.label}
-        </button>
-      ))}
-    </div>
-  );
-}
+import VariablePickerButton, { VARIABLE_CATEGORIES } from "@/components/VariablePickerButton";
+import { useRef } from "react";
 
 // ─── 변수 삽입 가능한 Textarea 컴포넌트 ────────────────────────────
 function VariableTextarea({
@@ -67,16 +31,33 @@ function VariableTextarea({
   placeholder?: string;
   rows?: number;
 }) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   const insertVariable = (variable: string) => {
-    // 커서 위치에 삽입 (간단히 끝에 추가)
-    onChange(value + variable);
+    const el = textareaRef.current;
+    if (el) {
+      const start = el.selectionStart ?? value.length;
+      const end = el.selectionEnd ?? value.length;
+      const newValue = value.slice(0, start) + variable + value.slice(end);
+      onChange(newValue);
+      // 커서 위치 복원
+      requestAnimationFrame(() => {
+        el.focus();
+        el.setSelectionRange(start + variable.length, start + variable.length);
+      });
+    } else {
+      onChange(value + variable);
+    }
   };
 
   return (
     <div className="space-y-1">
-      <Label className="text-sm font-medium">{label}</Label>
-      <VariableButtons onInsert={insertVariable} />
+      <div className="flex items-center gap-1.5">
+        <Label className="text-sm font-medium">{label}</Label>
+        <VariablePickerButton onInsert={insertVariable} size="sm" placement="bottom-left" />
+      </div>
       <Textarea
+        ref={textareaRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -256,9 +237,9 @@ export default function CustomerEstimateTemplates() {
               <div>
                 <p className="text-sm font-medium text-blue-800 mb-1">사용 가능한 자동 치환 변수</p>
                 <div className="flex flex-wrap gap-1">
-                  {VARIABLE_BUTTONS.map((btn) => (
-                    <code key={btn.value} className="text-xs bg-white border border-blue-200 text-blue-700 px-1.5 py-0.5 rounded">
-                      {btn.value}
+                  {VARIABLE_CATEGORIES.flatMap((cat) => cat.items).map((item) => (
+                    <code key={item.value} className="text-xs bg-white border border-blue-200 text-blue-700 px-1.5 py-0.5 rounded" title={item.description}>
+                      {item.value}
                     </code>
                   ))}
                 </div>

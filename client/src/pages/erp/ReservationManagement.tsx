@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import ReservationItineraryTab from "./ReservationItineraryTab";
 import ReservationAffiliateCostTab from "./ReservationAffiliateCostTab";
+import VariablePickerButton from "@/components/VariablePickerButton";
 
 type StatusType = "pending" | "confirmed" | "cancelled" | "completed";
 type PaymentStatusType = "unpaid" | "partial" | "paid";
@@ -1188,10 +1189,19 @@ function EditDialog({ item, onClose, onSuccess }: EditDialogProps) {
             </div>
           </div>
           <div>
-            <Label className="text-xs">메모</Label>
+            <div className="flex items-center gap-1.5 mb-1">
+              <Label className="text-xs">메모</Label>
+              <VariablePickerButton
+                onInsert={(variable) => {
+                  setForm(f => ({ ...f, notes: f.notes + variable }));
+                }}
+                size="xs"
+                placement="bottom-left"
+              />
+            </div>
             <Textarea value={form.notes}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-              rows={3} className="mt-1 text-sm" />
+              rows={3} className="text-sm" />
           </div>
         </TabsContent>
 

@@ -814,3 +814,20 @@ Detected
 - [x] packages 테이블에 defaultItinerary JSON 필드 추가 + DB 마이그레이션
 - [x] 상품 수정 모달에 "기본 일정 템플릿" 설정 UI 추가
 - [x] 예약 생성 시 상품 기본 일정 자동 복사 적용
+
+## 2026-04-30 자동 치환 변수 목록 팝업 기능 구현
+
+### 공용 컴포넌트
+- [x] VariablePickerButton 컴포넌트 신규 생성 (client/src/components/VariablePickerButton.tsx)
+- [x] 7개 분류별 변수 목록 정의 (고객정보/예약정보/골프정보/숙박정보/금액정보/담당자정보/일정정보)
+- [x] 클릭 시 분류별 변수 목록 테이블 팝오버 표시
+- [x] 변수 클릭 시 onInsert 콜백으로 변수 문자열 전달
+- [x] 외부 클릭 시 팝오버 자동 닫힘
+- [x] size(xs/sm/md), placement(bottom/top × left/right) 옵션 지원
+
+### 적용 위치
+- [x] CustomerEstimateTemplates.tsx - 포함항목/불포함항목/일정/유의사항 Textarea 라벨 옆에 버튼 추가
+- [x] CustomerEstimateTemplates.tsx - 커서 위치 삽입 로직 구현 (selectionStart/End 기반)
+- [x] InquiryTemplates.tsx - 템플릿 내용 Textarea 라벨 옆에 버튼 추가
+- [x] ReservationManagement.tsx - 예약 수정 모달 메모 입력란 옆에 버튼 추가
+- [x] ReservationItineraryTab.tsx - 일정 행 비고 Input 옆에 버튼 추가

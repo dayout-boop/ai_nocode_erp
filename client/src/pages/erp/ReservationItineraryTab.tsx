@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, Trash2, Plane, Hotel, Flag, Anchor } from "lucide-react";
+import VariablePickerButton from "@/components/VariablePickerButton";
 import { toast } from "sonner";
 
 // ─── 타입 정의 ────────────────────────────────────────────────
@@ -617,12 +618,19 @@ export default function ReservationItineraryTab({
             )}
 
             {/* 비고 */}
-            <Input
-              value={row.notes}
-              onChange={e => updateRow(idx, { notes: e.target.value })}
-              placeholder="비고 (선택)"
-              className="h-6 text-xs"
-            />
+            <div className="flex items-center gap-1">
+              <Input
+                value={row.notes}
+                onChange={e => updateRow(idx, { notes: e.target.value })}
+                placeholder="비고 (선택)"
+                className="h-6 text-xs flex-1"
+              />
+              <VariablePickerButton
+                onInsert={(variable) => updateRow(idx, { notes: (row.notes || "") + variable })}
+                size="xs"
+                placement="bottom-right"
+              />
+            </div>
           </div>
         ))}
       </div>

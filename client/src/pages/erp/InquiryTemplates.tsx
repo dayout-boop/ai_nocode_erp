@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/select";
 import { Plus, Edit2, Trash2, Zap, Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import VariablePickerButton from "@/components/VariablePickerButton";
+import { useRef } from "react";
 
 const CATEGORIES = [
   { value: "golf_booking", label: "골프장 문의" },
@@ -31,6 +33,7 @@ interface TemplateFormProps {
 }
 
 function TemplateForm({ initial, onSave, onCancel, isSaving }: TemplateFormProps) {
+  const contentRef = useRef<HTMLTextAreaElement>(null);
   const [form, setForm] = useState({
     name: initial?.name ?? "",
     category: initial?.category ?? "golf_booking",
@@ -74,18 +77,40 @@ function TemplateForm({ initial, onSave, onCancel, isSaving }: TemplateFormProps
       </div>
 
       <div>
-        <Label className="text-sm">
-          템플릿 내용 <span className="text-red-500">*</span>
-          <span className="text-xs text-gray-400 ml-2">
-            변수는 {"{{변수명}}"} 형식으로 입력 (예: {"{{골프장명}}"}, {"{{출발일}}"}, {"{{인원}}"})
+        <div className="flex items-center gap-1.5 mb-1">
+          <Label className="text-sm">
+            템플릿 내용 <span className="text-red-500">*</span>
+          </Label>
+          <VariablePickerButton
+            onInsert={(variable) => {
+              const el = contentRef.current;
+              if (el) {
+                const start = el.selectionStart ?? form.content.length;
+                const end = el.selectionEnd ?? form.content.length;
+                const newValue = form.content.slice(0, start) + variable + form.content.slice(end);
+                setForm(f => ({ ...f, content: newValue }));
+                requestAnimationFrame(() => {
+                  el.focus();
+                  el.setSelectionRange(start + variable.length, start + variable.length);
+                });
+              } else {
+                setForm(f => ({ ...f, content: f.content + variable }));
+              }
+            }}
+            size="sm"
+            placement="bottom-left"
+          />
+          <span className="text-xs text-gray-400">
+            변수는 {"{{변수명}}"} 형식으로 입력
           </span>
-        </Label>
+        </div>
         <Textarea
+          ref={contentRef}
           value={form.content}
           onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
           placeholder={`안녕하세요.\n{{골프장명}} 담당자님,\n\n{{출발일}} 기준으로 {{인원}}명 예약 가능 여부 문의드립니다.\n\n감사합니다.`}
           rows={10}
-          className="mt-1 text-sm font-mono"
+          className="text-sm font-mono"
         />
       </div>
 
