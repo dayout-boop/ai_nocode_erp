@@ -6,8 +6,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { Menu, X, Phone, ChevronDown } from 'lucide-react';
+import { trpc } from '@/lib/trpc';
 
-const navItems = [
+const DEFAULT_NAV_ITEMS = [
   { label: '국내골프', href: '/packages/korea' },
   { label: '태국골프', href: '/packages/thailand' },
   { label: '베트남골프', href: '/packages/vietnam' },
@@ -21,6 +22,14 @@ const navItems = [
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  // DB 네비게이션 데이터 연동 (폴백: 기본값 사용)
+  const { data: dbNavItems } = trpc.siteSettings.getNavItems.useQuery(undefined, {
+    staleTime: 5 * 60 * 1000, // 5분 캐시
+  });
+  const navItems = (dbNavItems && dbNavItems.length > 0)
+    ? dbNavItems.filter((item) => item.isVisible)
+    : DEFAULT_NAV_ITEMS;
   const [location] = useLocation();
 
   useEffect(() => {

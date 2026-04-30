@@ -10,7 +10,7 @@ import { ChevronLeft, ChevronRight, ArrowRight, Star, Phone, TrendingUp, Zap, X 
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import GolfTalkWidget from '@/components/GolfTalkWidget';
-import { heroSlides, destinations, stats, reviews, notices } from '@/lib/data';
+import { heroSlides as staticHeroSlides, destinations, stats, reviews, notices } from '@/lib/data';
 import { trpc } from '@/lib/trpc';
 
 // Animated counter hook
@@ -68,13 +68,33 @@ export default function Home() {
   const [activeDestination, setActiveDestination] = useState('all');
   const { ref: statsRef, inView: statsInView } = useInView();
 
+  // DB 히어로 슬라이드 연동 (폴백: 정적 데이터)
+  const { data: dbHeroSlides } = trpc.siteSettings.getHeroSlides.useQuery(undefined, {
+    staleTime: 5 * 60 * 1000,
+  });
+  const heroSlides = (dbHeroSlides && dbHeroSlides.length > 0)
+    ? dbHeroSlides
+        .filter((s: any) => s.isActive)
+        .sort((a: any, b: any) => a.sortOrder - b.sortOrder)
+        .map((s: any) => ({
+          id: s.id,
+          image: s.imageUrl,
+          title: s.title || '',
+          subtitle: s.subtitle || '',
+          description: s.description || '',
+          cta: s.ctaText || '패키지 보기',
+          destination: s.ctaLink || '',
+        }))
+    : staticHeroSlides;
+
   // Auto slide
   useEffect(() => {
+    if (heroSlides.length === 0) return;
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [heroSlides.length]);
 
   const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
   const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % heroSlides.length);

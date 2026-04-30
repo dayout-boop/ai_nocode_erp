@@ -975,6 +975,6 @@ Detected
 - [x] Footer.tsx — aria-expanded/키보드 접근성, SEO(접힌 상태에서도 렌더)
 - [x] Footer.tsx — SNS 링크 동적 렌더링 (카카오/인스타/유튜브/네이버블로그)
 - [x] Footer.tsx — 폴백 기본값 설정 (DB 없을 때 하드코딩 값 사용)
-- [ ] Header.tsx — DB 네비 데이터 연동 (trpc.siteSettings.getNavItems) [향후 연동]
-- [ ] Home.tsx — 히어로 슬라이드 DB 연동 [향후 연동]
-- [ ] Home.tsx — 노출 상품 구성 DB 연동 [향후 연동]
+- [x] Header.tsx — DB 네비 데이터 연동 (trpc.siteSettings.getNavItems, isVisible 필터, 폴백 기본값)
+- [x] Home.tsx — 히어로 슬라이드 DB 연동 (trpc.siteSettings.getHeroSlides, isActive 필터, sortOrder 정렬, 폴백 정적데이터)
+- [x] Home.tsx — 노출 상품 DB 연동 (기존 trpc.packages.publicList 사용 중 — 이미 DB 기반)
