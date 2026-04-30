@@ -241,12 +241,74 @@ const packagesRouter = router({
     departureDate: z.date(),
     returnDate: z.date().optional(),
     totalSlots: z.number().default(20),
+    minPax: z.number().default(3),
     status: z.enum(["open", "closed", "sold_out"]).default("open"),
     priceOverride: z.string().optional(),
+    adultPrice: z.string().optional(),
+    childPrice: z.string().optional(),
+    infantPrice: z.string().optional(),
+    notes: z.string().optional(),
   })).mutation(async ({ input }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
     await db.insert(packageSlots).values(input);
+    return { success: true };
+  }),
+  // 일괄 슬롯 등록 (날짜 범위 + 요일 패턴)
+  addSlotBatch: adminProcedure.input(z.object({
+    packageId: z.number(),
+    startDate: z.date(),
+    endDate: z.date(),
+    weekdays: z.array(z.number().min(0).max(6)).optional(), // 0=일, 1=월, ..., 6=토
+    nights: z.number().default(1),
+    totalSlots: z.number().default(20),
+    minPax: z.number().default(3),
+    adultPrice: z.string().optional(),
+    childPrice: z.string().optional(),
+    infantPrice: z.string().optional(),
+    notes: z.string().optional(),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const { startDate, endDate, weekdays, nights, ...slotBase } = input;
+    const dates: Date[] = [];
+    const cur = new Date(startDate);
+    while (cur <= endDate) {
+      const dow = cur.getDay();
+      if (!weekdays || weekdays.length === 0 || weekdays.includes(dow)) {
+        dates.push(new Date(cur));
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    if (dates.length === 0) throw new TRPCError({ code: 'BAD_REQUEST', message: '조건에 맞는 날짜가 없습니다.' });
+    for (const d of dates) {
+      const returnDate = new Date(d);
+      returnDate.setDate(returnDate.getDate() + nights);
+      await db.insert(packageSlots).values({
+        ...slotBase,
+        departureDate: d,
+        returnDate,
+        status: 'open',
+      });
+    }
+    return { success: true, count: dates.length };
+  }),
+  // 슬롯 수정
+  updateSlot: adminProcedure.input(z.object({
+    id: z.number(),
+    totalSlots: z.number().optional(),
+    minPax: z.number().optional(),
+    status: z.enum(["open", "closed", "sold_out"]).optional(),
+    priceOverride: z.string().optional(),
+    adultPrice: z.string().optional(),
+    childPrice: z.string().optional(),
+    infantPrice: z.string().optional(),
+    notes: z.string().optional(),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const { id, ...data } = input;
+    await db.update(packageSlots).set(data).where(eq(packageSlots.id, id));
     return { success: true };
   }),
   deleteSlot: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
@@ -276,18 +338,44 @@ const packagesRouter = router({
     if (input.courseType) conditions.push(eq(packages.courseType, input.courseType as any));
     if (input.search) conditions.push(like(packages.title, `%${input.search}%`));
     const items = await db.select().from(packages).where(and(...conditions)).orderBy(packages.sortOrder, desc(packages.createdAt)).limit(input.limit);
-    // 각 상품의 최저가 조회
+    // 오늘 날짜 (자정 기준)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    // 각 상품의 최저가 조회 (오늘 이후 슬롯 기준)
     const itemsWithPrice = await Promise.all(
       items.map(async (item) => {
-        const prices = await db.select({ price: packagePrices.pricePerPerson })
-          .from(packagePrices)
-          .where(eq(packagePrices.packageId, item.id));
-        const minPrice = prices.length > 0
-          ? Math.min(...prices.map((p) => Number(p.price)))
-          : 0;
-        return { ...item, minPrice };
+        // 오늘 이후 오픈 슬롯 조회
+        const futureSlots = await db.select({ departureDate: packageSlots.departureDate, priceOverride: packageSlots.priceOverride })
+          .from(packageSlots)
+          .where(and(
+            eq(packageSlots.packageId, item.id),
+            eq(packageSlots.status, "open"),
+            gte(packageSlots.departureDate, today)
+          ))
+          .orderBy(packageSlots.departureDate)
+          .limit(1);
+        const hasFutureSlots = futureSlots.length > 0;
+        // 슬롯 priceOverride 있으면 우선, 없으면 packagePrices 기준
+        let minPrice: number | null = null;
+        if (hasFutureSlots && futureSlots[0].priceOverride) {
+          minPrice = Number(futureSlots[0].priceOverride);
+        } else {
+          const prices = await db.select({ price: packagePrices.pricePerPerson })
+            .from(packagePrices)
+            .where(eq(packagePrices.packageId, item.id));
+          minPrice = prices.length > 0
+            ? Math.min(...prices.map((p) => Number(p.price)))
+            : null;
+        }
+        return { ...item, minPrice, hasFutureSlots };
       })
     );
+    // 미래 출발일 있는 상품 우선, 없는 상품 후순위
+    itemsWithPrice.sort((a, b) => {
+      if (a.hasFutureSlots && !b.hasFutureSlots) return -1;
+      if (!a.hasFutureSlots && b.hasFutureSlots) return 1;
+      return 0;
+    });
     return { items: itemsWithPrice };
   }),
   publicGet: publicProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
@@ -297,8 +385,15 @@ const packagesRouter = router({
     if (!pkg) throw new TRPCError({ code: "NOT_FOUND", message: "상품을 찾을 수 없습니다." });
     const prices = await db.select().from(packagePrices).where(eq(packagePrices.packageId, input.id));
     const options = await db.select().from(packageOptions).where(eq(packageOptions.packageId, input.id));
+    // 오늘 이후 오픈 슬롯만 반환
+    const todayForSlots = new Date();
+    todayForSlots.setHours(0, 0, 0, 0);
     const slots = await db.select().from(packageSlots)
-      .where(and(eq(packageSlots.packageId, input.id), eq(packageSlots.status, "open")))
+      .where(and(
+        eq(packageSlots.packageId, input.id),
+        eq(packageSlots.status, "open"),
+        gte(packageSlots.departureDate, todayForSlots)
+      ))
       .orderBy(packageSlots.departureDate);
     // increment view count
     await db.update(packages).set({ viewCount: sql`viewCount + 1` }).where(eq(packages.id, input.id));
@@ -1022,6 +1117,110 @@ const cmsRouter = router({
     const db = await getDb();
     if (!db) return [];
     return db.select().from(banners).where(eq(banners.isActive, true)).orderBy(banners.sortOrder);
+  }),
+  // 배너 이미지 직접 업로드 (base64 방식)
+  uploadBannerImage: adminProcedure.input(z.object({
+    bannerId: z.number().optional(), // 업로드 후 배너 ID 업데이트
+    fileName: z.string(),
+    mimeType: z.string(),
+    base64Data: z.string(),
+  })).mutation(async ({ input }) => {
+    const { buffer: optimizedBuffer, mimeType: optimizedMime } = await optimizeBase64Image(input.base64Data);
+    const key = `banners/${Date.now()}_${input.fileName.replace(/\.[^.]+$/, '')}.webp`;
+    const { url } = await storagePut(key, optimizedBuffer, optimizedMime);
+    if (input.bannerId) {
+      const db = await getDb();
+      if (db) await db.update(banners).set({ imageUrl: url }).where(eq(banners.id, input.bannerId));
+    }
+    return { url };
+  }),
+  // 배너 AI 이미지 생성
+  generateBannerImage: adminProcedure.input(z.object({
+    bannerId: z.number().optional(),
+    country: z.string().optional(),
+    region: z.string().optional(),
+    customPrompt: z.string().optional(),
+  })).mutation(async ({ input }) => {
+    const countryMap: Record<string, string> = {
+      'korea': 'South Korea', 'thailand': 'Thailand', 'vietnam': 'Vietnam',
+      'philippines': 'Philippines', 'china': 'China', 'japan': 'Japan',
+    };
+    const countryEn = input.country ? (countryMap[input.country] ?? input.country) : 'Asia';
+    const regionEn = input.region ?? '';
+    const prompt = input.customPrompt ||
+      `Luxury golf course in ${regionEn} ${countryEn}, beautiful green fairway, blue sky, professional golf photography, wide angle panoramic view, high quality travel brochure style, 4K ultra HD, no people, serene atmosphere, cinematic landscape`;
+    let storageUrl: string;
+    try {
+      const result = await generateImage({ prompt });
+      if (!result.url) throw new Error('이미지 URL이 비어있습니다');
+      storageUrl = result.url;
+    } catch (err) {
+      const rawMsg = err instanceof Error ? err.message : String(err);
+      let userMsg = rawMsg;
+      if (rawMsg.includes('usage exhausted') || rawMsg.includes('usage_exhausted')) {
+        userMsg = 'AI 이미지 생성 한도를 초과했습니다. 직접 업로드를 이용해 주세요.';
+      }
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: userMsg });
+    }
+    if (input.bannerId) {
+      const db = await getDb();
+      if (db) await db.update(banners).set({ imageUrl: storageUrl }).where(eq(banners.id, input.bannerId));
+    }
+    return { url: storageUrl };
+  }),
+  // 배너 3개 자동 생성 (국가별)
+  generateBannerBatch: adminProcedure.input(z.object({
+    countries: z.array(z.string()).min(1).max(6),
+  })).mutation(async ({ input }) => {
+    const countryMap: Record<string, string> = {
+      'korea': 'South Korea', 'thailand': 'Thailand', 'vietnam': 'Vietnam',
+      'philippines': 'Philippines', 'china': 'China', 'japan': 'Japan',
+    };
+    const countryNameKo: Record<string, string> = {
+      'korea': '대한민국', 'thailand': '태국', 'vietnam': '베트남',
+      'philippines': '필리핀', 'china': '중국', 'japan': '일본',
+    };
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+    const results: { country: string; url: string; bannerId: number }[] = [];
+    for (const country of input.countries) {
+      const countryEn = countryMap[country] ?? country;
+      const countryKo = countryNameKo[country] ?? country;
+      const prompt = `Luxury golf resort in ${countryEn}, stunning golf course panoramic view, lush green fairways, tropical or scenic landscape, professional travel photography, wide angle, 4K, no people, golden hour lighting`;
+      try {
+        const result = await generateImage({ prompt });
+        if (!result.url) continue;
+        // 배너 DB 삽입
+        const [inserted] = await db.insert(banners).values({
+          title: `${countryKo} 골프 패키지`,
+          subtitle: `${countryKo} 대표 골프 코스 특가 패키지`,
+          imageUrl: result.url,
+          linkUrl: `/packages/${country}`,
+          isActive: true,
+          sortOrder: results.length,
+        }).$returningId();
+        results.push({ country, url: result.url, bannerId: inserted.id });
+      } catch (err) {
+        console.error(`[generateBannerBatch] ${country} 실패:`, err);
+      }
+    }
+    return { results, count: results.length };
+  }),
+  // 배너 수정 (전체 필드)
+  updateBannerFull: adminProcedure.input(z.object({
+    id: z.number(),
+    title: z.string().optional(),
+    subtitle: z.string().optional(),
+    imageUrl: z.string().optional(),
+    linkUrl: z.string().optional(),
+    isActive: z.boolean().optional(),
+    sortOrder: z.number().optional(),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+    const { id, ...data } = input;
+    await db.update(banners).set(data).where(eq(banners.id, id));
+    return { success: true };
   }),
 });
 

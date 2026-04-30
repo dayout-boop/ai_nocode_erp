@@ -204,6 +204,13 @@
       "when": 1777529940170,
       "tag": "0028_unusual_gorgon",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "5",
+      "when": 1777547197509,
+      "tag": "0029_wakeful_lord_hawal",
+      "breakpoints": true
     }
   ]
 }

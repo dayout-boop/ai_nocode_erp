@@ -994,3 +994,62 @@ Detected
 - [x] aria-expanded 접근성 적용
 - [x] 데스크톱: 기존 4컬럼 그리드 그대로 유지
 - [x] TypeScript 오류 0개
+
+## 2026-04-30 E1+E2 골프톡 채팅 UI 최적화 + C1 히어로 슬라이드 이미지 업로드 + C3 예약 게시 자동화 + 상품 날짜 필터
+
+### E1+E2: 골프톡 채팅 UI 최적화
+- [ ] 모바일: 채팅 위젯 클릭 시 전체화면 채팅 모드 전환 (화면 100% 활용)
+- [ ] 모바일: 텍스트 입력 시 키보드 올라와도 채팅 히스토리 보이는 레이아웃
+- [ ] 모바일: 위젯 열린 상태에서 플로팅 버튼 페이드 아웃 (채팅 중 방해 최소화)
+- [ ] 모바일: 닫기 버튼 채팅창 내부 상단으로 이동 (플로팅 버튼 위치 아님)
+- [ ] PC: 채팅창 크기 대폭 확대 (travelersmap.co.kr 수준 - 화면 우측 고정 넓은 패널)
+- [ ] PC: 채팅창 헤더에 상담 안내 문구 및 빠른 메뉴 버튼 추가
+- [ ] 공통: 채팅 입력창 하단 고정, 스크롤 영역 최대화
+
+### C3: 예약 게시 자동화 (Scheduled Publish)
+- [ ] siteSettingsRouter.getHeroSlides에 startAt/endAt 기반 isActive 자동 계산 로직 추가
+- [ ] 서버사이드: 슬라이드 조회 시 현재 시각 기준 startAt <= now <= endAt 이면 자동 활성
+- [ ] CMS 히어로 슬라이드 탭에 게시 시작일/종료일 날짜 입력 필드 추가
+- [ ] 날짜 설정 없으면 수동 isActive 토글 우선 적용
+
+### C1: 히어로 슬라이드 이미지 3가지 업로드 방식
+- [ ] C1-1: 직접 파일 업로드 버튼 (S3 storagePut, URL 자동 채움)
+- [ ] C1-2: 상품 선택 → AI 이미지 자동 생성 (generateImage 활용, 상품명+목적지 프롬프트)
+- [ ] C1-3: 설정 없을 시 자동 3개 생성 버튼 (골프 목적지별 AI 이미지 생성)
+- [ ] 이미지 업로드 tRPC 프로시저 추가 (uploadHeroImage)
+- [ ] CMS 히어로 슬라이드 탭 UI 업데이트 (3가지 방식 탭/버튼)
+
+### 상품 날짜 필터 (오늘 이후 날짜/요금만 노출)
+- [ ] packages.publicList 및 packages.getById에 오늘 이후 출발일만 필터링 로직 추가
+- [ ] 미래 출발일이 없는 상품: 최저가 "개별문의" 표시
+- [ ] 상품 목록 정렬: 미래 출발일 있는 상품 우선, 없는 상품 후순위 배치
+- [ ] 상품 상세 페이지: 날짜/요금 테이블에서 오늘 이전 날짜 행 숨김 처리
+- [ ] PackageCard.tsx 최저가 표시 로직 업데이트 ("개별문의" 폴백)
+
+## 2026-04-30 dogolf.com 출발일/옵션 행사 방식 참고 개선
+### ERP 슬롯 관리 개선
+- [x] DB 스키마: packageSlots에 adultPrice, childPrice, infantPrice, minPax, notes 컬럼 추가
+- [x] pnpm db:push 마이그레이션 완료
+- [x] addSlot 프로시저 업데이트 (성인/아동/유아 가격, minPax, notes 지원)
+- [x] addSlotBatch 프로시저 추가 (날짜 범위 + 요일 패턴 일괄 등록)
+- [x] updateSlot 프로시저 추가 (슬롯 인라인 수정)
+- [x] ERP PackageDetail.tsx 슬롯 탭 전면 개선 (개별/일괄 등록 모드 전환)
+- [x] 일괄 등록: 날짜 범위 + 요일 선택 + 성인/아동/유아 가격 + 최소인원
+- [x] 슬롯 목록 테이블: 성인요금/아동요금/최소인원 컬럼 추가
+- [x] 슬롯 인라인 수정: 수정 버튼 클릭 시 해당 행 인라인 편집 모드
+- [x] 슬롯 메모(notes) 필드 추가 (특가/얼리버드 등 안내)
+### 홈페이지 상품 상세 UI 개선
+- [x] DepartureDateCalendar.tsx: Slot 인터페이스에 adultPrice/childPrice/infantPrice/minPax/notes 추가
+- [x] DepartureDateCalendar.tsx: 달력 가격 표시 로직 개선 (adultPrice > priceOverride > basePrice 순서)
+- [x] PackageDetail.tsx: 선택된 행사 정보 표시 개선 (잔여인원, 성인/아동/유아 요금, 최소인원, 메모)
+- [x] 성인/아동 요금이 다를 때만 별도 표시 (동일하면 성인 요금만 표시)
+### 배너 관리 3가지 업로드 방식
+- [x] uploadBannerImage 프로시저 (base64 → S3 업로드)
+- [x] generateBannerImage 프로시저 (AI 이미지 생성 → S3 저장)
+- [x] generateBannerBatch 프로시저 (국가별 AI 이미지 일괄 생성)
+- [x] CMSBanners.tsx 전면 개선 (3가지 업로드 방식 탭 UI)
+### 상품 날짜 필터
+- [x] publicList: 오늘 이후 슬롯 기반 최저가 계산
+- [x] publicList: 미래 슬롯 없는 상품 후순위 정렬 + minPrice null 반환
+- [x] publicGet: 오늘 이후 슬롯만 반환
+- [x] Packages.tsx: hasFutureSlots 없으면 "개별문의" 표시

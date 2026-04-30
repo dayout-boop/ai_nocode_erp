@@ -59,13 +59,33 @@ export default function PackageDetail() {
   });
 
   // Slot form
+  const [slotMode, setSlotMode] = useState<"single" | "batch">("single");
   const [slotForm, setSlotForm] = useState({
     departureDate: "",
     returnDate: "",
     totalSlots: 20,
+    minPax: 3,
     status: "open" as "open" | "closed" | "sold_out",
     priceOverride: "",
+    adultPrice: "",
+    childPrice: "",
+    infantPrice: "",
+    notes: "",
   });
+  const [batchForm, setBatchForm] = useState({
+    startDate: "",
+    endDate: "",
+    weekdays: [] as number[],
+    nights: 1,
+    totalSlots: 20,
+    minPax: 3,
+    adultPrice: "",
+    childPrice: "",
+    infantPrice: "",
+    notes: "",
+  });
+  const [editingSlotId, setEditingSlotId] = useState<number | null>(null);
+  const [editSlotForm, setEditSlotForm] = useState<any>(null);
 
   const addPriceMutation = trpc.packages.addPrice.useMutation({
     onSuccess: () => { toast.success("요금이 추가되었습니다."); utils.packages.get.invalidate({ id }); setPriceForm({ season: "normal", minPeople: 1, maxPeople: 99, pricePerPerson: "", singleSupplement: "" }); },
@@ -86,7 +106,17 @@ export default function PackageDetail() {
   });
 
   const addSlotMutation = trpc.packages.addSlot.useMutation({
-    onSuccess: () => { toast.success("출발일이 추가되었습니다."); utils.packages.get.invalidate({ id }); setSlotForm({ departureDate: "", returnDate: "", totalSlots: 20, status: "open", priceOverride: "" }); },
+    onSuccess: () => { toast.success("출발일이 추가되었습니다."); utils.packages.get.invalidate({ id }); setSlotForm({ departureDate: "", returnDate: "", totalSlots: 20, minPax: 3, status: "open", priceOverride: "", adultPrice: "", childPrice: "", infantPrice: "", notes: "" }); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const addSlotBatchMutation = trpc.packages.addSlotBatch.useMutation({
+    onSuccess: (res) => { toast.success(`${res.count}개 출발일이 추가되었습니다.`); utils.packages.get.invalidate({ id }); setBatchForm({ startDate: "", endDate: "", weekdays: [], nights: 1, totalSlots: 20, minPax: 3, adultPrice: "", childPrice: "", infantPrice: "", notes: "" }); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const updateSlotMutation = trpc.packages.updateSlot.useMutation({
+    onSuccess: () => { toast.success("출발일이 수정되었습니다."); utils.packages.get.invalidate({ id }); setEditingSlotId(null); setEditSlotForm(null); },
     onError: (e) => toast.error(e.message),
   });
 
@@ -910,107 +940,307 @@ export default function PackageDetail() {
 
           {/* SLOTS TAB */}
           <TabsContent value="slots" className="space-y-4">
-            <Card className="border-0 shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">출발일 추가</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  <div>
-                    <Label>출발일 *</Label>
-                    <Input type="date" value={slotForm.departureDate} onChange={(e) => setSlotForm({ ...slotForm, departureDate: e.target.value })} className="mt-1 h-9" />
-                  </div>
-                  <div>
-                    <Label>귀국일</Label>
-                    <Input type="date" value={slotForm.returnDate} onChange={(e) => setSlotForm({ ...slotForm, returnDate: e.target.value })} className="mt-1 h-9" />
-                  </div>
-                  <div>
-                    <Label>총 정원</Label>
-                    <Input type="number" value={slotForm.totalSlots} onChange={(e) => setSlotForm({ ...slotForm, totalSlots: Number(e.target.value) })} className="mt-1 h-9" min={1} />
-                  </div>
-                  <div>
-                    <Label>상태</Label>
-                    <Select value={slotForm.status} onValueChange={(v) => setSlotForm({ ...slotForm, status: v as any })}>
-                      <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="open">모집중</SelectItem>
-                        <SelectItem value="closed">마감</SelectItem>
-                        <SelectItem value="sold_out">매진</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>특별 요금 (원, 선택)</Label>
-                    <Input value={slotForm.priceOverride} onChange={(e) => setSlotForm({ ...slotForm, priceOverride: e.target.value })} placeholder="기본 요금 사용" className="mt-1 h-9" />
-                  </div>
-                  <div className="flex items-end">
-                    <Button
-                      onClick={() => addSlotMutation.mutate({
-                        packageId: id,
-                        departureDate: new Date(slotForm.departureDate),
-                        returnDate: slotForm.returnDate ? new Date(slotForm.returnDate) : undefined,
-                        totalSlots: slotForm.totalSlots,
-                        status: slotForm.status,
-                        priceOverride: slotForm.priceOverride || undefined,
-                      })}
-                      disabled={!slotForm.departureDate || addSlotMutation.isPending}
-                      className="h-9 bg-indigo-600 hover:bg-indigo-700 text-white w-full"
-                    >
-                      <Plus size={14} className="mr-1" /> 추가
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* 등록 모드 전환 */}
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant={slotMode === "single" ? "default" : "outline"}
+                onClick={() => setSlotMode("single")}
+                className={slotMode === "single" ? "bg-indigo-600 hover:bg-indigo-700 text-white" : ""}
+              >
+                개별 등록
+              </Button>
+              <Button
+                size="sm"
+                variant={slotMode === "batch" ? "default" : "outline"}
+                onClick={() => setSlotMode("batch")}
+                className={slotMode === "batch" ? "bg-indigo-600 hover:bg-indigo-700 text-white" : ""}
+              >
+                일괄 등록
+              </Button>
+            </div>
 
+            {/* 개별 등록 폼 */}
+            {slotMode === "single" && (
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">출발일 개별 등록</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                      <Label>출발일 *</Label>
+                      <Input type="date" value={slotForm.departureDate} onChange={(e) => setSlotForm({ ...slotForm, departureDate: e.target.value })} className="mt-1 h-9" />
+                    </div>
+                    <div>
+                      <Label>귀국일</Label>
+                      <Input type="date" value={slotForm.returnDate} onChange={(e) => setSlotForm({ ...slotForm, returnDate: e.target.value })} className="mt-1 h-9" />
+                    </div>
+                    <div>
+                      <Label>총 정원</Label>
+                      <Input type="number" value={slotForm.totalSlots} onChange={(e) => setSlotForm({ ...slotForm, totalSlots: Number(e.target.value) })} className="mt-1 h-9" min={1} />
+                    </div>
+                    <div>
+                      <Label>최소 출발 인원</Label>
+                      <Input type="number" value={slotForm.minPax} onChange={(e) => setSlotForm({ ...slotForm, minPax: Number(e.target.value) })} className="mt-1 h-9" min={1} />
+                    </div>
+                    <div>
+                      <Label>성인 요금 (원)</Label>
+                      <Input value={slotForm.adultPrice} onChange={(e) => setSlotForm({ ...slotForm, adultPrice: e.target.value })} placeholder="기본 요금 사용" className="mt-1 h-9" />
+                    </div>
+                    <div>
+                      <Label>아동 요금 (원)</Label>
+                      <Input value={slotForm.childPrice} onChange={(e) => setSlotForm({ ...slotForm, childPrice: e.target.value })} placeholder="성인과 동일" className="mt-1 h-9" />
+                    </div>
+                    <div>
+                      <Label>유아 요금 (원)</Label>
+                      <Input value={slotForm.infantPrice} onChange={(e) => setSlotForm({ ...slotForm, infantPrice: e.target.value })} placeholder="성인과 동일" className="mt-1 h-9" />
+                    </div>
+                    <div>
+                      <Label>상태</Label>
+                      <Select value={slotForm.status} onValueChange={(v) => setSlotForm({ ...slotForm, status: v as any })}>
+                        <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="open">모집중</SelectItem>
+                          <SelectItem value="closed">마감</SelectItem>
+                          <SelectItem value="sold_out">매진</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="md:col-span-3">
+                      <Label>메모 (선택)</Label>
+                      <Input value={slotForm.notes} onChange={(e) => setSlotForm({ ...slotForm, notes: e.target.value })} placeholder="예: 주말 특가, 얼리버드" className="mt-1 h-9" />
+                    </div>
+                    <div className="flex items-end">
+                      <Button
+                        onClick={() => addSlotMutation.mutate({
+                          packageId: id,
+                          departureDate: new Date(slotForm.departureDate),
+                          returnDate: slotForm.returnDate ? new Date(slotForm.returnDate) : undefined,
+                          totalSlots: slotForm.totalSlots,
+                          minPax: slotForm.minPax,
+                          status: slotForm.status,
+                          adultPrice: slotForm.adultPrice || undefined,
+                          childPrice: slotForm.childPrice || undefined,
+                          infantPrice: slotForm.infantPrice || undefined,
+                          notes: slotForm.notes || undefined,
+                        })}
+                        disabled={!slotForm.departureDate || addSlotMutation.isPending}
+                        className="h-9 bg-indigo-600 hover:bg-indigo-700 text-white w-full"
+                      >
+                        <Plus size={14} className="mr-1" /> 추가
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 일괄 등록 폼 */}
+            {slotMode === "batch" && (
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">출발일 일괄 등록</CardTitle>
+                  <p className="text-xs text-slate-400 mt-1">날짜 범위와 요일 패턴으로 여러 출발일을 한 번에 등록합니다</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                      <Label>시작일 *</Label>
+                      <Input type="date" value={batchForm.startDate} onChange={(e) => setBatchForm({ ...batchForm, startDate: e.target.value })} className="mt-1 h-9" />
+                    </div>
+                    <div>
+                      <Label>종료일 *</Label>
+                      <Input type="date" value={batchForm.endDate} onChange={(e) => setBatchForm({ ...batchForm, endDate: e.target.value })} className="mt-1 h-9" />
+                    </div>
+                    <div>
+                      <Label>박수</Label>
+                      <Input type="number" value={batchForm.nights} onChange={(e) => setBatchForm({ ...batchForm, nights: Number(e.target.value) })} className="mt-1 h-9" min={1} />
+                    </div>
+                    <div>
+                      <Label>총 정원</Label>
+                      <Input type="number" value={batchForm.totalSlots} onChange={(e) => setBatchForm({ ...batchForm, totalSlots: Number(e.target.value) })} className="mt-1 h-9" min={1} />
+                    </div>
+                    <div className="md:col-span-4">
+                      <Label>출발 요일 선택 (미선택 시 전체 날짜)</Label>
+                      <div className="flex gap-2 mt-1 flex-wrap">
+                        {["일","월","화","수","목","금","토"].map((day, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => {
+                              const cur = batchForm.weekdays;
+                              setBatchForm({ ...batchForm, weekdays: cur.includes(i) ? cur.filter(d => d !== i) : [...cur, i] });
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                              batchForm.weekdays.includes(i)
+                                ? "bg-indigo-600 text-white border-indigo-600"
+                                : "bg-white text-slate-600 border-slate-200 hover:border-indigo-400"
+                            } ${i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : ""}`}
+                          >
+                            {day}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <Label>성인 요금 (원)</Label>
+                      <Input value={batchForm.adultPrice} onChange={(e) => setBatchForm({ ...batchForm, adultPrice: e.target.value })} placeholder="기본 요금 사용" className="mt-1 h-9" />
+                    </div>
+                    <div>
+                      <Label>아동 요금 (원)</Label>
+                      <Input value={batchForm.childPrice} onChange={(e) => setBatchForm({ ...batchForm, childPrice: e.target.value })} placeholder="성인과 동일" className="mt-1 h-9" />
+                    </div>
+                    <div>
+                      <Label>유아 요금 (원)</Label>
+                      <Input value={batchForm.infantPrice} onChange={(e) => setBatchForm({ ...batchForm, infantPrice: e.target.value })} placeholder="성인과 동일" className="mt-1 h-9" />
+                    </div>
+                    <div>
+                      <Label>최소 출발 인원</Label>
+                      <Input type="number" value={batchForm.minPax} onChange={(e) => setBatchForm({ ...batchForm, minPax: Number(e.target.value) })} className="mt-1 h-9" min={1} />
+                    </div>
+                    <div className="md:col-span-3">
+                      <Label>메모 (선택)</Label>
+                      <Input value={batchForm.notes} onChange={(e) => setBatchForm({ ...batchForm, notes: e.target.value })} placeholder="예: 주말 특가" className="mt-1 h-9" />
+                    </div>
+                    <div className="flex items-end">
+                      <Button
+                        onClick={() => addSlotBatchMutation.mutate({
+                          packageId: id,
+                          startDate: new Date(batchForm.startDate),
+                          endDate: new Date(batchForm.endDate),
+                          weekdays: batchForm.weekdays.length > 0 ? batchForm.weekdays : undefined,
+                          nights: batchForm.nights,
+                          totalSlots: batchForm.totalSlots,
+                          minPax: batchForm.minPax,
+                          adultPrice: batchForm.adultPrice || undefined,
+                          childPrice: batchForm.childPrice || undefined,
+                          infantPrice: batchForm.infantPrice || undefined,
+                          notes: batchForm.notes || undefined,
+                        })}
+                        disabled={!batchForm.startDate || !batchForm.endDate || addSlotBatchMutation.isPending}
+                        className="h-9 bg-indigo-600 hover:bg-indigo-700 text-white w-full"
+                      >
+                        <Plus size={14} className="mr-1" /> 일괄 추가
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 슬롯 목록 */}
             <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">등록된 출발일 ({data.slots?.length ?? 0}개)</CardTitle>
+              </CardHeader>
               <CardContent className="p-0">
                 {!data.slots?.length ? (
                   <div className="py-10 text-center text-slate-400 text-sm">등록된 출발일이 없습니다</div>
                 ) : (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-100 bg-slate-50">
-                        <th className="text-left px-5 py-3 text-slate-500 font-medium">출발일</th>
-                        <th className="text-left px-4 py-3 text-slate-500 font-medium">귀국일</th>
-                        <th className="text-center px-4 py-3 text-slate-500 font-medium">정원/예약</th>
-                        <th className="text-left px-4 py-3 text-slate-500 font-medium">상태</th>
-                        <th className="text-right px-5 py-3 text-slate-500 font-medium">삭제</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {data.slots.map((slot: any) => {
-                        const remaining = slot.totalSlots - slot.bookedSlots;
-                        return (
-                          <tr key={slot.id} className="hover:bg-slate-50">
-                            <td className="px-5 py-3 font-medium text-slate-800">
-                              {new Date(slot.departureDate).toLocaleDateString("ko-KR")}
-                            </td>
-                            <td className="px-4 py-3 text-slate-600">
-                              {slot.returnDate ? new Date(slot.returnDate).toLocaleDateString("ko-KR") : "-"}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <span className="text-slate-800 font-medium">{slot.bookedSlots}</span>
-                              <span className="text-slate-400"> / {slot.totalSlots}</span>
-                              <span className={`ml-2 text-xs ${remaining <= 3 ? "text-red-500" : "text-green-600"}`}>
-                                (잔여 {remaining})
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <Badge className={`text-xs ${slot.status === "open" ? "bg-green-50 text-green-700" : slot.status === "sold_out" ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-600"}`}>
-                                {slot.status === "open" ? "모집중" : slot.status === "sold_out" ? "매진" : "마감"}
-                              </Badge>
-                            </td>
-                            <td className="px-5 py-3 text-right">
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-red-600" onClick={() => deleteSlotMutation.mutate({ id: slot.id })}>
-                                <Trash2 size={13} />
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-100 bg-slate-50">
+                          <th className="text-left px-4 py-3 text-slate-500 font-medium">출발일</th>
+                          <th className="text-left px-3 py-3 text-slate-500 font-medium">귀국일</th>
+                          <th className="text-center px-3 py-3 text-slate-500 font-medium">정원/예약</th>
+                          <th className="text-center px-3 py-3 text-slate-500 font-medium">최소인원</th>
+                          <th className="text-right px-3 py-3 text-slate-500 font-medium">성인요금</th>
+                          <th className="text-right px-3 py-3 text-slate-500 font-medium">아동요금</th>
+                          <th className="text-left px-3 py-3 text-slate-500 font-medium">상태</th>
+                          <th className="text-right px-4 py-3 text-slate-500 font-medium">관리</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {data.slots.map((slot: any) => {
+                          const remaining = slot.totalSlots - slot.bookedSlots;
+                          const isEditing = editingSlotId === slot.id;
+                          return (
+                            <tr key={slot.id} className="hover:bg-slate-50">
+                              <td className="px-4 py-3 font-medium text-slate-800 whitespace-nowrap">
+                                {new Date(slot.departureDate).toLocaleDateString("ko-KR")}
+                              </td>
+                              <td className="px-3 py-3 text-slate-600 whitespace-nowrap">
+                                {slot.returnDate ? new Date(slot.returnDate).toLocaleDateString("ko-KR") : "-"}
+                              </td>
+                              <td className="px-3 py-3 text-center">
+                                {isEditing ? (
+                                  <Input type="number" value={editSlotForm.totalSlots} onChange={(e) => setEditSlotForm({ ...editSlotForm, totalSlots: Number(e.target.value) })} className="h-7 w-20 text-center mx-auto" min={1} />
+                                ) : (
+                                  <span>
+                                    <span className="text-slate-800 font-medium">{slot.bookedSlots}</span>
+                                    <span className="text-slate-400"> / {slot.totalSlots}</span>
+                                    <span className={`ml-1 text-xs ${remaining <= 3 ? "text-red-500" : "text-green-600"}`}>(잔여 {remaining})</span>
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-3 text-center">
+                                {isEditing ? (
+                                  <Input type="number" value={editSlotForm.minPax} onChange={(e) => setEditSlotForm({ ...editSlotForm, minPax: Number(e.target.value) })} className="h-7 w-16 text-center mx-auto" min={1} />
+                                ) : (
+                                  <span className="text-slate-600">{slot.minPax ?? 3}명</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-3 text-right">
+                                {isEditing ? (
+                                  <Input value={editSlotForm.adultPrice} onChange={(e) => setEditSlotForm({ ...editSlotForm, adultPrice: e.target.value })} className="h-7 w-28 text-right" placeholder="기본요금" />
+                                ) : (
+                                  <span className="text-slate-700">
+                                    {slot.adultPrice ? `${Number(slot.adultPrice).toLocaleString()}원` : <span className="text-slate-400 text-xs">기본요금</span>}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-3 text-right">
+                                {isEditing ? (
+                                  <Input value={editSlotForm.childPrice} onChange={(e) => setEditSlotForm({ ...editSlotForm, childPrice: e.target.value })} className="h-7 w-28 text-right" placeholder="성인동일" />
+                                ) : (
+                                  <span className="text-slate-700">
+                                    {slot.childPrice ? `${Number(slot.childPrice).toLocaleString()}원` : <span className="text-slate-400 text-xs">성인동일</span>}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-3">
+                                {isEditing ? (
+                                  <Select value={editSlotForm.status} onValueChange={(v) => setEditSlotForm({ ...editSlotForm, status: v })}>
+                                    <SelectTrigger className="h-7 w-24"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="open">모집중</SelectItem>
+                                      <SelectItem value="closed">마감</SelectItem>
+                                      <SelectItem value="sold_out">매진</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <Badge className={`text-xs ${slot.status === "open" ? "bg-green-50 text-green-700" : slot.status === "sold_out" ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-600"}`}>
+                                    {slot.status === "open" ? "모집중" : slot.status === "sold_out" ? "매진" : "마감"}
+                                  </Badge>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  {isEditing ? (
+                                    <>
+                                      <Button size="sm" className="h-7 px-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => updateSlotMutation.mutate({ id: slot.id, totalSlots: editSlotForm.totalSlots, minPax: editSlotForm.minPax, status: editSlotForm.status, adultPrice: editSlotForm.adultPrice || undefined, childPrice: editSlotForm.childPrice || undefined, infantPrice: editSlotForm.infantPrice || undefined })} disabled={updateSlotMutation.isPending}>저장</Button>
+                                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-slate-500" onClick={() => { setEditingSlotId(null); setEditSlotForm(null); }}>취소</Button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-indigo-600" onClick={() => { setEditingSlotId(slot.id); setEditSlotForm({ totalSlots: slot.totalSlots, minPax: slot.minPax ?? 3, status: slot.status, adultPrice: slot.adultPrice ?? "", childPrice: slot.childPrice ?? "", infantPrice: slot.infantPrice ?? "" }); }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                      </Button>
+                                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-red-600" onClick={() => deleteSlotMutation.mutate({ id: slot.id })}>
+                                        <Trash2 size={13} />
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </CardContent>
             </Card>

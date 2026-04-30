@@ -351,7 +351,8 @@ interface DBPkg {
   highlights: unknown;
   includes: unknown;
   viewCount: number | null;
-  minPrice?: number;
+  minPrice?: number | null;
+  hasFutureSlots?: boolean;
   includesAirfare: boolean | null;
   includesGreenFee: boolean | null;
   includesHotel: boolean | null;
@@ -457,6 +458,8 @@ function DBPackageCard({ pkg }: { pkg: DBPkg }) {
                     {pkg.minPrice.toLocaleString()}원~
                   </p>
                 </div>
+              ) : pkg.hasFutureSlots === false ? (
+                <p className="text-xs text-dogolf-red font-semibold font-body">개별 문의</p>
               ) : (
                 <p className="text-xs text-gray-400 font-body">조회 {(pkg.viewCount ?? 0).toLocaleString()}</p>
               )}

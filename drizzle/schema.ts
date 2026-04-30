@@ -113,9 +113,14 @@ export const packageSlots = mysqlTable("package_slots", {
   departureDate: timestamp("departureDate").notNull(),
   returnDate: timestamp("returnDate"),
   totalSlots: int("totalSlots").default(20),
+  minPax: int("minPax").default(3),
   bookedSlots: int("bookedSlots").default(0),
   status: mysqlEnum("status", ["open", "closed", "sold_out"]).default("open"),
   priceOverride: decimal("priceOverride", { precision: 12, scale: 0 }),
+  adultPrice: decimal("adultPrice", { precision: 12, scale: 0 }),
+  childPrice: decimal("childPrice", { precision: 12, scale: 0 }),
+  infantPrice: decimal("infantPrice", { precision: 12, scale: 0 }),
+  notes: varchar("notes", { length: 500 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

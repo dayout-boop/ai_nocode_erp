@@ -12,6 +12,7 @@ import {
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import GolfTalkWidget from '@/components/GolfTalkWidget';
+import DepartureDateCalendar from '@/components/DepartureDateCalendar';
 import { trpc } from '@/lib/trpc';
 
 const countryFlagMap: Record<string, string> = {
@@ -92,6 +93,7 @@ export default function PackageDetail() {
   const [activeIdx, setActiveIdx] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState(0);
+  const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
 
   const { data, isLoading, isError } = trpc.packages.publicGet.useQuery(
     { id },
@@ -528,24 +530,73 @@ export default function PackageDetail() {
                   <p className="text-2xl font-bold text-dogolf-green font-number mb-5">가격 문의</p>
                 )}
 
-                {/* Departure slots */}
-                {slots.length > 0 && (
-                  <div className="mb-5">
-                    <p className="text-xs text-gray-500 font-body mb-2 flex items-center gap-1">
-                      <Calendar size={12} /> 출발 가능 일정
-                    </p>
-                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                      {slots.map((s: any) => (
-                        <div key={s.id} className="flex items-center justify-between bg-green-50 rounded-lg px-3 py-2">
-                          <span className="text-xs text-gray-700 font-body">
-                            {new Date(s.departureDate).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
+                {/* 달력형 출발일 선택 */}
+                <div className="mb-5">
+                  <p className="text-xs text-gray-500 font-body mb-3 flex items-center gap-1">
+                    <Calendar size={12} /> 출발일 선택
+                  </p>
+                  <DepartureDateCalendar
+                    slots={slots as any[]}
+                    basePrice={minPrice > 0 ? minPrice : null}
+                    selectedSlotId={selectedSlotId}
+                    onSelect={(slot) => setSelectedSlotId(slot?.id ?? null)}
+                  />
+                  {selectedSlotId && (() => {
+                    const sel = slots.find((s: any) => s.id === selectedSlotId);
+                    if (!sel) return null;
+                    const selAny = sel as any;
+                    const remaining = (selAny.totalSlots ?? 20) - (selAny.bookedSlots ?? 0);
+                    const adultP = selAny.adultPrice ? Number(selAny.adultPrice) : (selAny.priceOverride ? Number(selAny.priceOverride) : (minPrice > 0 ? minPrice : null));
+                    const childP = selAny.childPrice ? Number(selAny.childPrice) : adultP;
+                    const infantP = selAny.infantPrice ? Number(selAny.infantPrice) : adultP;
+                    return (
+                      <div className="mt-3 p-4 bg-green-50 rounded-xl border border-green-200 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold text-green-800 font-body">✅ 선택된 행사</p>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                            remaining <= 3 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                          }`}>
+                            잔여 {remaining}명
                           </span>
-                          <span className="text-xs text-dogolf-green font-semibold font-body">예약 가능</span>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                        <p className="text-sm font-bold text-dogolf-green font-body">
+                          {new Date(selAny.departureDate).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })}
+                        </p>
+                        {selAny.returnDate && (
+                          <p className="text-xs text-gray-500 font-body">
+                            귀국: {new Date(selAny.returnDate).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
+                          </p>
+                        )}
+                        {selAny.minPax && (
+                          <p className="text-xs text-gray-500 font-body">최소 출발 인원: {selAny.minPax}명</p>
+                        )}
+                        {adultP !== null && (
+                          <div className="border-t border-green-200 pt-2 space-y-1">
+                            <div className="flex justify-between text-xs font-body">
+                              <span className="text-gray-600">성인 (만 12세 이상)</span>
+                              <span className="font-bold text-dogolf-green font-number">{adultP.toLocaleString()}원</span>
+                            </div>
+                            {childP !== null && childP !== adultP && (
+                              <div className="flex justify-between text-xs font-body">
+                                <span className="text-gray-600">아동 (만 12세 미만)</span>
+                                <span className="font-bold text-dogolf-green font-number">{childP.toLocaleString()}원</span>
+                              </div>
+                            )}
+                            {infantP !== null && infantP !== adultP && (
+                              <div className="flex justify-between text-xs font-body">
+                                <span className="text-gray-600">유아 (만 2세 미만)</span>
+                                <span className="font-bold text-dogolf-green font-number">{infantP.toLocaleString()}원</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {selAny.notes && (
+                          <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1 font-body">📌 {selAny.notes}</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
 
                 {/* CTA buttons */}
                 <div className="space-y-2">
