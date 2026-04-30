@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Plus, Trash2, ArrowLeft, Upload, Star, ImageIcon, X, ChevronUp, ChevronDown, Search, Wand2, Loader2, Video, Zap, CheckCircle, XCircle, Clock } from "lucide-react";
 import { Link } from "wouter";
-
+import ERPSlotCalendar from "@/components/ERPSlotCalendar";
 const SEASON_MAP: Record<string, string> = {
   peak: "성수기",
   normal: "평수기",
@@ -61,6 +61,7 @@ export default function PackageDetail() {
 
   // Slot form
   const [slotMode, setSlotMode] = useState<"single" | "batch">("single");
+  const [slotView, setSlotView] = useState<"list" | "calendar">("list");
   const [slotForm, setSlotForm] = useState({
     departureDate: "",
     returnDate: "",
@@ -1135,11 +1136,25 @@ export default function PackageDetail() {
             {/* 슬롯 목록 */}
             <Card className="border-0 shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">등록된 출발일 ({data.slots?.length ?? 0}개)</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">등록된 출발일 ({data.slots?.length ?? 0}개)</CardTitle>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant={slotView === 'list' ? 'default' : 'outline'} onClick={() => setSlotView('list')} className={`h-7 px-2 text-xs ${slotView === 'list' ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : ''}`}>목록</Button>
+                    <Button size="sm" variant={slotView === 'calendar' ? 'default' : 'outline'} onClick={() => setSlotView('calendar')} className={`h-7 px-2 text-xs ${slotView === 'calendar' ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : ''}`}>달력</Button>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className={slotView === 'calendar' ? 'p-4' : 'p-0'}>
                 {!data.slots?.length ? (
                   <div className="py-10 text-center text-slate-400 text-sm">등록된 출발일이 없습니다</div>
+                ) : slotView === 'calendar' ? (
+                  <ERPSlotCalendar
+                    slots={data.slots as any[]}
+                    onSlotClick={(slot) => {
+                      // 달력에서 슬롯 클릭 시 수정 모드로 전환
+                      setSlotView('list');
+                    }}
+                  />
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
