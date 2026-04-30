@@ -822,14 +822,75 @@ const bookingsRouter = router({
 
     return { items, total };
   }),
-  get: adminProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
+  get: adminProcedure.input(z.object({ id: z.number(), source: z.enum(["booking", "reservation"]).optional() })).query(async ({ input }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+    // 수기 예약(reservation)인 경우 reservations 테이블에서 조회
+    if (input.source === "reservation") {
+      const [res] = await db.select().from(reservations).where(eq(reservations.id, input.id));
+      if (!res) throw new TRPCError({ code: "NOT_FOUND" });
+      return {
+        id: res.id,
+        bookingNumber: res.reservationNo,
+        packageId: 0,
+        slotId: null,
+        userId: null,
+        leaderName: res.customerName,
+        leaderPhone: res.customerPhone ?? "",
+        leaderEmail: res.customerEmail ?? null,
+        adultCount: res.headcount ?? 1,
+        childCount: 0,
+        totalPeople: res.headcount ?? 1,
+        departureDate: res.departureDate,
+        returnDate: null,
+        selectedOptions: null,
+        roundCount: res.teams ?? 1,
+        cartIncluded: false,
+        caddieIncluded: false,
+        basePrice: String(res.salePricePerPerson ?? 0),
+        optionPrice: "0",
+        discountAmount: "0",
+        totalAmount: String(res.salePriceTotal ?? 0),
+        paidAmount: String(res.paidAmount ?? 0),
+        status: res.status,
+        paymentStatus: (res.paymentStatus === "paid" ? "paid" : res.paymentStatus === "partial" ? "partial" : "unpaid") as "paid" | "partial" | "unpaid",
+        customerMemo: res.notes ?? null,
+        adminMemo: res.agentName ?? null,
+        cancelReason: null,
+        createdAt: res.createdAt,
+        updatedAt: res.updatedAt,
+        travelers: [] as any[],
+        package: null as any,
+        _source: "reservation" as const,
+        _productName: res.productName,
+        _golfCourseName: res.golfCourseName,
+        _assignedTo: res.assignedTo,
+        _teams: res.teams,
+        _nights: res.nights,
+        _salePricePerPerson: res.salePricePerPerson,
+        _depositPrice: res.depositPrice,
+        _extraFee: res.extraFee,
+        _profit: res.profit,
+        _remittedAmount: res.remittedAmount,
+        _userType: res.userType,
+        _partnerId: res.partnerId,
+        _partnerCompanyName: res.partnerCompanyName,
+        _partnerContactName: res.partnerContactName,
+        _partnerContactPhone: res.partnerContactPhone,
+        _managerName: res.managerName,
+        _managerPhone: res.managerPhone,
+        _progressStatus: res.progressStatus,
+        _affiliateId: res.affiliateId,
+      };
+    }
+
+    // 일반 예약: bookings 테이블에서 조회
     const [booking] = await db.select().from(bookings).where(eq(bookings.id, input.id));
     if (!booking) throw new TRPCError({ code: "NOT_FOUND" });
     const travelersData = await db.select().from(travelers).where(eq(travelers.bookingId, input.id));
     const [pkg] = await db.select().from(packages).where(eq(packages.id, booking.packageId));
-    return { ...booking, travelers: travelersData, package: pkg };
+    return { ...booking, travelers: travelersData, package: pkg, _source: "booking" as const };
   }),
   updateStatus: adminProcedure.input(z.object({
     id: z.number(),

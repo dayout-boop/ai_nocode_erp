@@ -1104,12 +1104,12 @@ Detected
 - [x] manusPipe.ts Node.js fetch 기반 API 호출 정상 동작 확인
 
 ## 2026-05-01 ERP 중첩 라우팅 (사이드바 고정 + 우측 컨텐츠만 교체) [ID: 150001]
-- [ ] App.tsx: `/erp` 경로를 wouter `nest` prop으로 중첩 라우팅 구조로 변경
-- [ ] ERPLayout.tsx: `children` prop 대신 내부 `<Switch>` 라우팅으로 변경 (모든 ERP 라우트 포함)
-- [ ] ERPLayout.tsx: 페이지 전환 시 로딩 인디케이터 추가 (Suspense + 스피너)
-- [ ] ERPLayout.tsx: 라우트 변경 시 스크롤 위치 초기화 (useEffect + useLocation)
-- [ ] 각 ERP 페이지에서 ERPLayout 래핑 제거 (컨텐츠만 반환하도록 변경)
-- [ ] TypeScript 오류 0개 확인
+- [x] App.tsx: `/erp` 경로를 wouter `nest` prop으로 중첩 라우팅 구조로 변경
+- [x] ERPLayout.tsx: `children` prop 대신 내부 `<Switch>` 라우팅으로 변경 (모든 ERP 라우트 포함)
+- [x] ERPLayout.tsx: 페이지 전환 시 로딩 인디케이터 추가 (Suspense + 스피너)
+- [x] ERPLayout.tsx: 라우트 변경 시 스크롤 위치 초기화 (useEffect + useLocation)
+- [x] 각 ERP 페이지에서 ERPLayout 래핑 제거 (컨텐츠만 반환하도록 변경)
+- [x] TypeScript 오류 0개 확인
 
 ## 2026-05-01 ERP 중첩 라우팅 (사이드바 고정, 우측 컨텐츠만 교체)
 - [x] App.tsx: ERP 라우트를 단일 <Route path="/erp" nest>로 통합
@@ -1119,3 +1119,19 @@ Detected
 - [x] 스크롤 위치 초기화 (라우트 변경 시)
 - [x] Suspense 로딩 인디케이터 추가
 - [x] 현재 선택된 메뉴 하이라이트 동작 확인
+
+## 예약 목록 상세 모달 개선 [요청]
+- [ ] 예약 행 전체 클릭 시 모달 열기 (커서 포인터, 행 hover 강조)
+- [ ] 모달 내 여행자 목록 표시 (이름, 영문명, 성별, 여권번호, 만료일)
+- [ ] 모달 내 선택 옵션 표시 (selectedOptions JSON 파싱)
+- [ ] 모달 내 관리자 메모 및 취소 사유 표시
+- [ ] 수기 예약 시 골프장명/상품명 표시 개선
+- [ ] 모달 레이아웃 전반 가독성 개선 (탭 구조 또는 섹션 구분)
+
+## 예약 상세 모달 (2026-04-30)
+- [x] 예약 행 전체 클릭 시 상세 모달 열기 (cursor-pointer 표시)
+- [x] bookings.get API: source 파라미터 추가 (reservation/booking 구분)
+- [x] 수기 예약(reservations 테이블) 상세 조회 지원
+- [x] 모달 탭 구조: 기본 정보 / 여행자 / 결제 / 상태 관리
+- [x] 수기 예약 전용 필드 표시 (골프장명, 상품명, 담당자, 파트너사 등)
+- [x] TypeScript 오류 0개 확인
