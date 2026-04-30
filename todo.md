@@ -882,11 +882,11 @@ Detected
 
 ## 2026-04-30 견적서 실시간 미리보기 기능
 
-- [ ] estimates.previewByReservation tRPC API 추가 (예약 ID + 템플릿 ID → 변수 치환 결과 반환)
-- [ ] CustomerEstimateTemplates.tsx 또는 ReservationManagement.tsx에 미리보기 패널 추가
-- [ ] 예약 선택 드롭다운 → 선택 시 변수 치환 결과 실시간 렌더링
-- [ ] 미리보기 패널: 포함항목/불포함항목/일정/유의사항 각 섹션 렌더링
-- [ ] 인쇄/공유 버튼 (미리보기 패널에서 바로 견적서 URL 복사)
+- [x] estimates.previewByReservation tRPC API 추가 (예약 ID + 템플릿 ID → 변수 치환 결과 반환)
+- [x] CustomerEstimateTemplates.tsx 또는 ReservationManagement.tsx에 미리보기 패널 추가
+- [x] 예약 선택 드롭다운 → 선택 시 변수 치환 결과 실시간 렌더링
+- [x] 미리보기 패널: 포함항목/불포함항목/일정/유의사항 각 섹션 렌더링
+- [x] 인쇄/공유 버튼 (미리보기 패널에서 바로 견적서 URL 복사)
 
 ## 2026-04-30 두골프 ERP 기능 카탈로그 자동 집계 시스템
 
@@ -933,3 +933,48 @@ Detected
 - [x] 인쇄 버튼 / 견적서 발행 버튼
 - [x] ReservationManagement.tsx 예약 목록 행에 미리보기 버튼 추가 (인디고 ExternalLink 아이콘)
 - [x] 오른쪽 슬라이드-인 패널 (반투명 오버레이 + 외부 클릭 닫기)
+
+## 2026-04-30 CMS > 홈페이지 관리 시스템
+
+### DB 스키마 (6개 신규 테이블)
+- [x] site_settings (전역 설정 key-value)
+- [x] site_nav_items (네비게이션 메뉴: label/href/order/visible)
+- [x] site_hero_slides (히어로 슬라이드: image/title/subtitle/cta/order/startAt/endAt)
+- [x] site_footer (푸터 업체 정보: 사업자명/대표자/사업자번호/통신판매/관광사업/주소/전화/이메일/운영시간/계좌/SNS/저작권)
+- [x] site_featured_packages (노출 상품 구성)
+- [x] site_audit_logs 테이블 (변경 이력: table/action/oldValue/newValue/changedBy)
+- [x] pnpm db:push 마이그레이션 완료
+
+### tRPC siteSettingsRouter
+- [x] server/routers/siteSettings.ts 구현
+- [x] getSettings / updateSettings (전역 설정)
+- [x] getNavItems / updateNavItems (네비 순서/표시 포함)
+- [x] getHeroSlides / createHeroSlide / updateHeroSlide / deleteHeroSlide / reorderHeroSlides
+- [x] getFooter / updateFooter (초기값 시드 포함)
+- [x] getFeaturedPackages / setFeaturedPackages (노출 상품 구성)
+- [x] ocrBusinessLicense (사업자등록증 OCR — Gemini Vision 재사용, 저가 모델)
+- [x] getAuditLogs (변경 이력 조회)
+- [x] routers.ts에 siteSettingsRouter 등록
+- [x] 모든 write 프로시저에 감사 로그 자동 기록
+
+### ERP CMS > 홈페이지 관리 페이지
+- [x] client/src/pages/erp/HomepageManagement.tsx 신규 생성
+- [x] 탭 1: 전역 설정 (사이트명/설명/로고/파비콘/SEO/GA/카카오체널) + 검색결과 미리보기
+- [x] 탭 2: 네비게이션 관리 (순서/표시여부 토글/추가/수정/삭제)
+- [x] 탭 3: 히어로 슬라이드 (이미지 URL/제목/부제목/CTA/기간/링크/활성화 토글)
+- [x] 탭 4: 노출 상품 구성 (섹션별 상품 선택: 추청/인기/신규/특가)
+- [x] 탭 5: 푸터 관리 (업체 정보 필드 전체 편집 + 실시간 미리보기)
+- [x] 탭 6: 사업자등록증 OCR (이미지 업로드 → Gemini Vision → 자동 입력, 신뢰도 표시, 수동 보정 후 푸터 적용)
+- [x] 탭 7: 변경 이력 (감사 로그 테이블)
+- [x] App.tsx 라우트 등록 (/erp/cms/homepage)
+- [x] ERPLayout CMS 섹션에 "홈페이지 관리" 메뉴 추가
+
+### dayoutgolf.com 프론트 연동
+- [x] Footer.tsx — DB 데이터 연동 (trpc.siteSettings.getFooter)
+- [x] Footer.tsx — 반응형 개선 (모바일: 최소 라인 + "회사정보 더보기" 토글, max-h 애니메이션)
+- [x] Footer.tsx — aria-expanded/키보드 접근성, SEO(접힌 상태에서도 렌더)
+- [x] Footer.tsx — SNS 링크 동적 렌더링 (카카오/인스타/유튜브/네이버블로그)
+- [x] Footer.tsx — 폴백 기본값 설정 (DB 없을 때 하드코딩 값 사용)
+- [ ] Header.tsx — DB 네비 데이터 연동 (trpc.siteSettings.getNavItems) [향후 연동]
+- [ ] Home.tsx — 히어로 슬라이드 DB 연동 [향후 연동]
+- [ ] Home.tsx — 노출 상품 구성 DB 연동 [향후 연동]

@@ -1246,3 +1246,118 @@ export const customVariables = mysqlTable("custom_variables", {
 });
 export type CustomVariable = typeof customVariables.$inferSelect;
 export type InsertCustomVariable = typeof customVariables.$inferInsert;
+
+// ============================================================
+// SITE_SETTINGS - 홈페이지 전역 설정
+// ============================================================
+export const siteSettings = mysqlTable("site_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  settingKey: varchar("settingKey", { length: 100 }).notNull().unique(),
+  settingValue: text("settingValue"),
+  description: varchar("description", { length: 300 }),
+  settingGroup: varchar("settingGroup", { length: 50 }).default("general"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
+  updatedBy: varchar("updatedBy", { length: 100 }),
+});
+export type SiteSetting = typeof siteSettings.$inferSelect;
+export type InsertSiteSetting = typeof siteSettings.$inferInsert;
+
+// ============================================================
+// SITE_NAV_ITEMS - 네비게이션 메뉴 관리
+// ============================================================
+export const siteNavItems = mysqlTable("site_nav_items", {
+  id: int("id").autoincrement().primaryKey(),
+  label: varchar("label", { length: 100 }).notNull(),
+  href: varchar("href", { length: 500 }).notNull(),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  isVisible: boolean("isVisible").default(true).notNull(),
+  openInNewTab: boolean("openInNewTab").default(false).notNull(),
+  icon: varchar("icon", { length: 50 }),
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
+});
+export type SiteNavItem = typeof siteNavItems.$inferSelect;
+export type InsertSiteNavItem = typeof siteNavItems.$inferInsert;
+
+// ============================================================
+// SITE_HERO_SLIDES - 히어로/배너 슬라이드 관리
+// ============================================================
+export const siteHeroSlides = mysqlTable("site_hero_slides", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 200 }),
+  subtitle: varchar("subtitle", { length: 200 }),
+  description: text("description"),
+  imageUrl: varchar("imageUrl", { length: 1000 }),
+  mobileImageUrl: varchar("mobileImageUrl", { length: 1000 }),
+  ctaText: varchar("ctaText", { length: 100 }),
+  ctaLink: varchar("ctaLink", { length: 500 }),
+  destination: varchar("destination", { length: 100 }),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  startAt: timestamp("startAt"),
+  endAt: timestamp("endAt"),
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
+});
+export type SiteHeroSlide = typeof siteHeroSlides.$inferSelect;
+export type InsertSiteHeroSlide = typeof siteHeroSlides.$inferInsert;
+
+// ============================================================
+// SITE_FOOTER - 푸터 업체 정보
+// ============================================================
+export const siteFooter = mysqlTable("site_footer", {
+  id: int("id").autoincrement().primaryKey(),
+  companyName: varchar("companyName", { length: 200 }),
+  ceoName: varchar("ceoName", { length: 100 }),
+  businessNumber: varchar("businessNumber", { length: 50 }),
+  mailOrderNumber: varchar("mailOrderNumber", { length: 100 }),
+  tourismLicenseNumber: varchar("tourismLicenseNumber", { length: 100 }),
+  address: varchar("address", { length: 500 }),
+  phone: varchar("phone", { length: 50 }),
+  email: varchar("email", { length: 200 }),
+  businessHours: varchar("businessHours", { length: 200 }),
+  bankAccounts: text("bankAccounts"),
+  kakaoUrl: varchar("kakaoUrl", { length: 500 }),
+  instagramUrl: varchar("instagramUrl", { length: 500 }),
+  youtubeUrl: varchar("youtubeUrl", { length: 500 }),
+  naverBlogUrl: varchar("naverBlogUrl", { length: 500 }),
+  copyright: varchar("copyright", { length: 300 }),
+  businessLicenseImageUrl: varchar("businessLicenseImageUrl", { length: 1000 }),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
+  updatedBy: varchar("updatedBy", { length: 100 }),
+});
+export type SiteFooter = typeof siteFooter.$inferSelect;
+export type InsertSiteFooter = typeof siteFooter.$inferInsert;
+
+// ============================================================
+// SITE_FEATURED_PACKAGES - 홈 노출 상품 구성
+// ============================================================
+export const siteFeaturedPackages = mysqlTable("site_featured_packages", {
+  id: int("id").autoincrement().primaryKey(),
+  packageId: int("packageId").notNull(),
+  section: varchar("section", { length: 50 }).default("recommended").notNull(),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
+});
+export type SiteFeaturedPackage = typeof siteFeaturedPackages.$inferSelect;
+export type InsertSiteFeaturedPackage = typeof siteFeaturedPackages.$inferInsert;
+
+// ============================================================
+// SITE_AUDIT_LOGS - CMS 변경 이력 (감사 로그)
+// ============================================================
+export const siteAuditLogs = mysqlTable("site_audit_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  tableName: varchar("tableName", { length: 100 }).notNull(),
+  recordId: varchar("recordId", { length: 100 }),
+  action: varchar("action", { length: 20 }).notNull(),
+  oldValue: text("oldValue"),
+  newValue: text("newValue"),
+  changedBy: varchar("changedBy", { length: 100 }),
+  changedByUserId: int("changedByUserId"),
+  ipAddress: varchar("ipAddress", { length: 50 }),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+export type SiteAuditLog = typeof siteAuditLogs.$inferSelect;
+export type InsertSiteAuditLog = typeof siteAuditLogs.$inferInsert;

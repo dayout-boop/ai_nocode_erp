@@ -31,6 +31,7 @@ import AIDevEngine from "./pages/erp/AIDevEngine";
 import MasterAI from "./pages/erp/MasterAI";
 import AIEngine from "./pages/erp/AIEngine";
 import FeatureCatalog from "./pages/erp/FeatureCatalog";
+import HomepageManagement from "./pages/erp/HomepageManagement";
 import ReservationManagement from "./pages/erp/ReservationManagement";
 import InquiryTemplates from "./pages/erp/InquiryTemplates";
 import FinanceManagement from "./pages/erp/FinanceManagement";
@@ -79,6 +80,7 @@ function Router() {
       <Route path={"/erp/cms"} component={() => { window.location.replace('/erp/cms/notices'); return null; }} />
       <Route path={"/erp/cms/notices"} component={ERPCMSNotices} />
       <Route path={"/erp/cms/banners"} component={ERPCMSBanners} />
+      <Route path={"/erp/cms/homepage"} component={HomepageManagement} />
       <Route path={"/erp/cms/variables"} component={ERPCMSVariables} />
       <Route path={"/erp/gemini"} component={GeminiAssistant} />
       <Route path={"/erp/ai-logs"} component={AILogs} />
