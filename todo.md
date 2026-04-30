@@ -983,3 +983,14 @@ Detected
 - [x] ERPLayout.tsx NavItemComponent에 onNavigate 콜백 추가 (모바일 클릭 시 사이드바 자동 닫힌)
 - [x] 하단 "개발대시보드" `<a href>` → wouter `<Link>`로 교체 (새 탭 방지)
 - [x] 향후 모든 ERP 내부 메뉴는 반드시 wouter Link 사용 원칙 주석 추가 (코드 상단 주석 완료)
+
+## 2026-04-30 모바일 푸터 개선
+
+- [x] Footer.tsx 모바일 레이아웃 전면 재설계 (md 미만 별도 렌더링)
+- [x] 모바일 최상단: 로고 + SNS 아이콘 + 대표전화 탭 버튼 (항상 노출)
+- [x] 골프 목적지 / 고객 서비스 / 연락처 섹션 아코디언 토글 (MobileSection 컴포넌트)
+- [x] 하단 사업자 정보: 회사명+사업자번호 최소 라인 + "상세보기" 토글
+- [x] max-h 트랜지션으로 SEO 크롤 가능 (hidden 미사용)
+- [x] aria-expanded 접근성 적용
+- [x] 데스크톱: 기존 4컬럼 그리드 그대로 유지
+- [x] TypeScript 오류 0개
