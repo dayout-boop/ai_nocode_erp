@@ -29,6 +29,7 @@ import * as XLSX from "xlsx";
 import ReservationItineraryTab from "./ReservationItineraryTab";
 import ReservationAffiliateCostTab from "./ReservationAffiliateCostTab";
 import VariablePickerButton from "@/components/VariablePickerButton";
+import EstimatePreviewPanel from "@/components/EstimatePreviewPanel";
 
 type StatusType = "pending" | "confirmed" | "cancelled" | "completed";
 type PaymentStatusType = "unpaid" | "partial" | "paid";
@@ -1404,6 +1405,8 @@ export default function ReservationManagement() {
   const [sortBy, setSortBy] = useState<SortByType>("departureDate");
   const [sortOrder, setSortOrder] = useState<SortOrderType>("desc");
   const [warningOnly, setWarningOnly] = useState(false);
+  // 견적서 실시간 미리보기 패널
+  const [previewItem, setPreviewItem] = useState<{ id: number; reservationNo?: string; customerName?: string } | null>(null);
 
   // 정렬 토글 함수
   function handleSort(col: SortByType) {
@@ -1794,6 +1797,12 @@ export default function ReservationManagement() {
                             </td>
                             <td className="px-3 py-2.5">
                               <div className="flex gap-1">
+                                {/* 견적서 미리보기 버튼 */}
+                                <button
+                                  onClick={() => setPreviewItem({ id: item.id, reservationNo: item.reservationNo ?? undefined, customerName: item.customerName ?? undefined })}
+                                  className="p-1 hover:bg-indigo-50 rounded text-indigo-500" title="견적서 미리보기">
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </button>
                                 {/* 관리 아이콘 - 클릭 시 예약 상세관리 팝업 */}
                                 <button
                                   onClick={() => setEditItem(item)}
@@ -1870,6 +1879,26 @@ export default function ReservationManagement() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* 견적서 실시간 미리보기 슬라이드 패널 */}
+      {previewItem && (
+        <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setPreviewItem(null)}>
+          {/* 반투명 오버레이 */}
+          <div className="absolute inset-0 bg-black/20" />
+          {/* 패널 */}
+          <div
+            className="relative w-full max-w-md h-full bg-gray-50 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <EstimatePreviewPanel
+              reservationId={previewItem.id}
+              reservationNo={previewItem.reservationNo}
+              customerName={previewItem.customerName}
+              onClose={() => setPreviewItem(null)}
+            />
+          </div>
+        </div>
+      )}
     </ERPLayout>
   );
 }

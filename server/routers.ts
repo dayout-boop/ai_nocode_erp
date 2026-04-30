@@ -2620,6 +2620,7 @@ import { devRequestRouter } from "./routers/devRequest";
 import { chatRouter } from "./routers/chat";
 import { openrouterAgentRouter } from "./routers/openrouterAgent";
 import { customerEstimateTemplatesRouter, estimatesRouter } from "./routers/estimates";
+import { featuresRouter } from "./routers/features";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -2661,5 +2662,6 @@ export const appRouter = router({
   reservationItineraries: reservationItinerariesRouter,
   reservationAffiliateCosts: reservationAffiliateCostsRouter,
   customVariables: customVariablesRouter,
+  features: featuresRouter,
 });
 export type AppRouter = typeof appRouter;

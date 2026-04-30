@@ -276,4 +276,80 @@ export const estimatesRouter = router({
       await db.delete(estimates).where(eq(estimates.id, input.id));
       return { success: true };
     }),
+
+  /**
+   * 견적서 실시간 미리보기
+   * DB에 저장하지 않고 예약 데이터 + 템플릿 + 일정을 반환
+   */
+  previewByReservation: protectedProcedure
+    .input(
+      z.object({
+        reservationId: z.number(),
+        templateId: z.number().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const [reservation] = await db
+        .select()
+        .from(reservations)
+        .where(eq(reservations.id, input.reservationId));
+      if (!reservation) throw new TRPCError({ code: "NOT_FOUND", message: "예약을 찾을 수 없습니다." });
+
+      let template = null;
+      if (input.templateId) {
+        const [tmpl] = await db
+          .select()
+          .from(customerEstimateTemplates)
+          .where(eq(customerEstimateTemplates.id, input.templateId));
+        template = tmpl ?? null;
+      } else {
+        const [tmpl] = await db
+          .select()
+          .from(customerEstimateTemplates)
+          .where(eq(customerEstimateTemplates.isActive, true))
+          .orderBy(desc(customerEstimateTemplates.useCount))
+          .limit(1);
+        template = tmpl ?? null;
+      }
+
+      const itineraryRows = await db
+        .select({
+          id: reservationItineraries.id,
+          dayIndex: reservationItineraries.dayIndex,
+          date: reservationItineraries.date,
+          dayType: reservationItineraries.dayType,
+          holeCount: reservationItineraries.holeCount,
+          estimatedTeeTime: reservationItineraries.estimatedTeeTime,
+          confirmedTeeTime: reservationItineraries.confirmedTeeTime,
+          roomType: reservationItineraries.roomType,
+          roomCount: reservationItineraries.roomCount,
+          flightInfo: reservationItineraries.flightInfo,
+          notes: reservationItineraries.notes,
+          golfAffiliateName: affiliates.name,
+        })
+        .from(reservationItineraries)
+        .leftJoin(affiliates, eq(reservationItineraries.golfAffiliateId, affiliates.id))
+        .where(eq(reservationItineraries.reservationId, input.reservationId))
+        .orderBy(reservationItineraries.dayIndex);
+
+      const itineraries = await Promise.all(
+        itineraryRows.map(async (row) => {
+          const [fullRow] = await db
+            .select({ accommodationAffiliateName: affiliates.name })
+            .from(reservationItineraries)
+            .leftJoin(affiliates, eq(reservationItineraries.accommodationAffiliateId, affiliates.id))
+            .where(eq(reservationItineraries.id, row.id))
+            .limit(1);
+          return {
+            ...row,
+            accommodationAffiliateName: fullRow?.accommodationAffiliateName ?? null,
+          };
+        })
+      );
+
+      return { reservation, template, itineraries };
+    }),
 });

@@ -879,3 +879,57 @@ Detected
 - [x] 상품군(1박2일 등) 자동 매핑 (dayIndex 기반)
 - [x] {{N일차-골프}}, {{N일차-숙소}}, {{N일차-티타임}}, {{N일차-항공}}, {{N일차-날짜}} 개별 일차 변수 지원
 - [x] validateVariables/extractVariables에 동적 N일차 패턴 유효 변수로 인식
+
+## 2026-04-30 견적서 실시간 미리보기 기능
+
+- [ ] estimates.previewByReservation tRPC API 추가 (예약 ID + 템플릿 ID → 변수 치환 결과 반환)
+- [ ] CustomerEstimateTemplates.tsx 또는 ReservationManagement.tsx에 미리보기 패널 추가
+- [ ] 예약 선택 드롭다운 → 선택 시 변수 치환 결과 실시간 렌더링
+- [ ] 미리보기 패널: 포함항목/불포함항목/일정/유의사항 각 섹션 렌더링
+- [ ] 인쇄/공유 버튼 (미리보기 패널에서 바로 견적서 URL 복사)
+
+## 2026-04-30 두골프 ERP 기능 카탈로그 자동 집계 시스템
+
+### 정적 파일 기반 데이터 소스
+- [x] docs/features.json 스키마 설계 (id, name, category, status, description, module, since, updatedAt, tags[])
+- [x] docs/features.override.json 초기 데이터 작성 (2026-04-24 이후 추가/수정 내용 반영)
+
+### generate-features 스크립트
+- [x] scripts/generate-features.mjs 구현 (라우터/페이지/DB 스키마/ERP 메뉴 스캔 → features.json 자동 생성)
+- [x] features.override.json 병합 로직 (수동 편집 항목 유지)
+- [x] package.json prebuild 훅으로 자동 실행 등록
+
+### tRPC featuresRouter
+- [x] server/routers/features.ts 구현 (list, refresh, getReport, getChangelog)
+- [x] routers.ts에 featuresRouter 등록
+- [x] refresh는 protectedProcedure + role 체크로 보호 (관리자 전용)
+
+### 프론트엔드 페이지
+- [x] client/src/pages/erp/FeatureCatalog.tsx 신규 생성
+- [x] 카테고리별 그룹핑 테이블/카드 (고객 홈페이지/ERP/AI 오케스트레이터/DevAI/DB/외부연동)
+- [x] 검색, 카테고리 필터, 상태 필터 (done/in_progress/planned)
+- [x] 상단 "최신 보고서 보기" 탭 + "MD 다운로드" 버튼
+- [x] 관리자 전용 "새로고침" 버튼 (generate-features 즉시 실행)
+- [x] /erp/ai-engine/features 라우트 등록
+- [x] ERPLayout "AI 엔진 관리 > 기능 목록" 메뉴 href 업데이트
+
+### 보고서 페이지
+- [x] FeatureCatalog 내 "보고서" 탭 (마크다운 렌더)
+- [x] features.json 기반 최신 보고서 자동 합성 렌더링
+- [x] .md 다운로드 버튼
+
+### CHANGELOG 자동 생성
+- [x] generate-features.mjs 내 CHANGELOG.md 자동 갱신 훅 (신규 항목 감지 시 자동 추가)
+- [x] generate-features 스크립트 실행 후 자동 호출
+
+## 2026-04-30 견적서 실시간 미리보기
+
+- [x] estimatesRouter에 previewByReservation 프로시저 추가 (DB 저장 없음)
+- [x] EstimatePreviewPanel.tsx 컴포넌트 구현 (슬라이드-인 패널)
+- [x] 템플릿 선택 드롭다운 (자동 선택 / 수동 선택)
+- [x] 변수 치환 결과 실시간 렌더링 (포함사항/불포함사항/일정/유의사항)
+- [x] 일정 테이블 (골프장/숙소/항공/티타임, 확정/견적 뱃지)
+- [x] 미치환 변수 경고 표시 (오렌지 배지)
+- [x] 인쇄 버튼 / 견적서 발행 버튼
+- [x] ReservationManagement.tsx 예약 목록 행에 미리보기 버튼 추가 (인디고 ExternalLink 아이콘)
+- [x] 오른쪽 슬라이드-인 패널 (반투명 오버레이 + 외부 클릭 닫기)

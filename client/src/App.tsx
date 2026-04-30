@@ -30,6 +30,7 @@ import DevAIOrchestrator from "./pages/erp/DevAIOrchestrator";
 import AIDevEngine from "./pages/erp/AIDevEngine";
 import MasterAI from "./pages/erp/MasterAI";
 import AIEngine from "./pages/erp/AIEngine";
+import FeatureCatalog from "./pages/erp/FeatureCatalog";
 import ReservationManagement from "./pages/erp/ReservationManagement";
 import InquiryTemplates from "./pages/erp/InquiryTemplates";
 import FinanceManagement from "./pages/erp/FinanceManagement";
@@ -88,6 +89,7 @@ function Router() {
       <Route path={"/erp/master-ai/logs"} component={MasterLogs} />
       <Route path={"/erp/master-ai/costs"} component={MasterCosts} />
       <Route path={"/erp/ai-engine"} component={AIEngine} />
+      <Route path={"/erp/ai-engine/features"} component={FeatureCatalog} />
       <Route path={"/erp/golftalk-admin"} component={GolfTalkAdmin} />
       <Route path={"/erp/manager-admin"} component={ManagerAdmin} />
       <Route path={"/erp/settings"} component={ERPSettings} />

@@ -72,7 +72,7 @@ const navItems: NavItem[] = [
     children: [
       { label: "엔진 대시보드", href: "/erp/ai-engine", icon: <Gauge size={14} /> },
       { label: "개발 요청", href: "/erp/dev-ai?tab=requests", icon: <ListChecks size={14} /> },
-      { label: "기능 목록", href: "/erp/dev-ai?tab=features", icon: <LayoutList size={14} /> },
+      { label: "기능 목록", href: "/erp/ai-engine/features", icon: <LayoutList size={14} /> },
       { label: "버전 이력", href: "/erp/dev-ai?tab=versions", icon: <GitBranch size={14} /> },
       { label: "오류 로그", href: "/erp/ai-dev-engine", icon: <AlertTriangle size={14} /> },
     ],

@@ -1,0 +1,2016 @@
+{
+  "generatedAt": "2026-04-30T06:04:03.035Z",
+  "version": "1.0.0",
+  "totalCount": 135,
+  "features": [
+    {
+      "id": "route-",
+      "name": "Home",
+      "category": "고객 홈페이지",
+      "status": "done",
+      "description": "/ 페이지 (Home)",
+      "module": "frontend",
+      "route": "/",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-packages",
+      "name": "Packages",
+      "category": "ERP-상품관리",
+      "status": "done",
+      "description": "/packages 페이지 (Packages)",
+      "module": "frontend",
+      "route": "/packages",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-packages-detail-:id",
+      "name": "PackageDetail",
+      "category": "ERP-상품관리",
+      "status": "done",
+      "description": "/packages/detail/:id 페이지 (PackageDetail)",
+      "module": "frontend",
+      "route": "/packages/detail/:id",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-packages-:destination",
+      "name": "Packages",
+      "category": "ERP-상품관리",
+      "status": "done",
+      "description": "/packages/:destination 페이지 (Packages)",
+      "module": "frontend",
+      "route": "/packages/:destination",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-gallery",
+      "name": "Gallery",
+      "category": "고객 홈페이지",
+      "status": "done",
+      "description": "/gallery 페이지 (Gallery)",
+      "module": "frontend",
+      "route": "/gallery",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-notice",
+      "name": "Notice",
+      "category": "ERP-CMS",
+      "status": "done",
+      "description": "/notice 페이지 (Notice)",
+      "module": "frontend",
+      "route": "/notice",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-inquiry",
+      "name": "Inquiry",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "/inquiry 페이지 (Inquiry)",
+      "module": "frontend",
+      "route": "/inquiry",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp",
+      "name": "ERP 대시보드",
+      "category": "ERP-대시보드",
+      "status": "done",
+      "description": "예약/매출 통계 차트, KPI 카드, 미수금 현황, 최근 예약 목록",
+      "module": "frontend",
+      "route": "/erp",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-24",
+      "tags": [
+        "dashboard",
+        "kpi",
+        "chart"
+      ]
+    },
+    {
+      "id": "route-erp-dashboard",
+      "name": "ERPDashboard",
+      "category": "ERP-기타",
+      "status": "done",
+      "description": "/erp/dashboard 페이지 (ERPDashboard)",
+      "module": "frontend",
+      "route": "/erp/dashboard",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-packages",
+      "name": "상품관리",
+      "category": "ERP-상품관리",
+      "status": "done",
+      "description": "상품 목록/등록/수정/삭제, 인원별 요금, 옵션, 슬롯, 이미지 업로드, AI 이미지 자동생성, Pixabay 검색, 동영상 생성, n8n 자동화, 기본 일정 템플릿 설정",
+      "module": "frontend",
+      "route": "/erp/packages",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "product",
+        "image",
+        "ai",
+        "video",
+        "automation"
+      ]
+    },
+    {
+      "id": "route-erp-packages-:id",
+      "name": "상품 목록",
+      "category": "ERP-상품관리",
+      "status": "done",
+      "description": "/erp/packages/:id 페이지 (ERPPackageDetail)",
+      "module": "frontend",
+      "route": "/erp/packages/:id",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-bookings",
+      "name": "예약 목록",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "예약 목록, 상태변경, 결제상태, 진행상태 드롭박스, 엑셀 내보내기, 수기예약 구분 배지",
+      "module": "frontend",
+      "route": "/erp/bookings",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "booking",
+        "excel",
+        "status"
+      ]
+    },
+    {
+      "id": "route-erp-inquiries",
+      "name": "예약 문의",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "/erp/inquiries 페이지 (ERPInquiries)",
+      "module": "frontend",
+      "route": "/erp/inquiries",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-settlements",
+      "name": "정산 목록",
+      "category": "ERP-자금/정산",
+      "status": "done",
+      "description": "/erp/settlements 페이지 (ERPSettlements)",
+      "module": "frontend",
+      "route": "/erp/settlements",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-crm",
+      "name": "CRM - 고객 검색",
+      "category": "ERP-CRM",
+      "status": "done",
+      "description": "고객 검색, 상담 메모, 예약 이력 조회",
+      "module": "frontend",
+      "route": "/erp/crm",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-24",
+      "tags": [
+        "crm",
+        "customer",
+        "memo"
+      ]
+    },
+    {
+      "id": "route-erp-crm-partners",
+      "name": "고객 검색",
+      "category": "ERP-CRM",
+      "status": "done",
+      "description": "/erp/crm/partners 페이지 (ERPCRMPartners)",
+      "module": "frontend",
+      "route": "/erp/crm/partners",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-crm-affiliates",
+      "name": "제휴사 관리",
+      "category": "ERP-CRM",
+      "status": "done",
+      "description": "골프장/숙소/항공 등 제휴사 CRUD, 제휴사별 비용 집계",
+      "module": "frontend",
+      "route": "/erp/crm/affiliates",
+      "since": "2026-04-20",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "affiliate",
+        "golf",
+        "accommodation"
+      ]
+    },
+    {
+      "id": "route-erp-reservations",
+      "name": "수기 예약관리",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "수기 예약 생성/수정/삭제, 고객/제휴사/담당자 탭, 일정 탭(골프장/숙소/항공/티타임), 제휴사 비용 탭, 견적생성, 입금가/판매가 계산 팝업",
+      "module": "frontend",
+      "route": "/erp/reservations",
+      "since": "2026-04-20",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "reservation",
+        "manual",
+        "itinerary",
+        "estimate"
+      ]
+    },
+    {
+      "id": "route-erp-reservations-templates",
+      "name": "문의 자동화 템플릿",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "문의 자동화 템플릿 관리, 변수 삽입 팝오버, 실시간 변수 파싱, 유효성 검사",
+      "module": "frontend",
+      "route": "/erp/reservations/templates",
+      "since": "2026-04-20",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "template",
+        "variable",
+        "automation"
+      ]
+    },
+    {
+      "id": "route-erp-finance",
+      "name": "자금관리",
+      "category": "ERP-자금/정산",
+      "status": "done",
+      "description": "입금/송금/예치금/충전카드/데파짓 관리, 구글 스프레드시트 7개 시트 데이터 이식 완료 (약 10,000건)",
+      "module": "frontend",
+      "route": "/erp/finance",
+      "since": "2026-04-21",
+      "updatedAt": "2026-04-24",
+      "tags": [
+        "finance",
+        "income",
+        "remittance",
+        "deposit"
+      ]
+    },
+    {
+      "id": "route-erp-cms-notices",
+      "name": "공지사항",
+      "category": "ERP-CMS",
+      "status": "done",
+      "description": "/erp/cms/notices 페이지 (ERPCMSNotices)",
+      "module": "frontend",
+      "route": "/erp/cms/notices",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-cms-banners",
+      "name": "배너 관리",
+      "category": "ERP-CMS",
+      "status": "done",
+      "description": "/erp/cms/banners 페이지 (ERPCMSBanners)",
+      "module": "frontend",
+      "route": "/erp/cms/banners",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-cms-variables",
+      "name": "자동 치환 변수 관리",
+      "category": "ERP-CMS",
+      "status": "done",
+      "description": "CMS > 자동 치환 변수 관리 페이지, 카테고리별 CRUD, 시스템 변수 보호, seedDefaults",
+      "module": "frontend",
+      "route": "/erp/cms/variables",
+      "since": "2026-04-30",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "cms",
+        "variable",
+        "template"
+      ]
+    },
+    {
+      "id": "route-erp-gemini",
+      "name": "GeminiAssistant",
+      "category": "AI 마스터",
+      "status": "done",
+      "description": "/erp/gemini 페이지 (GeminiAssistant)",
+      "module": "frontend",
+      "route": "/erp/gemini",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-ai-logs",
+      "name": "AILogs",
+      "category": "AI 마스터",
+      "status": "done",
+      "description": "/erp/ai-logs 페이지 (AILogs)",
+      "module": "frontend",
+      "route": "/erp/ai-logs",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-dev-ai",
+      "name": "DevAI - 개발 요청",
+      "category": "DevAI",
+      "status": "done",
+      "description": "개발 요청 작성/Slack 전송, 버전 이력, 롤백 관리, AI 분석 자동화",
+      "module": "frontend",
+      "route": "/erp/dev-ai",
+      "since": "2026-04-22",
+      "updatedAt": "2026-04-24",
+      "tags": [
+        "dev",
+        "slack",
+        "version",
+        "rollback"
+      ]
+    },
+    {
+      "id": "route-erp-orchestrator",
+      "name": "DevAIOrchestrator",
+      "category": "AI 엔진 관리",
+      "status": "done",
+      "description": "/erp/orchestrator 페이지 (DevAIOrchestrator)",
+      "module": "frontend",
+      "route": "/erp/orchestrator",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-ai-dev-engine",
+      "name": "오류 로그",
+      "category": "DevAI",
+      "status": "done",
+      "description": "/erp/ai-dev-engine 페이지 (AIDevEngine)",
+      "module": "frontend",
+      "route": "/erp/ai-dev-engine",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-master-ai",
+      "name": "두골프 마스터 🤖",
+      "category": "AI 챗봇",
+      "status": "done",
+      "description": "/erp/master-ai 페이지 (MasterAI)",
+      "module": "frontend",
+      "route": "/erp/master-ai",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-master-ai-logs",
+      "name": "두골프 마스터 🤖",
+      "category": "AI 챗봇",
+      "status": "done",
+      "description": "/erp/master-ai/logs 페이지 (MasterLogs)",
+      "module": "frontend",
+      "route": "/erp/master-ai/logs",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-master-ai-costs",
+      "name": "두골프 마스터 🤖",
+      "category": "AI 챗봇",
+      "status": "done",
+      "description": "/erp/master-ai/costs 페이지 (MasterCosts)",
+      "module": "frontend",
+      "route": "/erp/master-ai/costs",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-ai-engine",
+      "name": "AI 엔진 대시보드",
+      "category": "AI 엔진 관리",
+      "status": "done",
+      "description": "두골프-AI개발 엔진 대시보드, 오류 로그/수정 요청/재검토/기능 검색 4탭",
+      "module": "frontend",
+      "route": "/erp/ai-engine",
+      "since": "2026-04-22",
+      "updatedAt": "2026-04-24",
+      "tags": [
+        "ai-engine",
+        "error",
+        "fix",
+        "review"
+      ]
+    },
+    {
+      "id": "route-erp-ai-engine-features",
+      "name": "엔진 대시보드",
+      "category": "AI 엔진 관리",
+      "status": "done",
+      "description": "/erp/ai-engine/features 페이지 (FeatureCatalog)",
+      "module": "frontend",
+      "route": "/erp/ai-engine/features",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-golftalk-admin",
+      "name": "골프톡 관리",
+      "category": "AI 챗봇",
+      "status": "done",
+      "description": "/erp/golftalk-admin 페이지 (GolfTalkAdmin)",
+      "module": "frontend",
+      "route": "/erp/golftalk-admin",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-manager-admin",
+      "name": "두골프 매니저 관리",
+      "category": "AI 챗봇",
+      "status": "done",
+      "description": "/erp/manager-admin 페이지 (ManagerAdmin)",
+      "module": "frontend",
+      "route": "/erp/manager-admin",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-settings",
+      "name": "ERPSettings",
+      "category": "ERP-기타",
+      "status": "done",
+      "description": "/erp/settings 페이지 (ERPSettings)",
+      "module": "frontend",
+      "route": "/erp/settings",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-openrouter-agent",
+      "name": "OpenRouter AI 에이전트",
+      "category": "AI 엔진 관리",
+      "status": "done",
+      "description": "OpenRouter 기반 모듈형 AI 에이전트, 도구 호출 루프, 두골프 ERP 전용 도구 6개",
+      "module": "frontend",
+      "route": "/erp/openrouter-agent",
+      "since": "2026-04-22",
+      "updatedAt": "2026-04-24",
+      "tags": [
+        "openrouter",
+        "agent",
+        "tools"
+      ]
+    },
+    {
+      "id": "route-erp-reservations-estimate-templates",
+      "name": "고객 견적서 템플릿",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "견적서 템플릿 CRUD, 변수 삽입 팝오버, 실시간 변수 파싱, 유효성 검사, 사용 횟수 집계",
+      "module": "frontend",
+      "route": "/erp/reservations/estimate-templates",
+      "since": "2026-04-22",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "estimate",
+        "template",
+        "variable"
+      ]
+    },
+    {
+      "id": "route-estimate-:token",
+      "name": "EstimateView",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "/estimate/:token 페이지 (EstimateView)",
+      "module": "frontend",
+      "route": "/estimate/:token",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-erp-dev-dashboard",
+      "name": "DevDashboard",
+      "category": "ERP-기타",
+      "status": "done",
+      "description": "/erp/dev-dashboard 페이지 (DevDashboard)",
+      "module": "frontend",
+      "route": "/erp/dev-dashboard",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-partner",
+      "name": "PartnerDashboard",
+      "category": "ERP-CRM",
+      "status": "done",
+      "description": "/partner 페이지 (PartnerDashboard)",
+      "module": "frontend",
+      "route": "/partner",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-partner-chat",
+      "name": "PartnerChat",
+      "category": "AI 챗봇",
+      "status": "done",
+      "description": "/partner/chat 페이지 (PartnerChat)",
+      "module": "frontend",
+      "route": "/partner/chat",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "route-404",
+      "name": "NotFound",
+      "category": "ERP-기타",
+      "status": "done",
+      "description": "/404 페이지 (NotFound)",
+      "module": "frontend",
+      "route": "/404",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "page",
+        "route"
+      ]
+    },
+    {
+      "id": "router-dashboardRouter",
+      "name": "API: dashboardRouter",
+      "category": "ERP-기타",
+      "status": "done",
+      "description": "tRPC dashboardRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-packagesRouter",
+      "name": "API: packagesRouter",
+      "category": "ERP-상품관리",
+      "status": "done",
+      "description": "tRPC packagesRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-bookingsRouter",
+      "name": "API: bookingsRouter",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "tRPC bookingsRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-settlementsRouter",
+      "name": "API: settlementsRouter",
+      "category": "ERP-자금/정산",
+      "status": "done",
+      "description": "tRPC settlementsRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-inquiriesRouter",
+      "name": "API: inquiriesRouter",
+      "category": "ERP-기타",
+      "status": "done",
+      "description": "tRPC inquiriesRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-cmsRouter",
+      "name": "API: cmsRouter",
+      "category": "ERP-CMS",
+      "status": "done",
+      "description": "tRPC cmsRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-crmRouter",
+      "name": "API: crmRouter",
+      "category": "ERP-CRM",
+      "status": "done",
+      "description": "tRPC crmRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-geminiRouter",
+      "name": "API: geminiRouter",
+      "category": "AI 마스터",
+      "status": "done",
+      "description": "tRPC geminiRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-aiLogsRouter",
+      "name": "API: aiLogsRouter",
+      "category": "ERP-기타",
+      "status": "done",
+      "description": "tRPC aiLogsRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-promptVersionsRouter",
+      "name": "API: promptVersionsRouter",
+      "category": "ERP-기타",
+      "status": "done",
+      "description": "tRPC promptVersionsRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-modelRoutingRouter",
+      "name": "API: modelRoutingRouter",
+      "category": "ERP-기타",
+      "status": "done",
+      "description": "tRPC modelRoutingRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-devAIRouter",
+      "name": "API: devAIRouter",
+      "category": "ERP-기타",
+      "status": "done",
+      "description": "tRPC devAIRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-orchestratorRouter",
+      "name": "API: orchestratorRouter",
+      "category": "AI 엔진 관리",
+      "status": "done",
+      "description": "tRPC orchestratorRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-paymentRouter",
+      "name": "API: paymentRouter",
+      "category": "외부연동-결제",
+      "status": "done",
+      "description": "tRPC paymentRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-videoRouter",
+      "name": "API: videoRouter",
+      "category": "외부연동-미디어",
+      "status": "done",
+      "description": "tRPC videoRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-automationRouter",
+      "name": "API: automationRouter",
+      "category": "외부연동-자동화",
+      "status": "done",
+      "description": "tRPC automationRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-aiDevEngineRouter",
+      "name": "API: aiDevEngineRouter",
+      "category": "ERP-기타",
+      "status": "done",
+      "description": "tRPC aiDevEngineRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-appRouter",
+      "name": "API: appRouter",
+      "category": "ERP-기타",
+      "status": "done",
+      "description": "tRPC appRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-affiliatesRouter",
+      "name": "API: affiliatesRouter",
+      "category": "ERP-CRM",
+      "status": "done",
+      "description": "tRPC affiliatesRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-aiRouter",
+      "name": "API: aiRouter",
+      "category": "ERP-기타",
+      "status": "done",
+      "description": "tRPC aiRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-chatRouter",
+      "name": "API: chatRouter",
+      "category": "AI 챗봇",
+      "status": "done",
+      "description": "tRPC chatRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-devRequestRouter",
+      "name": "API: devRequestRouter",
+      "category": "DevAI",
+      "status": "done",
+      "description": "tRPC devRequestRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-customerEstimateTemplatesRouter",
+      "name": "API: customerEstimateTemplatesRouter",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "tRPC customerEstimateTemplatesRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-estimatesRouter",
+      "name": "API: estimatesRouter",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "tRPC estimatesRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-featuresRouter",
+      "name": "API: featuresRouter",
+      "category": "ERP-기타",
+      "status": "done",
+      "description": "tRPC featuresRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-openrouterAgentRouter",
+      "name": "API: openrouterAgentRouter",
+      "category": "AI 엔진 관리",
+      "status": "done",
+      "description": "tRPC openrouterAgentRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-reservationAffiliateCostsRouter",
+      "name": "API: reservationAffiliateCostsRouter",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "tRPC reservationAffiliateCostsRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-reservationInquiriesRouter",
+      "name": "API: reservationInquiriesRouter",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "tRPC reservationInquiriesRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-inquiryTemplatesRouter",
+      "name": "API: inquiryTemplatesRouter",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "tRPC inquiryTemplatesRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-reservationItinerariesRouter",
+      "name": "API: reservationItinerariesRouter",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "tRPC reservationItinerariesRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-customVariablesRouter",
+      "name": "API: customVariablesRouter",
+      "category": "ERP-CMS",
+      "status": "done",
+      "description": "tRPC customVariablesRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-reservationsRouter",
+      "name": "API: reservationsRouter",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "tRPC reservationsRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "router-settingsRouter",
+      "name": "API: settingsRouter",
+      "category": "ERP-기타",
+      "status": "done",
+      "description": "tRPC settingsRouter 라우터",
+      "module": "backend",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "api",
+        "trpc",
+        "router"
+      ]
+    },
+    {
+      "id": "db-users",
+      "name": "DB: users",
+      "category": "DB",
+      "status": "done",
+      "description": "users 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-packages",
+      "name": "DB: packages",
+      "category": "DB",
+      "status": "done",
+      "description": "packages 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-package_prices",
+      "name": "DB: package_prices",
+      "category": "DB",
+      "status": "done",
+      "description": "package_prices 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-package_options",
+      "name": "DB: package_options",
+      "category": "DB",
+      "status": "done",
+      "description": "package_options 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-package_slots",
+      "name": "DB: package_slots",
+      "category": "DB",
+      "status": "done",
+      "description": "package_slots 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-bookings",
+      "name": "DB: bookings",
+      "category": "DB",
+      "status": "done",
+      "description": "bookings 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-travelers",
+      "name": "DB: travelers",
+      "category": "DB",
+      "status": "done",
+      "description": "travelers 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-settlements",
+      "name": "DB: settlements",
+      "category": "DB",
+      "status": "done",
+      "description": "settlements 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-inquiries",
+      "name": "DB: inquiries",
+      "category": "DB",
+      "status": "done",
+      "description": "inquiries 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-notices",
+      "name": "DB: notices",
+      "category": "DB",
+      "status": "done",
+      "description": "notices 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-banners",
+      "name": "DB: banners",
+      "category": "DB",
+      "status": "done",
+      "description": "banners 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-customer_memos",
+      "name": "DB: customer_memos",
+      "category": "DB",
+      "status": "done",
+      "description": "customer_memos 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-package_images",
+      "name": "DB: package_images",
+      "category": "DB",
+      "status": "done",
+      "description": "package_images 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-ai_interaction_logs",
+      "name": "DB: ai_interaction_logs",
+      "category": "DB",
+      "status": "done",
+      "description": "ai_interaction_logs 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-prompt_versions",
+      "name": "DB: prompt_versions",
+      "category": "DB",
+      "status": "done",
+      "description": "prompt_versions 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-model_routing_rules",
+      "name": "DB: model_routing_rules",
+      "category": "DB",
+      "status": "done",
+      "description": "model_routing_rules 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-dev_requests",
+      "name": "DB: dev_requests",
+      "category": "DB",
+      "status": "done",
+      "description": "dev_requests 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-dev_features",
+      "name": "DB: dev_features",
+      "category": "DB",
+      "status": "done",
+      "description": "dev_features 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-dev_versions",
+      "name": "DB: dev_versions",
+      "category": "DB",
+      "status": "done",
+      "description": "dev_versions 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-ai_cost_logs",
+      "name": "DB: ai_cost_logs",
+      "category": "DB",
+      "status": "done",
+      "description": "ai_cost_logs 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-payments",
+      "name": "DB: payments",
+      "category": "DB",
+      "status": "done",
+      "description": "payments 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-kakao_notifications",
+      "name": "DB: kakao_notifications",
+      "category": "DB",
+      "status": "done",
+      "description": "kakao_notifications 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-automation_logs",
+      "name": "DB: automation_logs",
+      "category": "DB",
+      "status": "done",
+      "description": "automation_logs 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-package_videos",
+      "name": "DB: package_videos",
+      "category": "DB",
+      "status": "done",
+      "description": "package_videos 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-ai_engine_logs",
+      "name": "DB: ai_engine_logs",
+      "category": "DB",
+      "status": "done",
+      "description": "ai_engine_logs 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-ai_fix_requests",
+      "name": "DB: ai_fix_requests",
+      "category": "DB",
+      "status": "done",
+      "description": "ai_fix_requests 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-ai_review_results",
+      "name": "DB: ai_review_results",
+      "category": "DB",
+      "status": "done",
+      "description": "ai_review_results 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-ai_logs",
+      "name": "DB: ai_logs",
+      "category": "DB",
+      "status": "done",
+      "description": "ai_logs 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-chat_sessions",
+      "name": "DB: chat_sessions",
+      "category": "DB",
+      "status": "done",
+      "description": "chat_sessions 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-partners",
+      "name": "DB: partners",
+      "category": "DB",
+      "status": "done",
+      "description": "partners 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-partner_schedules",
+      "name": "DB: partner_schedules",
+      "category": "DB",
+      "status": "done",
+      "description": "partner_schedules 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-affiliates",
+      "name": "DB: affiliates",
+      "category": "DB",
+      "status": "done",
+      "description": "affiliates 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-reservations",
+      "name": "DB: reservations",
+      "category": "DB",
+      "status": "done",
+      "description": "reservations 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-income_records",
+      "name": "DB: income_records",
+      "category": "DB",
+      "status": "done",
+      "description": "income_records 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-remittance_records",
+      "name": "DB: remittance_records",
+      "category": "DB",
+      "status": "done",
+      "description": "remittance_records 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-deposit_records",
+      "name": "DB: deposit_records",
+      "category": "DB",
+      "status": "done",
+      "description": "deposit_records 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-charge_records",
+      "name": "DB: charge_records",
+      "category": "DB",
+      "status": "done",
+      "description": "charge_records 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-prepaid_records",
+      "name": "DB: prepaid_records",
+      "category": "DB",
+      "status": "done",
+      "description": "prepaid_records 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-reservation_inquiries",
+      "name": "DB: reservation_inquiries",
+      "category": "DB",
+      "status": "done",
+      "description": "reservation_inquiries 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-inquiry_templates",
+      "name": "DB: inquiry_templates",
+      "category": "DB",
+      "status": "done",
+      "description": "inquiry_templates 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-customer_estimate_templates",
+      "name": "DB: customer_estimate_templates",
+      "category": "DB",
+      "status": "done",
+      "description": "customer_estimate_templates 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-estimates",
+      "name": "DB: estimates",
+      "category": "DB",
+      "status": "done",
+      "description": "estimates 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-reservation_itineraries",
+      "name": "DB: reservation_itineraries",
+      "category": "DB",
+      "status": "done",
+      "description": "reservation_itineraries 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-reservation_affiliate_costs",
+      "name": "DB: reservation_affiliate_costs",
+      "category": "DB",
+      "status": "done",
+      "description": "reservation_affiliate_costs 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "id": "db-custom_variables",
+      "name": "DB: custom_variables",
+      "category": "DB",
+      "status": "done",
+      "description": "custom_variables 테이블 (Drizzle ORM)",
+      "module": "database",
+      "since": "2026-04-01",
+      "updatedAt": "2026-04-30",
+      "tags": [
+        "database",
+        "schema"
+      ]
+    },
+    {
+      "updatedAt": "2026-04-30",
+      "id": "route-estimate-token",
+      "name": "공개 견적서 페이지",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "토큰 기반 공개 견적서 조회, 변수 치환 렌더링({{일정표}}/{{N일차-골프}} 등), 인쇄 버튼",
+      "module": "frontend",
+      "since": "2026-04-22",
+      "tags": [
+        "estimate",
+        "public",
+        "variable",
+        "print"
+      ]
+    },
+    {
+      "updatedAt": "2026-04-30",
+      "id": "feature-variable-system",
+      "name": "자동 치환 변수 시스템",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "정적 변수({{고객명}} 등 30+개) + 동적 변수({{N일차-골프}} 등) + {{일정표}} 자동 렌더링, validateVariables/extractVariables 유틸리티, VariablePickerButton 공용 컴포넌트",
+      "module": "frontend",
+      "since": "2026-04-30",
+      "tags": [
+        "variable",
+        "template",
+        "estimate",
+        "dynamic"
+      ]
+    },
+    {
+      "updatedAt": "2026-04-30",
+      "id": "feature-itinerary-tab",
+      "name": "예약 일정 탭",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "예약 수정 모달 내 일정 탭 — 상품군 선택, 일자별 골프장/홀수/견적시간/확정시간/숙소/항공 입력, reservation_itineraries DB 연동",
+      "module": "frontend",
+      "since": "2026-04-30",
+      "tags": [
+        "itinerary",
+        "reservation",
+        "tee-time"
+      ]
+    },
+    {
+      "updatedAt": "2026-04-30",
+      "id": "feature-affiliate-cost-tab",
+      "name": "제휴사 비용 탭",
+      "category": "ERP-예약관리",
+      "status": "done",
+      "description": "예약 수정 모달 내 제휴사 비용 탭 — 제휴사별 입금가/판매가/수량 입력, 합계 집계, reservation_affiliate_costs DB 연동",
+      "module": "frontend",
+      "since": "2026-04-30",
+      "tags": [
+        "affiliate",
+        "cost",
+        "reservation"
+      ]
+    },
+    {
+      "updatedAt": "2026-04-24",
+      "id": "feature-ai-orchestrator",
+      "name": "중앙 AI 오케스트레이터",
+      "category": "AI 엔진 관리",
+      "status": "done",
+      "description": "OpenRouter 기반 작업 복잡도 분류(SIMPLE/MODERATE/COMPLEX), 모델 라우팅, 프롬프트 캐싱, 비용 계산 및 DB 저장",
+      "module": "backend",
+      "since": "2026-04-22",
+      "tags": [
+        "orchestrator",
+        "openrouter",
+        "cost",
+        "cache"
+      ]
+    },
+    {
+      "updatedAt": "2026-04-24",
+      "id": "feature-stripe-payment",
+      "name": "Stripe 결제 연동",
+      "category": "외부연동-결제",
+      "status": "done",
+      "description": "Stripe Checkout Session, 웹훅 처리, 결제 이력 조회, 예약 자동 확정",
+      "module": "backend",
+      "since": "2026-04-22",
+      "tags": [
+        "stripe",
+        "payment",
+        "webhook"
+      ]
+    },
+    {
+      "updatedAt": "2026-04-24",
+      "id": "feature-kakao-alimtalk",
+      "name": "카카오 알림톡 연동",
+      "category": "외부연동-카카오",
+      "status": "done",
+      "description": "Solapi API 기반 알림톡 발송, 예약 확정/취소 자동 발송, 발송 이력 DB 저장",
+      "module": "backend",
+      "since": "2026-04-22",
+      "tags": [
+        "kakao",
+        "alimtalk",
+        "notification"
+      ]
+    },
+    {
+      "updatedAt": "2026-04-24",
+      "id": "feature-runway-video",
+      "name": "Runway ML 동영상 자동생성",
+      "category": "외부연동-미디어",
+      "status": "done",
+      "description": "Gen-3 Alpha Turbo 기반 상품 동영상 자동생성, 5초/10초 선택, 폴링, 프론트 플레이어",
+      "module": "backend",
+      "since": "2026-04-22",
+      "tags": [
+        "runway",
+        "video",
+        "ai",
+        "generation"
+      ]
+    },
+    {
+      "updatedAt": "2026-04-24",
+      "id": "feature-n8n-automation",
+      "name": "n8n 자동화 파이프라인",
+      "category": "외부연동-자동화",
+      "status": "done",
+      "description": "n8n Webhook 트리거, 상품 SNS 자동배포, 실행 이력 DB 저장, 연동 가이드 문서",
+      "module": "backend",
+      "since": "2026-04-22",
+      "tags": [
+        "n8n",
+        "automation",
+        "sns",
+        "webhook"
+      ]
+    },
+    {
+      "updatedAt": "2026-04-24",
+      "id": "feature-gemini-ai",
+      "name": "Gemini AI 어시스턴트",
+      "category": "AI 마스터",
+      "status": "done",
+      "description": "Vertex AI SDK 기반, 서킷 브레이커, 리전 우회, 503 자동 재시도/폴백, 대화 로그 DB 저장, 리전별 통계 시각화",
+      "module": "backend",
+      "since": "2026-04-01",
+      "tags": [
+        "gemini",
+        "ai",
+        "vertex",
+        "circuit-breaker"
+      ]
+    },
+    {
+      "updatedAt": "2026-04-24",
+      "id": "feature-ai-dev-engine",
+      "name": "두골프-AI개발 엔진",
+      "category": "DevAI",
+      "status": "done",
+      "description": "자동 오류 감지(ErrorWatcher), AI 코드 수정 제안(AutoFixer), 다단계 재검토(ReviewEngine), Diff 시각화, 핵심 기능 수정 시 사용자 승인 안전장치",
+      "module": "backend",
+      "since": "2026-04-22",
+      "tags": [
+        "ai-engine",
+        "error",
+        "fix",
+        "review",
+        "diff"
+      ]
+    },
+    {
+      "updatedAt": "2026-04-24",
+      "id": "feature-spreadsheet-migration",
+      "name": "구글 스프레드시트 데이터 이식",
+      "category": "DB",
+      "status": "done",
+      "description": "7개 시트(내륙팩2/입금/송금/예치금/충전/데파짓) 약 10,000건 DB 이식 완료",
+      "module": "database",
+      "since": "2026-04-21",
+      "tags": [
+        "migration",
+        "spreadsheet",
+        "data"
+      ]
+    },
+    {
+      "updatedAt": "2026-04-30",
+      "id": "feature-estimate-preview",
+      "name": "견적서 실시간 미리보기",
+      "category": "ERP-예약관리",
+      "status": "in_progress",
+      "description": "예약 선택 → 변수 치환 결과 실시간 렌더링, 포함항목/불포함항목/일정/유의사항 미리보기 패널",
+      "module": "frontend",
+      "since": "2026-04-30",
+      "tags": [
+        "estimate",
+        "preview",
+        "variable",
+        "real-time"
+      ]
+    },
+    {
+      "updatedAt": "2026-04-30",
+      "id": "feature-feature-catalog",
+      "name": "기능 카탈로그 자동 집계",
+      "category": "AI 엔진 관리",
+      "status": "in_progress",
+      "description": "소스 스캔 기반 features.json 자동 생성, /erp/ai-engine/features 페이지, 카테고리별 필터/검색, 보고서 다운로드, CHANGELOG 자동 갱신",
+      "module": "frontend",
+      "since": "2026-04-30",
+      "tags": [
+        "catalog",
+        "features",
+        "report",
+        "changelog"
+      ]
+    }
+  ]
+}
