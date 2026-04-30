@@ -36,9 +36,13 @@ export default function ERPSettings() {
   });
 
   const testManusMutation = trpc.settings.testManus.useMutation({
-    onSuccess: (d) => toast.success(`Manus API 연결 성공! Task ID: ${d.taskId}`),
+    onSuccess: (d) => {
+      const mode = d.routingMode === "project_scoped" ? "프로젝트 내 태스크 생성" : "독립 태스크 생성";
+      toast.success(`Manus API 연결 성공! (${mode}) Task ID: ${d.taskId}`);
+    },
     onError: (e) => toast.error(`Manus API 테스트 실패: ${e.message}`),
   });
+  const { data: manusConfig } = trpc.settings.getManusConfig.useQuery();
 
   const services: ServiceStatus[] = [
     // ─── AI 핵심 서비스 ───────────────────────────────────────
@@ -379,6 +383,61 @@ export default function ERPSettings() {
           );
         })
       )}
+
+      {/* Manus 스마트 라우팅 설정 현황 */}
+      <Card className="border-0 shadow-sm border-l-4 border-l-indigo-500">
+        <CardHeader className="pb-2 pt-4">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Bot size={15} className="text-indigo-600" />
+            Manus 스마트 라우팅 설정 현황
+          </CardTitle>
+          <CardDescription className="text-xs">
+            두골프 마스터에서 개발 요청 시 기존 태스크 재사용 여부를 자동 판단하여 크레딧을 절약합니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pb-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-slate-50 rounded-lg px-3 py-2">
+              <p className="text-xs text-slate-500 mb-1">API 키 상태</p>
+              {manusConfig?.hasApiKey ? (
+                <span className="flex items-center gap-1 text-xs text-green-600 font-medium"><CheckCircle2 size={12} /> 설정됨</span>
+              ) : (
+                <span className="flex items-center gap-1 text-xs text-red-500 font-medium"><XCircle size={12} /> 미설정</span>
+              )}
+            </div>
+            <div className="bg-slate-50 rounded-lg px-3 py-2">
+              <p className="text-xs text-slate-500 mb-1">프로젝트 ID</p>
+              {manusConfig?.hasProjectId ? (
+                <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                  <CheckCircle2 size={12} /> {manusConfig.projectIdMasked}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-xs text-amber-500 font-medium"><AlertCircle size={12} /> 미설정 (크레딧 낭비 위험)</span>
+              )}
+            </div>
+          </div>
+          <div className={`rounded-lg px-3 py-2 text-xs border ${
+            manusConfig?.routingMode === "project_scoped"
+              ? "bg-green-50 border-green-200 text-green-700"
+              : "bg-amber-50 border-amber-200 text-amber-700"
+          }`}>
+            <p className="font-semibold mb-0.5">
+              {manusConfig?.routingMode === "project_scoped" ? "✅ 스마트 라우팅 활성화" : "⚠️ 스마트 라우팅 비활성화"}
+            </p>
+            <p className="opacity-80">{manusConfig?.routingDescription}</p>
+          </div>
+          {!manusConfig?.hasProjectId && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
+              <p className="font-semibold mb-1">MANUS_PROJECT_ID 설정 방법</p>
+              <ol className="list-decimal list-inside space-y-0.5 opacity-80">
+                <li>Manus 웹앱(manus.ai)에서 이 두골프 프로젝트 URL 확인</li>
+                <li>URL에서 project ID 복사 (예: <code className="bg-blue-100 px-1 rounded">prj_xxxxxxxx</code>)</li>
+                <li>Settings → Secrets에서 <code className="bg-blue-100 px-1 rounded">MANUS_PROJECT_ID</code> 등록</li>
+              </ol>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* 시크릿 관리 안내 */}
       <Card className="border-0 shadow-sm border-l-4 border-l-indigo-400">

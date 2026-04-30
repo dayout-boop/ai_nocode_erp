@@ -218,6 +218,13 @@
       "when": 1777548721377,
       "tag": "0030_ancient_the_stranger",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "5",
+      "when": 1777565916213,
+      "tag": "0031_good_redwing",
+      "breakpoints": true
     }
   ]
 }

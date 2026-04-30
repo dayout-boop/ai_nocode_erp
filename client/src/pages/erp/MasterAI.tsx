@@ -151,46 +151,125 @@ function PhaseIndicator({ phase }: { phase?: string }) {
   );
 }
 
-// ─── 개발 요청 카드 컴포넌트 ─────────────────────────────────────────────────
+// AI 카테고리 색상
+const CATEGORY_COLORS: Record<string, string> = {
+  BUG: "bg-red-100 text-red-700 border-red-200",
+  FEATURE: "bg-blue-100 text-blue-700 border-blue-200",
+  IMPROVEMENT: "bg-purple-100 text-purple-700 border-purple-200",
+  REFACTOR: "bg-gray-100 text-gray-700 border-gray-200",
+};
+
+// AI 카테고리 한국어
+const CATEGORY_LABELS: Record<string, string> = {
+  BUG: "🐛 버그 수정",
+  FEATURE: "✨ 신규 기능",
+  IMPROVEMENT: "🔧 기능 개선",
+  REFACTOR: "♻️ 리팩터링",
+};
+
+// ─── 개발 요청 카드 컴포넌트 (스마트 라우팅 + AI 분류 표시) ─────────────────────
 function DevRequestCard({
   suggestion,
   onSend,
   isSending,
   sent,
+  routingType,
+  routingReason,
 }: {
   suggestion: DevRequestSuggestion;
   onSend: () => void;
   isSending: boolean;
   sent: boolean;
+  routingType?: "create_task" | "send_message" | null;
+  routingReason?: string | null;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const aiCategory = (suggestion as DevRequestSuggestion & { aiCategory?: string }).aiCategory;
+  const aiAnalysis = (suggestion as DevRequestSuggestion & { aiAnalysis?: string }).aiAnalysis;
+
   return (
-    <Card className="mt-3 border-indigo-200 bg-indigo-50 w-full max-w-md">
+    <Card className="mt-3 border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50 w-full max-w-lg shadow-sm">
       <CardHeader className="pb-2 pt-3 px-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <CardTitle className="text-sm font-semibold text-indigo-800 flex items-center gap-2">
             <Zap size={14} className="text-indigo-600" />
             개발 요청 감지됨
           </CardTitle>
-          <Badge className={`text-xs border ${PRIORITY_COLORS[suggestion.priority] ?? "bg-gray-100 text-gray-600"}`}>
-            {suggestion.priority.toUpperCase()}
-          </Badge>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {aiCategory && (
+              <Badge className={`text-xs border ${CATEGORY_COLORS[aiCategory] ?? "bg-gray-100 text-gray-600"}`}>
+                {CATEGORY_LABELS[aiCategory] ?? aiCategory}
+              </Badge>
+            )}
+            <Badge className={`text-xs border ${PRIORITY_COLORS[suggestion.priority] ?? "bg-gray-100 text-gray-600"}`}>
+              {suggestion.priority.toUpperCase()}
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="px-4 pb-3 space-y-2">
+        {/* 라우팅 방식 표시 */}
+        {routingType && (
+          <div className={`flex items-start gap-2 rounded-lg px-3 py-2 text-xs border ${
+            routingType === "send_message"
+              ? "bg-green-50 border-green-200 text-green-700"
+              : "bg-blue-50 border-blue-200 text-blue-700"
+          }`}>
+            {routingType === "send_message" ? (
+              <MessageSquare size={12} className="mt-0.5 shrink-0" />
+            ) : (
+              <ExternalLink size={12} className="mt-0.5 shrink-0" />
+            )}
+            <div>
+              <span className="font-semibold">
+                {routingType === "send_message" ? "기존 스레드 추가 (크레딧 절약)" : "신규 Manus 태스크 생성"}
+              </span>
+              {routingReason && <p className="opacity-80 mt-0.5">{routingReason}</p>}
+            </div>
+          </div>
+        )}
+
+        {/* AI 분석 요약 */}
+        {aiAnalysis && (
+          <div className="bg-white/70 rounded-lg px-3 py-2 text-xs text-gray-600 border border-indigo-100">
+            <p className="font-medium text-indigo-600 mb-0.5">AI 분석</p>
+            <p>{aiAnalysis}</p>
+          </div>
+        )}
+
         <div>
           <p className="text-xs text-indigo-600 font-medium">제목</p>
-          <p className="text-sm text-gray-800">{suggestion.title}</p>
+          <p className="text-sm text-gray-800 font-medium">{suggestion.title}</p>
         </div>
+        <div className="flex gap-4">
+          <div>
+            <p className="text-xs text-indigo-600 font-medium">모듈</p>
+            <p className="text-sm text-gray-700">{suggestion.module}</p>
+          </div>
+          <div>
+            <p className="text-xs text-indigo-600 font-medium">예상 시간</p>
+            <p className="text-sm text-gray-700">{suggestion.estimatedHours}시간</p>
+          </div>
+        </div>
+
+        {/* 상세 설명 토글 */}
         <div>
-          <p className="text-xs text-indigo-600 font-medium">모듈 · 예상 시간</p>
-          <p className="text-sm text-gray-700">{suggestion.module} · {suggestion.estimatedHours}시간</p>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="text-xs text-indigo-500 hover:text-indigo-700 flex items-center gap-1 mb-1"
+          >
+            <ChevronDown size={11} className={`transition-transform ${expanded ? "rotate-180" : ""}`} />
+            {expanded ? "설명 접기" : "상세 설명 보기"}
+          </button>
+          {expanded && (
+            <p className="text-sm text-gray-700 bg-white/70 rounded-lg px-3 py-2 border border-indigo-100">
+              {suggestion.description}
+            </p>
+          )}
         </div>
-        <div>
-          <p className="text-xs text-indigo-600 font-medium">상세 설명</p>
-          <p className="text-sm text-gray-700 line-clamp-3">{suggestion.description}</p>
-        </div>
+
         {sent ? (
-          <div className="flex items-center gap-2 text-green-600 text-sm font-medium pt-1">
+          <div className="flex items-center gap-2 text-green-600 text-sm font-medium pt-1 bg-green-50 rounded-lg px-3 py-2">
             <CheckCircle2 size={14} />
             Manus에 전송 완료
           </div>
@@ -202,9 +281,9 @@ function DevRequestCard({
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white mt-1"
           >
             {isSending ? (
-              <><Loader2 size={13} className="animate-spin mr-1" /> 전송 중...</>
+              <><Loader2 size={13} className="animate-spin mr-1" /> AI 분류 + 전송 중...</>
             ) : (
-              <><ExternalLink size={13} className="mr-1" /> Manus에 개발 요청 전송</>
+              <><Zap size={13} className="mr-1" /> 스마트 전송 (자동 분류 + 라우팅)</>
             )}
           </Button>
         )}
@@ -221,6 +300,7 @@ export default function MasterAI() {
   const [sessionId] = useState(() => `master-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
   const [sendingRequests, setSendingRequests] = useState<Set<string>>(new Set());
+  const [sentRequestResults, setSentRequestResults] = useState<Map<string, { routingType: string; routingReason: string }>>(new Map());
   const [showScrollBtn, setShowScrollBtn] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -228,9 +308,16 @@ export default function MasterAI() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const sendDevRequestMutation = trpc.devRequest.create.useMutation({
+  const autoSendMutation = trpc.devRequest.autoRegisterAndSend.useMutation({
     onSuccess: (data) => {
-      toast.success(`✅ 개발 요청 전송 완료 (ID: ${data.id})`);
+      if (data.success) {
+        const routeLabel = data.routingType === "send_message"
+          ? `기존 스레드에 추가 (절약 모드)`
+          : `신규 태스크 생성`;
+        toast.success(`✅ Manus 전송 완료 (ID: ${data.devRequestId}) — ${routeLabel}`);
+      } else {
+        toast.warning(`📋 개발 요청 등록 완료 (ID: ${data.devRequestId}) — Manus 연결 설정 필요`);
+      }
     },
     onError: (err) => {
       toast.error(`❌ 전송 실패: ${err.message}`);
@@ -424,20 +511,29 @@ export default function MasterAI() {
     }
   }, [isStreaming, messages, sessionId, streamingAutoScroll]);
 
-  // 개발 요청 Manus 전송
+  // 개발 요청 Manus 스마트 전송 (자동 분류 + 라우팅)
   const handleSendDevRequest = useCallback(
     async (msgId: string, suggestion: DevRequestSuggestion) => {
       setSendingRequests((prev) => new Set(prev).add(msgId));
       try {
-        await sendDevRequestMutation.mutateAsync({
+        const result = await autoSendMutation.mutateAsync({
           title: suggestion.title,
           description: suggestion.description,
           priority: suggestion.priority,
           module: suggestion.module,
           estimatedHours: suggestion.estimatedHours,
-          source: "master_ai",
         });
         setSentRequests((prev) => new Set(prev).add(msgId));
+        if (result.routingType) {
+          setSentRequestResults((prev) => {
+            const next = new Map(prev);
+            next.set(msgId, {
+              routingType: result.routingType as string,
+              routingReason: result.routingReason ?? "",
+            });
+            return next;
+          });
+        }
       } finally {
         setSendingRequests((prev) => {
           const next = new Set(prev);
@@ -446,7 +542,7 @@ export default function MasterAI() {
         });
       }
     },
-    [sendDevRequestMutation]
+    [autoSendMutation]
   );
 
   // 키보드 단축키 (Enter 전송, Shift+Enter 줄바꿈)
@@ -667,6 +763,8 @@ export default function MasterAI() {
                   onSend={() => handleSendDevRequest(msg.id, msg.devRequestSuggestion!)}
                   isSending={sendingRequests.has(msg.id)}
                   sent={sentRequests.has(msg.id)}
+                  routingType={sentRequestResults.get(msg.id)?.routingType as "create_task" | "send_message" | null}
+                  routingReason={sentRequestResults.get(msg.id)?.routingReason}
                 />
               )}
             </div>

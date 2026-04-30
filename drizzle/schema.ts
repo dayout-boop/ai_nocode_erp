@@ -434,6 +434,12 @@ export const devRequests = mysqlTable("dev_requests", {
   module: varchar("module", { length: 100 }),
   /** Manus API task ID (전송 후 기록) */
   manusTaskId: varchar("manusTaskId", { length: 100 }),
+  /** Manus 프로젝트 ID (task.create 시 project_id) */
+  manusProjectId: varchar("manusProjectId", { length: 100 }),
+  /** 라우팅 방식: new_task=신규 생성 | send_message=기존 스레드 추가 */
+  manusRoutingType: mysqlEnum("manusRoutingType", ["new_task", "send_message"]),
+  /** 라우팅 근거 메모 */
+  manusRoutingReason: varchar("manusRoutingReason", { length: 255 }),
   /** 요청 출처 */
   source: mysqlEnum("source", ["manual", "auto_cycle", "master_ai"]).default("manual"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

@@ -1073,3 +1073,22 @@ Detected
 - [x] ERP 취소정책 탭 (텍스트 편집)
 - [x] 홈페이지 달력 2개월 동시 표시 (PC)
 - [x] 성인/아동/유아 인원 선택 +-버튼 + 총금액 계산
+
+## 2026-05-01 스마트 Manus 라우팅 + 채팅형 개발 문의 UI
+
+- [ ] M1: DB에 manusProjectId 필드 추가 (devRequests 테이블)
+- [ ] M2: manusPipe.ts 스마트 라우팅 엔진 구현 (task.sendMessage vs task.create 자동 분기)
+- [ ] M3: MANUS_PROJECT_ID 환경변수 추가
+- [ ] M4: devRequest 라우터에 스마트 전송 로직 연결
+- [ ] M5: MasterAI.tsx 채팅형 개발 문의 UI 개선 (선택형 카드 + 채팅 대화 방식)
+- [ ] M6: AI 분류 엔진 연결 (요청 유형/우선순위/모듈 자동 분류)
+- [ ] M7: 라우팅 결과 표시 UI (신규 생성 vs 기존 스레드 추가 구분)
+
+## 2026-05-01 Manus 스마트 라우팅 엔진 구현
+- [x] manusPipe.ts 스마트 라우팅 엔진으로 전면 개선 (AI 분류 + 기존 태스크 재사용 판단)
+- [x] devRequest.ts 라우터 - autoRegisterAndSend 프로시저 추가 (AI 분류 + 라우팅 결과 반환)
+- [x] DB 스키마 - devRequests에 manusProjectId, manusRoutingType, manusRoutingReason 필드 추가
+- [x] env.ts에 MANUS_PROJECT_ID 추가
+- [x] settings.ts - testManus에 project_id 포함 + getManusConfig 프로시저 추가
+- [x] ERPSettings.tsx - Manus 스마트 라우팅 설정 현황 카드 추가
+- [x] MasterAI.tsx - DevRequestCard에 routingType/routingReason 표시 + sentRequestResults 상태 추가

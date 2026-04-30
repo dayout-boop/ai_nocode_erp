@@ -20,6 +20,7 @@ export const ENV = {
   // Manus API (자동 개발 파이프)
   manusApiKey: process.env.MANUS_API_KEY ?? "",
   manusDogolfTaskId: process.env.MANUS_DOGOLF_TASK_ID ?? "",
+  manusProjectId: process.env.MANUS_PROJECT_ID ?? "", // 두골프 전용 Manus 프로젝트 ID (스마트 라우팅에 사용)
   // Stripe 결제
   stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? "",
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
