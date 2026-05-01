@@ -263,21 +263,21 @@ export default function Footer() {
             <div className="flex gap-2">
               {f.kakaoUrl && (
                 <a href={f.kakaoUrl} target="_blank" rel="noopener noreferrer"
-                  className="w-7 h-7 bg-[#FEE500] rounded-full flex items-center justify-center hover:scale-110 transition-transform duration-200"
+                  className="w-9 h-9 bg-[#FEE500] rounded-full flex items-center justify-center hover:scale-110 transition-transform duration-200"
                   aria-label="카카오체널">
-                  <span className="text-xs">💬</span>
+                  <span className="text-sm">💬</span>
                 </a>
               )}
               {f.instagramUrl && (
                 <a href={f.instagramUrl} target="_blank" rel="noopener noreferrer"
-                  className="w-7 h-7 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white hover:scale-110 transition-transform duration-200"
+                  className="w-9 h-9 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white hover:scale-110 transition-transform duration-200"
                   aria-label="인스타그램">
                   <InstagramIcon />
                 </a>
               )}
               {f.facebookUrl && (
                 <a href={f.facebookUrl} target="_blank" rel="noopener noreferrer"
-                  className="w-7 h-7 bg-[#1877F2] rounded-full flex items-center justify-center text-white hover:scale-110 transition-transform duration-200"
+                  className="w-9 h-9 bg-[#1877F2] rounded-full flex items-center justify-center text-white hover:scale-110 transition-transform duration-200"
                   aria-label="페이스북">
                   <FacebookIcon />
                 </a>

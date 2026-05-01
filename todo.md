@@ -1188,3 +1188,6 @@ Detected
 
 ## 소셜 미디어 아이콘 호버 효과
 - [x] Footer.tsx 데스크톱·모바일 모든 소셜 아이콘에 hover:scale-110 + transition-transform duration-200 효과 추가
+
+## 모바일 소셜 미디어 아이콘 크기 확대
+- [x] Footer.tsx 모바일 SNS 아이콘 w-7 h-7 → w-9 h-9로 크기 확대 (내부 아이콘 SVG 크기도 조정)
