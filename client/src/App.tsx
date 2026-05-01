@@ -16,6 +16,8 @@ import ERPLayout from "./components/ERPLayout";
 
 // Other Pages
 import EstimateView from "./pages/EstimateView";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
 
 // Partner Pages
 import PartnerDashboard from "./pages/Partner/PartnerDashboard";
@@ -40,6 +42,10 @@ function Router() {
       {/* /admin → /erp 리다이렉트 */}
       <Route path={"/admin"} component={() => { window.location.replace("/erp"); return null; }} />
       <Route path={"/admin/:rest*"} component={() => { window.location.replace("/erp"); return null; }} />
+
+      {/* 이용약관 / 개인정보처리방침 */}
+      <Route path={"/terms"} component={Terms} />
+      <Route path={"/privacy"} component={Privacy} />
 
       {/* 기타 */}
       <Route path={"/estimate/:token"} component={EstimateView} />

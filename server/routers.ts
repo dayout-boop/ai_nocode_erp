@@ -2091,6 +2091,76 @@ const devAIRouter = router({
     await db.delete(devRequests).where(eq(devRequests.id, input.id));
     return { success: true };
   }),
+
+  /**
+   * Manus 태스크 메시지에서 결과물 자동 수집
+   * manusTaskId가 있는 요청에 대해 task.listMessages를 호출하여
+   * 마지막 assistant_message를 result 필드에 저장
+   */
+  fetchManusResult: adminProcedure.input(z.object({
+    id: z.number(),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+    const [req] = await db.select().from(devRequests).where(eq(devRequests.id, input.id)).limit(1);
+    if (!req) throw new TRPCError({ code: "NOT_FOUND", message: "요청을 찾을 수 없습니다." });
+    if (!req.manusTaskId) throw new TRPCError({ code: "BAD_REQUEST", message: "Manus 태스크 ID가 없습니다. 먼저 Manus에 전송해주세요." });
+
+    const apiKey = process.env.MANUS_API_KEY;
+    if (!apiKey) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "MANUS_API_KEY가 설정되지 않았습니다." });
+
+    try {
+      const res = await fetch(
+        `https://api.manus.ai/v2/task.listMessages?task_id=${encodeURIComponent(req.manusTaskId)}&limit=50&order=desc`,
+        {
+          headers: {
+            "x-manus-api-key": apiKey,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Manus API 오류 [${res.status}]: ${errText.slice(0, 200)}` });
+      }
+
+      const data = await res.json() as {
+        ok: boolean;
+        messages?: Array<{
+          type: string;
+          assistant_message?: { content: string };
+        }>;
+      };
+
+      if (!data.ok || !data.messages) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Manus API 응답 형식 오류" });
+      }
+
+      // 가장 최근 assistant_message 추출 (desc 순서이므로 첫 번째가 최신)
+      const lastAssistant = data.messages.find(
+        (m) => m.type === "assistant_message" && m.assistant_message?.content
+      );
+
+      if (!lastAssistant?.assistant_message?.content) {
+        return { success: false, result: null, message: "Manus에서 아직 응답이 없습니다." };
+      }
+
+      const resultText = lastAssistant.assistant_message.content.slice(0, 2000);
+
+      // DB에 결과물 저장
+      await db.update(devRequests).set({
+        result: resultText,
+        updatedAt: new Date(),
+      }).where(eq(devRequests.id, input.id));
+
+      return { success: true, result: resultText, message: "결과물이 자동으로 수집되었습니다." };
+    } catch (err) {
+      if (err instanceof TRPCError) throw err;
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `결과물 수집 실패: ${String(err)}` });
+    }
+  }),
   sendToSlack: adminProcedure.input(z.object({
     requestId: z.number(),
     webhookUrl: z.string().url().optional(),

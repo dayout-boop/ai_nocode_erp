@@ -274,6 +274,27 @@ export default function DevAI() {
     onError: (e) => toast.error(e.message),
   });
 
+  const updateFeedbackCategoryMutation = trpc.devAI.updateFeedbackCategory.useMutation({
+    onSuccess: () => {
+      toast.success("피드백 카테고리가 수정되었습니다.");
+      utils.devAI.listRequests.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const fetchManusResultMutation = trpc.devAI.fetchManusResult.useMutation({
+    onSuccess: (data) => {
+      if (data.success && data.result) {
+        toast.success("결과물이 자동으로 수집되었습니다.");
+        setEditReqForm((f: any) => f ? { ...f, result: data.result } : f);
+        utils.devAI.listRequests.invalidate();
+      } else {
+        toast.info(data.message ?? "Manus에서 아직 응답이 없습니다.");
+      }
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const sendSlackMutation = trpc.devAI.sendToSlack.useMutation({
     onSuccess: () => toast.success("Slack으로 전송되었습니다."),
     onError: (e) => toast.error(e.message),
@@ -614,13 +635,34 @@ export default function DevAI() {
                                   {priorityCfg.label}
                                 </Badge>
                                 {req.feedbackCategory && (
-                                  <Badge className={`text-[10px] px-1.5 py-0 border ${
-                                    req.feedbackCategory === "bug" ? "bg-red-50 text-red-600 border-red-200" :
-                                    req.feedbackCategory === "suggestion" ? "bg-blue-50 text-blue-600 border-blue-200" :
-                                    "bg-slate-50 text-slate-500 border-slate-200"
-                                  }`}>
-                                    {req.feedbackCategory === "bug" ? "버그" : req.feedbackCategory === "suggestion" ? "개선제안" : "기타"}
-                                  </Badge>
+                                  <div className="relative group">
+                                    <Badge
+                                      className={`text-[10px] px-1.5 py-0 border cursor-pointer hover:opacity-80 transition-opacity ${
+                                        req.feedbackCategory === "bug" ? "bg-red-50 text-red-600 border-red-200" :
+                                        req.feedbackCategory === "suggestion" ? "bg-blue-50 text-blue-600 border-blue-200" :
+                                        "bg-slate-50 text-slate-500 border-slate-200"
+                                      }`}
+                                      title="클릭하여 카테고리 변경"
+                                    >
+                                      {req.feedbackCategory === "bug" ? "버그" : req.feedbackCategory === "suggestion" ? "개선제안" : "기타"} ✎
+                                    </Badge>
+                                    <div className="absolute left-0 top-full mt-1 z-50 hidden group-hover:flex flex-col bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden min-w-[90px]">
+                                      {(["bug", "suggestion", "other"] as const).map((cat) => (
+                                        <button
+                                          key={cat}
+                                          className={`text-xs px-3 py-1.5 text-left hover:bg-slate-50 transition-colors ${
+                                            req.feedbackCategory === cat ? "font-semibold" : ""
+                                          }`}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            updateFeedbackCategoryMutation.mutate({ requestId: req.id, feedbackCategory: cat });
+                                          }}
+                                        >
+                                          {cat === "bug" ? "버그" : cat === "suggestion" ? "개선제안" : "기타"}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
                                 )}
                               </div>
                               <p className="text-sm font-semibold text-slate-800 line-clamp-1">{req.title}</p>
@@ -1430,13 +1472,32 @@ export default function DevAI() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-600 mb-1.5 block">결과물</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-slate-600">결과물</label>
+                    {editReqForm.manusTaskId && (
+                      <button
+                        type="button"
+                        onClick={() => fetchManusResultMutation.mutate({ id: editReqForm.id })}
+                        disabled={fetchManusResultMutation.isPending}
+                        className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-800 font-medium disabled:opacity-50 transition-colors"
+                      >
+                        {fetchManusResultMutation.isPending ? (
+                          <>⏳ 수집 중...</>
+                        ) : (
+                          <>✨ Manus에서 자동 가져오기</>
+                        )}
+                      </button>
+                    )}
+                  </div>
                   <Textarea
                     value={editReqForm.result ?? ""}
                     onChange={(e) => setEditReqForm((f: any) => ({ ...f, result: e.target.value }))}
-                    placeholder="완료된 결과물을 기록합니다."
+                    placeholder={editReqForm.manusTaskId ? "Manus에서 자동 가져오거나 직접 입력하세요." : "완료된 결과물을 기록합니다."}
                     rows={3}
                   />
+                  {!editReqForm.manusTaskId && (
+                    <p className="text-xs text-slate-400 mt-1">팔 Manus에 전송하면 결과물을 자동으로 가져올 수 있습니다.</p>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>

@@ -1221,3 +1221,25 @@ Detected
 - [x] ERPLayout.tsx: 관리 프로젝트 import 및 /managed-projects 라우트 추가
 - [x] ERPLayout.tsx: AI 엔진 관리 사이드바에 "관리 프로젝트" 메뉴 항목 추가 (FolderOpen 아이콘)
 - [x] seed-managed-projects.mjs: 두골프 ERP 기본 프로젝트 시드 데이터 DB 삽입 완료
+
+## 개발 요청 결과물 자동 수집 기능 (2026-05-01)
+- [x] 서버: Manus API를 통해 체크포인트/태스크 결과물을 자동으로 가져오는 헬퍼 구현 (fetchManusResult 프로시저)
+- [x] 서버: devRequests의 result 필드를 Manus 체크포인트 메시지에서 자동 채우는 로직 추가
+- [x] 프론트엔드: DevAI.tsx 요청 편집 다이얼로그에 "결과물 자동 가져오기" 버튼 추가
+- [x] 프론트엔드: 결과물 자동 수집 로딩 상태 표시
+
+## 이용약관·개인정보처리방침 페이지 구현 (2026-05-01)
+- [x] /terms 이용약관 페이지 구현 (www.dogolf.com 정보 기반, URL만 변경)
+- [x] /privacy 개인정보처리방침 페이지 구현 (www.dogolf.com 정보 기반, URL만 변경)
+- [x] App.tsx에 /terms, /privacy 라우트 등록
+
+## feedbackCategory 수동 수정 UI (2026-05-01)
+- [x] DevAI.tsx: 요청 카드에서 feedbackCategory 배지 클릭 시 드롭다운 표시
+- [x] DevAI.tsx: 드롭다운에서 버그/개선제안/기타 선택 시 updateFeedbackCategory API 호출
+- [x] 수정 성공 시 요청 목록 즉시 갱신
+
+## ManagedProjects 고도화 (2026-05-01)
+- [x] ManagedProjects.tsx: 프로젝트별 AI 엔진 성능 비교 대시보드 추가 (AI 성능 대시보드 탭)
+- [x] ManagedProjects.tsx: 프로젝트 간 컨텍스트 공유 기능 (Copy 버튼 → 다이얼로그로 필드 선택 복사)
+- [x] 서버: managedProjects.getStats 프로시저 추가 (dev_requests 통계 집계 - 정확도, 카테고리 분포)
+- [x] 서버: managedProjects.copyContext 프로시저 추가 (프로젝트 간 컨텍스트 복사)
