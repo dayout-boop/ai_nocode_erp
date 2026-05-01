@@ -349,6 +349,7 @@ export const siteSettingsRouter = router({
       bankAccounts: z.string().optional(),
       kakaoUrl: z.string().optional(),
       instagramUrl: z.string().optional(),
+      facebookUrl: z.string().optional(),
       youtubeUrl: z.string().optional(),
       naverBlogUrl: z.string().optional(),
       copyright: z.string().optional(),

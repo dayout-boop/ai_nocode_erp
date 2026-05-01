@@ -1,0 +1,1 @@
+ALTER TABLE `site_footer` ADD `facebookUrl` varchar(500);

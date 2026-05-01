@@ -1179,3 +1179,9 @@ Detected
 
 ## Footer 저작권 연도 동적 처리
 - [x] Footer.tsx DEFAULTS.copyright에서 하드코딩된 '2026' → `new Date().getFullYear()` 동적 처리 (매년 자동 업데이트)
+
+## 푸터 소셜 미디어 아이콘 추가
+- [x] DB 스키마(siteSettings) 및 API에 facebookUrl 필드 추가 + pnpm db:push
+- [x] Footer.tsx 데스크톱 SNS 아이콘 영역에 인스타그램(SVG), 페이스북(SVG) 아이콘 추가
+- [x] Footer.tsx 모바일 SNS 아이콘 영역에 인스타그램(SVG), 페이스북(SVG) 아이콘 추가
+- [x] CMS 홈페이지 관리 UI(HomepageManagement.tsx)에 페이스북 URL 입력 필드 추가
