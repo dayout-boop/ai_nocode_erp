@@ -23,6 +23,7 @@ const DEFAULTS = {
   kakaoUrl: 'http://pf.kakao.com/_xbHHSV',
   instagramUrl: 'https://instagram.com/dogolf',
   facebookUrl: '',
+  xUrl: '',
   youtubeUrl: '',
   naverBlogUrl: '',
   copyright: '© 2026 두골프(DOGOLF). All Rights Reserved.',
@@ -82,6 +83,18 @@ export default function Footer() {
     </svg>
   );
 
+  const XIcon = () => (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+    </svg>
+  );
+
+  const YoutubeIcon = () => (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+    </svg>
+  );
+
   // 모바일 사업자정보 토글
   const [bizExpanded, setBizExpanded] = useState(false);
 
@@ -125,11 +138,18 @@ export default function Footer() {
                     <FacebookIcon />
                   </a>
                 )}
+                {f.xUrl && (
+                  <a href={f.xUrl} target="_blank" rel="noopener noreferrer"
+                    className="w-9 h-9 bg-black rounded-full flex items-center justify-center hover:scale-110 transition-transform duration-200 text-white"
+                    aria-label="X(트위터)">
+                    <XIcon />
+                  </a>
+                )}
                 {f.youtubeUrl && (
                   <a href={f.youtubeUrl} target="_blank" rel="noopener noreferrer"
-                    className="w-9 h-9 bg-red-600 rounded-full flex items-center justify-center hover:scale-110 transition-transform duration-200"
+                    className="w-9 h-9 bg-red-600 rounded-full flex items-center justify-center hover:scale-110 transition-transform duration-200 text-white"
                     aria-label="유튜브">
-                    <span className="text-sm">▶</span>
+                    <YoutubeIcon />
                   </a>
                 )}
                 {f.naverBlogUrl && (
@@ -280,6 +300,20 @@ export default function Footer() {
                   className="w-9 h-9 bg-[#1877F2] rounded-full flex items-center justify-center text-white hover:scale-110 transition-transform duration-200"
                   aria-label="페이스북">
                   <FacebookIcon />
+                </a>
+              )}
+              {f.xUrl && (
+                <a href={f.xUrl} target="_blank" rel="noopener noreferrer"
+                  className="w-9 h-9 bg-black rounded-full flex items-center justify-center text-white hover:scale-110 transition-transform duration-200"
+                  aria-label="X(트위터)">
+                  <XIcon />
+                </a>
+              )}
+              {f.youtubeUrl && (
+                <a href={f.youtubeUrl} target="_blank" rel="noopener noreferrer"
+                  className="w-9 h-9 bg-red-600 rounded-full flex items-center justify-center text-white hover:scale-110 transition-transform duration-200"
+                  aria-label="유튜브">
+                  <YoutubeIcon />
                 </a>
               )}
             </div>

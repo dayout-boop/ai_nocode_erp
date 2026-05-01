@@ -1346,6 +1346,7 @@ export const siteFooter = mysqlTable("site_footer", {
   kakaoUrl: varchar("kakaoUrl", { length: 500 }),
   instagramUrl: varchar("instagramUrl", { length: 500 }),
   facebookUrl: varchar("facebookUrl", { length: 500 }),
+  xUrl: varchar("xUrl", { length: 500 }),
   youtubeUrl: varchar("youtubeUrl", { length: 500 }),
   naverBlogUrl: varchar("naverBlogUrl", { length: 500 }),
   copyright: varchar("copyright", { length: 300 }),

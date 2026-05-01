@@ -585,6 +585,7 @@ function FooterTab() {
     { key: "kakaoUrl", label: "카카오체널 URL" },
     { key: "instagramUrl", label: "인스타그램 URL" },
     { key: "facebookUrl", label: "페이스북 URL" },
+    { key: "xUrl", label: "X(구 트위터) URL" },
     { key: "youtubeUrl", label: "유튜브 URL" },
     { key: "naverBlogUrl", label: "네이버 블로그 URL" },
     { key: "copyright", label: "저작권 표기" },

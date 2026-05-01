@@ -1191,3 +1191,10 @@ Detected
 
 ## 모바일 소셜 미디어 아이콘 크기 확대
 - [x] Footer.tsx 모바일 SNS 아이콘 w-7 h-7 → w-9 h-9로 크기 확대 (내부 아이콘 SVG 크기도 조정)
+
+## X(구 트위터)·유튜브 소셜 미디어 아이콘 추가
+- [x] DB 스키마(site_footer)에 xUrl 필드 추가 및 pnpm db:push 마이그레이션
+- [x] API(siteSettings.ts) updateFooter 프로시저에 xUrl 파라미터 추가
+- [x] Footer.tsx 데스크톱 SNS 영역에 X(SVG) 및 유튜브(SVG) 아이콘 추가 (hover:scale-110 포함)
+- [x] Footer.tsx 모바일 SNS 영역에 X(SVG) 및 유튜브(SVG) 아이콘 추가 (hover:scale-110 포함)
+- [x] CMS 홈페이지 관리 UI(HomepageManagement.tsx)에 X URL 입력 필드 추가

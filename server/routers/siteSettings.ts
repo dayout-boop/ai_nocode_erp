@@ -350,6 +350,7 @@ export const siteSettingsRouter = router({
       kakaoUrl: z.string().optional(),
       instagramUrl: z.string().optional(),
       facebookUrl: z.string().optional(),
+      xUrl: z.string().optional(),
       youtubeUrl: z.string().optional(),
       naverBlogUrl: z.string().optional(),
       copyright: z.string().optional(),

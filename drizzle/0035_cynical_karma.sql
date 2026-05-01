@@ -1,0 +1,1 @@
+ALTER TABLE `site_footer` ADD `xUrl` varchar(500);
