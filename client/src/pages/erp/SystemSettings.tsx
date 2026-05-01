@@ -1,479 +1,565 @@
-// ============================================================
-// ERP 시스템 설정 페이지
-// MANUS_DOGOLF_TASK_ID 등 핵심 운영 설정을 관리자가 UI에서 직접 변경
-// ============================================================
-
+/**
+ * ERP 시스템 설정 페이지
+ * - Manus 태스크 후보 관리 (추가/수정/삭제)
+ * - MANUS_DOGOLF_TASK_ID 기본 설정
+ * - 태스크 라우팅 현황 확인
+ */
 import { useState } from "react";
-import { trpc } from "@/lib/trpc";
-import { toast } from "sonner";
+import { Plus, Trash2, Edit2, CheckCircle2, Star, GitBranch, Settings, Loader2, X, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Settings,
-  ExternalLink,
-  RefreshCw,
-  Save,
-  AlertTriangle,
-  CheckCircle2,
-  Database,
-  Cpu,
-  Trash2,
-  Plus,
-  Edit2,
-} from "lucide-react";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 
-export default function SystemSettings() {
+// ─── 타입 정의 ────────────────────────────────────────────────────────────────
+type TaskType = "erp" | "homepage" | "new_project" | "other";
+
+interface TaskCandidate {
+  id: number;
+  taskId: string;
+  taskName: string;
+  projectName?: string | null;
+  description?: string | null;
+  taskType: TaskType;
+  isDefault: boolean;
+  isActive: boolean;
+  useCount?: number | null;
+  lastUsedAt?: Date | null;
+  createdAt?: Date | null;
+}
+
+const TASK_TYPE_LABELS: Record<TaskType, { label: string; color: string }> = {
+  erp: { label: "ERP", color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  homepage: { label: "홈페이지", color: "bg-green-100 text-green-700 border-green-200" },
+  new_project: { label: "신규 프로젝트", color: "bg-purple-100 text-purple-700 border-purple-200" },
+  other: { label: "기타", color: "bg-gray-100 text-gray-700 border-gray-200" },
+};
+
+const emptyForm = {
+  taskId: "",
+  taskName: "",
+  projectName: "",
+  description: "",
+  taskType: "erp" as TaskType,
+  isDefault: false,
+};
+
+// ─── 태스크 추가/수정 다이얼로그 ─────────────────────────────────────────────
+function TaskCandidateDialog({
+  open,
+  onClose,
+  editTarget,
+  onSuccess,
+}: {
+  open: boolean;
+  onClose: () => void;
+  editTarget: TaskCandidate | null;
+  onSuccess: () => void;
+}) {
+  const [form, setForm] = useState(() =>
+    editTarget
+      ? {
+          taskId: editTarget.taskId,
+          taskName: editTarget.taskName,
+          projectName: editTarget.projectName ?? "",
+          description: editTarget.description ?? "",
+          taskType: editTarget.taskType,
+          isDefault: editTarget.isDefault,
+        }
+      : { ...emptyForm }
+  );
+
   const utils = trpc.useUtils();
-  // ─── 데이터 조회 ───────────────────────────────────────────────────────────
-  const { data: settingsData, isLoading } = trpc.systemSettings.list.useQuery(undefined, {
-    refetchInterval: 30_000,
-  });
-  const { data: activeManusTask, refetch: refetchManusTask } =
-    trpc.systemSettings.getActiveManusTaskId.useQuery();
 
-  // ─── 뮤테이션 ─────────────────────────────────────────────────────────────
-  const updateManusTaskId = trpc.systemSettings.updateManusTaskId.useMutation({
-    onSuccess: (data) => {
-      toast.success(`✅ Manus 태스크 ID 업데이트 완료: ${data.taskId}`);
-      utils.systemSettings.list.invalidate();
-      utils.systemSettings.getActiveManusTaskId.invalidate();
-      setManusTaskIdInput("");
-      setEditManusTaskId(false);
-    },
-    onError: (err) => {
-      toast.error(err.message);
-    },
-  });
-
-  const upsertSetting = trpc.systemSettings.upsert.useMutation({
+  const addMutation = trpc.systemSettings.addTaskCandidate.useMutation({
     onSuccess: () => {
-      toast.success("설정 저장 완료");
-      utils.systemSettings.list.invalidate();
-      setUpsertDialog(false);
+      toast.success("태스크 후보가 추가되었습니다.");
+      utils.systemSettings.listTaskCandidates.invalidate();
+      onSuccess();
+      onClose();
     },
-    onError: (err) => {
-      toast.error(err.message);
-    },
+    onError: (e) => toast.error(`추가 실패: ${e.message}`),
   });
 
-  const deleteSetting = trpc.systemSettings.delete.useMutation({
+  const updateMutation = trpc.systemSettings.updateTaskCandidate.useMutation({
     onSuccess: () => {
-      toast.success("설정 삭제 완료");
-      utils.systemSettings.list.invalidate();
+      toast.success("태스크 후보가 수정되었습니다.");
+      utils.systemSettings.listTaskCandidates.invalidate();
+      onSuccess();
+      onClose();
     },
-    onError: (err) => {
-      toast.error(err.message);
-    },
+    onError: (e) => toast.error(`수정 실패: ${e.message}`),
   });
 
-  // ─── 로컬 상태 ────────────────────────────────────────────────────────────
-  const [manusTaskIdInput, setManusTaskIdInput] = useState("");
-  const [editManusTaskId, setEditManusTaskId] = useState(false);
-  const [upsertDialog, setUpsertDialog] = useState(false);
-  const [upsertForm, setUpsertForm] = useState({ key: "", value: "", description: "" });
-  const [deleteConfirmKey, setDeleteConfirmKey] = useState<string | null>(null);
+  const handleSubmit = () => {
+    if (!form.taskId.trim() || !form.taskName.trim()) {
+      toast.error("태스크 ID와 이름은 필수입니다.");
+      return;
+    }
+    if (editTarget) {
+      updateMutation.mutate({
+        id: editTarget.id,
+        taskName: form.taskName,
+        projectName: form.projectName || undefined,
+        description: form.description || undefined,
+        taskType: form.taskType,
+        isDefault: form.isDefault,
+      });
+    } else {
+      addMutation.mutate({
+        taskId: form.taskId,
+        taskName: form.taskName,
+        projectName: form.projectName || undefined,
+        description: form.description || undefined,
+        taskType: form.taskType,
+        isDefault: form.isDefault,
+      });
+    }
+  };
 
-  const settings = settingsData?.settings ?? [];
-  const envValues = settingsData?.envValues ?? {};
-  const descriptions = settingsData?.descriptions ?? {};
-
-  // ─── 렌더링 ───────────────────────────────────────────────────────────────
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <RefreshCw className="animate-spin text-gray-400" size={24} />
-      </div>
-    );
-  }
-
-  const activeTaskId = activeManusTask?.activeValue;
-  const activeTaskSource = activeManusTask?.source;
+  const isPending = addMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="space-y-6 p-6">
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-indigo-800">
+            <GitBranch size={16} className="text-indigo-600" />
+            {editTarget ? "태스크 후보 수정" : "태스크 후보 추가"}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-1 block">
+              Manus 태스크 ID <span className="text-red-500">*</span>
+            </label>
+            <Input
+              value={form.taskId}
+              onChange={(e) => setForm((f) => ({ ...f, taskId: e.target.value }))}
+              placeholder="예: hNUzrtQfkbnQkVX9BUZeeM"
+              disabled={!!editTarget}
+              className="font-mono text-sm"
+            />
+            {!editTarget && (
+              <p className="text-[10px] text-gray-400 mt-0.5">Manus 대화창 URL에서 확인 가능합니다.</p>
+            )}
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-1 block">
+              태스크 이름 <span className="text-red-500">*</span>
+            </label>
+            <Input
+              value={form.taskName}
+              onChange={(e) => setForm((f) => ({ ...f, taskName: e.target.value }))}
+              placeholder="예: 두골프 ERP 개발 (메인)"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-1 block">프로젝트명</label>
+            <Input
+              value={form.projectName}
+              onChange={(e) => setForm((f) => ({ ...f, projectName: e.target.value }))}
+              placeholder="예: dogolf-tour-dkz3fsmp.manus.space"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-1 block">태스크 유형</label>
+            <Select
+              value={form.taskType}
+              onValueChange={(v) => setForm((f) => ({ ...f, taskType: v as TaskType }))}
+            >
+              <SelectTrigger className="text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="erp">ERP (백오피스 관리 시스템)</SelectItem>
+                <SelectItem value="homepage">홈페이지 (프론트엔드)</SelectItem>
+                <SelectItem value="new_project">신규 프로젝트</SelectItem>
+                <SelectItem value="other">기타</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-gray-700 mb-1 block">설명</label>
+            <Textarea
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              placeholder="이 태스크에서 처리하는 작업 범위를 간략히 설명하세요."
+              className="text-sm resize-none"
+              rows={2}
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="isDefault"
+              checked={form.isDefault}
+              onChange={(e) => setForm((f) => ({ ...f, isDefault: e.target.checked }))}
+              className="w-4 h-4 accent-indigo-600"
+            />
+            <label htmlFor="isDefault" className="text-sm text-gray-700 cursor-pointer">
+              기본 태스크로 설정
+            </label>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose} disabled={isPending}>
+            <X size={13} className="mr-1" />취소
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSubmit}
+            disabled={isPending}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+          >
+            {isPending ? (
+              <><Loader2 size={13} className="animate-spin mr-1" />저장 중...</>
+            ) : (
+              <><Save size={13} className="mr-1" />{editTarget ? "수정" : "추가"}</>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── 메인 페이지 ──────────────────────────────────────────────────────────────
+export default function SystemSettings() {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<TaskCandidate | null>(null);
+  const [manusTaskIdInput, setManusTaskIdInput] = useState("");
+  const [editingTaskId, setEditingTaskId] = useState(false);
+
+  const utils = trpc.useUtils();
+
+  const { data: candidates = [], isLoading } = trpc.systemSettings.listTaskCandidates.useQuery(
+    { activeOnly: false }
+  );
+
+  const { data: manusTaskIdData, refetch: refetchTaskId } = trpc.systemSettings.getManusTaskId.useQuery();
+
+  const setManusTaskIdMutation = trpc.systemSettings.setManusTaskId.useMutation({
+    onSuccess: () => {
+      toast.success("MANUS_DOGOLF_TASK_ID가 저장되었습니다.");
+      refetchTaskId();
+      setEditingTaskId(false);
+    },
+    onError: (e) => toast.error(`저장 실패: ${e.message}`),
+  });
+
+  const deleteMutation = trpc.systemSettings.deleteTaskCandidate.useMutation({
+    onSuccess: () => {
+      toast.success("태스크 후보가 비활성화되었습니다.");
+      utils.systemSettings.listTaskCandidates.invalidate();
+    },
+    onError: (e) => toast.error(`삭제 실패: ${e.message}`),
+  });
+
+  const setActiveMutation = trpc.systemSettings.updateTaskCandidate.useMutation({
+    onSuccess: () => {
+      toast.success("변경되었습니다.");
+      utils.systemSettings.listTaskCandidates.invalidate();
+    },
+    onError: (e) => toast.error(`변경 실패: ${e.message}`),
+  });
+
+  const handleOpenAdd = () => {
+    setEditTarget(null);
+    setDialogOpen(true);
+  };
+
+  const handleOpenEdit = (c: TaskCandidate) => {
+    setEditTarget(c);
+    setDialogOpen(true);
+  };
+
+  const activeCount = (candidates as TaskCandidate[]).filter((c) => c.isActive).length;
+  const defaultTask = (candidates as TaskCandidate[]).find((c) => c.isDefault && c.isActive);
+
+  return (
+    <div className="p-6 max-w-4xl mx-auto space-y-6">
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Settings size={24} className="text-dogolf-green" />
+          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <Settings size={20} className="text-indigo-600" />
             시스템 설정
           </h1>
-          <p className="text-gray-500 text-sm mt-1">
-            ERP 핵심 운영 설정을 관리합니다. 변경 사항은 즉시 적용됩니다.
+          <p className="text-sm text-gray-500 mt-0.5">
+            Manus 태스크 라우팅 및 개발 요청 파이프라인을 관리합니다.
           </p>
         </div>
         <Button
-          variant="outline"
+          onClick={handleOpenAdd}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white"
           size="sm"
-          onClick={() => {
-            utils.systemSettings.list.invalidate();
-            refetchManusTask();
-          }}
         >
-          <RefreshCw size={14} className="mr-1" />
-          새로고침
+          <Plus size={14} className="mr-1" />
+          태스크 추가
         </Button>
       </div>
 
-      {/* ─── Manus 태스크 ID 설정 카드 (핵심) ─────────────────────────────── */}
-      <Card className="border-2 border-dogolf-green/30 bg-green-50/30">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-dogolf-green">
-            <Cpu size={20} />
-            Manus 개발 대화창 연결 설정
+      {/* MANUS_DOGOLF_TASK_ID 설정 */}
+      <Card className="border-amber-200 bg-amber-50">
+        <CardHeader className="pb-2 pt-4 px-4">
+          <CardTitle className="text-sm font-semibold text-amber-800 flex items-center gap-2">
+            <Star size={14} className="text-amber-600" />
+            MANUS_DOGOLF_TASK_ID (기본 라우팅 대상)
           </CardTitle>
-          <CardDescription>
-            개발 요청이 전송될 Manus 대화창 태스크 ID를 설정합니다.
-            설정 시 모든 개발 요청이 새 태스크를 생성하지 않고 이 대화창으로 직접 전송됩니다.
-          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* 현재 활성 태스크 ID 표시 */}
-          <div className="bg-white rounded-lg border p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-700">현재 활성 태스크 ID</span>
-              <div className="flex items-center gap-2">
-                {activeTaskSource === "db" && (
-                  <Badge variant="outline" className="text-blue-600 border-blue-300 bg-blue-50">
-                    <Database size={10} className="mr-1" />
-                    DB 설정
-                  </Badge>
-                )}
-                {activeTaskSource === "env" && (
-                  <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50">
-                    환경변수
-                  </Badge>
-                )}
-                {activeTaskSource === "none" && (
-                  <Badge variant="outline" className="text-red-600 border-red-300 bg-red-50">
-                    <AlertTriangle size={10} className="mr-1" />
-                    미설정
-                  </Badge>
-                )}
-              </div>
-            </div>
-
-            {activeTaskId ? (
-              <div className="flex items-center gap-2">
-                <code className="flex-1 bg-gray-100 px-3 py-2 rounded text-sm font-mono text-gray-800">
-                  {activeTaskId}
-                </code>
-                <a
-                  href={`https://manus.im/app/${activeTaskId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Button variant="outline" size="sm">
-                    <ExternalLink size={14} className="mr-1" />
-                    열기
-                  </Button>
-                </a>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setManusTaskIdInput(activeTaskId);
-                    setEditManusTaskId(true);
-                  }}
-                >
-                  <Edit2 size={14} className="mr-1" />
-                  변경
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-red-500 text-sm">
-                <AlertTriangle size={14} />
-                <span>태스크 ID가 설정되지 않았습니다. 개발 요청이 새 태스크로 생성됩니다.</span>
-              </div>
-            )}
-
-            {activeManusTask?.updatedBy && (
-              <p className="text-xs text-gray-400">
-                마지막 변경: {activeManusTask.updatedBy}
-                {activeManusTask.updatedAt &&
-                  ` · ${new Date(activeManusTask.updatedAt).toLocaleString("ko-KR")}`}
-              </p>
-            )}
-          </div>
-
-          {/* 환경변수 vs DB 비교 */}
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="bg-orange-50 border border-orange-200 rounded p-3">
-              <p className="font-semibold text-orange-700 mb-1">환경변수 값</p>
-              <code className="text-orange-600 text-xs break-all">
-                {envValues.MANUS_DOGOLF_TASK_ID || "(없음)"}
-              </code>
-            </div>
-            <div className="bg-blue-50 border border-blue-200 rounded p-3">
-              <p className="font-semibold text-blue-700 mb-1">DB 설정 값 (우선 적용)</p>
-              <code className="text-blue-600 text-xs break-all">
-                {settings.find((s) => s.settingKey === "MANUS_DOGOLF_TASK_ID")?.settingValue || "(없음)"}
-              </code>
-            </div>
-          </div>
-
-          {/* 태스크 ID 입력 폼 */}
-          {(editManusTaskId || !activeTaskId) && (
-            <div className="border-t pt-4 space-y-3">
-              <Label className="text-sm font-semibold">
-                새 Manus 태스크 ID 입력
-              </Label>
-              <p className="text-xs text-gray-500">
-                Manus 대화창 URL에서 태스크 ID를 복사하세요.
-                예: <code className="bg-gray-100 px-1 rounded">https://manus.im/app/hNUzrtQfkbnQkVX9BUZeeM</code>
-                → <code className="bg-gray-100 px-1 rounded">hNUzrtQfkbnQkVX9BUZeeM</code>
-              </p>
-              <div className="flex gap-2">
-                <Input
-                  value={manusTaskIdInput}
-                  onChange={(e) => setManusTaskIdInput(e.target.value)}
-                  placeholder="예: hNUzrtQfkbnQkVX9BUZeeM"
-                  className="font-mono text-sm"
-                />
-                <Button
-                  onClick={() => {
-                    if (!manusTaskIdInput.trim()) return;
-                    updateManusTaskId.mutate({ taskId: manusTaskIdInput.trim() });
-                  }}
-                  disabled={updateManusTaskId.isPending || !manusTaskIdInput.trim()}
-                  className="bg-dogolf-green hover:bg-dogolf-green-dark text-white"
-                >
-                  {updateManusTaskId.isPending ? (
-                    <RefreshCw size={14} className="animate-spin mr-1" />
-                  ) : (
-                    <Save size={14} className="mr-1" />
-                  )}
-                  저장
-                </Button>
-                {editManusTaskId && (
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setEditManusTaskId(false);
-                      setManusTaskIdInput("");
-                    }}
-                  >
-                    취소
-                  </Button>
-                )}
-              </div>
+        <CardContent className="px-4 pb-4 space-y-2">
+          <p className="text-xs text-amber-700">
+            이 태스크 ID로 개발 요청이 기본 라우팅됩니다. DB 값이 환경변수보다 우선 적용됩니다.
+          </p>
+          {manusTaskIdData && (
+            <div className="flex items-center gap-2">
+              <Badge
+                className={`text-xs border ${
+                  manusTaskIdData.source === "db"
+                    ? "bg-green-100 text-green-700 border-green-200"
+                    : "bg-gray-100 text-gray-600 border-gray-200"
+                }`}
+              >
+                {manusTaskIdData.source === "db" ? "DB 설정" : "환경변수"}
+              </Badge>
+              <span className="font-mono text-sm text-gray-800">
+                {manusTaskIdData.taskId ?? "미설정"}
+              </span>
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* ─── 전체 시스템 설정 목록 ──────────────────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Database size={18} />
-                DB 저장 설정 목록
-              </CardTitle>
-              <CardDescription>
-                DB에 저장된 설정 값들입니다. 환경변수보다 우선 적용됩니다.
-              </CardDescription>
-            </div>
-            <Button
-              size="sm"
-              onClick={() => {
-                setUpsertForm({ key: "", value: "", description: "" });
-                setUpsertDialog(true);
-              }}
-            >
-              <Plus size={14} className="mr-1" />
-              설정 추가
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {settings.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              <Database size={32} className="mx-auto mb-2 opacity-30" />
-              <p className="text-sm">저장된 설정이 없습니다.</p>
+          {editingTaskId ? (
+            <div className="flex gap-2">
+              <Input
+                value={manusTaskIdInput}
+                onChange={(e) => setManusTaskIdInput(e.target.value)}
+                placeholder="Manus 태스크 ID 입력"
+                className="font-mono text-sm flex-1"
+              />
+              <Button
+                size="sm"
+                onClick={() => setManusTaskIdMutation.mutate({ taskId: manusTaskIdInput })}
+                disabled={!manusTaskIdInput.trim() || setManusTaskIdMutation.isPending}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                {setManusTaskIdMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setEditingTaskId(false)}>
+                <X size={13} />
+              </Button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {settings.map((setting) => (
-                <div
-                  key={setting.settingKey}
-                  className="flex items-start justify-between p-3 bg-gray-50 rounded-lg border"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <code className="text-sm font-mono font-semibold text-gray-800">
-                        {setting.settingKey}
-                      </code>
-                      <CheckCircle2 size={12} className="text-green-500" />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setManusTaskIdInput(manusTaskIdData?.taskId ?? "");
+                setEditingTaskId(true);
+              }}
+              className="text-amber-700 border-amber-300 hover:bg-amber-100"
+            >
+              <Edit2 size={12} className="mr-1" />
+              변경
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 요약 카드 */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <Card className="border-indigo-100">
+          <CardContent className="pt-4 pb-3 px-4">
+            <p className="text-xs text-gray-500">활성 태스크</p>
+            <p className="text-2xl font-bold text-indigo-700">{activeCount}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-green-100">
+          <CardContent className="pt-4 pb-3 px-4">
+            <p className="text-xs text-gray-500">기본 태스크</p>
+            <p className="text-sm font-semibold text-green-700 truncate mt-1">
+              {defaultTask?.taskName ?? "미설정"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-purple-100">
+          <CardContent className="pt-4 pb-3 px-4">
+            <p className="text-xs text-gray-500">전체 태스크</p>
+            <p className="text-2xl font-bold text-purple-700">{(candidates as TaskCandidate[]).length}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 태스크 후보 목록 */}
+      <Card>
+        <CardHeader className="pb-2 pt-4 px-4">
+          <CardTitle className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+            <GitBranch size={14} className="text-indigo-600" />
+            Manus 태스크 후보 목록
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8 text-gray-400">
+              <Loader2 size={16} className="animate-spin mr-2" />
+              로딩 중...
+            </div>
+          ) : (candidates as TaskCandidate[]).length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <GitBranch size={24} className="mx-auto mb-2 opacity-40" />
+              <p className="text-sm">등록된 태스크 후보가 없습니다.</p>
+              <p className="text-xs mt-1">위의 "태스크 추가" 버튼으로 추가하세요.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {(candidates as TaskCandidate[]).map((c) => {
+                const typeInfo = TASK_TYPE_LABELS[c.taskType] ?? TASK_TYPE_LABELS.other;
+                return (
+                  <div
+                    key={c.id}
+                    className={`rounded-lg border px-4 py-3 ${
+                      !c.isActive ? "opacity-50 bg-gray-50" : "bg-white"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                          <span className="font-semibold text-sm text-gray-800">{c.taskName}</span>
+                          {c.isDefault && (
+                            <Badge className="text-[10px] bg-amber-100 text-amber-700 border-amber-200 border px-1.5 py-0">
+                              <Star size={8} className="mr-0.5" />기본
+                            </Badge>
+                          )}
+                          {!c.isActive && (
+                            <Badge className="text-[10px] bg-gray-100 text-gray-500 border border-gray-200 px-1.5 py-0">
+                              비활성
+                            </Badge>
+                          )}
+                          <Badge className={`text-[10px] border px-1.5 py-0 ${typeInfo.color}`}>
+                            {typeInfo.label}
+                          </Badge>
+                        </div>
+                        {c.projectName && (
+                          <p className="text-xs text-gray-500">{c.projectName}</p>
+                        )}
+                        {c.description && (
+                          <p className="text-xs text-gray-400 mt-0.5">{c.description}</p>
+                        )}
+                        <p className="text-[10px] text-gray-400 font-mono mt-1">{c.taskId}</p>
+                        {c.useCount != null && c.useCount > 0 && (
+                          <p className="text-[10px] text-indigo-400 mt-0.5">{c.useCount}회 사용</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {!c.isDefault && c.isActive && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setActiveMutation.mutate({ id: c.id, isDefault: true })}
+                            className="h-7 px-2 text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
+                            title="기본 태스크로 설정"
+                          >
+                            <Star size={11} />
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenEdit(c)}
+                          className="h-7 px-2 text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                        >
+                          <Edit2 size={11} />
+                        </Button>
+                        {c.isActive ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => deleteMutation.mutate({ id: c.id })}
+                            className="h-7 px-2 text-xs text-red-500 border-red-200 hover:bg-red-50"
+                            title="비활성화"
+                          >
+                            <Trash2 size={11} />
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setActiveMutation.mutate({ id: c.id, isActive: true })}
+                            className="h-7 px-2 text-xs text-green-600 border-green-200 hover:bg-green-50"
+                            title="활성화"
+                          >
+                            <CheckCircle2 size={11} />
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <code className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded break-all">
-                      {setting.settingValue || "(빈 값)"}
-                    </code>
-                    {descriptions[setting.settingKey] && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {descriptions[setting.settingKey]}
-                      </p>
-                    )}
-                    {setting.updatedBy && (
-                      <p className="text-xs text-gray-400 mt-1">
-                        변경: {setting.updatedBy}
-                        {setting.updatedAt &&
-                          ` · ${new Date(setting.updatedAt).toLocaleString("ko-KR")}`}
-                      </p>
-                    )}
                   </div>
-                  <div className="flex gap-1 ml-3 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setUpsertForm({
-                          key: setting.settingKey,
-                          value: setting.settingValue ?? "",
-                          description: setting.description ?? "",
-                        });
-                        setUpsertDialog(true);
-                      }}
-                    >
-                      <Edit2 size={12} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-500 hover:text-red-700"
-                      onClick={() => setDeleteConfirmKey(setting.settingKey)}
-                    >
-                      <Trash2 size={12} />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* ─── 설정 추가/수정 다이얼로그 ─────────────────────────────────────── */}
-      <Dialog open={upsertDialog} onOpenChange={setUpsertDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {upsertForm.key ? "설정 수정" : "설정 추가"}
-            </DialogTitle>
-            <DialogDescription>
-              DB에 저장된 설정은 환경변수보다 우선 적용됩니다.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1">
-              <Label>설정 키</Label>
-              <Input
-                value={upsertForm.key}
-                onChange={(e) => setUpsertForm((f) => ({ ...f, key: e.target.value }))}
-                placeholder="예: MANUS_DOGOLF_TASK_ID"
-                className="font-mono"
-                disabled={!!settings.find((s) => s.settingKey === upsertForm.key)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>설정 값</Label>
-              <Input
-                value={upsertForm.value}
-                onChange={(e) => setUpsertForm((f) => ({ ...f, value: e.target.value }))}
-                placeholder="설정 값 입력"
-                className="font-mono"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>설명 (선택)</Label>
-              <Input
-                value={upsertForm.description}
-                onChange={(e) =>
-                  setUpsertForm((f) => ({ ...f, description: e.target.value }))
-                }
-                placeholder="이 설정의 용도를 설명하세요"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setUpsertDialog(false)}>
-              취소
-            </Button>
-            <Button
-              onClick={() => {
-                if (!upsertForm.key.trim() || !upsertForm.value.trim()) return;
-                upsertSetting.mutate({
-                  key: upsertForm.key.trim(),
-                  value: upsertForm.value.trim(),
-                  description: upsertForm.description,
-                });
-              }}
-              disabled={upsertSetting.isPending}
-            >
-              {upsertSetting.isPending ? (
-                <RefreshCw size={14} className="animate-spin mr-1" />
-              ) : (
-                <Save size={14} className="mr-1" />
-              )}
-              저장
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* 라우팅 가이드 */}
+      <Card className="border-blue-100 bg-blue-50">
+        <CardContent className="px-4 py-4">
+          <h3 className="text-sm font-semibold text-blue-800 mb-2 flex items-center gap-1.5">
+            <GitBranch size={13} />
+            3단계 라우팅 프로세스
+          </h3>
+          <ol className="space-y-1.5 text-xs text-blue-700">
+            <li className="flex items-start gap-2">
+              <span className="font-bold text-blue-500 shrink-0">0.</span>
+              <span><strong>UI 선택 우선</strong> — 두골프 마스터 채팅에서 사용자가 직접 태스크를 선택하면 해당 태스크로 즉시 전송</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="font-bold text-blue-500 shrink-0">1.</span>
+              <span><strong>동일 모듈 활성 태스크</strong> — 같은 모듈에서 진행 중인 태스크가 있으면 기존 스레드에 추가 (크레딧 절약)</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="font-bold text-blue-500 shrink-0">2.</span>
+              <span><strong>신규 태스크 생성</strong> — 적합한 태스크가 없으면 새 Manus 태스크를 생성하여 전송</span>
+            </li>
+          </ol>
+        </CardContent>
+      </Card>
 
-      {/* ─── 삭제 확인 다이얼로그 ──────────────────────────────────────────── */}
-      <Dialog
-        open={!!deleteConfirmKey}
-        onOpenChange={() => setDeleteConfirmKey(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="text-red-600">설정 삭제 확인</DialogTitle>
-            <DialogDescription>
-              <code className="bg-gray-100 px-2 py-1 rounded font-mono">
-                {deleteConfirmKey}
-              </code>{" "}
-              설정을 삭제하시겠습니까?
-              <br />
-              삭제 후에는 환경변수 값이 사용됩니다.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirmKey(null)}>
-              취소
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                if (deleteConfirmKey) {
-                  deleteSetting.mutate({ key: deleteConfirmKey });
-                  setDeleteConfirmKey(null);
-                }
-              }}
-            >
-              삭제
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* 태스크 추가/수정 다이얼로그 */}
+      <TaskCandidateDialog
+        open={dialogOpen}
+        onClose={() => {
+          setDialogOpen(false);
+          setEditTarget(null);
+        }}
+        editTarget={editTarget}
+        onSuccess={() => {
+          utils.systemSettings.listTaskCandidates.invalidate();
+        }}
+      />
     </div>
   );
 }

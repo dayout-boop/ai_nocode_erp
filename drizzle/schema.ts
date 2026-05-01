@@ -1422,18 +1422,45 @@ export const managedProjects = mysqlTable("managed_projects", {
 export type ManagedProject = typeof managedProjects.$inferSelect;
 export type InsertManagedProject = typeof managedProjects.$inferInsert;
 
-// ============================================================
-// SYSTEM_SETTINGS - ERP 시스템 설정 (관리자 전용)
-// Manus 태스크 ID, 환경변수 오버라이드 등 운영 설정 저장
-// ============================================================
+// ─── 시스템 설정 테이블 ────────────────────────────────────────────────────────
+/**
+ * ERP 핵심 운영 설정을 DB에 저장합니다.
+ * 환경변수보다 우선 적용되며, 관리자가 UI에서 직접 변경 가능합니다.
+ * 주요 키: MANUS_DOGOLF_TASK_ID, MANUS_PROJECT_ID, DEV_REQUEST_AUTO_SEND 등
+ */
 export const systemSettings = mysqlTable("system_settings", {
   id: int("id").autoincrement().primaryKey(),
   settingKey: varchar("settingKey", { length: 100 }).notNull().unique(),
   settingValue: text("settingValue"),
   description: text("description"),
-  updatedBy: varchar("updatedBy", { length: 100 }),
+  updatedBy: varchar("updatedBy", { length: 200 }),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
-  createdAt: timestamp("createdAt").defaultNow(),
 });
 export type SystemSetting = typeof systemSettings.$inferSelect;
 export type InsertSystemSetting = typeof systemSettings.$inferInsert;
+
+// ─── Manus 태스크 후보 테이블 (태스크 라우팅 선택지 관리) ──────────────────────
+/**
+ * 개발 요청 시 선택 가능한 Manus 태스크 후보 목록입니다.
+ * 두골프 마스터에서 개발요청 전 사용자가 선택하는 태스크 풀입니다.
+ */
+export const manusTaskCandidates = mysqlTable("manus_task_candidates", {
+  id: int("id").autoincrement().primaryKey(),
+  taskId: varchar("taskId", { length: 100 }).notNull().unique(),
+  taskName: varchar("taskName", { length: 200 }).notNull(),
+  projectName: varchar("projectName", { length: 200 }),
+  description: text("description"),
+  /** 태스크 유형: erp=ERP 개발, homepage=홈페이지, new=신규 프로젝트 */
+  taskType: mysqlEnum("taskType", ["erp", "homepage", "new_project", "other"]).default("erp"),
+  /** 이 태스크가 기본 라우팅 대상인지 */
+  isDefault: boolean("isDefault").default(false).notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  /** 마지막 사용 시각 */
+  lastUsedAt: timestamp("lastUsedAt"),
+  /** 총 사용 횟수 */
+  useCount: int("useCount").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
+});
+export type ManusTaskCandidate = typeof manusTaskCandidates.$inferSelect;
+export type InsertManusTaskCandidate = typeof manusTaskCandidates.$inferInsert;

@@ -3,27 +3,20 @@
  *
  * 개발 요청을 Manus API로 전송할 때 지능형 라우팅을 수행합니다.
  *
- * 라우팅 로직 (우선순위 순):
- *   1. MANUS_DOGOLF_TASK_ID가 설정된 경우
- *      → task.sendMessage (현재 두골프 ERP 개발 대화창에 직접 전송, 크레딧 최소화)
- *   2. 동일 모듈에 in_progress 상태의 기존 Manus Task가 있으면
+ * 라우팅 로직:
+ *   1. 동일 모듈에 in_progress 상태의 기존 Manus Task가 있으면
  *      → task.sendMessage (기존 스레드에 추가, 크레딧 절약)
- *   3. 없거나 만료된 경우
+ *   2. 없거나 만료된 경우
  *      → task.create + project_id (두골프 프로젝트 내 신규 태스크)
  *
  * 환경변수:
  *   MANUS_API_KEY        - Manus API 인증 키
  *   MANUS_PROJECT_ID     - 두골프 전용 Manus 프로젝트 ID (task.create 시 사용)
- *   MANUS_DOGOLF_TASK_ID - 현재 두골프 ERP 개발 대화창 태스크 ID (최우선 사용)
- *
- * ⚠️ 핵심 설계 원칙:
- *   MANUS_DOGOLF_TASK_ID가 설정되면 항상 해당 대화창으로 메시지를 보냅니다.
- *   이렇게 해야 개발 요청이 현재 프로젝트 대화창으로 바로 들어와 리소스 낭비 없이
- *   즉시 처리됩니다. 새 태스크를 만들면 별도 대화창이 생겨 개발 리소스가 분산됩니다.
+ *   MANUS_DOGOLF_TASK_ID - 레거시 호환용 (미설정 시 무시)
  */
 import { eq, and, isNotNull, desc } from "drizzle-orm";
 import { getDb } from "../db";
-import { devRequests, managedProjects, systemSettings } from "../../drizzle/schema";
+import { devRequests, managedProjects } from "../../drizzle/schema";
 import { ENV } from "../_core/env";
 
 const MANUS_API_BASE = "https://api.manus.ai/v2";
@@ -297,10 +290,14 @@ ${contextBlock}`;
 /**
  * 스마트 라우팅으로 Manus에 개발 요청을 전송합니다.
  *
- * 우선순위:
- * 1. MANUS_DOGOLF_TASK_ID → 현재 두골프 ERP 개발 대화창에 sendMessage (최우선)
- * 2. 동일 모듈 활성 태스크 → sendMessage (기존 스레드 재사용)
- * 3. 신규 태스크 생성 → task.create (폴백)
+ * 라우팅 우선순위:
+ *   0. selectedTaskId가 지정된 경우 → 해당 태스크로 직접 sendMessage (UI 선택 우선)
+ *   1. 동일 모듈의 활성 태스크 조회
+ *   2. 있으면 → task.sendMessage (기존 스레드 추가)
+ *   3. 없으면 → task.create + project_id (신규 태스크)
+ *
+ * @param req.selectedTaskId - UI에서 사용자가 선택한 태스크 ID (최우선 라우팅)
+ * @param req.forceNewTask - true이면 무조건 신규 태스크 생성
  */
 export async function smartSendToManus(req: {
   id: number;
@@ -311,6 +308,10 @@ export async function smartSendToManus(req: {
   estimatedHours?: number | null;
   aiCategory?: string | null;
   aiAnalysis?: string | null;
+  /** UI에서 사용자가 선택한 태스크 ID (최우선 라우팅) */
+  selectedTaskId?: string | null;
+  /** true이면 무조건 신규 태스크 생성 */
+  forceNewTask?: boolean;
 }): Promise<ManusRoutingResult> {
   const apiKey = getManusApiKey();
   if (!apiKey) {
@@ -321,48 +322,43 @@ export async function smartSendToManus(req: {
     };
   }
 
-  // ─── 1순위: MANUS_DOGOLF_TASK_ID → 현재 두골프 ERP 개발 대화창으로 직접 전송 ───
-  // DB 설정이 환경변수보다 우선 사용됩니다 (ERP 설정 UI에서 관리자가 변경 가능).
-  // 새 태스크를 만들면 별도 대화창이 생겨 개발 리소스가 분산되므로 반드시 sendMessage 사용.
-  let dogolfTaskId = process.env.MANUS_DOGOLF_TASK_ID;
-  try {
-    const db = await getDb();
-    if (db) {
-      const [dbSetting] = await db
-        .select()
-        .from(systemSettings)
-        .where(eq(systemSettings.settingKey, "MANUS_DOGOLF_TASK_ID"))
-        .limit(1);
-      if (dbSetting?.settingValue) {
-        dogolfTaskId = dbSetting.settingValue;
-        console.log(`[ManusPipe] DB에서 MANUS_DOGOLF_TASK_ID 로드: ${dogolfTaskId}`);
-      }
-    }
-  } catch (e) {
-    console.warn("[ManusPipe] DB에서 MANUS_DOGOLF_TASK_ID 조회 실패, 환경변수 사용:", e);
-  }
-  if (dogolfTaskId) {
-    const message = await formatDevRequestMessage(req);
-    const result = await sendMessageToExistingTask(dogolfTaskId, message);
+  // 0. UI에서 사용자가 선택한 태스크 ID가 있으면 최우선 라우팅
+  if (req.selectedTaskId && !req.forceNewTask) {
+    const message = await formatDevRequestMessage({ ...req, isFollowUp: false });
+    const result = await sendMessageToExistingTask(req.selectedTaskId, message);
     if (result.success) {
-      console.log(`[ManusPipe] ✅ 현재 두골프 ERP 대화창(${dogolfTaskId})에 직접 전송 성공 - 요청 #${req.id}`);
+      console.log(`[ManusPipe] UI 선택 태스크(${req.selectedTaskId})로 직접 전송 성공`);
       return {
         success: true,
         routingType: "send_message",
-        routingReason: `두골프 ERP 개발 대화창(MANUS_DOGOLF_TASK_ID)에 직접 전송`,
-        taskId: dogolfTaskId,
-        taskUrl: `https://manus.im/app/${dogolfTaskId}`,
+        routingReason: `UI에서 선택한 태스크로 직접 전송 (taskId: ${req.selectedTaskId})`,
+        taskId: req.selectedTaskId,
       };
     }
-    // sendMessage 실패 시 다음 단계로 폴백
-    console.warn(`[ManusPipe] ⚠️ MANUS_DOGOLF_TASK_ID(${dogolfTaskId}) sendMessage 실패, 모듈 활성 태스크 조회로 폴백`);
+    console.warn(`[ManusPipe] UI 선택 태스크(${req.selectedTaskId}) 전송 실패, 스마트 라우팅으로 폴백`);
   }
 
-  // ─── 2순위: 동일 모듈 활성 태스크 조회 ──────────────────────────────────────
+  // forceNewTask이면 바로 신규 생성으로 이동
+  if (req.forceNewTask) {
+    const message = await formatDevRequestMessage(req);
+    const title = `[두골프] ${req.aiCategory ?? "개발요청"}: ${req.title.slice(0, 60)}`;
+    const result = await createNewTask(message, title);
+    const projectId = getManusProjectId();
+    return {
+      success: result.success,
+      routingType: "new_task",
+      routingReason: `신규 태스크 강제 생성 (project: ${projectId || "없음"})`,
+      taskId: result.taskId,
+      taskUrl: result.taskUrl,
+      projectId: projectId || undefined,
+    };
+  }
+
+  // 1. 동일 모듈 활성 태스크 조회
   const activeTask = await findActiveTaskForModule(req.module);
 
   if (activeTask) {
-    // 기존 태스크에 메시지 추가 (sendMessage)
+    // 2. 기존 태스크에 메시지 추가 (sendMessage)
     const message = await formatDevRequestMessage({
       ...req,
       isFollowUp: true,
@@ -382,7 +378,7 @@ export async function smartSendToManus(req: {
     console.warn("[ManusPipe] sendMessage 실패, 신규 태스크 생성으로 폴백");
   }
 
-  // ─── 3순위: 신규 태스크 생성 (task.create + project_id) ─────────────────────
+  // 3. 신규 태스크 생성 (task.create + project_id)
   const message = await formatDevRequestMessage(req);
   const title = `[두골프] ${req.aiCategory ?? "개발요청"}: ${req.title.slice(0, 60)}`;
   const result = await createNewTask(message, title);
@@ -534,6 +530,10 @@ export async function autoRegisterAndSend(devRequest: {
   requestedBy?: number;
   aiCategory?: string;
   aiAnalysis?: string;
+  /** UI에서 사용자가 선택한 Manus 태스크 ID (최우선 라우팅) */
+  selectedTaskId?: string | null;
+  /** true이면 무조건 신규 태스크 생성 */
+  forceNewTask?: boolean;
 }): Promise<{
   devRequestId: number;
   manusTaskId: string;
@@ -580,6 +580,8 @@ export async function autoRegisterAndSend(devRequest: {
     estimatedHours: devRequest.estimatedHours,
     aiCategory: devRequest.aiCategory,
     aiAnalysis: devRequest.aiAnalysis,
+    selectedTaskId: devRequest.selectedTaskId,
+    forceNewTask: devRequest.forceNewTask,
   });
 
   if (result.success) {

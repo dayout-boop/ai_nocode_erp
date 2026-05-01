@@ -71,7 +71,7 @@ const DEFAULT_FOOTER = {
   instagramUrl: "https://instagram.com/dogolf",
   youtubeUrl: "",
   naverBlogUrl: "",
-  copyright: `© ${new Date().getFullYear()} 두골프(DOGOLF). All Rights Reserved.`,
+  copyright: "© 2026 두골프(DOGOLF). All Rights Reserved.",
   businessLicenseImageUrl: "",
 };
 

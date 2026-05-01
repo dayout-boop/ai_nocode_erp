@@ -24,6 +24,7 @@ import {
   Bell as BellIcon, Image, Code2, Globe,
   // 설정
   Settings,
+  Cpu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -58,12 +59,12 @@ import AffiliateManagement from "@/pages/erp/AffiliateManagement";
 import GolfTalkAdmin from "@/pages/erp/GolfTalkAdmin";
 import ManagerAdmin from "@/pages/erp/ManagerAdmin";
 import ERPSettings from "@/pages/erp/ERPSettings";
+import SystemSettings from "@/pages/erp/SystemSettings";
 import OpenRouterAgent from "@/pages/erp/OpenRouterAgent";
 import CustomerEstimateTemplates from "@/pages/erp/CustomerEstimateTemplates";
 import DevDashboard from "@/pages/erp/DevDashboard";
 import ManagedProjects from "@/pages/erp/ManagedProjects";
-import SystemSettings from "@/pages/erp/SystemSettings";
-import { Cpu, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 interface NavChild {
   label: string;
@@ -174,8 +175,8 @@ const navItems: NavItem[] = [
     label: "연동 설정",
     icon: <Settings size={18} />,
     children: [
-      { label: "ERP 연동 설정", href: "/settings", icon: <Settings size={14} /> },
-      { label: "시스템 설정", href: "/system-settings", icon: <Cpu size={14} /> },
+      { label: "ERP 설정", href: "/settings", icon: <Settings size={14} /> },
+      { label: "시스템 설정", href: "/settings/system", icon: <Cpu size={14} /> },
     ],
   },
 ];
@@ -303,10 +304,10 @@ function ERPContent() {
           <Route path="/golftalk-admin" component={GolfTalkAdmin} />
           <Route path="/manager-admin" component={ManagerAdmin} />
           <Route path="/settings" component={ERPSettings} />
+          <Route path="/settings/system" component={SystemSettings} />
           <Route path="/openrouter-agent" component={OpenRouterAgent} />
           <Route path="/dev-dashboard" component={DevDashboard} />
           <Route path="/managed-projects" component={ManagedProjects} />
-          <Route path="/system-settings" component={SystemSettings} />
           <Route component={ERPDashboard} />
         </Switch>
       </Suspense>

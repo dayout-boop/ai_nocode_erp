@@ -11,12 +11,20 @@ import {
   Send, Loader2, Bot, User, Zap, AlertCircle, CheckCircle2,
   ExternalLink, ChevronDown, RefreshCw, BarChart3, ClipboardList,
   DollarSign, Cpu, MessageSquare, Database, Search, Clock,
-  TrendingUp, Package, AlertTriangle, Activity,
+  TrendingUp, Package, AlertTriangle, Activity, Plus, GitBranch, Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
@@ -56,6 +64,221 @@ interface Message {
   // Tool Calling 시각화
   toolExecutions?: ToolExecution[];
   phase?: "thinking" | "querying" | "analyzing" | "done";
+}
+
+// ─── 태스크 후보 타입 ─────────────────────────────────────────────────────────
+interface TaskCandidate {
+  id: number;
+  taskId: string;
+  taskName: string;
+  projectName?: string | null;
+  description?: string | null;
+  taskType: "erp" | "homepage" | "new_project" | "other";
+  isDefault: boolean;
+  isActive: boolean;
+  useCount?: number | null;
+  lastUsedAt?: Date | null;
+}
+
+// ─── 태스크 유형 레이블 ────────────────────────────────────────────────────────
+const TASK_TYPE_LABELS: Record<string, { label: string; color: string }> = {
+  erp: { label: "ERP", color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  homepage: { label: "홈페이지", color: "bg-green-100 text-green-700 border-green-200" },
+  new_project: { label: "신규 프로젝트", color: "bg-purple-100 text-purple-700 border-purple-200" },
+  other: { label: "기타", color: "bg-gray-100 text-gray-700 border-gray-200" },
+};
+
+// ─── 태스크 선택 다이얼로그 컴포넌트 ──────────────────────────────────────────
+function TaskSelectDialog({
+  open,
+  onClose,
+  onConfirm,
+  suggestion,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: (selectedTaskId: string | null, forceNew: boolean) => void;
+  suggestion: DevRequestSuggestion | null;
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [recommendedTaskId, setRecommendedTaskId] = useState<string | null>(null);
+  const [recommendReason, setRecommendReason] = useState<string>("");
+  const [recommendConfidence, setRecommendConfidence] = useState<number>(0);
+
+  // 태스크 후보 목록 조회
+  const { data: candidatesData, isLoading: candidatesLoading } = trpc.systemSettings.listTaskCandidates.useQuery(
+    { activeOnly: true },
+    { enabled: open }
+  );
+
+  // AI 태스크 추천
+  const recommendMutation = trpc.systemSettings.analyzeAndRecommendTask.useMutation({
+    onSuccess: (data) => {
+      if (data.recommended) {
+        setRecommendedTaskId(data.recommended.taskId);
+        setRecommendReason(data.reason ?? "");
+        setRecommendConfidence(data.confidence ?? 0);
+        // 추천 태스크 자동 선택
+        if (!selectedId) setSelectedId(data.recommended.taskId);
+      }
+      setIsAnalyzing(false);
+    },
+    onError: () => setIsAnalyzing(false),
+  });
+
+  // 다이얼로그 열릴 때 AI 분석 자동 실행
+  useEffect(() => {
+    if (open && suggestion && !isAnalyzing) {
+      setSelectedId(null);
+      setRecommendedTaskId(null);
+      setRecommendReason("");
+      setIsAnalyzing(true);
+      recommendMutation.mutate({
+        title: suggestion.title,
+        description: suggestion.description,
+        module: suggestion.module,
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, suggestion?.title]);
+
+  const candidates = (candidatesData ?? []) as TaskCandidate[];
+
+  const handleConfirm = (forceNew = false) => {
+    if (forceNew) {
+      onConfirm(null, true);
+    } else {
+      onConfirm(selectedId, false);
+    }
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-indigo-800">
+            <GitBranch size={16} className="text-indigo-600" />
+            Manus 태스크 선택
+          </DialogTitle>
+          <DialogDescription className="text-xs text-gray-500">
+            개발 요청을 전송할 Manus 태스크를 선택하세요. AI가 가장 적합한 태스크를 추천합니다.
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* 개발 요청 요약 */}
+        {suggestion && (
+          <div className="bg-indigo-50 rounded-lg px-3 py-2 border border-indigo-100">
+            <p className="text-xs text-indigo-600 font-medium mb-0.5">전송할 개발 요청</p>
+            <p className="text-sm font-semibold text-gray-800">{suggestion.title}</p>
+            <p className="text-xs text-gray-500">{suggestion.module} · {suggestion.priority.toUpperCase()}</p>
+          </div>
+        )}
+
+        {/* AI 분석 중 */}
+        {isAnalyzing && (
+          <div className="flex items-center gap-2 text-indigo-600 text-sm py-2">
+            <Loader2 size={14} className="animate-spin" />
+            AI가 최적 태스크를 분석 중...
+          </div>
+        )}
+
+        {/* AI 추천 결과 */}
+        {!isAnalyzing && recommendedTaskId && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <p className="text-xs font-medium text-amber-700 flex items-center gap-1 mb-0.5">
+              <Star size={11} />
+              AI 추천 ({Math.round(recommendConfidence * 100)}% 신뢰도)
+            </p>
+            <p className="text-xs text-amber-800">{recommendReason}</p>
+          </div>
+        )}
+
+        {/* 태스크 후보 목록 */}
+        <div className="space-y-2 max-h-64 overflow-y-auto">
+          {candidatesLoading ? (
+            <div className="text-center py-4 text-gray-400 text-sm"><Loader2 size={14} className="animate-spin inline mr-1" />로딩 중...</div>
+          ) : candidates.length === 0 ? (
+            <div className="text-center py-4 text-gray-400 text-sm">
+              등록된 태스크 후보가 없습니다.<br />
+              <span className="text-xs">ERP &gt; 연동 설정 &gt; 시스템 설정에서 추가하세요.</span>
+            </div>
+          ) : (
+            candidates.map((c) => {
+              const typeInfo = TASK_TYPE_LABELS[c.taskType] ?? TASK_TYPE_LABELS.other;
+              const isSelected = selectedId === c.taskId;
+              const isRecommended = recommendedTaskId === c.taskId;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedId(c.taskId)}
+                  className={`w-full text-left rounded-lg border px-3 py-2.5 transition-all ${
+                    isSelected
+                      ? "border-indigo-400 bg-indigo-50 ring-1 ring-indigo-300"
+                      : "border-gray-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/50"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-sm font-medium text-gray-800 truncate">{c.taskName}</span>
+                        {isRecommended && (
+                          <Badge className="text-[10px] bg-amber-100 text-amber-700 border-amber-200 border px-1 py-0">
+                            <Star size={8} className="mr-0.5" />AI 추천
+                          </Badge>
+                        )}
+                        {c.isDefault && (
+                          <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200 border px-1 py-0">기본</Badge>
+                        )}
+                      </div>
+                      {c.projectName && (
+                        <p className="text-xs text-gray-500 mt-0.5">{c.projectName}</p>
+                      )}
+                      {c.description && (
+                        <p className="text-xs text-gray-400 mt-0.5 truncate">{c.description}</p>
+                      )}
+                      <p className="text-[10px] text-gray-400 mt-0.5 font-mono">{c.taskId}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <Badge className={`text-[10px] border ${typeInfo.color} px-1.5 py-0`}>{typeInfo.label}</Badge>
+                      {c.useCount != null && c.useCount > 0 && (
+                        <span className="text-[10px] text-gray-400">{c.useCount}회 사용</span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleConfirm(true)}
+            className="text-purple-600 border-purple-200 hover:bg-purple-50 flex items-center gap-1"
+          >
+            <Plus size={13} />
+            신규 태스크 생성
+          </Button>
+          <div className="flex gap-2 ml-auto">
+            <Button variant="outline" size="sm" onClick={onClose}>취소</Button>
+            <Button
+              size="sm"
+              onClick={() => handleConfirm(false)}
+              disabled={!selectedId && candidates.length > 0}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              <Zap size={13} className="mr-1" />
+              {selectedId ? "선택한 태스크로 전송" : "스마트 라우팅으로 전송"}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 // ─── 도구 이름 한국어 매핑 ─────────────────────────────────────────────────────
@@ -316,6 +539,12 @@ export default function MasterAI() {
   const [sendingRequests, setSendingRequests] = useState<Set<string>>(new Set());
   const [sentRequestResults, setSentRequestResults] = useState<Map<string, { routingType: string; routingReason: string; manusTaskUrl?: string }>>(new Map());
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  // 완료 감지: 마지막으로 Manus에 전송된 devRequest ID 추적
+  const [lastSentDevRequestId, setLastSentDevRequestId] = useState<number | null>(null);
+  const [lastSentManusTaskId, setLastSentManusTaskId] = useState<string | null>(null);
+  // 태스크 선택 다이얼로그 상태
+  const [taskSelectOpen, setTaskSelectOpen] = useState(false);
+  const [pendingDevRequest, setPendingDevRequest] = useState<{ msgId: string; suggestion: DevRequestSuggestion } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -329,12 +558,24 @@ export default function MasterAI() {
           ? `기존 스레드에 추가 (절약 모드)`
           : `신규 태스크 생성`;
         toast.success(`✅ Manus 전송 완료 (ID: ${data.devRequestId}) — ${routeLabel}`);
+        // 마지막 전송 devRequest ID 추적 (완료 감지용)
+        if (data.devRequestId) setLastSentDevRequestId(data.devRequestId);
+        if (data.manusTaskId) setLastSentManusTaskId(data.manusTaskId);
       } else {
         toast.warning(`📋 개발 요청 등록 완료 (ID: ${data.devRequestId}) — Manus 연결 설정 필요`);
       }
     },
     onError: (err) => {
       toast.error(`❌ 전송 실패: ${err.message}`);
+    },
+  });
+
+  // 완료 키워드 감지 mutation (AI 응답에서 자동 호출)
+  const detectCompleteMutation = trpc.devRequest.detectAndCompleteFromResponse.useMutation({
+    onSuccess: (data) => {
+      if (data.detected && data.updatedCount > 0) {
+        toast.success(`✅ 개발 요청 ${data.updatedCount}건이 자동으로 완료 처리되었습니다.`, { duration: 4000 });
+      }
     },
   });
 
@@ -493,6 +734,14 @@ export default function MasterAI() {
                       : m
                   )
                 );
+                // 완료 키워드 자동 감지: 이 대화에서 Manus에 전송한 요청이 있으면 자동 완료 체크
+                if ((lastSentDevRequestId || lastSentManusTaskId) && data.fullText) {
+                  detectCompleteMutation.mutate({
+                    devRequestId: lastSentDevRequestId ?? undefined,
+                    responseText: data.fullText,
+                    manusTaskId: lastSentManusTaskId ?? undefined,
+                  });
+                }
 
               } else if (eventType === "error") {
                 setMessages((prev) =>
@@ -525,9 +774,21 @@ export default function MasterAI() {
     }
   }, [isStreaming, messages, sessionId, streamingAutoScroll]);
 
-  // 개발 요청 Manus 스마트 전송 (자동 분류 + 라우팅)
+  // 개발 요청 전송 (태스크 선택 다이얼로그 열기)
   const handleSendDevRequest = useCallback(
-    async (msgId: string, suggestion: DevRequestSuggestion) => {
+    (msgId: string, suggestion: DevRequestSuggestion) => {
+      // 태스크 선택 다이얼로그를 먼저 열고 사용자가 선택 후 전송
+      setPendingDevRequest({ msgId, suggestion });
+      setTaskSelectOpen(true);
+    },
+    []
+  );
+
+  // 태스크 선택 후 실제 전송 실행
+  const handleTaskConfirm = useCallback(
+    async (selectedTaskId: string | null, forceNew: boolean) => {
+      if (!pendingDevRequest) return;
+      const { msgId, suggestion } = pendingDevRequest;
       setSendingRequests((prev) => new Set(prev).add(msgId));
       try {
         const result = await autoSendMutation.mutateAsync({
@@ -536,6 +797,8 @@ export default function MasterAI() {
           priority: suggestion.priority,
           module: suggestion.module,
           estimatedHours: suggestion.estimatedHours,
+          selectedTaskId: selectedTaskId ?? undefined,
+          forceNewTask: forceNew,
         });
         setSentRequests((prev) => new Set(prev).add(msgId));
         if (result.routingType) {
@@ -555,9 +818,10 @@ export default function MasterAI() {
           next.delete(msgId);
           return next;
         });
+        setPendingDevRequest(null);
       }
     },
-    [autoSendMutation]
+    [pendingDevRequest, autoSendMutation]
   );
 
   // 키보드 단축키 (Enter 전송, Shift+Enter 줄바꿈)
@@ -833,6 +1097,17 @@ export default function MasterAI() {
           사실 기반 응답 전용 · ERP DB 직접 접근 · 최근 20턴 컨텍스트 · 세션: {sessionId.slice(0, 12)}...
         </p>
       </div>
+
+      {/* 태스크 선택 다이얼로그 */}
+      <TaskSelectDialog
+        open={taskSelectOpen}
+        onClose={() => {
+          setTaskSelectOpen(false);
+          setPendingDevRequest(null);
+        }}
+        onConfirm={handleTaskConfirm}
+        suggestion={pendingDevRequest?.suggestion ?? null}
+      />
     </div>
   );
 }

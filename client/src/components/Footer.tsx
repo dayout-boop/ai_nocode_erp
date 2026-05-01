@@ -11,7 +11,7 @@ import { trpc } from '@/lib/trpc';
 
 // 기본값 (DB 데이터 없을 때 폴백)
 const DEFAULTS = {
-  companyName: '두골프',
+  companyName: '데이아웃(두골프)',
   ceoName: '홍길동',
   businessNumber: '000-00-00000',
   mailOrderNumber: '제 2022-서울광진-0000호',
@@ -26,7 +26,7 @@ const DEFAULTS = {
   xUrl: '',
   youtubeUrl: '',
   naverBlogUrl: '',
-  copyright: '',  // 동적으로 생성됨 (아래 f.copyright 참조)
+  copyright: `© ${new Date().getFullYear()} 데이아웃(두골프). All Rights Reserved. Powered by dogolfai`,
 };
 
 // 모바일 아코디언 섹션 컴포넌트
@@ -68,18 +68,11 @@ export default function Footer() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // DB에서 가져온 데이터로 DEFAULTS 병합
-  const rawFooter = { ...DEFAULTS, ...(footerData as Record<string, string> ?? {}) };
-  // 저작권 연도 자동화: 매년 자동으로 현재 연도 표시
-  const currentYear = new Date().getFullYear();
-  // 파트너명 동적 표시: DB의 companyName 우선 사용
-  const partnerName = rawFooter.companyName || '두골프';
+  const rawF = { ...DEFAULTS, ...(footerData as Record<string, string> ?? {}) };
+  // DB에 {YEAR} 플레이스홀더가 있는 경우 현재 연도로 치환
   const f = {
-    ...rawFooter,
-    // DB에 저장된 copyright가 있으면 연도만 현재 연도로 치환, 없으면 자동 생성
-    copyright: rawFooter.copyright
-      ? rawFooter.copyright.replace(/©\s*\d{4}/, `© ${currentYear}`)
-      : `© ${currentYear} ${partnerName}(DOGOLF). All Rights Reserved. Powered by dogolfai`,
+    ...rawF,
+    copyright: (rawF.copyright ?? '').replace(/\{YEAR\}/g, String(new Date().getFullYear())),
   };
 
   // SVG 아이콘 컴포넌트

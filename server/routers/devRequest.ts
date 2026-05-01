@@ -291,6 +291,10 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
         aiCategory: z.string().optional(),
         aiAnalysis: z.string().optional(),
         chatContext: z.string().optional(),
+        /** UI에서 사용자가 선택한 Manus 태스크 ID (최우선 라우팅) */
+        selectedTaskId: z.string().optional().nullable(),
+        /** true이면 무조건 신규 태스크 생성 */
+        forceNewTask: z.boolean().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -355,6 +359,8 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
         requestedBy: ctx.user.id,
         aiCategory: category,
         aiAnalysis: analysis,
+        selectedTaskId: input.selectedTaskId,
+        forceNewTask: input.forceNewTask,
       });
 
       return {
@@ -370,5 +376,82 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
         priority,
         estimatedHours,
       };
+    }),
+
+  /**
+   * Manus 응답 텍스트에서 완료 키워드를 감지하여 in_progress 요청을 자동 completed 전환
+   * 두골프 마스터 채팅에서 AI 응답 후 자동으로 호출됩니다.
+   */
+  detectAndCompleteFromResponse: adminProcedure
+    .input(
+      z.object({
+        devRequestId: z.number().int().positive().optional(),
+        responseText: z.string(),
+        manusTaskId: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const COMPLETION_KEYWORDS = [
+        '체크포인트를 저장했습니다',
+        '체크포인트 저장',
+        'webdev_save_checkpoint',
+        '배포 준비가 완료',
+        '구현이 완료되었습니다',
+        '구현 완료',
+        '개발이 완료되었습니다',
+        '개발 완료',
+        '작업이 완료되었습니다',
+        '작업 완료',
+        '버그 수정 완료',
+        '기능 구현 완료',
+        '배포하시려면 Publish 버튼',
+        '배포 후 확인',
+        '수정 완료되었습니다',
+        '수정 완료',
+      ];
+
+      const isCompleted = COMPLETION_KEYWORDS.some(kw => input.responseText.includes(kw));
+      if (!isCompleted) return { detected: false, updatedCount: 0 };
+
+      const db = await getDb();
+      if (!db) return { detected: true, updatedCount: 0 };
+
+      let updatedCount = 0;
+      const matchedKeywords = COMPLETION_KEYWORDS.filter(kw => input.responseText.includes(kw));
+
+      if (input.devRequestId) {
+        const result = await db
+          .update(devRequests)
+          .set({ status: 'completed', updatedAt: new Date() })
+          .where(and(eq(devRequests.id, input.devRequestId), eq(devRequests.status, 'in_progress')));
+        updatedCount = (result as unknown as { affectedRows?: number })?.affectedRows ?? 1;
+      } else if (input.manusTaskId) {
+        const rows = await db
+          .select({ id: devRequests.id })
+          .from(devRequests)
+          .where(and(eq(devRequests.manusTaskId, input.manusTaskId), eq(devRequests.status, 'in_progress')))
+          .limit(5);
+        for (const row of rows) {
+          await db.update(devRequests).set({ status: 'completed', updatedAt: new Date() }).where(eq(devRequests.id, row.id));
+          updatedCount++;
+        }
+      }
+
+      return { detected: true, updatedCount, matchedKeywords };
+    }),
+
+  /**
+   * 단일 요청 완료 체크 (ERP 리스트에서 수동 완료 처리)
+   */
+  markCompleted: adminProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+      await db
+        .update(devRequests)
+        .set({ status: 'completed', updatedAt: new Date() })
+        .where(and(eq(devRequests.id, input.id), eq(devRequests.status, 'in_progress')));
+      return { success: true };
     }),
 });
