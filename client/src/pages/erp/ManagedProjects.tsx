@@ -9,7 +9,7 @@ import {
   Plus, Pencil, Trash2, Star, StarOff, ExternalLink,
   FolderOpen, CheckCircle2, Loader2, ChevronDown, ChevronUp,
   Code2, Globe, BookOpen, Settings2, BarChart3, Copy, ArrowRight,
-  TrendingUp, Bug, Lightbulb, HelpCircle, Target, Activity,
+  TrendingUp, Bug, Lightbulb, HelpCircle, Target, Activity, RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -214,6 +214,16 @@ export default function ManagedProjects() {
     });
   };
 
+  // Manus 프로젝트 동기화
+  const syncMutation = trpc.managedProjects.syncFromManus.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.message);
+      utils.managedProjects.list.invalidate();
+      utils.managedProjects.getStats.invalidate();
+    },
+    onError: (err) => toast.error(`동기화 실패: ${err.message}`),
+  });
+
   const isMutating = createMutation.isPending || updateMutation.isPending;
 
   // ─── 대시보드 통계 계산 ────────────────────────────────────────────────────
@@ -248,10 +258,22 @@ export default function ManagedProjects() {
             Manus AI 오케스트라가 관리하는 WebDev 프로젝트 목록. 기본 프로젝트가 개발 요청 전송 시 사용됩니다.
           </p>
         </div>
-        <Button onClick={openCreate} className="bg-dogolf-green hover:bg-dogolf-green-dark text-white gap-2">
-          <Plus className="w-4 h-4" />
-          프로젝트 추가
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+            className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+            title="Manus API에서 프로젝트 목록을 가져와 자동 등록합니다"
+          >
+            {syncMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            Manus 동기화
+          </Button>
+          <Button onClick={openCreate} className="bg-dogolf-green hover:bg-dogolf-green-dark text-white gap-2">
+            <Plus className="w-4 h-4" />
+            프로젝트 추가
+          </Button>
+        </div>
       </div>
 
       {/* 탭 */}

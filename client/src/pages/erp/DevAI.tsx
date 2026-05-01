@@ -63,6 +63,8 @@ import {
   Lightbulb,
   AlertTriangle,
   Info,
+  FolderOpen,
+  Layers,
 } from "lucide-react";
 import {
   BarChart,
@@ -116,6 +118,82 @@ const CATEGORY_LABELS: Record<string, string> = {
   finance: "재무",
   system: "시스템",
 };
+
+// ─── 관리 프로젝트 요약 위젯 ─────────────────────────────────────────────
+function ManagedProjectsSummaryWidget() {
+  const { data: stats, isLoading } = trpc.managedProjects.getStats.useQuery();
+  const [, setLocation] = useLocation();
+
+  if (isLoading) {
+    return (
+      <div className="h-20 bg-slate-100 rounded-xl animate-pulse" />
+    );
+  }
+
+  if (!stats || stats.length === 0) return null;
+
+  const activeProjects = stats.filter((p: any) => p.isActive).length;
+  const totalRequests = stats.reduce((s: number, p: any) => s + (p.stats?.totalRequests ?? 0), 0);
+  const thisWeekRequests = 0; // 주간 통계는 대시보드 stats에서 가져옴
+  const accuracyList = stats.filter((p: any) => p.stats?.avgAccuracy !== null).map((p: any) => p.stats?.avgAccuracy as number);
+  const avgAccuracy = accuracyList.length > 0
+    ? Math.round(accuracyList.reduce((a: number, b: number) => a + b, 0) / accuracyList.length)
+    : null;
+  const defaultProject = stats.find((p: any) => p.isDefault);
+
+  return (
+    <Card className="border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Layers size={16} className="text-blue-600" />
+            <span className="text-sm font-semibold text-blue-800">AI 오케스트라 관리 현황</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-100"
+            onClick={() => setLocation("/erp/managed-projects")}
+          >
+            <FolderOpen size={12} className="mr-1" />
+            전체 보기
+          </Button>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-white rounded-lg p-3 text-center shadow-sm">
+            <p className="text-2xl font-bold text-blue-700">{stats.length}</p>
+            <p className="text-xs text-slate-500 mt-0.5">전체 프로젝트</p>
+          </div>
+          <div className="bg-white rounded-lg p-3 text-center shadow-sm">
+            <p className="text-2xl font-bold text-green-600">{activeProjects}</p>
+            <p className="text-xs text-slate-500 mt-0.5">활성 프로젝트</p>
+          </div>
+          <div className="bg-white rounded-lg p-3 text-center shadow-sm">
+            <p className="text-2xl font-bold text-violet-600">{totalRequests.toLocaleString()}</p>
+            <p className="text-xs text-slate-500 mt-0.5">누적 요청건수</p>
+          </div>
+          <div className="bg-white rounded-lg p-3 text-center shadow-sm">
+            <p className="text-2xl font-bold text-amber-600">{avgAccuracy !== null ? `${avgAccuracy}점` : "-"}</p>
+            <p className="text-xs text-slate-500 mt-0.5">평균 정확도</p>
+          </div>
+        </div>
+        {defaultProject && (
+          <div className="mt-3 flex items-center gap-2 text-xs text-blue-600">
+            <Star size={11} className="fill-blue-400 text-blue-400" />
+            <span>기본 프로젝트: <strong>{defaultProject.name}</strong></span>
+            {defaultProject.manusDeployUrl && (
+              <a href={defaultProject.manusDeployUrl} target="_blank" rel="noopener noreferrer"
+                className="ml-auto text-blue-500 hover:text-blue-700 underline"
+              >
+                사이트 열기
+              </a>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 // ─── 컴포넌트 ────────────────────────────────────────────────
 export default function DevAI() {
@@ -393,6 +471,9 @@ export default function DevAI() {
                   새로고침
                 </Button>
               </div>
+
+              {/* 관리 프로젝트 요약 위젯 */}
+              <ManagedProjectsSummaryWidget />
               {dashLoading ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {[...Array(6)].map((_, i) => (
@@ -778,6 +859,35 @@ export default function DevAI() {
                                   <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed bg-green-50 rounded-lg p-3">
                                     {req.result}
                                   </p>
+                                </div>
+                              )}
+                              {/* 체크포인트 ID 표시 + 버전 생성 바로가기 */}
+                              {(req as any).resultCheckpointId && (
+                                <div className="flex items-center justify-between bg-indigo-50 rounded-lg px-3 py-2">
+                                  <div className="flex items-center gap-2">
+                                    <GitBranch size={12} className="text-indigo-500" />
+                                    <span className="text-xs text-indigo-600 font-medium">체크포인트:</span>
+                                    <code className="text-xs text-indigo-700 font-mono">{((req as any).resultCheckpointId as string).slice(0, 8)}</code>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 text-xs gap-1 border-indigo-300 text-indigo-700 hover:bg-indigo-100"
+                                    onClick={() => {
+                                      setVersionForm({
+                                        featureId: req.featureId ? String(req.featureId) : "",
+                                        version: "",
+                                        description: `${req.title ?? ""} 개발 완료`,
+                                        changeType: "feature",
+                                        checkpointId: (req as any).resultCheckpointId ?? "",
+                                        isRollbackable: true,
+                                      });
+                                      setCreateVersionOpen(true);
+                                    }}
+                                  >
+                                    <History size={11} />
+                                    버전 생성
+                                  </Button>
                                 </div>
                               )}
                               {/* 상태 변경 빠른 버튼 */}

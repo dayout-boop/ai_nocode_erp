@@ -190,6 +190,87 @@ export const managedProjectsRouter = router({
     });
   }),
 
+  // Manus 프로젝트 목록 동기화 (Manus API → managed_projects 자동 등록)
+  syncFromManus: protectedProcedure.mutation(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+    const manusApiKey = process.env.MANUS_API_KEY ?? "";
+    if (!manusApiKey) throw new TRPCError({ code: "BAD_REQUEST", message: "MANUS_API_KEY가 설정되지 않았습니다." });
+
+    // Manus API에서 프로젝트 목록 조회
+    let manusProjects: any[] = [];
+    try {
+      const resp = await fetch("https://api.manus.ai/v2/projects", {
+        headers: { Authorization: `Bearer ${manusApiKey}`, "Content-Type": "application/json" },
+      });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Manus API 오류: ${resp.status} ${errText}` });
+      }
+      const data = await resp.json();
+      // Manus API 응답 구조: { projects: [...] } 또는 배열 직접 반환
+      manusProjects = Array.isArray(data) ? data : (data.projects ?? data.data ?? []);
+    } catch (e: any) {
+      if (e instanceof TRPCError) throw e;
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Manus API 연결 실패: ${e.message}` });
+    }
+
+    if (!Array.isArray(manusProjects) || manusProjects.length === 0) {
+      return { synced: 0, skipped: 0, total: 0, message: "Manus에서 가져온 프로젝트가 없습니다." };
+    }
+
+    // 기존 managed_projects에서 manusProjectId 목록 조회
+    const existing = await db.select({ manusProjectId: managedProjects.manusProjectId }).from(managedProjects);
+    const existingIds = new Set(existing.map((r) => r.manusProjectId).filter(Boolean));
+
+    let synced = 0;
+    let skipped = 0;
+
+    for (const proj of manusProjects) {
+      // Manus 프로젝트 ID 추출 (id 또는 project_id 필드)
+      const manusId: string = proj.id ?? proj.project_id ?? "";
+      const projName: string = proj.name ?? proj.title ?? manusId;
+      const deployUrl: string = proj.url ?? proj.deploy_url ?? proj.preview_url ?? "";
+
+      if (!manusId) { skipped++; continue; }
+      if (existingIds.has(manusId)) { skipped++; continue; }
+
+      // slug 생성: 이름을 소문자 + 하이픈으로 변환
+      const rawSlug = projName
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+        .slice(0, 80);
+      const slug = rawSlug || `manus-${manusId.slice(0, 8)}`;
+
+      // 중복 slug 방지: 이미 존재하면 suffix 추가
+      const slugExists = await db.select({ id: managedProjects.id }).from(managedProjects)
+        .where(eq(managedProjects.slug, slug)).limit(1);
+      const finalSlug = slugExists.length > 0 ? `${slug}-${manusId.slice(0, 6)}` : slug;
+
+      await db.insert(managedProjects).values({
+        name: projName,
+        slug: finalSlug,
+        description: proj.description ?? `Manus에서 자동 동기화된 프로젝트 (${manusId})`,
+        manusProjectId: manusId,
+        manusDeployUrl: deployUrl,
+        techStack: proj.tech_stack ?? proj.template ?? "",
+        isActive: true,
+        isDefault: false,
+      });
+      synced++;
+    }
+
+    return {
+      synced,
+      skipped,
+      total: manusProjects.length,
+      message: `${synced}개 신규 프로젝트를 동기화했습니다. (${skipped}개 이미 등록됨)`,
+    };
+  }),
+
   // 컨텍스트 복사 (다른 프로젝트의 컨텍스트를 현재 프로젝트로 복사)
   copyContext: protectedProcedure
     .input(z.object({
