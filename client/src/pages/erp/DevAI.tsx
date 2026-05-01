@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
@@ -121,10 +121,17 @@ const CATEGORY_LABELS: Record<string, string> = {
 export default function DevAI() {
   const [location, setLocation] = useLocation();
   // URL 쿼리 파라미터에서 탭 읽기
-  const urlTab = (() => {
+  const urlParams = (() => {
     const search = typeof window !== "undefined" ? window.location.search : "";
     const p = new URLSearchParams(search);
-    const t = p.get("tab");
+    return {
+      tab: p.get("tab"),
+      projectId: p.get("projectId"),
+      projectName: p.get("projectName"),
+    };
+  })();
+  const urlTab = (() => {
+    const t = urlParams.tab;
     if (t === "requests" || t === "features" || t === "versions" || t === "accuracy") return t;
     return "dashboard";
   })() as TabId;
@@ -153,8 +160,20 @@ export default function DevAI() {
   const [createVersionOpen, setCreateVersionOpen] = useState(false);
   const [slackWebhookInput, setSlackWebhookInput] = useState("");
 
+  // URL 파라미터로 새 요청 다이얼로그 자동 오픈 (ManagedProjects에서 네비게이션 시)
+  const _autoOpened = useRef(false);
+  if (!_autoOpened.current && urlParams.projectName && urlTab === "requests") {
+    _autoOpened.current = true;
+    setTimeout(() => setCreateReqOpen(true), 100);
+  }
+
   // 폼 상태
-  const [reqForm, setReqForm] = useState({ title: "", description: "", priority: "medium", featureId: "" });
+  const [reqForm, setReqForm] = useState({
+    title: "",
+    description: urlParams.projectName ? `[${urlParams.projectName}] ` : "",
+    priority: "medium",
+    featureId: "",
+  });
   const [editReqForm, setEditReqForm] = useState<any>(null);
   const [featureForm, setFeatureForm] = useState({ name: "", description: "", category: "system", currentVersion: "1.0.0" });
   const [versionForm, setVersionForm] = useState({ featureId: "", version: "", description: "", changeType: "feature", checkpointId: "", isRollbackable: true });
@@ -285,9 +304,16 @@ export default function DevAI() {
   const fetchManusResultMutation = trpc.devAI.fetchManusResult.useMutation({
     onSuccess: (data) => {
       if (data.success && data.result) {
-        toast.success("결과물이 자동으로 수집되었습니다.");
-        setEditReqForm((f: any) => f ? { ...f, result: data.result } : f);
+        toast.success(data.message ?? "결과물이 자동으로 수집되었습니다.");
+        setEditReqForm((f: any) => f ? {
+          ...f,
+          result: data.result,
+          resultCheckpointId: (data as any).checkpointId ?? f.resultCheckpointId,
+        } : f);
         utils.devAI.listRequests.invalidate();
+        if ((data as any).checkpointId) {
+          toast.info(`체크포인트 ID ${((data as any).checkpointId as string).slice(0, 8)}이 연결되었습니다.`, { duration: 4000 });
+        }
       } else {
         toast.info(data.message ?? "Manus에서 아직 응답이 없습니다.");
       }
@@ -1497,6 +1523,23 @@ export default function DevAI() {
                   />
                   {!editReqForm.manusTaskId && (
                     <p className="text-xs text-slate-400 mt-1">팔 Manus에 전송하면 결과물을 자동으로 가져올 수 있습니다.</p>
+                  )}
+                  {editReqForm.resultCheckpointId && (
+                    <div className="flex items-center gap-2 mt-1.5 p-2 bg-indigo-50 rounded-lg border border-indigo-200">
+                      <GitBranch size={12} className="text-indigo-500 shrink-0" />
+                      <span className="text-xs text-indigo-700 font-medium">체크포인트 연결:</span>
+                      <code className="text-xs text-indigo-600 font-mono">{editReqForm.resultCheckpointId.slice(0, 8)}</code>
+                      <button
+                        type="button"
+                        className="ml-auto text-xs text-indigo-500 hover:text-indigo-700 underline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(editReqForm.resultCheckpointId);
+                          toast.success("체크포인트 ID 복사됨");
+                        }}
+                      >
+                        복사
+                      </button>
+                    </div>
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">

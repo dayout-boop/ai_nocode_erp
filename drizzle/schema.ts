@@ -455,6 +455,8 @@ export const devRequests = mysqlTable("dev_requests", {
   feedbackCategory: mysqlEnum("feedbackCategory", ["bug", "suggestion", "other"]),
   /** 정확도 평가 완료 여부 */
   accuracyEvaluated: boolean("accuracyEvaluated").default(false).notNull(),
+  /** 결과물 자동 수집 시 연결된 Manus 체크포인트 버전 ID */
+  resultCheckpointId: varchar("resultCheckpointId", { length: 100 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

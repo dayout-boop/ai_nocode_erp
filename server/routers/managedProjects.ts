@@ -26,12 +26,59 @@ const projectInput = z.object({
 });
 
 export const managedProjectsRouter = router({
-  // 전체 목록 조회
-  list: protectedProcedure.query(async () => {
-    const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    return db.select().from(managedProjects).orderBy(managedProjects.isDefault, managedProjects.name);
-  }),
+  // 전체 목록 조회 (검색·필터·페이지네이션 지원)
+  list: protectedProcedure
+    .input(z.object({
+      page: z.number().int().min(1).default(1),
+      pageSize: z.number().int().min(1).max(100).default(20),
+      search: z.string().optional(),
+      isActive: z.enum(["all", "active", "inactive"]).default("all"),
+      techStack: z.string().optional(),
+    }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const { page = 1, pageSize = 20, search, isActive = "all", techStack } = input ?? {};
+
+      // 조건 빌드
+      const conditions: any[] = [];
+      if (search?.trim()) {
+        const { or, like } = await import("drizzle-orm");
+        conditions.push(or(
+          like(managedProjects.name, `%${search.trim()}%`),
+          like(managedProjects.slug, `%${search.trim()}%`),
+          like(managedProjects.description, `%${search.trim()}%`),
+          like(managedProjects.techStack, `%${search.trim()}%`),
+        ));
+      }
+      if (isActive === "active") conditions.push(eq(managedProjects.isActive, true));
+      if (isActive === "inactive") conditions.push(eq(managedProjects.isActive, false));
+      if (techStack?.trim()) {
+        const { like } = await import("drizzle-orm");
+        conditions.push(like(managedProjects.techStack, `%${techStack.trim()}%`));
+      }
+
+      const { and } = await import("drizzle-orm");
+      const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+      const offset = (page - 1) * pageSize;
+
+      const [items, countRows] = await Promise.all([
+        db.select().from(managedProjects)
+          .where(whereClause)
+          .orderBy(managedProjects.isDefault, managedProjects.name)
+          .limit(pageSize)
+          .offset(offset),
+        db.select({ count: sql<number>`COUNT(*)` }).from(managedProjects).where(whereClause),
+      ]);
+
+      return {
+        items,
+        total: Number(countRows[0]?.count ?? 0),
+        page,
+        pageSize,
+        totalPages: Math.ceil(Number(countRows[0]?.count ?? 0) / pageSize),
+      };
+    }),
 
   // 단건 조회
   getById: protectedProcedure

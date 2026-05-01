@@ -1243,3 +1243,14 @@ Detected
 - [x] ManagedProjects.tsx: 프로젝트 간 컨텍스트 공유 기능 (Copy 버튼 → 다이얼로그로 필드 선택 복사)
 - [x] 서버: managedProjects.getStats 프로시저 추가 (dev_requests 통계 집계 - 정확도, 카테고리 분포)
 - [x] 서버: managedProjects.copyContext 프로시저 추가 (프로젝트 간 컨텍스트 복사)
+
+### 3가지 개선 작업 (2026-05-01 v2)
+- [x] 결과물 자동 수집 고도화: devRequests에 resultCheckpointId 콼럼 추가 + DB 마이그레이션
+- [x] 결과물 자동 수집 고도화: fetchManusResult 시 Manus 메시지에서 checkpoint_version_id 추출 및 DB 저장
+- [x] 결과물 자동 수집 고도화: DevAI.tsx 편집 다이얼로그에 resultCheckpointId 링크 표시
+- [x] ManagedProjects: 프로젝트 카드에 "요청" 버튼 추가 (클릭 시 DevAI 페이지로 이동 + 프로젝트명 자동 입력)
+- [x] DevAI.tsx: URL 파라미터(projectName) 읽어 새 요청 폼 자동 입력 + 다이얼로그 자동 오픈
+- [x] ManagedProjects: 프로젝트 이름/슬러그/기술스택 검색 기능 추가 (Enter 또는 검색 버튼)
+- [x] ManagedProjects: 활성/비활성 상태 필터 추가 (필터 변경 시 페이지 1로 자동 리셋)
+- [x] ManagedProjects: 페이지네이션 추가 (페이지당 20개, 7개 버튼 표시)
+- [x] 서버: managedProjects.list에 검색·필터·페이지네이션 파라미터 추가 (search, isActive, page, pageSize)

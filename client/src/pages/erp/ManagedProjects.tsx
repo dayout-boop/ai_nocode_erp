@@ -24,6 +24,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { useLocation } from "wouter";
 
 // ─── 타입 ────────────────────────────────────────────────────────────────────
 interface ProjectFormData {
@@ -75,6 +76,7 @@ function AccuracyGauge({ value }: { value: number | null }) {
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 export default function ManagedProjects() {
   const utils = trpc.useUtils();
+  const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<"list" | "dashboard">("list");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -88,8 +90,23 @@ export default function ManagedProjects() {
   const [copyCtxToId, setCopyCtxToId] = useState<number | null>(null);
   const [copyCtxFields, setCopyCtxFields] = useState<string[]>(["devInstructions", "customContext"]);
 
-  // ─── API ───────────────────────────────────────────────────────────────────
-  const { data: projects, isLoading } = trpc.managedProjects.list.useQuery();
+  // 검색·필터·페이지네이션 상태
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [isActiveFilter, setIsActiveFilter] = useState<"all" | "active" | "inactive">("all");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
+
+  // ─── API ─────────────────────────────────────────────────────────────────────────────────
+  const { data: projectsData, isLoading } = trpc.managedProjects.list.useQuery({
+    page,
+    pageSize: PAGE_SIZE,
+    search: search || undefined,
+    isActive: isActiveFilter,
+  });
+  const projects = projectsData?.items ?? [];
+  const totalPages = projectsData?.totalPages ?? 1;
+  const totalCount = projectsData?.total ?? 0;
   const { data: statsData, isLoading: statsLoading } = trpc.managedProjects.getStats.useQuery();
 
   const createMutation = trpc.managedProjects.create.useMutation({
@@ -253,40 +270,93 @@ export default function ManagedProjects() {
         {/* ── 목록 탭 ── */}
         <TabsContent value="list" className="mt-4 space-y-4">
           {/* 통계 카드 */}
-          {projects && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card className="border-0 shadow-sm bg-white">
-                <CardContent className="pt-4 pb-4">
-                  <div className="text-2xl font-bold text-gray-900">{projects.length}</div>
-                  <div className="text-xs text-gray-500 mt-1">전체 프로젝트</div>
-                </CardContent>
-              </Card>
-              <Card className="border-0 shadow-sm bg-white">
-                <CardContent className="pt-4 pb-4">
-                  <div className="text-2xl font-bold text-green-600">
-                    {projects.filter((p: any) => p.isActive).length}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">활성 프로젝트</div>
-                </CardContent>
-              </Card>
-              <Card className="border-0 shadow-sm bg-white">
-                <CardContent className="pt-4 pb-4">
-                  <div className="text-2xl font-bold text-amber-500">
-                    {projects.filter((p: any) => p.isDefault).length}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">기본 프로젝트</div>
-                </CardContent>
-              </Card>
-              <Card className="border-0 shadow-sm bg-white">
-                <CardContent className="pt-4 pb-4">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {projects.filter((p: any) => p.manusDeployUrl).length}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">배포된 프로젝트</div>
-                </CardContent>
-              </Card>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="border-0 shadow-sm bg-white">
+              <CardContent className="pt-4 pb-4">
+                <div className="text-2xl font-bold text-gray-900">{totalCount}</div>
+                <div className="text-xs text-gray-500 mt-1">전체 프로젝트</div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-sm bg-white">
+              <CardContent className="pt-4 pb-4">
+                <div className="text-2xl font-bold text-green-600">
+                  {projects.filter((p: any) => p.isActive).length}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">활성 (현재 페이지)</div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-sm bg-white">
+              <CardContent className="pt-4 pb-4">
+                <div className="text-2xl font-bold text-amber-500">
+                  {projects.filter((p: any) => p.isDefault).length}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">기본 프로젝트</div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-sm bg-white">
+              <CardContent className="pt-4 pb-4">
+                <div className="text-2xl font-bold text-blue-600">
+                  {projects.filter((p: any) => p.manusDeployUrl).length}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">배포된 (현재 페이지)</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 검색·필터 바 */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex-1 min-w-[200px] flex items-center gap-2">
+              <Input
+                placeholder="프로젝트 이름, 슬러그, 기술스택 검색..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    setSearch(searchInput);
+                    setPage(1);
+                  }
+                }}
+                className="h-9"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setSearch(searchInput); setPage(1); }}
+                className="shrink-0 h-9"
+              >
+                검색
+              </Button>
+              {(search || searchInput) && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => { setSearchInput(""); setSearch(""); setPage(1); }}
+                  className="shrink-0 h-9 text-gray-500"
+                >
+                  초기화
+                </Button>
+              )}
             </div>
-          )}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">상태:</span>
+              {(["all", "active", "inactive"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => { setIsActiveFilter(v); setPage(1); }}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    isActiveFilter === v
+                      ? "bg-dogolf-green text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {v === "all" ? "전체" : v === "active" ? "활성" : "비활성"}
+                </button>
+              ))}
+            </div>
+            <div className="text-xs text-gray-400 ml-auto">
+              {totalCount}개 중 {Math.min((page - 1) * PAGE_SIZE + 1, totalCount)}–{Math.min(page * PAGE_SIZE, totalCount)}개 표시
+            </div>
+          </div>
 
           {/* 목록 */}
           {isLoading ? (
@@ -392,6 +462,22 @@ export default function ManagedProjects() {
                         <Button
                           size="sm"
                           variant="ghost"
+                          title="새 개발 요청"
+                          className="text-xs text-dogolf-green hover:text-dogolf-green-dark hover:bg-green-50 gap-1 font-medium"
+                          onClick={() => {
+                            const params = new URLSearchParams();
+                            params.set("tab", "requests");
+                            if (project.manusProjectId) params.set("projectId", project.manusProjectId);
+                            params.set("projectName", project.name);
+                            setLocation(`/erp/dev-ai?${params.toString()}`);
+                          }}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          요청
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           title="컨텍스트 복사"
                           className="text-gray-500 hover:text-purple-600 hover:bg-purple-50"
                           onClick={() => openCopyCtx(project.id)}
@@ -494,6 +580,58 @@ export default function ManagedProjects() {
                   )}
                 </Card>
               ))}
+            </div>
+          )}
+
+          {/* 페이지네이션 */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="h-8 px-3"
+              >
+                ← 이전
+              </Button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
+                  let pageNum: number;
+                  if (totalPages <= 7) {
+                    pageNum = i + 1;
+                  } else if (page <= 4) {
+                    pageNum = i + 1;
+                  } else if (page >= totalPages - 3) {
+                    pageNum = totalPages - 6 + i;
+                  } else {
+                    pageNum = page - 3 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setPage(pageNum)}
+                      className={`w-8 h-8 rounded text-xs font-medium transition-colors ${
+                        pageNum === page
+                          ? "bg-dogolf-green text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="h-8 px-3"
+              >
+                다음 →
+              </Button>
+              <span className="text-xs text-gray-400 ml-2">{page} / {totalPages} 페이지</span>
             </div>
           )}
         </TabsContent>

@@ -2149,13 +2149,35 @@ const devAIRouter = router({
 
       const resultText = lastAssistant.assistant_message.content.slice(0, 2000);
 
-      // DB에 결과물 저장
+      // 체크포인트 버전 ID 추출 (전체 메시지에서 manus-webdev:// 패턴 파싱)
+      let extractedCheckpointId: string | null = null;
+      const allContent = data.messages
+        .filter((m) => m.type === "assistant_message" && m.assistant_message?.content)
+        .map((m) => m.assistant_message!.content)
+        .join(" ");
+      const webdevMatch = allContent.match(/manus-webdev:\/\/([a-f0-9]{8,})/i);
+      if (webdevMatch) {
+        extractedCheckpointId = webdevMatch[1];
+      } else {
+        const versionMatch = allContent.match(/version[_\s:-]+([a-f0-9]{8,})/i);
+        if (versionMatch) extractedCheckpointId = versionMatch[1];
+      }
+
+      // DB에 결과물 + 체크포인트 ID 저장
       await db.update(devRequests).set({
         result: resultText,
+        ...(extractedCheckpointId ? { resultCheckpointId: extractedCheckpointId } : {}),
         updatedAt: new Date(),
       }).where(eq(devRequests.id, input.id));
 
-      return { success: true, result: resultText, message: "결과물이 자동으로 수집되었습니다." };
+      return {
+        success: true,
+        result: resultText,
+        checkpointId: extractedCheckpointId,
+        message: extractedCheckpointId
+          ? `결과물이 수집되었습니다. 체크포인트 ID: ${extractedCheckpointId.slice(0, 8)}`
+          : "결과물이 자동으로 수집되었습니다.",
+      };
     } catch (err) {
       if (err instanceof TRPCError) throw err;
       throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `결과물 수집 실패: ${String(err)}` });
