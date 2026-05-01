@@ -213,7 +213,28 @@ ${req.description}
 
 ---
 *두골프 AI 마스터가 자동 생성한 개발 요청입니다.*
-*프로젝트: dogolf-tour-dkz3fsmp.manus.space*`;
+*프로젝트: dogolf-tour-dkz3fsmp.manus.space (www.dayoutgolf.com)*
+
+---
+## 🛠️ 개발 환경 컨텍스트 (자동 주입)
+
+**Manus WebDev 프로젝트:** dogolf
+**소스 코드 경로:** /home/ubuntu/dogolf/
+**기술 스택:** React 19 + Tailwind 4 + Express 4 + tRPC 11 + MySQL (Drizzle ORM) + TypeScript
+
+**핵심 파일 위치:**
+- 홈페이지 푸터: client/src/components/Footer.tsx
+- 홈페이지 헤더: client/src/components/Header.tsx
+- ERP 페이지: client/src/pages/erp/
+- API 라우터: server/routers/
+- DB 스키마: drizzle/schema.ts
+- 전역 스타일: client/src/index.css
+
+**개발 절차:**
+1. 파일 수정 (file 도구 사용)
+2. TypeScript 오류 확인: npx tsc --noEmit
+3. 체크포인트 저장: webdev_save_checkpoint
+4. Publish 안내`;
 }
 
 // ─── 스마트 라우팅 핵심 함수 ──────────────────────────────────────────────────
