@@ -2296,7 +2296,7 @@ const devAIRouter = router({
     if (fromDate) conditions.push(gte(devRequests.createdAt, fromDate));
     const where = and(...conditions);
 
-    const [rows, totalRows, dailyRows] = await Promise.all([
+    const [rows, totalRows, dailyRows, categoryRows] = await Promise.all([
       db.select({
         score: devRequests.accuracyScore,
         engineType: devRequests.engineType,
@@ -2309,6 +2309,11 @@ const devAIRouter = router({
         avgScore: sql<number>`AVG(accuracyScore)`,
         count: sql<number>`count(*)`,
       }).from(devRequests).where(where).groupBy(sql`DATE(createdAt)`).orderBy(sql`DATE(createdAt)`),
+      db.select({
+        feedbackCategory: devRequests.feedbackCategory,
+        count: sql<number>`count(*)`,
+      }).from(devRequests).where(and(...conditions, isNotNull(devRequests.feedbackCategory)))
+        .groupBy(devRequests.feedbackCategory),
     ]);
 
     const total = Number(totalRows[0]?.count ?? 0);
@@ -2320,6 +2325,16 @@ const devAIRouter = router({
       score: s,
       count: rows.filter(r => r.score === s).length,
     }));
+
+    const categoryBreakdown = {
+      bug: 0,
+      suggestion: 0,
+      other: 0,
+    };
+    for (const row of categoryRows) {
+      const cat = row.feedbackCategory as keyof typeof categoryBreakdown;
+      if (cat in categoryBreakdown) categoryBreakdown[cat] = Number(row.count);
+    }
 
     return {
       totalEvaluated: total,
@@ -2333,6 +2348,7 @@ const devAIRouter = router({
         avgScore: Math.round(Number(r.avgScore) * 100) / 100,
         count: Number(r.count),
       })),
+      categoryBreakdown,
     };
   }),
 

@@ -135,6 +135,7 @@ export default function DevAI() {
   const [evalScore, setEvalScore] = useState(5);
   const [evalFeedback, setEvalFeedback] = useState("");
   const [evalEngine, setEvalEngine] = useState("");
+  const [savedFeedbackCategory, setSavedFeedbackCategory] = useState<string | null>(null);
   const setActiveTab = (tab: TabId) => {
     setActiveTabState(tab);
     const newUrl = tab === "dashboard" ? "/erp/dev-ai" : `/erp/dev-ai?tab=${tab}`;
@@ -201,14 +202,17 @@ export default function DevAI() {
     { enabled: activeTab === "accuracy" }
   );
   const updateAccuracyMutation = trpc.devAI.updateAccuracy.useMutation({
-    onSuccess: () => {
-      toast.success("정확도 평가가 저장되었습니다.");
+    onSuccess: (data) => {
+      const catLabel = data.feedbackCategory === "bug" ? "버그" : data.feedbackCategory === "suggestion" ? "개선제안" : "기타";
+      toast.success(`정확도 평가 저장 완료${data.feedbackCategory ? ` · 분류: ${catLabel}` : ""}`);
+      setSavedFeedbackCategory(data.feedbackCategory ?? null);
       setAccuracyEvalOpen(false);
       setEvalTarget(null);
       setEvalScore(5);
       setEvalFeedback("");
       setEvalEngine("");
       refetchAccuracy();
+      utils.devAI.listRequests.invalidate();
     },
     onError: (e) => toast.error(e.message),
   });
@@ -609,6 +613,15 @@ export default function DevAI() {
                                 <Badge className={`text-[10px] px-1.5 py-0 border ${priorityCfg.color}`}>
                                   {priorityCfg.label}
                                 </Badge>
+                                {req.feedbackCategory && (
+                                  <Badge className={`text-[10px] px-1.5 py-0 border ${
+                                    req.feedbackCategory === "bug" ? "bg-red-50 text-red-600 border-red-200" :
+                                    req.feedbackCategory === "suggestion" ? "bg-blue-50 text-blue-600 border-blue-200" :
+                                    "bg-slate-50 text-slate-500 border-slate-200"
+                                  }`}>
+                                    {req.feedbackCategory === "bug" ? "버그" : req.feedbackCategory === "suggestion" ? "개선제안" : "기타"}
+                                  </Badge>
+                                )}
                               </div>
                               <p className="text-sm font-semibold text-slate-800 line-clamp-1">{req.title}</p>
                               <div className="flex items-center gap-3 mt-1">
@@ -1021,6 +1034,31 @@ export default function DevAI() {
                 </Card>
               )}
 
+              {/* 피드백 카테고리 통계 */}
+              {accuracyStats && accuracyStats.totalEvaluated > 0 && accuracyStats.categoryBreakdown && (
+                <Card className="border-0 shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-slate-700">피드백 카테고리 분류</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center p-4 bg-red-50 rounded-xl border border-red-100">
+                        <div className="text-2xl font-bold text-red-600">{accuracyStats.categoryBreakdown.bug}</div>
+                        <div className="text-xs text-red-500 mt-1 font-medium">버그 리포트</div>
+                      </div>
+                      <div className="text-center p-4 bg-blue-50 rounded-xl border border-blue-100">
+                        <div className="text-2xl font-bold text-blue-600">{accuracyStats.categoryBreakdown.suggestion}</div>
+                        <div className="text-xs text-blue-500 mt-1 font-medium">개선 제안</div>
+                      </div>
+                      <div className="text-center p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <div className="text-2xl font-bold text-slate-600">{accuracyStats.categoryBreakdown.other}</div>
+                        <div className="text-xs text-slate-500 mt-1 font-medium">기타</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* 차트 영역 - 점수 분포 + 일별 트렌드 */}
               {accuracyStats && accuracyStats.totalEvaluated > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1258,6 +1296,7 @@ export default function DevAI() {
                         placeholder="어떤 점이 부정확했는지, 개선사항 등을 입력하세요"
                         rows={3}
                       />
+                      <p className="text-[10px] text-slate-400 mt-1">피드백 입력 시 AI가 자동으로 버그/개선제안/기타로 분류합니다</p>
                     </div>
                   </div>
                   <DialogFooter>

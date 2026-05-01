@@ -263,7 +263,17 @@ export default function Footer() {
                 </div>
                 {f.address && <div>주소: {f.address}</div>}
               </div>
-              <div className="text-white/40 text-xs font-body">{f.copyright}</div>
+              <div className="flex items-center gap-3">
+                <Link href="/terms">
+                  <span className="text-dogolf-gold/80 hover:text-dogolf-gold text-xs font-body cursor-pointer transition-colors">이용약관</span>
+                </Link>
+                <span className="text-white/20 text-xs">|</span>
+                <Link href="/privacy">
+                  <span className="text-dogolf-gold/80 hover:text-dogolf-gold text-xs font-body cursor-pointer transition-colors font-semibold">개인정보처리방침</span>
+                </Link>
+                <span className="text-white/20 text-xs">|</span>
+                <div className="text-white/40 text-xs font-body">{f.copyright}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -424,7 +434,17 @@ export default function Footer() {
               </div>
             </div>
 
-            <div className="text-white/25 text-xs font-body mt-2">{f.copyright}</div>
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <Link href="/terms">
+                <span className="text-dogolf-gold/70 hover:text-dogolf-gold text-[10px] font-body cursor-pointer transition-colors">이용약관</span>
+              </Link>
+              <span className="text-white/20 text-[10px]">|</span>
+              <Link href="/privacy">
+                <span className="text-dogolf-gold/70 hover:text-dogolf-gold text-[10px] font-body cursor-pointer transition-colors font-semibold">개인정보처리방침</span>
+              </Link>
+              <span className="text-white/20 text-[10px]">|</span>
+              <div className="text-white/25 text-[10px] font-body">{f.copyright}</div>
+            </div>
           </div>
         </div>
       </div>

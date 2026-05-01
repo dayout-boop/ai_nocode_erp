@@ -1167,15 +1167,15 @@ Detected
 - [x] 완료된 요청 카드에 보라색 배경 강조 표시
 
 ## 피드백 자동 분류 기능 (2026-05-01)
-- [ ] DB 스키마: devRequests에 feedbackCategory 필드 추가 (bug | suggestion | other)
-- [ ] DB 마이그레이션 실행 (pnpm db:push)
-- [ ] 서버: classifyFeedback 헬퍼 함수 구현 (LLM 기반 분류, 피드백 없으면 'other')
-- [ ] 서버: updateAccuracy 뮤테이션에서 피드백 저장 후 자동 분류 실행
-- [ ] 서버: updateFeedbackCategory API 추가 (수동 수정용)
-- [ ] 프론트엔드: 정확도 평가 다이얼로그에 분류 결과 배지 표시 (저장 후)
-- [ ] 프론트엔드: 정확도 분석 탭에 카테고리별 통계 표시 (bug/suggestion/other 비율)
-- [ ] 프론트엔드: 요청 목록 카드에 feedbackCategory 배지 표시
-- [ ] TypeScript 오류 0개 확인
+- [x] DB 스키마: devRequests에 feedbackCategory 필드 추가 (bug | suggestion | other)
+- [x] DB 마이그레이션 실행 (pnpm db:push)
+- [x] 서버: classifyFeedback 헬퍼 함수 구현 (LLM 기반 분류, 피드백 없으면 'other')
+- [x] 서버: updateAccuracy 뮤테이션에서 피드백 저장 후 자동 분류 실행
+- [x] 서버: updateFeedbackCategory API 추가 (수동 수정용)
+- [x] 프론트엔드: 정확도 평가 다이얼로그에 분류 결과 배지 표시 (저장 후)
+- [x] 프론트엔드: 정확도 분석 탭에 카테고리별 통계 표시 (bug/suggestion/other 비율)
+- [x] 프론트엔드: 요청 목록 카드에 feedbackCategory 배지 표시
+- [x] TypeScript 오류 0개 확인
 
 ## Footer 저작권 연도 동적 처리
 - [x] Footer.tsx DEFAULTS.copyright에서 하드코딩된 '2026' → `new Date().getFullYear()` 동적 처리 (매년 자동 업데이트)
@@ -1203,11 +1203,11 @@ Detected
 - [x] Footer.tsx 배경색을 현재보다 더 어두운 색으로 변경하여 가독성 향상
 
 ## 푸터 이용약관·개인정보처리방침 링크 색상 변경
-- [ ] Footer.tsx 이용약관·개인정보처리방침 링크 색상을 더 눈에 띄는 색으로 변경하여 가시성 향상
+- [x] Footer.tsx 이용약관·개인정보처리방침 링크 색상을 더 눈에 띄는 색으로 변경하여 가시성 향상 (데스크톱+모바일 모두 dogolf-gold 색상 적용)
 
 ## MasterAI 오케스트라 시스템 개선 (다중 프로젝트 대비)
-- [ ] DB 스키마: managed_projects 테이블 추가 (프로젝트명, manusProjectId, 컨텍스트 등)
-- [ ] manusPipe.ts: managed_projects DB 기반 동적 컨텍스트 주입 구조로 리팩터링
+- [x] DB 스키마: managed_projects 테이블 추가 (프로젝트명, manusProjectId, 컨텍스트 등)
+- [x] manusPipe.ts: managed_projects DB 기반 동적 컨텍스트 주입 구조로 리팩터링
 - [x] DB 스키마: devRequests에 manusTaskUrl 컨럼 추가 + pnpm db:push
 - [x] manusPipe.ts: autoRegisterAndSend에서 manusTaskUrl DB 저장
 - [x] manusPipe.ts: Manus 태스크 생성 성공 시 슬랙 알림 전송 (taskUrl 포함)
