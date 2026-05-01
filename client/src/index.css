@@ -51,7 +51,7 @@
   /* Custom DOGOLF brand colors */
   --color-dogolf-green: oklch(0.32 0.12 155);
   --color-dogolf-green-light: oklch(0.45 0.13 155);
-  --color-dogolf-green-dark: oklch(0.22 0.10 155);
+  --color-dogolf-green-dark: oklch(0.14 0.07 155);
   --color-dogolf-purple: oklch(0.38 0.18 295);
   --color-dogolf-purple-light: oklch(0.52 0.20 295);
   --color-dogolf-red: oklch(0.52 0.22 25);
@@ -186,7 +186,7 @@
   }
 
   .bg-dogolf-green-dark {
-    background-color: oklch(0.22 0.10 155);
+    background-color: oklch(0.14 0.07 155);
   }
 
   .bg-dogolf-purple {

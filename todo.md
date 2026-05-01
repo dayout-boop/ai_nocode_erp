@@ -1198,3 +1198,6 @@ Detected
 - [x] Footer.tsx 데스크톱 SNS 영역에 X(SVG) 및 유튜브(SVG) 아이콘 추가 (hover:scale-110 포함)
 - [x] Footer.tsx 모바일 SNS 영역에 X(SVG) 및 유튜브(SVG) 아이콘 추가 (hover:scale-110 포함)
 - [x] CMS 홈페이지 관리 UI(HomepageManagement.tsx)에 X URL 입력 필드 추가
+
+## 푸터 배경색 어둡게 변경
+- [x] Footer.tsx 배경색을 현재보다 더 어두운 색으로 변경하여 가독성 향상
