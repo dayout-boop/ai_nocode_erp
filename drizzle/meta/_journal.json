@@ -274,6 +274,13 @@
       "when": 1777621890706,
       "tag": "0038_sloppy_goblin_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "5",
+      "when": 1777634373025,
+      "tag": "0039_sweet_namorita",
+      "breakpoints": true
     }
   ]
 }

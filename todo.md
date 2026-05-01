@@ -1254,3 +1254,9 @@ Detected
 - [x] ManagedProjects: 활성/비활성 상태 필터 추가 (필터 변경 시 페이지 1로 자동 리셋)
 - [x] ManagedProjects: 페이지네이션 추가 (페이지당 20개, 7개 버튼 표시)
 - [x] 서버: managedProjects.list에 검색·필터·페이지네이션 파라미터 추가 (search, isActive, page, pageSize)
+
+## 개발 요청 파이프라인 개선 (2026-05-01)
+- [x] #240001 요청 재전송 (현재 대화사로 재라우팅 완료)
+- [x] #240001 Footer.tsx 저작권 연도 자동화 (new Date().getFullYear()) + 파트너명 동적 표시
+- [x] in_progress 상태 요청 일괄 재라우팅 (현재 대화사로 직접 수신)
+- [x] MANUS_DOGOLF_TASK_ID 관리자 설정 UI (system_settings 테이블 + ERP 연동 설정 > 시스템 설정 페이지)

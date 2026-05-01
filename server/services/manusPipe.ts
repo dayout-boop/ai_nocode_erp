@@ -23,7 +23,7 @@
  */
 import { eq, and, isNotNull, desc } from "drizzle-orm";
 import { getDb } from "../db";
-import { devRequests, managedProjects } from "../../drizzle/schema";
+import { devRequests, managedProjects, systemSettings } from "../../drizzle/schema";
 import { ENV } from "../_core/env";
 
 const MANUS_API_BASE = "https://api.manus.ai/v2";
@@ -322,9 +322,25 @@ export async function smartSendToManus(req: {
   }
 
   // ─── 1순위: MANUS_DOGOLF_TASK_ID → 현재 두골프 ERP 개발 대화창으로 직접 전송 ───
-  // 이 방식이 개발 요청을 현재 프로젝트 대화창으로 바로 연결하는 핵심 로직입니다.
+  // DB 설정이 환경변수보다 우선 사용됩니다 (ERP 설정 UI에서 관리자가 변경 가능).
   // 새 태스크를 만들면 별도 대화창이 생겨 개발 리소스가 분산되므로 반드시 sendMessage 사용.
-  const dogolfTaskId = process.env.MANUS_DOGOLF_TASK_ID;
+  let dogolfTaskId = process.env.MANUS_DOGOLF_TASK_ID;
+  try {
+    const db = await getDb();
+    if (db) {
+      const [dbSetting] = await db
+        .select()
+        .from(systemSettings)
+        .where(eq(systemSettings.settingKey, "MANUS_DOGOLF_TASK_ID"))
+        .limit(1);
+      if (dbSetting?.settingValue) {
+        dogolfTaskId = dbSetting.settingValue;
+        console.log(`[ManusPipe] DB에서 MANUS_DOGOLF_TASK_ID 로드: ${dogolfTaskId}`);
+      }
+    }
+  } catch (e) {
+    console.warn("[ManusPipe] DB에서 MANUS_DOGOLF_TASK_ID 조회 실패, 환경변수 사용:", e);
+  }
   if (dogolfTaskId) {
     const message = await formatDevRequestMessage(req);
     const result = await sendMessageToExistingTask(dogolfTaskId, message);

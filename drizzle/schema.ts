@@ -1421,3 +1421,19 @@ export const managedProjects = mysqlTable("managed_projects", {
 });
 export type ManagedProject = typeof managedProjects.$inferSelect;
 export type InsertManagedProject = typeof managedProjects.$inferInsert;
+
+// ============================================================
+// SYSTEM_SETTINGS - ERP 시스템 설정 (관리자 전용)
+// Manus 태스크 ID, 환경변수 오버라이드 등 운영 설정 저장
+// ============================================================
+export const systemSettings = mysqlTable("system_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  settingKey: varchar("settingKey", { length: 100 }).notNull().unique(),
+  settingValue: text("settingValue"),
+  description: text("description"),
+  updatedBy: varchar("updatedBy", { length: 100 }),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+export type SystemSetting = typeof systemSettings.$inferSelect;
+export type InsertSystemSetting = typeof systemSettings.$inferInsert;

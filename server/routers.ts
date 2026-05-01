@@ -3239,6 +3239,7 @@ import { customerEstimateTemplatesRouter, estimatesRouter } from "./routers/esti
 import { featuresRouter } from "./routers/features";
 import { siteSettingsRouter } from "./routers/siteSettings";
 import { managedProjectsRouter } from "./routers/managedProjects";
+import { systemSettingsRouter } from "./routers/systemSettings";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -3283,5 +3284,6 @@ export const appRouter = router({
   features: featuresRouter,
   siteSettings: siteSettingsRouter,
   managedProjects: managedProjectsRouter,
+  systemSettings: systemSettingsRouter,
 });
 export type AppRouter = typeof appRouter;

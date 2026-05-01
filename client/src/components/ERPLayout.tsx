@@ -62,7 +62,8 @@ import OpenRouterAgent from "@/pages/erp/OpenRouterAgent";
 import CustomerEstimateTemplates from "@/pages/erp/CustomerEstimateTemplates";
 import DevDashboard from "@/pages/erp/DevDashboard";
 import ManagedProjects from "@/pages/erp/ManagedProjects";
-import { Loader2 } from "lucide-react";
+import SystemSettings from "@/pages/erp/SystemSettings";
+import { Cpu, Loader2 } from "lucide-react";
 
 interface NavChild {
   label: string;
@@ -169,7 +170,14 @@ const navItems: NavItem[] = [
       { label: "자동 치환 변수", href: "/cms/variables", icon: <Code2 size={14} /> },
     ],
   },
-  { label: "연동 설정", icon: <Settings size={18} />, href: "/settings" },
+  {
+    label: "연동 설정",
+    icon: <Settings size={18} />,
+    children: [
+      { label: "ERP 연동 설정", href: "/settings", icon: <Settings size={14} /> },
+      { label: "시스템 설정", href: "/system-settings", icon: <Cpu size={14} /> },
+    ],
+  },
 ];
 
 // ⚠️ ERP 내부 메뉴는 반드시 wouter <Link>를 사용하여 SPA 내부 라우팅으로 처리해야 합니다.
@@ -298,6 +306,7 @@ function ERPContent() {
           <Route path="/openrouter-agent" component={OpenRouterAgent} />
           <Route path="/dev-dashboard" component={DevDashboard} />
           <Route path="/managed-projects" component={ManagedProjects} />
+          <Route path="/system-settings" component={SystemSettings} />
           <Route component={ERPDashboard} />
         </Switch>
       </Suspense>
