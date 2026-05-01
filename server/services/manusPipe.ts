@@ -17,6 +17,7 @@
 import { eq, and, isNotNull, desc } from "drizzle-orm";
 import { getDb } from "../db";
 import { devRequests } from "../../drizzle/schema";
+import { ENV } from "../_core/env";
 
 const MANUS_API_BASE = "https://api.manus.ai/v2";
 
@@ -206,7 +207,7 @@ ${followUpNote}
 **유형:** ${req.aiCategory ?? "미분류"}
 **우선순위:** ${req.priority.toUpperCase()}
 **대상 모듈:** ${req.module ?? "미지정"}
-**예상 소요 시간:** ${req.estimatedHours ? `${req.estimatedHours}시간` : "미정"}
+**예상 소요 시간:** ${req.estimatedHours ? req.estimatedHours + '시간' : '미정'}
 ${aiNote}
 **상세 설명:**
 ${req.description}
@@ -232,9 +233,10 @@ ${req.description}
 
 **개발 절차:**
 1. 파일 수정 (file 도구 사용)
-2. TypeScript 오류 확인: npx tsc --noEmit
-3. 체크포인트 저장: webdev_save_checkpoint
-4. Publish 안내`;
+2. TypeScript 오류 확인 (cd /home/ubuntu/dogolf && npx tsc --noEmit)
+3. 체크포인트 저장 후 Publish 안내
+
+**주의:** 이 프로젝트의 Manus WebDev 세션에서 직접 작업하세요. 신규 프로젝트 생성 불필요.`;
 }
 
 // ─── 스마트 라우팅 핵심 함수 ──────────────────────────────────────────────────
@@ -445,6 +447,7 @@ export async function autoRegisterAndSend(devRequest: {
   devRequestId: number;
   manusTaskId: string;
   routingType: string;
+  manusTaskUrl: string;
   routingReason: string;
   success: boolean;
 }> {
@@ -474,7 +477,7 @@ export async function autoRegisterAndSend(devRequest: {
   // 2. Manus 스마트 라우팅으로 전송
   if (!getManusApiKey()) {
     console.warn("[ManusPipe] Manus API 설정 없음 - DB 등록만 완료");
-    return { devRequestId, manusTaskId: "", routingType: "new_task", routingReason: "API 키 없음", success: false };
+    return { devRequestId, manusTaskId: "", manusTaskUrl: "", routingType: "new_task", routingReason: "API 키 없음", success: false };
   }
 
   const result = await smartSendToManus({
@@ -493,6 +496,7 @@ export async function autoRegisterAndSend(devRequest: {
       .update(devRequests)
       .set({
         manusTaskId: result.taskId ?? undefined,
+        manusTaskUrl: result.taskUrl ?? null,
         manusProjectId: result.projectId ?? null,
         manusRoutingType: result.routingType,
         manusRoutingReason: result.routingReason,
@@ -500,11 +504,37 @@ export async function autoRegisterAndSend(devRequest: {
         updatedAt: new Date(),
       })
       .where(eq(devRequests.id, devRequestId));
+
+    // 슬랙 알림 전송 (태스크 URL 포함)
+    if (ENV.slackWebhookUrl) {
+      const priorityEmoji: Record<string, string> = { critical: "🔴", high: "🟠", medium: "🟡", low: "🟢" };
+      const emoji = priorityEmoji[devRequest.priority] ?? "🔵";
+      const routingLabel = result.routingType === "send_message" ? "기존 스레드 추가 (크레딧 절약)" : "신규 태스크 생성";
+      const taskLink = result.taskUrl ? `\n🔗 <${result.taskUrl}|Manus 태스크 바로가기>` : "";
+      const slackBody = {
+        text: `${emoji} *[두골프 개발 요청 #${devRequestId}]* Manus 전송 완료`,
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `${emoji} *[두골프 개발 요청 #${devRequestId}]* Manus 전송 완료\n*제목:* ${devRequest.title}\n*우선순위:* ${devRequest.priority.toUpperCase()} | *모듈:* ${devRequest.module ?? "미지정"}\n*라우팅:* ${routingLabel}${taskLink}`,
+            },
+          },
+        ],
+      };
+      fetch(ENV.slackWebhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(slackBody),
+      }).catch((e) => console.warn("[ManusPipe] 슬랙 알림 전송 실패:", e));
+    }
   }
 
   return {
     devRequestId,
     manusTaskId: result.taskId ?? "",
+    manusTaskUrl: result.taskUrl ?? "",
     routingType: result.routingType,
     routingReason: result.routingReason,
     success: result.success,

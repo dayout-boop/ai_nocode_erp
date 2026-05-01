@@ -245,7 +245,18 @@ function DevRequestsTab() {
                     <TableCell className="text-xs text-slate-500">{req.estimatedHours ? `${req.estimatedHours}h` : "-"}</TableCell>
                     <TableCell>
                       {req.manusTaskId ? (
-                        <span className="font-mono text-xs text-green-600">{req.manusTaskId.slice(0, 10)}...</span>
+                        req.manusTaskUrl ? (
+                          <a
+                            href={req.manusTaskUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-xs text-green-600 hover:text-green-800 underline flex items-center gap-1"
+                          >
+                            {req.manusTaskId.slice(0, 10)}...
+                          </a>
+                        ) : (
+                          <span className="font-mono text-xs text-green-600">{req.manusTaskId.slice(0, 10)}...</span>
+                        )
                       ) : (
                         <span className="text-xs text-slate-400">미전송</span>
                       )}

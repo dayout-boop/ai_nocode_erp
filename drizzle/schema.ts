@@ -434,6 +434,8 @@ export const devRequests = mysqlTable("dev_requests", {
   module: varchar("module", { length: 100 }),
   /** Manus API task ID (전송 후 기록) */
   manusTaskId: varchar("manusTaskId", { length: 100 }),
+  /** Manus 태스크 URL (task.create 응답의 task_url) */
+  manusTaskUrl: varchar("manusTaskUrl", { length: 500 }),
   /** Manus 프로젝트 ID (task.create 시 project_id) */
   manusProjectId: varchar("manusProjectId", { length: 100 }),
   /** 라우팅 방식: new_task=신규 생성 | send_message=기존 스레드 추가 */

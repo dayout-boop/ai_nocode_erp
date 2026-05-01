@@ -253,6 +253,13 @@
       "when": 1777613115659,
       "tag": "0035_cynical_karma",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "5",
+      "when": 1777617382384,
+      "tag": "0036_adorable_omega_sentinel",
+      "breakpoints": true
     }
   ]
 }

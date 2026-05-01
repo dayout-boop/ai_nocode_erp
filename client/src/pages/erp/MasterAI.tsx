@@ -174,6 +174,7 @@ function DevRequestCard({
   sent,
   routingType,
   routingReason,
+  manusTaskUrl,
 }: {
   suggestion: DevRequestSuggestion;
   onSend: () => void;
@@ -181,6 +182,7 @@ function DevRequestCard({
   sent: boolean;
   routingType?: "create_task" | "send_message" | null;
   routingReason?: string | null;
+  manusTaskUrl?: string | null;
 }) {
   const [expanded, setExpanded] = useState(false);
   const aiCategory = (suggestion as DevRequestSuggestion & { aiCategory?: string }).aiCategory;
@@ -268,9 +270,22 @@ function DevRequestCard({
         </div>
 
         {sent ? (
-          <div className="flex items-center gap-2 text-green-600 text-sm font-medium pt-1 bg-green-50 rounded-lg px-3 py-2">
-            <CheckCircle2 size={14} />
-            Manus에 전송 완료
+          <div className="space-y-1.5 pt-1">
+            <div className="flex items-center gap-2 text-green-600 text-sm font-medium bg-green-50 rounded-lg px-3 py-2">
+              <CheckCircle2 size={14} />
+              Manus에 전송 완료
+            </div>
+            {manusTaskUrl && (
+              <a
+                href={manusTaskUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 rounded-lg px-3 py-2 border border-indigo-200 transition-colors w-full"
+              >
+                <ExternalLink size={11} />
+                Manus 태스크 바로가기
+              </a>
+            )}
           </div>
         ) : (
           <Button
@@ -299,7 +314,7 @@ export default function MasterAI() {
   const [sessionId] = useState(() => `master-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
   const [sendingRequests, setSendingRequests] = useState<Set<string>>(new Set());
-  const [sentRequestResults, setSentRequestResults] = useState<Map<string, { routingType: string; routingReason: string }>>(new Map());
+  const [sentRequestResults, setSentRequestResults] = useState<Map<string, { routingType: string; routingReason: string; manusTaskUrl?: string }>>(new Map());
   const [showScrollBtn, setShowScrollBtn] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -529,6 +544,7 @@ export default function MasterAI() {
             next.set(msgId, {
               routingType: result.routingType as string,
               routingReason: result.routingReason ?? "",
+              manusTaskUrl: result.manusTaskUrl ?? "",
             });
             return next;
           });
@@ -763,6 +779,7 @@ export default function MasterAI() {
                   sent={sentRequests.has(msg.id)}
                   routingType={sentRequestResults.get(msg.id)?.routingType as "create_task" | "send_message" | null}
                   routingReason={sentRequestResults.get(msg.id)?.routingReason}
+                  manusTaskUrl={sentRequestResults.get(msg.id)?.manusTaskUrl}
                 />
               )}
             </div>

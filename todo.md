@@ -1204,3 +1204,12 @@ Detected
 
 ## 푸터 이용약관·개인정보처리방침 링크 색상 변경
 - [ ] Footer.tsx 이용약관·개인정보처리방침 링크 색상을 더 눈에 띄는 색으로 변경하여 가시성 향상
+
+## MasterAI 오케스트라 시스템 개선 (다중 프로젝트 대비)
+- [ ] DB 스키마: managed_projects 테이블 추가 (프로젝트명, manusProjectId, 컨텍스트 등)
+- [ ] manusPipe.ts: managed_projects DB 기반 동적 컨텍스트 주입 구조로 리팩터링
+- [x] DB 스키마: devRequests에 manusTaskUrl 컨럼 추가 + pnpm db:push
+- [x] manusPipe.ts: autoRegisterAndSend에서 manusTaskUrl DB 저장
+- [ ] manusPipe.ts: Manus 태스크 생성 성공 시 슬랙 알림 전송 (taskUrl 포함)
+- [x] AIEngine.tsx: 개발 요청 목록에서 Manus 태스크 ID를 클릭 가능한 링크로 표시
+- [x] MasterAI.tsx: 전송 완료 후 Manus 태스크 URL 바로가기 버튼 표시

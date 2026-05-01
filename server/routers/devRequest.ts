@@ -360,6 +360,7 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
       return {
         devRequestId: result.devRequestId,
         manusTaskId: result.manusTaskId,
+        manusTaskUrl: result.manusTaskUrl,
         routingType: result.routingType,
         routingReason: result.routingReason,
         success: result.success,
