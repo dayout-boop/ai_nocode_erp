@@ -1391,3 +1391,31 @@ export const siteAuditLogs = mysqlTable("site_audit_logs", {
 });
 export type SiteAuditLog = typeof siteAuditLogs.$inferSelect;
 export type InsertSiteAuditLog = typeof siteAuditLogs.$inferInsert;
+
+// ============================================================
+// MANAGED_PROJECTS - 두골프 마스터 AI 오케스트라 관리 프로젝트 목록
+// 1000개 이상의 Manus WebDev 프로젝트를 중앙에서 관리하기 위한 테이블
+// ============================================================
+export const managedProjects = mysqlTable("managed_projects", {
+  id: int("id").autoincrement().primaryKey(),
+  // 프로젝트 식별 정보
+  name: varchar("name", { length: 200 }).notNull(),
+  slug: varchar("slug", { length: 100 }).notNull().unique(),
+  description: text("description"),
+  // Manus 연동 정보
+  manusProjectId: varchar("manusProjectId", { length: 100 }),
+  manusWebdevPath: varchar("manusWebdevPath", { length: 500 }),
+  manusDeployUrl: varchar("manusDeployUrl", { length: 500 }),
+  // 개발 컨텍스트 (에이전트 자동 주입용)
+  techStack: varchar("techStack", { length: 500 }),
+  keyFiles: text("keyFiles"),
+  devInstructions: text("devInstructions"),
+  customContext: text("customContext"),
+  // 상태 관리
+  isActive: boolean("isActive").default(true).notNull(),
+  isDefault: boolean("isDefault").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
+});
+export type ManagedProject = typeof managedProjects.$inferSelect;
+export type InsertManagedProject = typeof managedProjects.$inferInsert;

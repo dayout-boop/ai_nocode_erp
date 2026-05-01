@@ -16,7 +16,7 @@
  */
 import { eq, and, isNotNull, desc } from "drizzle-orm";
 import { getDb } from "../db";
-import { devRequests } from "../../drizzle/schema";
+import { devRequests, managedProjects } from "../../drizzle/schema";
 import { ENV } from "../_core/env";
 
 const MANUS_API_BASE = "https://api.manus.ai/v2";
@@ -180,8 +180,33 @@ async function createNewTask(
   }
 }
 
+// ─── managed_projects DB에서 기본 프로젝트 컨텍스트 조회 ──────────────────────
+async function getDefaultProjectContext(): Promise<{
+  name: string;
+  manusProjectId: string | null;
+  manusWebdevPath: string | null;
+  manusDeployUrl: string | null;
+  techStack: string | null;
+  keyFiles: string | null;
+  devInstructions: string | null;
+  customContext: string | null;
+} | null> {
+  try {
+    const db = await getDb();
+    if (!db) return null;
+    const rows = await db
+      .select()
+      .from(managedProjects)
+      .where(and(eq(managedProjects.isDefault, true), eq(managedProjects.isActive, true)))
+      .limit(1);
+    return rows[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── 개발 요청 메시지 포맷 ────────────────────────────────────────────────────
-function formatDevRequestMessage(req: {
+async function formatDevRequestMessage(req: {
   id: number;
   title: string;
   description: string;
@@ -192,7 +217,7 @@ function formatDevRequestMessage(req: {
   aiAnalysis?: string | null;
   isFollowUp?: boolean;
   relatedDevRequestId?: number;
-}): string {
+}): Promise<string> {
   const followUpNote = req.isFollowUp
     ? `\n> ⚡ **추가 요청**: 동일 모듈(${req.module})의 기존 개발 스레드에 추가된 요청입니다. (관련 요청 ID: ${req.relatedDevRequestId})\n`
     : "";
@@ -201,22 +226,27 @@ function formatDevRequestMessage(req: {
     ? `\n**AI 분석:**\n${req.aiAnalysis}\n`
     : "";
 
-  return `# 두골프 ERP 개발 요청 [ID: ${req.id}]
-${followUpNote}
-**제목:** ${req.title}
-**유형:** ${req.aiCategory ?? "미분류"}
-**우선순위:** ${req.priority.toUpperCase()}
-**대상 모듈:** ${req.module ?? "미지정"}
-**예상 소요 시간:** ${req.estimatedHours ? req.estimatedHours + '시간' : '미정'}
-${aiNote}
-**상세 설명:**
-${req.description}
+  // managed_projects DB에서 동적으로 컨텍스트 로드
+  const project = await getDefaultProjectContext();
 
----
-*두골프 AI 마스터가 자동 생성한 개발 요청입니다.*
-*프로젝트: dogolf-tour-dkz3fsmp.manus.space (www.dayoutgolf.com)*
+  // DB에 프로젝트 정보가 있으면 동적 컨텍스트, 없으면 하드코딩 폴백
+  const contextBlock = project
+    ? `---
+## 🛠️ 개발 환경 컨텍스트 (자동 주입)
 
----
+**프로젝트명:** ${project.name}
+**Manus WebDev 경로:** ${project.manusWebdevPath ?? '/home/ubuntu/dogolf'}/
+**배포 URL:** ${project.manusDeployUrl ?? 'dogolf-tour-dkz3fsmp.manus.space'}
+**기술 스택:** ${project.techStack ?? 'React 19 + Tailwind 4 + Express 4 + tRPC 11 + MySQL (Drizzle ORM) + TypeScript'}
+
+**핵심 파일 위치:**
+${project.keyFiles ?? '- client/src/components/\n- server/routers/\n- drizzle/schema.ts'}
+
+**개발 절차:**
+${project.devInstructions ?? '1. 파일 수정 (file 도구 사용)\n2. TypeScript 오류 확인\n3. 체크포인트 저장 후 Publish 안내'}
+${project.customContext ? '\n**추가 컨텍스트:**\n' + project.customContext : ''}
+**주의:** 이 프로젝트의 Manus WebDev 세션에서 직접 작업하세요. 신규 프로젝트 생성 불필요.`
+    : `---
 ## 🛠️ 개발 환경 컨텍스트 (자동 주입)
 
 **Manus WebDev 프로젝트:** dogolf
@@ -237,6 +267,23 @@ ${req.description}
 3. 체크포인트 저장 후 Publish 안내
 
 **주의:** 이 프로젝트의 Manus WebDev 세션에서 직접 작업하세요. 신규 프로젝트 생성 불필요.`;
+
+  return `# 두골프 ERP 개발 요청 [ID: ${req.id}]
+${followUpNote}
+**제목:** ${req.title}
+**유형:** ${req.aiCategory ?? "미분류"}
+**우선순위:** ${req.priority.toUpperCase()}
+**대상 모듈:** ${req.module ?? "미지정"}
+**예상 소요 시간:** ${req.estimatedHours ? req.estimatedHours + '시간' : '미정'}
+${aiNote}
+**상세 설명:**
+${req.description}
+
+---
+*두골프 AI 마스터가 자동 생성한 개발 요청입니다.*
+*프로젝트: dogolf-tour-dkz3fsmp.manus.space (www.dayoutgolf.com)*
+
+${contextBlock}`;
 }
 
 // ─── 스마트 라우팅 핵심 함수 ──────────────────────────────────────────────────
@@ -271,12 +318,11 @@ export async function smartSendToManus(req: {
 
   if (activeTask) {
     // 2. 기존 태스크에 메시지 추가 (sendMessage)
-    const message = formatDevRequestMessage({
+    const message = await formatDevRequestMessage({
       ...req,
       isFollowUp: true,
       relatedDevRequestId: activeTask.devRequestId,
     });
-
     const result = await sendMessageToExistingTask(activeTask.taskId, message);
 
     if (result.success) {
@@ -292,7 +338,7 @@ export async function smartSendToManus(req: {
   }
 
   // 3. 신규 태스크 생성 (task.create + project_id)
-  const message = formatDevRequestMessage(req);
+  const message = await formatDevRequestMessage(req);
   const title = `[두골프] ${req.aiCategory ?? "개발요청"}: ${req.title.slice(0, 60)}`;
   const result = await createNewTask(message, title);
 

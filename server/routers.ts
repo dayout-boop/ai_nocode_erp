@@ -3130,6 +3130,7 @@ import { openrouterAgentRouter } from "./routers/openrouterAgent";
 import { customerEstimateTemplatesRouter, estimatesRouter } from "./routers/estimates";
 import { featuresRouter } from "./routers/features";
 import { siteSettingsRouter } from "./routers/siteSettings";
+import { managedProjectsRouter } from "./routers/managedProjects";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -3173,5 +3174,6 @@ export const appRouter = router({
   customVariables: customVariablesRouter,
   features: featuresRouter,
   siteSettings: siteSettingsRouter,
+  managedProjects: managedProjectsRouter,
 });
 export type AppRouter = typeof appRouter;

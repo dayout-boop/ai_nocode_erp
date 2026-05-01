@@ -11,7 +11,7 @@ import {
   // AI 마스터 하위
   BrainCircuit, History, DollarSign,
   // AI 엔진 하위
-  Gauge, ListChecks, LayoutList, GitBranch, AlertTriangle,
+  Gauge, ListChecks, LayoutList, GitBranch, AlertTriangle, FolderOpen,
   // 상품관리 하위
   PackageSearch, PackagePlus,
   // 예약관리 하위
@@ -61,6 +61,7 @@ import ERPSettings from "@/pages/erp/ERPSettings";
 import OpenRouterAgent from "@/pages/erp/OpenRouterAgent";
 import CustomerEstimateTemplates from "@/pages/erp/CustomerEstimateTemplates";
 import DevDashboard from "@/pages/erp/DevDashboard";
+import ManagedProjects from "@/pages/erp/ManagedProjects";
 import { Loader2 } from "lucide-react";
 
 interface NavChild {
@@ -108,6 +109,7 @@ const navItems: NavItem[] = [
       { label: "기능 목록", href: "/ai-engine/features", icon: <LayoutList size={14} /> },
       { label: "버전 이력", href: "/dev-ai?tab=versions", icon: <GitBranch size={14} /> },
       { label: "오류 로그", href: "/ai-dev-engine", icon: <AlertTriangle size={14} /> },
+      { label: "관리 프로젝트", href: "/managed-projects", icon: <FolderOpen size={14} /> },
     ],
   },
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -295,6 +297,7 @@ function ERPContent() {
           <Route path="/settings" component={ERPSettings} />
           <Route path="/openrouter-agent" component={OpenRouterAgent} />
           <Route path="/dev-dashboard" component={DevDashboard} />
+          <Route path="/managed-projects" component={ManagedProjects} />
           <Route component={ERPDashboard} />
         </Switch>
       </Suspense>

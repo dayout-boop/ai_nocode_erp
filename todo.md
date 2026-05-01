@@ -1210,6 +1210,14 @@ Detected
 - [ ] manusPipe.ts: managed_projects DB 기반 동적 컨텍스트 주입 구조로 리팩터링
 - [x] DB 스키마: devRequests에 manusTaskUrl 컨럼 추가 + pnpm db:push
 - [x] manusPipe.ts: autoRegisterAndSend에서 manusTaskUrl DB 저장
-- [ ] manusPipe.ts: Manus 태스크 생성 성공 시 슬랙 알림 전송 (taskUrl 포함)
+- [x] manusPipe.ts: Manus 태스크 생성 성공 시 슬랙 알림 전송 (taskUrl 포함)
 - [x] AIEngine.tsx: 개발 요청 목록에서 Manus 태스크 ID를 클릭 가능한 링크로 표시
 - [x] MasterAI.tsx: 전송 완료 후 Manus 태스크 URL 바로가기 버튼 표시
+- [x] DB 스키마: managed_projects 테이블 추가 (name, slug, description, manusProjectId, manusWebdevPath, manusDeployUrl, techStack, keyFiles, devInstructions, customContext, isActive, isDefault) + pnpm db:push
+- [x] manusPipe.ts: formatDevRequestMessage async 변환 + managed_projects DB에서 동적 컨텍스트 주입
+- [x] server/routers/managedProjects.ts: CRUD API 라우터 생성 (list, getById, create, update, setDefault, delete)
+- [x] server/routers.ts: managedProjectsRouter import 및 appRouter에 managedProjects 키로 등록
+- [x] client/src/pages/erp/ManagedProjects.tsx: 관리 프로젝트 CRUD UI 페이지 구현 (목록 테이블, 추가/수정/삭제 다이얼로그, 기본 프로젝트 설정 버튼, 상세 정보 확장 패널)
+- [x] ERPLayout.tsx: 관리 프로젝트 import 및 /managed-projects 라우트 추가
+- [x] ERPLayout.tsx: AI 엔진 관리 사이드바에 "관리 프로젝트" 메뉴 항목 추가 (FolderOpen 아이콘)
+- [x] seed-managed-projects.mjs: 두골프 ERP 기본 프로젝트 시드 데이터 DB 삽입 완료
