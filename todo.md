@@ -1185,3 +1185,6 @@ Detected
 - [x] Footer.tsx 데스크톱 SNS 아이콘 영역에 인스타그램(SVG), 페이스북(SVG) 아이콘 추가
 - [x] Footer.tsx 모바일 SNS 아이콘 영역에 인스타그램(SVG), 페이스북(SVG) 아이콘 추가
 - [x] CMS 홈페이지 관리 UI(HomepageManagement.tsx)에 페이스북 URL 입력 필드 추가
+
+## 소셜 미디어 아이콘 호버 효과
+- [x] Footer.tsx 데스크톱·모바일 모든 소셜 아이콘에 hover:scale-110 + transition-transform duration-200 효과 추가
