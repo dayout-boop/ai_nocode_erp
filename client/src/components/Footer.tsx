@@ -26,7 +26,7 @@ const DEFAULTS = {
   xUrl: '',
   youtubeUrl: '',
   naverBlogUrl: '',
-  copyright: '© 2026 두골프(DOGOLF). All Rights Reserved.',
+  copyright: `© ${new Date().getFullYear()} 두골프(DOGOLF). All Rights Reserved.`,
 };
 
 // 모바일 아코디언 섹션 컴포넌트

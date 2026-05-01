@@ -1204,3 +1204,9 @@ Detected
 
 ## 푸터 이용약관·개인정보처리방침 링크 색상 변경
 - [ ] Footer.tsx 이용약관·개인정보처리방침 링크 색상을 더 눈에 띄는 색으로 변경하여 가시성 향상
+
+## MasterAI Manus API 프로젝트 지정 태스크 연동
+- [ ] MasterAI 현재 Manus API 호출 방식 확인 (신규 프로젝트 생성 vs 기존 프로젝트 태스크 추가)
+- [ ] Manus API 스킬 검토: 기존 프로젝트 ID로 태스크 생성 방법 파악
+- [ ] MasterAI 서버 로직 수정: 두골프 ERP 프로젝트(GVziMvdQmQTJAbrZbBGmnr)로 태스크 직접 생성
+- [ ] 환경변수 MANUS_PROJECT_ID 활용하여 하드코딩 방지
