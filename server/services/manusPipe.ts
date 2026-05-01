@@ -3,16 +3,23 @@
  *
  * 개발 요청을 Manus API로 전송할 때 지능형 라우팅을 수행합니다.
  *
- * 라우팅 로직:
- *   1. 동일 모듈에 in_progress 상태의 기존 Manus Task가 있으면
+ * 라우팅 로직 (우선순위 순):
+ *   1. MANUS_DOGOLF_TASK_ID가 설정된 경우
+ *      → task.sendMessage (현재 두골프 ERP 개발 대화창에 직접 전송, 크레딧 최소화)
+ *   2. 동일 모듈에 in_progress 상태의 기존 Manus Task가 있으면
  *      → task.sendMessage (기존 스레드에 추가, 크레딧 절약)
- *   2. 없거나 만료된 경우
+ *   3. 없거나 만료된 경우
  *      → task.create + project_id (두골프 프로젝트 내 신규 태스크)
  *
  * 환경변수:
  *   MANUS_API_KEY        - Manus API 인증 키
  *   MANUS_PROJECT_ID     - 두골프 전용 Manus 프로젝트 ID (task.create 시 사용)
- *   MANUS_DOGOLF_TASK_ID - 레거시 호환용 (미설정 시 무시)
+ *   MANUS_DOGOLF_TASK_ID - 현재 두골프 ERP 개발 대화창 태스크 ID (최우선 사용)
+ *
+ * ⚠️ 핵심 설계 원칙:
+ *   MANUS_DOGOLF_TASK_ID가 설정되면 항상 해당 대화창으로 메시지를 보냅니다.
+ *   이렇게 해야 개발 요청이 현재 프로젝트 대화창으로 바로 들어와 리소스 낭비 없이
+ *   즉시 처리됩니다. 새 태스크를 만들면 별도 대화창이 생겨 개발 리소스가 분산됩니다.
  */
 import { eq, and, isNotNull, desc } from "drizzle-orm";
 import { getDb } from "../db";
@@ -290,9 +297,10 @@ ${contextBlock}`;
 /**
  * 스마트 라우팅으로 Manus에 개발 요청을 전송합니다.
  *
- * 1. 동일 모듈의 활성 태스크 조회
- * 2. 있으면 → task.sendMessage (기존 스레드 추가)
- * 3. 없으면 → task.create + project_id (신규 태스크)
+ * 우선순위:
+ * 1. MANUS_DOGOLF_TASK_ID → 현재 두골프 ERP 개발 대화창에 sendMessage (최우선)
+ * 2. 동일 모듈 활성 태스크 → sendMessage (기존 스레드 재사용)
+ * 3. 신규 태스크 생성 → task.create (폴백)
  */
 export async function smartSendToManus(req: {
   id: number;
@@ -313,11 +321,32 @@ export async function smartSendToManus(req: {
     };
   }
 
-  // 1. 동일 모듈 활성 태스크 조회
+  // ─── 1순위: MANUS_DOGOLF_TASK_ID → 현재 두골프 ERP 개발 대화창으로 직접 전송 ───
+  // 이 방식이 개발 요청을 현재 프로젝트 대화창으로 바로 연결하는 핵심 로직입니다.
+  // 새 태스크를 만들면 별도 대화창이 생겨 개발 리소스가 분산되므로 반드시 sendMessage 사용.
+  const dogolfTaskId = process.env.MANUS_DOGOLF_TASK_ID;
+  if (dogolfTaskId) {
+    const message = await formatDevRequestMessage(req);
+    const result = await sendMessageToExistingTask(dogolfTaskId, message);
+    if (result.success) {
+      console.log(`[ManusPipe] ✅ 현재 두골프 ERP 대화창(${dogolfTaskId})에 직접 전송 성공 - 요청 #${req.id}`);
+      return {
+        success: true,
+        routingType: "send_message",
+        routingReason: `두골프 ERP 개발 대화창(MANUS_DOGOLF_TASK_ID)에 직접 전송`,
+        taskId: dogolfTaskId,
+        taskUrl: `https://manus.im/app/${dogolfTaskId}`,
+      };
+    }
+    // sendMessage 실패 시 다음 단계로 폴백
+    console.warn(`[ManusPipe] ⚠️ MANUS_DOGOLF_TASK_ID(${dogolfTaskId}) sendMessage 실패, 모듈 활성 태스크 조회로 폴백`);
+  }
+
+  // ─── 2순위: 동일 모듈 활성 태스크 조회 ──────────────────────────────────────
   const activeTask = await findActiveTaskForModule(req.module);
 
   if (activeTask) {
-    // 2. 기존 태스크에 메시지 추가 (sendMessage)
+    // 기존 태스크에 메시지 추가 (sendMessage)
     const message = await formatDevRequestMessage({
       ...req,
       isFollowUp: true,
@@ -337,7 +366,7 @@ export async function smartSendToManus(req: {
     console.warn("[ManusPipe] sendMessage 실패, 신규 태스크 생성으로 폴백");
   }
 
-  // 3. 신규 태스크 생성 (task.create + project_id)
+  // ─── 3순위: 신규 태스크 생성 (task.create + project_id) ─────────────────────
   const message = await formatDevRequestMessage(req);
   const title = `[두골프] ${req.aiCategory ?? "개발요청"}: ${req.title.slice(0, 60)}`;
   const result = await createNewTask(message, title);
