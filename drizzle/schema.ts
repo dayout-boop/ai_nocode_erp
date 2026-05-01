@@ -442,6 +442,15 @@ export const devRequests = mysqlTable("dev_requests", {
   manusRoutingReason: varchar("manusRoutingReason", { length: 255 }),
   /** 요청 출처 */
   source: mysqlEnum("source", ["manual", "auto_cycle", "master_ai"]).default("manual"),
+  // ── 정확도 평가 필드 ──────────────────────────────────────────────────────
+  /** AI 응답 정확도 점수 (1-5, 사용자 평가) */
+  accuracyScore: int("accuracyScore"),
+  /** 사용자 피드백 텍스트 */
+  userFeedback: text("userFeedback"),
+  /** 사용된 AI 엔진 (gemini | gpt | claude | llama | manus) */
+  engineType: varchar("engineType", { length: 50 }),
+  /** 정확도 평가 완료 여부 */
+  accuracyEvaluated: boolean("accuracyEvaluated").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

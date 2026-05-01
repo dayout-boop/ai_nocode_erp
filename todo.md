@@ -1121,12 +1121,12 @@ Detected
 - [x] 현재 선택된 메뉴 하이라이트 동작 확인
 
 ## 예약 목록 상세 모달 개선 [요청]
-- [ ] 예약 행 전체 클릭 시 모달 열기 (커서 포인터, 행 hover 강조)
-- [ ] 모달 내 여행자 목록 표시 (이름, 영문명, 성별, 여권번호, 만료일)
-- [ ] 모달 내 선택 옵션 표시 (selectedOptions JSON 파싱)
-- [ ] 모달 내 관리자 메모 및 취소 사유 표시
-- [ ] 수기 예약 시 골프장명/상품명 표시 개선
-- [ ] 모달 레이아웃 전반 가독성 개선 (탭 구조 또는 섹션 구분)
+- [x] 예약 행 전체 클릭 시 모달 열기 (커서 포인터, 행 hover 강조)
+- [x] 모달 내 여행자 목록 표시 (이름, 영문명, 성별, 여권번호, 만료일)
+- [x] 모달 내 선택 옵션 표시 (selectedOptions JSON 파싱)
+- [x] 모달 내 관리자 메모 및 취소 사유 표시
+- [x] 수기 예약 시 골프장명/상품명 표시 개선
+- [x] 모달 레이아웃 전반 가독성 개선 (탭 구조 또는 섹션 구분)
 
 ## 예약 상세 모달 (2026-04-30)
 - [x] 예약 행 전체 클릭 시 상세 모달 열기 (cursor-pointer 표시)
@@ -1134,4 +1134,20 @@ Detected
 - [x] 수기 예약(reservations 테이블) 상세 조회 지원
 - [x] 모달 탭 구조: 기본 정보 / 여행자 / 결제 / 상태 관리
 - [x] 수기 예약 전용 필드 표시 (골프장명, 상품명, 담당자, 파트너사 등)
+- [x] TypeScript 오류 0개 확인
+
+## DevAI 정확도 분석 탭 추가 (2026-05-01)
+- [x] DB 스키마: devRequests에 accuracyScore, userFeedback, engineType 필드 추가
+- [x] pnpm db:push 실행
+- [x] 서버 API: devAI.accuracyStats (기간별 정확도 통계)
+- [x] 서버 API: devAI.engineAccuracyComparison (엔진별 정확도 비교)
+- [x] 서버 API: devAI.updateAccuracy (정확도 점수 업데이트)
+- [x] 서버 API: devAI.getImprovementSuggestions (AI 개선 제안)
+- [x] DevAI.tsx: "정확도 분석" 탭 추가 (5번째 탭)
+- [x] 정확도 통계 KPI 카드 (평균 정확도, 고정확도 비율, 평가 건수)
+- [x] 기간별 필터 (7일/30일/90일/전체)
+- [x] 엔진별 정확도 비교 바차트 (Gemini/GPT/Claude/Llama)
+- [x] 일별 정확도 추이 라인차트
+- [x] 개선 제안 섹션 (AI 분석 기반)
+- [x] 개별 요청 정확도 평가 기능 (별점 1-5)
 - [x] TypeScript 오류 0개 확인

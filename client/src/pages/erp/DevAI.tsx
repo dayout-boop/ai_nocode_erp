@@ -56,16 +56,37 @@ import {
   RefreshCw,
   ShieldAlert,
   Rocket,
+  BarChart2,
+  Star,
+  TrendingUp,
+  TrendingDown,
+  Lightbulb,
+  AlertTriangle,
+  Info,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 
-// ─── 상수 ───────────────────────────────────────────────────
+// ─── 상수// ─── 상수 ───────────────────────────────────────────
 const TABS = [
   { id: "dashboard", label: "대시보드", icon: LayoutDashboard },
   { id: "requests", label: "개발 요청", icon: ListTodo },
   { id: "features", label: "기능 목록", icon: Package },
   { id: "versions", label: "버전 이력", icon: History },
+  { id: "accuracy", label: "정확도 분석", icon: BarChart2 },
 ];
 
+type TabId = "dashboard" | "requests" | "features" | "versions" | "accuracy";
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   pending: { label: "대기", color: "bg-amber-50 text-amber-700 border-amber-200", icon: Clock },
   in_progress: { label: "진행중", color: "bg-blue-50 text-blue-700 border-blue-200", icon: Zap },
@@ -104,11 +125,17 @@ export default function DevAI() {
     const search = typeof window !== "undefined" ? window.location.search : "";
     const p = new URLSearchParams(search);
     const t = p.get("tab");
-    if (t === "requests" || t === "features" || t === "versions") return t;
+    if (t === "requests" || t === "features" || t === "versions" || t === "accuracy") return t;
     return "dashboard";
-  })() as "dashboard" | "requests" | "features" | "versions";
-  const [activeTab, setActiveTabState] = useState<"dashboard" | "requests" | "features" | "versions">(urlTab);
-  const setActiveTab = (tab: "dashboard" | "requests" | "features" | "versions") => {
+  })() as TabId;
+  const [activeTab, setActiveTabState] = useState<TabId>(urlTab);
+  const [accuracyPeriod, setAccuracyPeriod] = useState<"7d" | "30d" | "90d" | "all">("30d");
+  const [accuracyEvalOpen, setAccuracyEvalOpen] = useState(false);
+  const [evalTarget, setEvalTarget] = useState<{ id: number; title: string } | null>(null);
+  const [evalScore, setEvalScore] = useState(5);
+  const [evalFeedback, setEvalFeedback] = useState("");
+  const [evalEngine, setEvalEngine] = useState("");
+  const setActiveTab = (tab: TabId) => {
     setActiveTabState(tab);
     const newUrl = tab === "dashboard" ? "/erp/dev-ai" : `/erp/dev-ai?tab=${tab}`;
     window.history.replaceState(null, "", newUrl);
@@ -160,7 +187,32 @@ export default function DevAI() {
     { enabled: activeTab === "versions" }
   );
 
-  // 뮤테이션
+  // 정확도 분석 쿼리
+  const { data: accuracyStats, isLoading: accuracyStatsLoading, refetch: refetchAccuracy } = trpc.devAI.accuracyStats.useQuery(
+    { period: accuracyPeriod },
+    { enabled: activeTab === "accuracy" }
+  );
+  const { data: engineComparison, isLoading: engineCompLoading } = trpc.devAI.engineAccuracyComparison.useQuery(
+    { period: accuracyPeriod },
+    { enabled: activeTab === "accuracy" }
+  );
+  const { data: suggestions, isLoading: suggestionsLoading } = trpc.devAI.getImprovementSuggestions.useQuery(
+    { period: accuracyPeriod },
+    { enabled: activeTab === "accuracy" }
+  );
+  const updateAccuracyMutation = trpc.devAI.updateAccuracy.useMutation({
+    onSuccess: () => {
+      toast.success("정확도 평가가 저장되었습니다.");
+      setAccuracyEvalOpen(false);
+      setEvalTarget(null);
+      setEvalScore(5);
+      setEvalFeedback("");
+      setEvalEngine("");
+      refetchAccuracy();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const createReqMutation = trpc.devAI.createRequest.useMutation({
     onSuccess: async (createdReq) => {
       // Slack 자동 전송 (Webhook URL이 입력된 경우)
@@ -839,6 +891,365 @@ export default function DevAI() {
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ===== 정확도 분석 탭 ===== */}
+          {activeTab === "accuracy" && (
+            <div className="space-y-6">
+              {/* 헤더 */}
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-800">개발 AI 응답 정확도 분석</h2>
+                  <p className="text-sm text-slate-500">엔진별 성능 비교 및 개선 제안</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* 기간 필터 */}
+                  <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
+                    {(["7d", "30d", "90d", "all"] as const).map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => setAccuracyPeriod(p)}
+                        className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                          accuracyPeriod === p ? "bg-white text-violet-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                        }`}
+                      >
+                        {p === "7d" ? "7일" : p === "30d" ? "30일" : p === "90d" ? "90일" : "전체"}
+                      </button>
+                    ))}
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => refetchAccuracy()} className="gap-2">
+                    <RefreshCw size={14} />
+                    새로고침
+                  </Button>
+                </div>
+              </div>
+
+              {/* 통계 카드 */}
+              {accuracyStatsLoading ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-slate-100 rounded-xl animate-pulse" />)}
+                </div>
+              ) : accuracyStats && accuracyStats.totalEvaluated > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <Card className="border-0 shadow-sm">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center">
+                          <Star size={16} className="text-violet-600" />
+                        </div>
+                        <span className="text-xs text-slate-500">평균 정확도</span>
+                      </div>
+                      <div className="text-2xl font-bold text-slate-800">{accuracyStats.avgScore}<span className="text-sm text-slate-400">/5</span></div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-0 shadow-sm">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                          <BarChart2 size={16} className="text-blue-600" />
+                        </div>
+                        <span className="text-xs text-slate-500">평가 완료</span>
+                      </div>
+                      <div className="text-2xl font-bold text-slate-800">{accuracyStats.totalEvaluated}<span className="text-sm text-slate-400">건</span></div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-0 shadow-sm">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center">
+                          <TrendingUp size={16} className="text-green-600" />
+                        </div>
+                        <span className="text-xs text-slate-500">고정확도 (4점+)</span>
+                      </div>
+                      <div className="text-2xl font-bold text-slate-800">{accuracyStats.highAccuracyRate}<span className="text-sm text-slate-400">%</span></div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-0 shadow-sm">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+                          <TrendingDown size={16} className="text-red-600" />
+                        </div>
+                        <span className="text-xs text-slate-500">저정확도 (2점-)</span>
+                      </div>
+                      <div className="text-2xl font-bold text-slate-800">{accuracyStats.lowAccuracyCount}<span className="text-sm text-slate-400">건</span></div>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <Card className="border-0 shadow-sm">
+                  <CardContent className="p-8 text-center">
+                    <BarChart2 size={40} className="mx-auto mb-3 text-slate-300" />
+                    <p className="text-slate-500 font-medium">정확도 평가 데이터가 없습니다</p>
+                    <p className="text-slate-400 text-sm mt-1">개발 요청 목록에서 완료된 요청에 정확도를 평가해 주세요</p>
+                    <Button
+                      size="sm"
+                      className="mt-4 bg-violet-600 hover:bg-violet-700"
+                      onClick={() => {
+                        setActiveTab("requests");
+                        toast.info("개발 요청 목록에서 완료된 요청의 정확도를 평가해 주세요");
+                      }}
+                    >
+                      개발 요청으로 이동
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* 차트 영역 - 점수 분포 + 일별 트렌드 */}
+              {accuracyStats && accuracyStats.totalEvaluated > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* 점수 분포 차트 */}
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-semibold text-slate-700">정확도 점수 분포</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={accuracyStats.scoreDistribution} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="score" tick={{ fontSize: 12 }} tickFormatter={(v) => `${v}점`} />
+                          <YAxis tick={{ fontSize: 12 }} />
+                          <Tooltip formatter={(v) => [`${v}건`, "평가 수"]} />
+                          <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                            {accuracyStats.scoreDistribution.map((entry, idx) => (
+                              <Cell key={idx} fill={entry.score >= 4 ? "#22c55e" : entry.score === 3 ? "#f59e0b" : "#ef4444"} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+
+                  {/* 일별 정확도 트렌드 */}
+                  <Card className="border-0 shadow-sm">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-semibold text-slate-700">일별 정확도 트렌드</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {accuracyStats.dailyTrend.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={200}>
+                          <LineChart data={accuracyStats.dailyTrend} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                            <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(v) => v?.slice(5)} />
+                            <YAxis domain={[0, 5]} tick={{ fontSize: 12 }} />
+                            <Tooltip formatter={(v) => [`${v}점`, "평균 정확도"]} />
+                            <Line type="monotone" dataKey="avgScore" stroke="#7c3aed" strokeWidth={2} dot={{ r: 3 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-[200px] flex items-center justify-center text-slate-400 text-sm">데이터 부족</div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* 엔진별 정확도 비교 */}
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold text-slate-700">엔진별 정확도 비교</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {engineCompLoading ? (
+                    <div className="h-48 bg-slate-100 rounded-lg animate-pulse" />
+                  ) : engineComparison && engineComparison.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={engineComparison} layout="vertical" margin={{ top: 5, right: 30, bottom: 5, left: 80 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                        <XAxis type="number" domain={[0, 5]} tick={{ fontSize: 12 }} />
+                        <YAxis type="category" dataKey="engine" tick={{ fontSize: 11 }} width={80} />
+                        <Tooltip
+                          formatter={(v, name) => [
+                            name === "avgScore" ? `${v}점` : `${v}%`,
+                            name === "avgScore" ? "평균 정확도" : "고정확도율",
+                          ]}
+                        />
+                        <Bar dataKey="avgScore" fill="#7c3aed" radius={[0, 4, 4, 0]} name="avgScore" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-48 flex items-center justify-center text-slate-400 text-sm">엔진별 평가 데이터 없음</div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* 개선 제안 */}
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <Lightbulb size={15} className="text-amber-500" />
+                    AI 개선 제안
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {suggestionsLoading ? (
+                    <div className="space-y-3">
+                      {[...Array(3)].map((_, i) => <div key={i} className="h-16 bg-slate-100 rounded-lg animate-pulse" />)}
+                    </div>
+                  ) : suggestions?.suggestions && suggestions.suggestions.length > 0 ? (
+                    <div className="space-y-3">
+                      {suggestions.suggestions.map((s, i) => (
+                        <div
+                          key={i}
+                          className={`flex gap-3 p-4 rounded-xl border ${
+                            s.priority === "high"
+                              ? "bg-red-50 border-red-200"
+                              : s.priority === "medium"
+                              ? "bg-amber-50 border-amber-200"
+                              : "bg-blue-50 border-blue-200"
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                            s.priority === "high" ? "bg-red-100" : s.priority === "medium" ? "bg-amber-100" : "bg-blue-100"
+                          }`}>
+                            {s.priority === "high" ? (
+                              <AlertTriangle size={15} className="text-red-600" />
+                            ) : s.priority === "medium" ? (
+                              <Info size={15} className="text-amber-600" />
+                            ) : (
+                              <Lightbulb size={15} className="text-blue-600" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-semibold text-slate-800">{s.title}</span>
+                              <Badge className={`text-[10px] px-1.5 py-0 ${
+                                s.priority === "high" ? "bg-red-100 text-red-700" : s.priority === "medium" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
+                              }`}>
+                                {s.priority === "high" ? "높음" : s.priority === "medium" ? "보통" : "낙음"}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-slate-600">{s.description}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-slate-400">
+                      <CheckCircle2 size={32} className="mx-auto mb-2 text-green-400" />
+                      <p className="text-sm font-medium text-slate-600">현재 개선이 필요한 사항이 없습니다</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* 저정확도 요청 목록 */}
+              {suggestions?.lowAccuracyRequests && suggestions.lowAccuracyRequests.length > 0 && (
+                <Card className="border-0 shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      <AlertTriangle size={15} className="text-red-500" />
+                      저정확도 요청 목록 (재검토 필요)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {suggestions.lowAccuracyRequests.map((req) => (
+                        <div key={req.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-800 truncate">{req.title}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-xs text-slate-500">정확도: {req.accuracyScore}점</span>
+                              {req.engineType && <span className="text-xs text-slate-400">• {req.engineType}</span>}
+                              {req.userFeedback && <span className="text-xs text-slate-400 truncate">• {req.userFeedback}</span>}
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0 ml-2 text-xs"
+                            onClick={() => {
+                              setEvalTarget({ id: req.id, title: req.title ?? "" });
+                              setEvalScore(req.accuracyScore ?? 3);
+                              setEvalFeedback(req.userFeedback ?? "");
+                              setEvalEngine(req.engineType ?? "");
+                              setAccuracyEvalOpen(true);
+                            }}
+                          >
+                            재평가
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* 정확도 평가 다이얼로그 */}
+              <Dialog open={accuracyEvalOpen} onOpenChange={setAccuracyEvalOpen}>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>정확도 평가</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-2">
+                    {evalTarget && (
+                      <div className="p-3 bg-slate-50 rounded-lg">
+                        <p className="text-xs text-slate-500">대상 요청</p>
+                        <p className="text-sm font-medium text-slate-800 mt-0.5">{evalTarget.title}</p>
+                      </div>
+                    )}
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600 mb-2 block">정확도 점수 (1~5)</label>
+                      <div className="flex gap-2">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => setEvalScore(s)}
+                            className={`flex-1 py-2 rounded-lg text-sm font-bold border-2 transition-all ${
+                              evalScore === s
+                                ? s >= 4 ? "bg-green-500 border-green-500 text-white" : s === 3 ? "bg-amber-500 border-amber-500 text-white" : "bg-red-500 border-red-500 text-white"
+                                : "border-slate-200 text-slate-500 hover:border-slate-300"
+                            }`}
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1 text-center">
+                        {evalScore >= 4 ? "고정확도 — 우수" : evalScore === 3 ? "보통 — 개선 가능" : "저정확도 — 재검토 필요"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600 mb-1.5 block">엔진 유형 (선택사항)</label>
+                      <Input
+                        value={evalEngine}
+                        onChange={(e) => setEvalEngine(e.target.value)}
+                        placeholder="예: gemini-1.5-pro, claude-3.5-sonnet, gpt-4o"
+                        className="text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600 mb-1.5 block">피드백 (선택사항)</label>
+                      <Textarea
+                        value={evalFeedback}
+                        onChange={(e) => setEvalFeedback(e.target.value)}
+                        placeholder="어떤 점이 부정확했는지, 개선사항 등을 입력하세요"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setAccuracyEvalOpen(false)}>취소</Button>
+                    <Button
+                      className="bg-violet-600 hover:bg-violet-700"
+                      disabled={!evalTarget || updateAccuracyMutation.isPending}
+                      onClick={() => {
+                        if (!evalTarget) return;
+                        updateAccuracyMutation.mutate({
+                          requestId: evalTarget.id,
+                          accuracyScore: evalScore,
+                          userFeedback: evalFeedback || undefined,
+                          engineType: evalEngine || undefined,
+                        });
+                      }}
+                    >
+                      {updateAccuracyMutation.isPending ? "저장 중..." : "평가 저장"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           )}
         </div>

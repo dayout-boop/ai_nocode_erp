@@ -20,7 +20,7 @@ import {
   reservations
 } from "../drizzle/schema";
 // AI 엔진 테이블은 별도 import로 처리됨 (아래 참조)
-import { eq, desc, and, gte, lte, like, sql, count, asc } from "drizzle-orm";
+import { eq, desc, and, gte, lte, like, sql, count, asc, isNotNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { storagePut, storageGetSignedUrl } from "./storage";
 import { optimizeImage, optimizeBase64Image } from "./imageOptimizer";
@@ -2276,6 +2276,184 @@ const devAIRouter = router({
       completedRequests: reqByStatus["completed"] ?? 0,
       activeFeatures: Number(featureStats[0]?.count ?? 0),
       totalVersions: Number(versionStats[0]?.count ?? 0),
+    };
+  }),
+
+  /** 정확도 통계 조회 (AI 응답 정확도 분석) */
+  accuracyStats: adminProcedure.input(z.object({
+    period: z.enum(["7d", "30d", "90d", "all"]).default("30d"),
+  })).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const now = new Date();
+    let fromDate: Date | null = null;
+    if (input.period === "7d") fromDate = new Date(now.getTime() - 7 * 86400000);
+    else if (input.period === "30d") fromDate = new Date(now.getTime() - 30 * 86400000);
+    else if (input.period === "90d") fromDate = new Date(now.getTime() - 90 * 86400000);
+
+    const conditions: any[] = [isNotNull(devRequests.accuracyScore)];
+    if (fromDate) conditions.push(gte(devRequests.createdAt, fromDate));
+    const where = and(...conditions);
+
+    const [rows, totalRows, dailyRows] = await Promise.all([
+      db.select({
+        score: devRequests.accuracyScore,
+        engineType: devRequests.engineType,
+        aiCategory: devRequests.aiCategory,
+        createdAt: devRequests.createdAt,
+      }).from(devRequests).where(where).orderBy(desc(devRequests.createdAt)),
+      db.select({ count: sql<number>`count(*)` }).from(devRequests).where(where),
+      db.select({
+        date: sql<string>`DATE(createdAt)`,
+        avgScore: sql<number>`AVG(accuracyScore)`,
+        count: sql<number>`count(*)`,
+      }).from(devRequests).where(where).groupBy(sql`DATE(createdAt)`).orderBy(sql`DATE(createdAt)`),
+    ]);
+
+    const total = Number(totalRows[0]?.count ?? 0);
+    const avgScore = total > 0 ? rows.reduce((s, r) => s + (r.score ?? 0), 0) / total : 0;
+    const highAccuracyCount = rows.filter(r => (r.score ?? 0) >= 4).length;
+    const lowAccuracyCount = rows.filter(r => (r.score ?? 0) <= 2).length;
+
+    const scoreDistribution = [1, 2, 3, 4, 5].map(s => ({
+      score: s,
+      count: rows.filter(r => r.score === s).length,
+    }));
+
+    return {
+      totalEvaluated: total,
+      avgScore: Math.round(avgScore * 100) / 100,
+      highAccuracyCount,
+      lowAccuracyCount,
+      highAccuracyRate: total > 0 ? Math.round((highAccuracyCount / total) * 100) : 0,
+      scoreDistribution,
+      dailyTrend: dailyRows.map(r => ({
+        date: r.date,
+        avgScore: Math.round(Number(r.avgScore) * 100) / 100,
+        count: Number(r.count),
+      })),
+    };
+  }),
+
+  /** 엔진별 정확도 비교 */
+  engineAccuracyComparison: adminProcedure.input(z.object({
+    period: z.enum(["7d", "30d", "90d", "all"]).default("30d"),
+  })).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const now = new Date();
+    let fromDate: Date | null = null;
+    if (input.period === "7d") fromDate = new Date(now.getTime() - 7 * 86400000);
+    else if (input.period === "30d") fromDate = new Date(now.getTime() - 30 * 86400000);
+    else if (input.period === "90d") fromDate = new Date(now.getTime() - 90 * 86400000);
+
+    const conditions: any[] = [isNotNull(devRequests.accuracyScore), isNotNull(devRequests.engineType)];
+    if (fromDate) conditions.push(gte(devRequests.createdAt, fromDate));
+
+    const rows = await db.select({
+      engineType: devRequests.engineType,
+      avgScore: sql<number>`AVG(accuracyScore)`,
+      count: sql<number>`count(*)`,
+      highCount: sql<number>`SUM(CASE WHEN accuracyScore >= 4 THEN 1 ELSE 0 END)`,
+    }).from(devRequests).where(and(...conditions))
+      .groupBy(devRequests.engineType)
+      .orderBy(desc(sql`AVG(accuracyScore)`));
+
+    return rows.map(r => ({
+      engine: r.engineType ?? "unknown",
+      avgScore: Math.round(Number(r.avgScore) * 100) / 100,
+      count: Number(r.count),
+      highAccuracyRate: Number(r.count) > 0 ? Math.round((Number(r.highCount) / Number(r.count)) * 100) : 0,
+    }));
+  }),
+
+  /** 정확도 점수 업데이트 (사용자 평가) */
+  updateAccuracy: adminProcedure.input(z.object({
+    requestId: z.number(),
+    accuracyScore: z.number().min(1).max(5),
+    userFeedback: z.string().max(1000).optional(),
+    engineType: z.string().max(50).optional(),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    await db.update(devRequests).set({
+      accuracyScore: input.accuracyScore,
+      userFeedback: input.userFeedback,
+      engineType: input.engineType,
+      accuracyEvaluated: true,
+    }).where(eq(devRequests.id, input.requestId));
+    return { success: true };
+  }),
+
+  /** AI 기반 개선 제안 생성 */
+  getImprovementSuggestions: adminProcedure.input(z.object({
+    period: z.enum(["7d", "30d", "90d", "all"]).default("30d"),
+  })).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const now = new Date();
+    let fromDate: Date | null = null;
+    if (input.period === "7d") fromDate = new Date(now.getTime() - 7 * 86400000);
+    else if (input.period === "30d") fromDate = new Date(now.getTime() - 30 * 86400000);
+    else if (input.period === "90d") fromDate = new Date(now.getTime() - 90 * 86400000);
+
+    const conditions: any[] = [isNotNull(devRequests.accuracyScore)];
+    if (fromDate) conditions.push(gte(devRequests.createdAt, fromDate));
+
+    const lowAccuracyRows = await db.select({
+      id: devRequests.id,
+      title: devRequests.title,
+      accuracyScore: devRequests.accuracyScore,
+      userFeedback: devRequests.userFeedback,
+      engineType: devRequests.engineType,
+      aiCategory: devRequests.aiCategory,
+    }).from(devRequests)
+      .where(and(...conditions, lte(devRequests.accuracyScore, 2)))
+      .orderBy(asc(devRequests.accuracyScore))
+      .limit(10);
+
+    const engineStats = await db.select({
+      engineType: devRequests.engineType,
+      avgScore: sql<number>`AVG(accuracyScore)`,
+      count: sql<number>`count(*)`,
+    }).from(devRequests).where(and(...conditions, isNotNull(devRequests.engineType)))
+      .groupBy(devRequests.engineType);
+
+    const worstEngine = [...engineStats].sort((a, b) => Number(a.avgScore) - Number(b.avgScore))[0];
+    const suggestions: { type: string; title: string; description: string; priority: "high" | "medium" | "low" }[] = [];
+
+    if (lowAccuracyRows.length > 0) {
+      suggestions.push({
+        type: "low_accuracy",
+        title: `저정확도 요청 ${lowAccuracyRows.length}건 재검토 필요`,
+        description: `정확도 2점 이하 요청 ${lowAccuracyRows.length}건이 발견되었습니다. 해당 요청의 요구사항을 재검토하고 프롬프트를 개선하세요.`,
+        priority: "high",
+      });
+    }
+    if (worstEngine && Number(worstEngine.avgScore) < 3 && Number(worstEngine.count) >= 3) {
+      suggestions.push({
+        type: "engine_switch",
+        title: `${worstEngine.engineType} 엔진 성능 개선 필요`,
+        description: `${worstEngine.engineType} 엔진의 평균 정확도가 ${Number(worstEngine.avgScore).toFixed(1)}점으로 낮습니다. 다른 엔진으로 전환하거나 프롬프트를 개선하세요.`,
+        priority: "high",
+      });
+    }
+    suggestions.push({
+      type: "feedback_collection",
+      title: "정확도 평가 수집 확대",
+      description: "완료된 개발 요청에 대한 정확도 평가를 지속적으로 수집하여 엔진별 성능을 지속 모니터링하세요.",
+      priority: "medium",
+    });
+    suggestions.push({
+      type: "prompt_optimization",
+      title: "시스템 프롬프트 최적화",
+      description: "저정확도 요청의 패턴을 분석하여 시스템 프롬프트를 주기적으로 개선하세요.",
+      priority: "low",
+    });
+
+    return {
+      suggestions,
+      lowAccuracyRequests: lowAccuracyRows,
     };
   }),
 });

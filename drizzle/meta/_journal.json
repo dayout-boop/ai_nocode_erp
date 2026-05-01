@@ -225,6 +225,13 @@
       "when": 1777565916213,
       "tag": "0031_good_redwing",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "5",
+      "when": 1777597682257,
+      "tag": "0032_left_banshee",
+      "breakpoints": true
     }
   ]
 }
