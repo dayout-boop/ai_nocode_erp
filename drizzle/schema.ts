@@ -449,6 +449,8 @@ export const devRequests = mysqlTable("dev_requests", {
   userFeedback: text("userFeedback"),
   /** 사용된 AI 엔진 (gemini | gpt | claude | llama | manus) */
   engineType: varchar("engineType", { length: 50 }),
+  /** 피드백 자동 분류 카테고리 (LLM 분류 결과) */
+  feedbackCategory: mysqlEnum("feedbackCategory", ["bug", "suggestion", "other"]),
   /** 정확도 평가 완료 여부 */
   accuracyEvaluated: boolean("accuracyEvaluated").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

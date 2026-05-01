@@ -1153,11 +1153,11 @@ Detected
 - [x] TypeScript 오류 0개 확인
 
 ## 정확도 평가 자동 트리거 (2026-05-01)
-- [ ] 상태 변경 버튼에서 "완료" 클릭 시 정확도 평가 다이얼로그 자동 오픈
-- [ ] 편집 다이얼로그 저장 시 status가 "completed"로 변경되면 자동 오픈
-- [ ] 다이얼로그에 "완료 처리 후 평가" 안내 문구 추가
-- [ ] 이미 평가된 요청은 자동 트리거 스킵 (accuracyScore != null 체크)
-- [ ] TypeScript 오류 0개 확인
+- [x] 상태 변경 버튼에서 "완료" 클릭 시 정확도 평가 다이얼로그 자동 오픈
+- [x] 편집 다이얼로그 저장 시 status가 "completed"로 변경되면 자동 오픈
+- [x] 다이얼로그에 "완료 처리 후 평가" 안내 문구 추가
+- [x] 이미 평가된 요청은 자동 트리거 스킵 (accuracyScore != null 체크)
+- [x] TypeScript 오류 0개 확인
 
 ## 정확도 평가 자동 트리거 (2026-05-01) - 완료
 - [x] updateReqMutation onSuccess에서 variables 받아 완료 상태 감지
@@ -1165,3 +1165,17 @@ Detected
 - [x] accuracyScore == null 조건으로 이미 평가된 요청은 재트리거 방지
 - [x] 정확도 평가 다이얼로그 제목/설명 개선 ("AI 응답 정확도 평가" + 안내 문구)
 - [x] 완료된 요청 카드에 보라색 배경 강조 표시
+
+## 피드백 자동 분류 기능 (2026-05-01)
+- [ ] DB 스키마: devRequests에 feedbackCategory 필드 추가 (bug | suggestion | other)
+- [ ] DB 마이그레이션 실행 (pnpm db:push)
+- [ ] 서버: classifyFeedback 헬퍼 함수 구현 (LLM 기반 분류, 피드백 없으면 'other')
+- [ ] 서버: updateAccuracy 뮤테이션에서 피드백 저장 후 자동 분류 실행
+- [ ] 서버: updateFeedbackCategory API 추가 (수동 수정용)
+- [ ] 프론트엔드: 정확도 평가 다이얼로그에 분류 결과 배지 표시 (저장 후)
+- [ ] 프론트엔드: 정확도 분석 탭에 카테고리별 통계 표시 (bug/suggestion/other 비율)
+- [ ] 프론트엔드: 요청 목록 카드에 feedbackCategory 배지 표시
+- [ ] TypeScript 오류 0개 확인
+
+## Footer 저작권 연도 동적 처리
+- [x] Footer.tsx DEFAULTS.copyright에서 하드코딩된 '2026' → `new Date().getFullYear()` 동적 처리 (매년 자동 업데이트)

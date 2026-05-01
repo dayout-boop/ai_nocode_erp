@@ -28,6 +28,7 @@ import { generateImage } from "./_core/imageGeneration";
 import { ENV } from "./_core/env";
 import { geminiChat, DOGOLF_SYSTEM_CONTEXT, type GeminiMessage, getCircuitBreakerStatus, resetCircuitBreaker, GEMINI_REGION_ENDPOINTS } from "./_core/gemini";
 import { orchestrate, getModelPricing, getCacheStats, clearCache, detectComplexity, MODEL_CATALOG, LLAMA_FREE_MODEL, type TaskType, type TaskComplexity } from "./_core/orchestrator";
+import { invokeLLM } from "./_core/llm";
 import { createPaymentIntent, getPaymentStatus } from "./stripe";
 import {
   sendBookingConfirmedNotification,
@@ -2367,7 +2368,10 @@ const devAIRouter = router({
     }));
   }),
 
-  /** 정확도 점수 업데이트 (사용자 평가) */
+  /** 피드백 자동 분류 헬퍼 (LLM 기반) */
+  // 내부 헬퍼 함수 - 라우터 외부에 선언하는 대신 프로시저 내부에서 직접 사용
+
+  /** 정확도 점수 업데이트 (사용자 평가) + 피드백 자동 분류 */
   updateAccuracy: adminProcedure.input(z.object({
     requestId: z.number(),
     accuracyScore: z.number().min(1).max(5),
@@ -2376,11 +2380,70 @@ const devAIRouter = router({
   })).mutation(async ({ input }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+    // LLM 기반 피드백 자동 분류
+    let feedbackCategory: "bug" | "suggestion" | "other" = "other";
+    if (input.userFeedback && input.userFeedback.trim().length > 0) {
+      try {
+        const classifyResult = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content: `You are a feedback classifier for a golf ERP system. Classify user feedback into exactly one of these categories:\n- bug: Reports an error, malfunction, incorrect behavior, or something not working as expected\n- suggestion: Requests a new feature, improvement, or enhancement\n- other: General comments, praise, questions, or unclear feedback\n\nRespond with ONLY a JSON object: {"category": "bug"} or {"category": "suggestion"} or {"category": "other"}`,
+            },
+            {
+              role: "user",
+              content: `Classify this feedback: "${input.userFeedback}"`,
+            },
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "feedback_classification",
+              strict: true,
+              schema: {
+                type: "object",
+                properties: {
+                  category: { type: "string", enum: ["bug", "suggestion", "other"] },
+                },
+                required: ["category"],
+                additionalProperties: false,
+              },
+            },
+          },
+        });
+        const content = classifyResult?.choices?.[0]?.message?.content;
+        if (content) {
+          const parsed = JSON.parse(typeof content === "string" ? content : JSON.stringify(content));
+          if (["bug", "suggestion", "other"].includes(parsed.category)) {
+            feedbackCategory = parsed.category as "bug" | "suggestion" | "other";
+          }
+        }
+      } catch (e) {
+        // 분류 실패 시 'other'로 폴백
+        console.error("[classifyFeedback] LLM classification failed:", e);
+      }
+    }
+
     await db.update(devRequests).set({
       accuracyScore: input.accuracyScore,
       userFeedback: input.userFeedback,
       engineType: input.engineType,
+      feedbackCategory,
       accuracyEvaluated: true,
+    }).where(eq(devRequests.id, input.requestId));
+    return { success: true, feedbackCategory };
+  }),
+
+  /** 피드백 카테고리 수동 수정 */
+  updateFeedbackCategory: adminProcedure.input(z.object({
+    requestId: z.number(),
+    feedbackCategory: z.enum(["bug", "suggestion", "other"]),
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    await db.update(devRequests).set({
+      feedbackCategory: input.feedbackCategory,
     }).where(eq(devRequests.id, input.requestId));
     return { success: true };
   }),

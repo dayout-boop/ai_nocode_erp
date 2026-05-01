@@ -232,6 +232,13 @@
       "when": 1777597682257,
       "tag": "0032_left_banshee",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "5",
+      "when": 1777607426527,
+      "tag": "0033_tiny_firestar",
+      "breakpoints": true
     }
   ]
 }
