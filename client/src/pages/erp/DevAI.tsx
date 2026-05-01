@@ -238,11 +238,25 @@ export default function DevAI() {
   });
 
   const updateReqMutation = trpc.devAI.updateRequest.useMutation({
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       toast.success("요청이 업데이트되었습니다.");
       setEditReqOpen(false);
       utils.devAI.listRequests.invalidate();
       utils.devAI.dashboardStats.invalidate();
+      // 완료 상태로 변경 시 정확도 평가 다이얼로그 자동 트리거
+      if (variables.status === "completed") {
+        // 편집 다이얼로그에서 저장한 경우 editReqForm에서 정보 가져오기
+        const reqId = variables.id;
+        const reqTitle = editReqForm?.id === reqId ? (editReqForm?.title ?? "") : "";
+        const alreadyScored = editReqForm?.id === reqId ? (editReqForm?.accuracyScore != null) : false;
+        if (!alreadyScored) {
+          setTimeout(() => {
+            setEvalTarget({ id: reqId, title: reqTitle });
+            setEvalScore(5);
+            setAccuracyEvalOpen(true);
+          }, 400);
+        }
+      }
     },
     onError: (e) => toast.error(e.message),
   });
@@ -693,7 +707,17 @@ export default function DevAI() {
                                     variant="outline"
                                     size="sm"
                                     className={`text-xs h-7 ${req.status === s ? "border-violet-400 text-violet-700 bg-violet-50" : ""}`}
-                                    onClick={() => updateReqMutation.mutate({ id: req.id, status: s as any })}
+                                    onClick={() => {
+                                      updateReqMutation.mutate({ id: req.id, status: s as any });
+                                      // 완료 상태로 변경 시 정확도 평가 다이얼로그 자동 트리거
+                                      if (s === "completed" && req.accuracyScore == null) {
+                                        setTimeout(() => {
+                                          setEvalTarget({ id: req.id, title: req.title ?? "" });
+                                          setEvalScore(5);
+                                          setAccuracyEvalOpen(true);
+                                        }, 400);
+                                      }
+                                    }}
                                     disabled={req.status === s}
                                   >
                                     {STATUS_CONFIG[s]?.label}
@@ -1181,13 +1205,19 @@ export default function DevAI() {
               <Dialog open={accuracyEvalOpen} onOpenChange={setAccuracyEvalOpen}>
                 <DialogContent className="max-w-md">
                   <DialogHeader>
-                    <DialogTitle>정확도 평가</DialogTitle>
+                    <DialogTitle>AI 응답 정확도 평가</DialogTitle>
+                    <p className="text-xs text-slate-500 mt-1">
+                      개발 요청이 완료되었습니다. AI 응답의 정확도를 평가해 주세요. 이 데이터는 AI 엔진 개선에 활용됩니다.
+                    </p>
                   </DialogHeader>
                   <div className="space-y-4 py-2">
                     {evalTarget && (
-                      <div className="p-3 bg-slate-50 rounded-lg">
-                        <p className="text-xs text-slate-500">대상 요청</p>
-                        <p className="text-sm font-medium text-slate-800 mt-0.5">{evalTarget.title}</p>
+                      <div className="p-3 bg-violet-50 border border-violet-100 rounded-lg">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-violet-500" />
+                          <p className="text-xs font-semibold text-violet-600">완료된 요청</p>
+                        </div>
+                        <p className="text-sm font-medium text-slate-800">{evalTarget.title}</p>
                       </div>
                     )}
                     <div>
