@@ -608,9 +608,10 @@ function RightPanel({
 
   return (
     <div
-      className={`fixed top-0 right-0 h-full w-80 bg-white border-l shadow-2xl z-50 flex flex-col transition-transform duration-300 ${
+      className={`fixed top-0 right-0 h-full w-[85vw] sm:w-80 bg-white border-l shadow-2xl z-50 flex flex-col transition-transform duration-300 ${
         open ? "translate-x-0" : "translate-x-full"
       }`}
+      style={{ maxWidth: "320px" }}
     >
       {/* 패널 헤더 */}
       <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-indigo-50 to-purple-50 shrink-0">
@@ -626,9 +627,9 @@ function RightPanel({
         </button>
       </div>
 
-      {/* 탭 컨텐츠 */}
-      <div className="flex-1 overflow-hidden">
-        <Tabs defaultValue="dev" className="h-full flex flex-col">
+      {/* 탭 콘텐츠 */}
+      <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+        <Tabs defaultValue="dev" className="flex-1 flex flex-col min-h-0">
           <TabsList className="mx-3 mt-3 shrink-0 grid grid-cols-3 h-8">
             <TabsTrigger value="dev" className="text-xs">개발현황</TabsTrigger>
             <TabsTrigger value="engine" className="text-xs">AI엔진</TabsTrigger>
@@ -636,7 +637,7 @@ function RightPanel({
           </TabsList>
 
           {/* 개발현황 탭 */}
-          <TabsContent value="dev" className="flex-1 overflow-y-auto px-3 pb-3 mt-2 space-y-3">
+          <TabsContent value="dev" className="flex-1 overflow-y-auto px-3 pb-3 mt-2 space-y-3" style={{ minHeight: 0 }}>
             {/* 파이프라인 상태 */}
             <div className={`rounded-xl p-3 border ${pipelineStatus.connected ? "bg-emerald-50 border-emerald-200" : "bg-gray-50 border-gray-200"}`}>
               <div className="flex items-center gap-2 mb-1">
@@ -689,7 +690,7 @@ function RightPanel({
           </TabsContent>
 
           {/* AI 엔진 탭 */}
-          <TabsContent value="engine" className="flex-1 overflow-y-auto px-3 pb-3 mt-2 space-y-3">
+          <TabsContent value="engine" className="flex-1 overflow-y-auto px-3 pb-3 mt-2 space-y-3" style={{ minHeight: 0 }}>
             {/* 모델 현황 */}
             <div>
               <p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1">
@@ -764,7 +765,7 @@ function RightPanel({
           </TabsContent>
 
           {/* 연동 서비스 탭 */}
-          <TabsContent value="services" className="flex-1 overflow-y-auto px-3 pb-3 mt-2 space-y-3">
+          <TabsContent value="services" className="flex-1 overflow-y-auto px-3 pb-3 mt-2 space-y-3" style={{ minHeight: 0 }}>
             <div>
               <p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1">
                 <Link2 size={11} className="text-blue-500" />
@@ -1021,6 +1022,7 @@ export default function MasterAI() {
 
     // ── 파일 업로드 + AI 분석 파이프라인 ──────────────────────────────────────
     let fileContextText = "";
+    const fileContexts: Array<{ fileName: string; mimeType: string; extractedText: string; analysisResult?: string }> = [];
     if (filesToUpload.length > 0) {
       setMessages((prev) =>
         prev.map((m) =>
@@ -1048,6 +1050,13 @@ export default function MasterAI() {
               history: history.slice(-6),
             });
             fileContextText += `\n\n---\n📎 **${file.name}** 분석 결과:\n${analysisResult.answer}`;
+            // masterStream에 전달할 파일 컨텍스트 수집
+            fileContexts.push({
+              fileName: file.name,
+              mimeType: file.type || "application/octet-stream",
+              extractedText: (uploadResult as { extractedText?: string }).extractedText ?? "",
+              analysisResult: analysisResult.answer,
+            });
             // 분석 결과를 즉시 메시지에 표시
             setMessages((prev) =>
               prev.map((m) =>
@@ -1095,7 +1104,7 @@ export default function MasterAI() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ message: messageWithFileContext, sessionId, history }),
+        body: JSON.stringify({ message: messageWithFileContext, sessionId, history, fileContexts }),
         signal: controller.signal,
       });
 
@@ -1282,7 +1291,7 @@ export default function MasterAI() {
   return (
     <div className="flex h-[calc(100vh)] relative">
       {/* 메인 채팅 영역 */}
-      <div className={`flex flex-col flex-1 min-w-0 transition-all duration-300 ${rightPanelOpen ? "mr-80" : ""}`}>
+      <div className={`flex flex-col flex-1 min-w-0 transition-all duration-300 ${rightPanelOpen ? "sm:mr-80" : ""}`}>
         {/* 헤더 */}
         <div className="flex items-center justify-between px-4 py-3 border-b bg-white shrink-0">
           <div className="flex items-center gap-3">
@@ -1693,7 +1702,7 @@ export default function MasterAI() {
       {/* 패널 오버레이 (모바일) */}
       {rightPanelOpen && (
         <div
-          className="fixed inset-0 bg-black/20 z-40 sm:hidden"
+          className="fixed inset-0 bg-black/30 z-40"
           onClick={() => setRightPanelOpen(false)}
         />
       )}

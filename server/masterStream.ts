@@ -28,6 +28,18 @@ const inputSchema = z.object({
     .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() }))
     .optional()
     .default([]),
+  // 파일 분석 컨텍스트 (파일 첨부 시 주입)
+  fileContexts: z
+    .array(
+      z.object({
+        fileName: z.string(),
+        mimeType: z.string(),
+        extractedText: z.string(),
+        analysisResult: z.string().optional(),
+      })
+    )
+    .optional()
+    .default([]),
 });
 
 // ─── Tool Call 타입 ─────────────────────────────────────────────
@@ -95,6 +107,24 @@ export function registerMasterStreamRoute(app: Express) {
 
       // 5. 히스토리 압축
       const compressedHistory = await compressHistory(input.sessionId, input.history);
+
+      // 5-1. 파일 컨텍스트 추가
+      if (input.fileContexts && input.fileContexts.length > 0) {
+        const fileCtxParts = input.fileContexts.map((fc) => {
+          const lines = [`📎 파일명: ${fc.fileName} (${fc.mimeType})`];
+          if (fc.extractedText) {
+            const truncated = fc.extractedText.length > 3000
+              ? fc.extractedText.slice(0, 3000) + "\n...(내용 일부 생략)"
+              : fc.extractedText;
+            lines.push(`추출된 내용:\n${truncated}`);
+          }
+          if (fc.analysisResult) {
+            lines.push(`AI 분석 결과:\n${fc.analysisResult}`);
+          }
+          return lines.join("\n");
+        });
+        contextParts.push(`[첨부 파일 분석]\n${fileCtxParts.join("\n\n---\n")}`);
+      }
 
       // 6. 시스템 프롬프트 조합
       const systemWithContext =

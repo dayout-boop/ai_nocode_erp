@@ -1339,13 +1339,13 @@ Detected
 - [x] 기술 로직도 보고서 문서 생성 (docs/master-ai-report.md)
 
 ## AI 엔진 파일 직접 분석 기능 [ID: 270001] (2026-05-02)
-- [ ] DB 스키마: fileAnalysis 테이블 추가 (drizzle/schema.ts)
-- [ ] 서버: 파일 업로드 tRPC 프로시저 (multipart/form-data → S3 저장)
-- [ ] 서버: 텍스트 추출 서비스 (PDF/DOCX/이미지 → 텍스트)
-- [ ] 서버: RAG 파이프라인 (파일 컨텍스트 + LLM 질의응답)
-- [ ] 서버: masterStream.ts에 파일 컨텍스트 주입 로직 추가
-- [ ] 프론트엔드: MasterAI 파일 첨부 → 업로드 → 분석 결과 표시
-- [ ] TypeScript 오류 0개 확인 및 체크포인트 저장
+- [x] DB 스키마: fileAnalysis 테이블 추가 (drizzle/schema.ts)
+- [x] 서버: 파일 업로드 tRPC 프로시저 (multipart/form-data → S3 저장)
+- [x] 서버: 텍스트 추출 서비스 (PDF/DOCX/이미지 → 텍스트)
+- [x] 서버: RAG 파이프라인 (파일 컨텍스트 + LLM 질의응답)
+- [x] 서버: masterStream.ts에 파일 컨텍스트 주입 로직 추가
+- [x] 프론트엔드: MasterAI 파일 첨부 → 업로드 → 분석 결과 표시
+- [x] TypeScript 오류 0개 확인 및 체크포인트 저장
 
 ## AI 엔진 파일 직접 분석 기능 [ID: 270001] - 2026-05-02 완료
 
@@ -1356,3 +1356,18 @@ Detected
 - [x] MasterAI.tsx - 파일 업로드 → 텍스트 추출 → AI 분석 파이프라인 연동
 - [x] MasterAI.tsx - 파일 분석 결과 채팅 내 인라인 표시
 - [x] TypeScript 오류 0개 확인
+
+## 파일 업로드 및 자동 분석 기능 보완 [ID: 300001] (2026-05-02)
+- [x] 기존 구현 현황 파악 (270001에서 핵심 파이프라인 완료 확인)
+- [ ] masterStream.ts에 파일 컨텍스트 직접 주입 (SSE 스트리밍 시 파일 내용 포함)
+- [ ] fileAnalysis.ts에 S3 다운로드 URL 반환 기능 추가 (외부 공유 가능)
+- [ ] 파일 분석 결과 → 자동수행 에이전트 트리거 로직 추가 (분석 결과에 따른 devRequest 자동 생성)
+- [ ] 파일 분석 히스토리 페이지 (ERP 내 파일 분석 목록 조회)
+- [ ] TypeScript 오류 0개 확인 및 체크포인트 저장
+
+## 모바일 우측 슬라이드 메뉴 버그 수정 [ID: 300002] (2026-05-02)
+- [ ] MasterAI.tsx 우측 슬라이드 패널 모바일 렌더링 오류 원인 파악
+- [ ] z-index, overflow, position 수정 (모바일 환경)
+- [ ] 터치 이벤트 및 스크롤 처리 개선
+- [ ] 탭 전환 및 콘텐츠 표시 오류 수정
+- [ ] TypeScript 오류 0개 확인 및 체크포인트 저장

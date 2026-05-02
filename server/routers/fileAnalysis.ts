@@ -165,6 +165,7 @@ export const fileAnalysisRouter = router({
           id: recordId,
           fileUrl,
           extractStatus: "done" as const,
+          extractedText: extractResult.text.slice(0, 5000), // 프론트엔드에 일부 전달 (masterStream 컨텍스트용)
           extractedTextLength: extractResult.text.length,
           pageCount: extractResult.pageCount,
           method: extractResult.method,
@@ -313,6 +314,135 @@ export const fileAnalysisRouter = router({
 
       if (!record) throw new TRPCError({ code: "NOT_FOUND" });
       return record;
+    }),
+
+  /**
+   * S3 다운로드 URL 반환 (외부 공유 가능)
+   */
+  getDownloadUrl: adminProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const [record] = await db
+        .select({ id: fileAnalysis.id, fileUrl: fileAnalysis.fileUrl, fileName: fileAnalysis.fileName, userId: fileAnalysis.userId })
+        .from(fileAnalysis)
+        .where(and(eq(fileAnalysis.id, input.id), eq(fileAnalysis.userId, ctx.user.id)))
+        .limit(1);
+
+      if (!record) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // fileUrl은 /manus-storage/{key} 형태로 이미 서비스됨
+      return {
+        downloadUrl: record.fileUrl,
+        fileName: record.fileName,
+      };
+    }),
+
+  /**
+   * 파일 분석 결과 기반 자동수행 에이전트 트리거
+   * - 분석 결과에 개발 요청 키워드가 포함된 경우 devRequest 자동 생성
+   */
+  analyzeAndTriggerAgent: adminProcedure
+    .input(
+      z.object({
+        fileId: z.number().int().positive(),
+        userInstruction: z.string().min(1).max(2000).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const [record] = await db
+        .select()
+        .from(fileAnalysis)
+        .where(and(eq(fileAnalysis.id, input.fileId), eq(fileAnalysis.userId, ctx.user.id)))
+        .limit(1);
+
+      if (!record || record.extractStatus !== "done" || !record.extractedText) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "파일 분석이 완료되지 않았습니다." });
+      }
+
+      // AI로 파일 내용에서 개발 요청 여부 판단
+      const triggerAnalysis = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content: `당신은 두골프 ERP의 AI 에이전트입니다. 주어진 파일 내용을 분석하여 개발 요청이 필요한지 판단하세요.
+
+파일명: ${record.fileName}
+파일 요약: ${record.summary ?? "요약 없음"}
+사용자 지시: ${input.userInstruction ?? "없음"}
+
+다음 JSON 형식으로 답변하세요:
+{
+  "needsDevelopment": true/false,
+  "title": "개발 요청 제목 (한국어)",
+  "description": "상세 설명 (한국어)",
+  "priority": "high/medium/low",
+  "module": "대상 모듈"
+}`,
+          },
+          {
+            role: "user",
+            content: `파일 내용:\n${record.extractedText.slice(0, 3000)}`,
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "trigger_analysis",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                needsDevelopment: { type: "boolean" },
+                title: { type: "string" },
+                description: { type: "string" },
+                priority: { type: "string", enum: ["high", "medium", "low"] },
+                module: { type: "string" },
+              },
+              required: ["needsDevelopment", "title", "description", "priority", "module"],
+              additionalProperties: false,
+            },
+          },
+        },
+      });
+
+      const rawContent = triggerAnalysis?.choices?.[0]?.message?.content;
+      const parsed = JSON.parse(typeof rawContent === "string" ? rawContent : "{\"needsDevelopment\":false,\"title\":\"\",\"description\":\"\",\"priority\":\"low\",\"module\":\"\"}");
+
+      if (!parsed.needsDevelopment) {
+        return { triggered: false, message: "개발 요청이 필요하지 않은 파일로 판단되었습니다." };
+      }
+
+      // devRequests 테이블에 자동 등록
+      const { devRequests } = await import("../../drizzle/schema");
+      const [newReq] = await db
+        .insert(devRequests)
+        .values({
+          title: parsed.title,
+          description: `[파일 분석 자동 생성] ${parsed.description}`,
+          aiCategory: "FEATURE",
+          priority: parsed.priority.toLowerCase() as "high" | "medium" | "low",
+          module: parsed.module,
+          status: "pending",
+          createdBy: ctx.user.id,
+          aiAnalysis: `파일: ${record.fileName}\n\n${record.summary ?? ""}`,
+          aiAnalyzed: true,
+          source: "master_ai",
+        })
+        .$returningId();
+
+      return {
+        triggered: true,
+        devRequestId: newReq.id,
+        title: parsed.title,
+        priority: parsed.priority,
+        module: parsed.module,
+      };
     }),
 
   /**
