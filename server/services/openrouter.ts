@@ -89,10 +89,32 @@ export interface ChatResult {
 }
 
 /**
- * 모델 라우팅 함수
+ * 모델 라우팅 함수 (정적 기본값)
  */
 export function routeModel(complexity: "high" | "medium" | "low") {
   return MODEL_MAP[complexity];
+}
+
+/**
+ * DB 기반 동적 모델 라우팅
+ * DB에 설정된 모델이 있으면 해당 모델을, 없으면 기본값을 반환
+ */
+export async function routeModelFromDb(
+  complexity: "high" | "medium" | "low"
+): Promise<{ id: string; name: string; inputPrice: number; outputPrice: number }> {
+  try {
+    const { getModelRuleFromDb } = await import("../routers/modelRouting");
+    const rule = await getModelRuleFromDb(complexity);
+    return {
+      id: rule.modelId,
+      name: rule.modelName,
+      inputPrice: rule.inputPrice,
+      outputPrice: rule.outputPrice,
+    };
+  } catch {
+    const m = MODEL_MAP[complexity];
+    return { id: m.id, name: m.name, inputPrice: m.inputPrice, outputPrice: m.outputPrice };
+  }
 }
 
 /**

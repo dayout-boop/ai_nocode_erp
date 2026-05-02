@@ -19,7 +19,7 @@ import {
   // 정산관리 하위
   ReceiptText, Building2,
   // CRM 하위
-  Search,
+  Search, UserPlus,
   // CMS 하위
   Bell as BellIcon, Image, Code2, Globe,
   // 설정
@@ -64,6 +64,9 @@ import OpenRouterAgent from "@/pages/erp/OpenRouterAgent";
 import CustomerEstimateTemplates from "@/pages/erp/CustomerEstimateTemplates";
 import DevDashboard from "@/pages/erp/DevDashboard";
 import ManagedProjects from "@/pages/erp/ManagedProjects";
+import ModelRoutingSettings from "@/pages/erp/ModelRoutingSettings";
+import PartnerOnboardingAdmin from "@/pages/erp/PartnerOnboardingAdmin";
+import SubscriptionManagement from "@/pages/erp/SubscriptionManagement";
 import { Loader2 } from "lucide-react";
 
 interface NavChild {
@@ -107,6 +110,7 @@ const navItems: NavItem[] = [
     icon: <Zap size={18} />,
     children: [
       { label: "엔진 대시보드", href: "/ai-engine", icon: <Gauge size={14} /> },
+      { label: "모델 라우팅", href: "/ai-engine/model-routing", icon: <Cpu size={14} /> },
       { label: "개발 요청", href: "/dev-ai?tab=requests", icon: <ListChecks size={14} /> },
       { label: "기능 목록", href: "/ai-engine/features", icon: <LayoutList size={14} /> },
       { label: "버전 이력", href: "/dev-ai?tab=versions", icon: <GitBranch size={14} /> },
@@ -159,6 +163,8 @@ const navItems: NavItem[] = [
       { label: "고객 검색", href: "/crm", icon: <Search size={14} /> },
       { label: "파트너 관리", href: "/crm/partners", icon: <Building2 size={14} /> },
       { label: "제휴사 관리", href: "/crm/affiliates", icon: <Building2 size={14} /> },
+      { label: "파트너 온보딩 관리", href: "/partner-onboarding", icon: <UserPlus size={14} /> },
+      { label: "구독 관리", href: "/subscriptions", icon: <CreditCard size={14} /> },
     ],
   },
   {
@@ -301,6 +307,9 @@ function ERPContent() {
           <Route path="/master-ai/costs" component={MasterCosts} />
           <Route path="/ai-engine" component={AIEngine} />
           <Route path="/ai-engine/features" component={FeatureCatalog} />
+          <Route path="/ai-engine/model-routing" component={ModelRoutingSettings} />
+          <Route path="/partner-onboarding" component={PartnerOnboardingAdmin} />
+          <Route path="/subscriptions" component={SubscriptionManagement} />
           <Route path="/golftalk-admin" component={GolfTalkAdmin} />
           <Route path="/manager-admin" component={ManagerAdmin} />
           <Route path="/settings" component={ERPSettings} />

@@ -39,7 +39,7 @@ import { triggerPackagePublishPipeline } from "./_core/n8n";
 import { reportError, isCriticalError } from "./_core/errorWatcher";
 import { generateFixCode, searchErpFeature } from "./_core/autoFixer";
 import { runFullReview, getReviewResults } from "./_core/reviewEngine";
-import { aiEngineLogs, aiFixRequests, aiReviewResults, promptVersions, modelRoutingRules } from "../drizzle/schema";
+import { aiEngineLogs, aiFixRequests, aiReviewResults, promptVersions, modelRoutingRules, aiRoutingLogs } from "../drizzle/schema";
 import {
   generatePackageDescription,
   generateMarketingCopy,
@@ -1960,51 +1960,115 @@ const promptVersionsRouter = router({
   }),
 });
 // ============================================================
-// MODEL ROUTING ROUTER - 모델 라우팅 규칙 관리
+// MODEL ROUTING ROUTER - 모델 라우팅 규칙 관리 (복잡도 기반)
 // ============================================================
 const modelRoutingRouter = router({
   list: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    const dbRules = await db.select().from(modelRoutingRules);
-    // DB에 없는 기본 태스크타입은 DEFAULT_MODEL_ROUTING에서 보완
-    const taskTypes = ["chat", "packageDesc", "marketingCopy", "inquiryReply", "devAnalysis", "releaseNote", "featureDoc", "pipelineRec"] as const;
-    return taskTypes.map(tt => {
-      const dbRule = dbRules.find(r => r.taskType === tt);
-      const defaultCfg = getModelConfig(tt);
-      return dbRule ?? {
-        id: 0,
-        taskType: tt,
-        primaryModel: defaultCfg.primaryModel,
-        fallbackModel: defaultCfg.fallbackModel,
-        maxTokens: defaultCfg.maxTokens,
-        temperature: String(defaultCfg.temperature),
-        cacheTtlSeconds: defaultCfg.cacheTtlSeconds,
-        isActive: true,
-        description: null,
-        updatedAt: new Date(),
-      };
-    });
+    const rules = await db.select().from(modelRoutingRules).orderBy(modelRoutingRules.priority);
+    return rules;
   }),
   upsert: adminProcedure.input(z.object({
-    taskType: z.string().min(1).max(50),
-    primaryModel: z.string().min(1).max(100),
-    fallbackModel: z.string().max(100).optional(),
-    maxTokens: z.number().optional(),
-    temperature: z.string().optional(),
-    cacheTtlSeconds: z.number().optional(),
+    complexity: z.enum(["high", "medium", "low"]),
+    modelId: z.string().min(1).max(200),
+    modelName: z.string().min(1).max(200),
+    inputPricePerMillion: z.number().optional(),
+    outputPricePerMillion: z.number().optional(),
     isActive: z.boolean().optional(),
     description: z.string().optional(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    const existing = await db.select({ id: modelRoutingRules.id }).from(modelRoutingRules).where(eq(modelRoutingRules.taskType, input.taskType));
+    const existing = await db.select({ id: modelRoutingRules.id }).from(modelRoutingRules).where(eq(modelRoutingRules.complexity, input.complexity));
     if (existing.length > 0) {
-      await db.update(modelRoutingRules).set(input).where(eq(modelRoutingRules.taskType, input.taskType));
+      await db.update(modelRoutingRules).set({
+        modelId: input.modelId,
+        modelName: input.modelName,
+        inputPricePerMillion: input.inputPricePerMillion != null ? String(input.inputPricePerMillion) : undefined,
+        outputPricePerMillion: input.outputPricePerMillion != null ? String(input.outputPricePerMillion) : undefined,
+        isActive: input.isActive,
+        description: input.description,
+        updatedBy: ctx.user.name ?? ctx.user.openId,
+      }).where(eq(modelRoutingRules.complexity, input.complexity));
     } else {
-      await db.insert(modelRoutingRules).values({ ...input, primaryModel: input.primaryModel });
+      await db.insert(modelRoutingRules).values({
+        complexity: input.complexity,
+        modelId: input.modelId,
+        modelName: input.modelName,
+        inputPricePerMillion: input.inputPricePerMillion != null ? String(input.inputPricePerMillion) : "0",
+        outputPricePerMillion: input.outputPricePerMillion != null ? String(input.outputPricePerMillion) : "0",
+        isActive: input.isActive ?? true,
+        description: input.description,
+        priority: input.complexity === "high" ? 1 : input.complexity === "medium" ? 2 : 3,
+        updatedBy: ctx.user.name ?? ctx.user.openId,
+      });
     }
     return { success: true };
+  }),
+
+  /** 기본값으로 초기화 */
+  reset: adminProcedure.mutation(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    await db.delete(modelRoutingRules);
+    const defaults = [
+      { complexity: "high" as const, modelId: "google/gemini-2.5-pro-preview-05-06", modelName: "Gemini 2.5 Pro Preview", inputPricePerMillion: "1.25", outputPricePerMillion: "10.0", description: "추론·분석·오류검수 등 고복잡도 작업", isActive: true, priority: 1 },
+      { complexity: "medium" as const, modelId: "google/gemini-2.5-flash", modelName: "Gemini 2.5 Flash", inputPricePerMillion: "0.15", outputPricePerMillion: "0.6", description: "생성·요약·상담 등 중간 복잡도 작업", isActive: true, priority: 2 },
+      { complexity: "low" as const, modelId: "google/gemini-2.0-flash-lite-001", modelName: "Gemini 2.0 Flash Lite", inputPricePerMillion: "0.075", outputPricePerMillion: "0.3", description: "분류·태깅·단순응답 등 저복잡도 작업", isActive: true, priority: 3 },
+    ];
+    for (const d of defaults) {
+      await db.insert(modelRoutingRules).values({ ...d, updatedBy: ctx.user.name ?? ctx.user.openId });
+    }
+    return { success: true };
+  }),
+
+  /** 비용 통계 집계 */
+  getStats: adminProcedure.input(z.object({ days: z.number().min(1).max(365).default(30) })).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const since = new Date(Date.now() - input.days * 24 * 60 * 60 * 1000);
+    const stats = await db.select({
+      complexity: aiRoutingLogs.complexity,
+      modelId: aiRoutingLogs.modelId,
+      modelName: aiRoutingLogs.modelName,
+      callCount: sql<number>`COUNT(*)`,
+      totalTokensIn: sql<number>`SUM(tokensIn)`,
+      totalTokensOut: sql<number>`SUM(tokensOut)`,
+      totalCostUsd: sql<number>`SUM(costUsd)`,
+      avgDurationMs: sql<number>`AVG(durationMs)`,
+      errorCount: sql<number>`SUM(CASE WHEN isSuccess = 0 THEN 1 ELSE 0 END)`,
+    }).from(aiRoutingLogs).where(gte(aiRoutingLogs.createdAt, since)).groupBy(aiRoutingLogs.complexity, aiRoutingLogs.modelId, aiRoutingLogs.modelName);
+    const totalCost = stats.reduce((s, r) => s + Number(r.totalCostUsd ?? 0), 0);
+    const totalCalls = stats.reduce((s, r) => s + Number(r.callCount ?? 0), 0);
+    return { stats, summary: { totalCostUsd: totalCost, totalCalls, periodDays: input.days } };
+  }),
+
+  /** 라우팅 로그 조회 */
+  getLogs: adminProcedure.input(z.object({ limit: z.number().min(1).max(500).default(100) })).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    return db.select().from(aiRoutingLogs).orderBy(desc(aiRoutingLogs.createdAt)).limit(input.limit);
+  }),
+
+  /** OpenRouter 사용 가능 모델 목록 */
+  getAvailableModels: adminProcedure.query(async () => {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) return { models: [], error: "OPENROUTER_API_KEY가 설정되지 않았습니다." };
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/models", { headers: { Authorization: `Bearer ${apiKey}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as { data: Array<{ id: string; name: string; pricing: { prompt: string; completion: string }; context_length: number }> };
+      const filtered = data.data.filter(m => m.id.includes("gemini") || m.id.includes("claude") || m.id.includes("gpt-4") || m.id.includes("llama")).slice(0, 50).map(m => ({
+        id: m.id, name: m.name,
+        inputPricePerMillion: parseFloat(m.pricing.prompt) * 1_000_000,
+        outputPricePerMillion: parseFloat(m.pricing.completion) * 1_000_000,
+        contextLength: m.context_length,
+      }));
+      return { models: filtered, error: null };
+    } catch (err) {
+      return { models: [], error: String(err) };
+    }
   }),
 });
 // ============================================================
@@ -3240,6 +3304,9 @@ import { featuresRouter } from "./routers/features";
 import { siteSettingsRouter } from "./routers/siteSettings";
 import { managedProjectsRouter } from "./routers/managedProjects";
 import { systemSettingsRouter } from "./routers/systemSettings";
+import { partnerOnboardingRouter } from "./routers/partnerOnboarding";
+import { tenantsRouter } from "./routers/tenants";
+import { subscriptionsRouter } from "./routers/subscriptions";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -3285,5 +3352,8 @@ export const appRouter = router({
   siteSettings: siteSettingsRouter,
   managedProjects: managedProjectsRouter,
   systemSettings: systemSettingsRouter,
+  partnerOnboarding: partnerOnboardingRouter,
+  tenants: tenantsRouter,
+  subscriptions: subscriptionsRouter,
 });
 export type AppRouter = typeof appRouter;

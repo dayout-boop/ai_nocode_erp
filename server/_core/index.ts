@@ -10,6 +10,7 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { registerStripeWebhook } from "../stripe";
 import { registerMasterStreamRoute } from "../masterStream";
+import { registerUploadRoutes } from "../uploadRoutes";
 import { reportError } from "./errorWatcher.js";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -42,6 +43,7 @@ async function startServer() {
   registerStorageProxy(app);
   registerOAuthRoutes(app);
   registerMasterStreamRoute(app);
+  registerUploadRoutes(app);
   // tRPC API
   app.use(
     "/api/trpc",

@@ -1274,3 +1274,49 @@ Detected
 - [x] SystemSettings.tsx: 자동 완료 키워드 목록 CRUD UI 추가 (추가/삭제/기본값 초기화)
 - [x] 서버: systemSettings.getCompletionKeywords / updateCompletionKeywords / resetCompletionKeywords 프로시저 추가
 - [x] devRequest.ts: detectAndCompleteFromResponse에서 DB의 키워드 목록 동적 조회 (하드코딩 제거)
+
+## Phase 1 로드맵 (2026-05-02~)
+
+### 우선순위 1: AI 오케스트라 라우터 통합 (OpenRouter 기반)
+- [ ] DB 스키마: model_routing_rules 테이블 추가 (taskType, complexity, modelId, modelName, isActive, priority)
+- [ ] DB 스키마: ai_routing_logs 테이블 추가 (taskType, complexity, modelId, tokensIn, tokensOut, costUsd, durationMs, cacheHit)
+- [ ] pnpm db:push 실행
+- [ ] server/services/openrouter.ts: DB 기반 동적 모델 라우팅 지원 (routeModelFromDb 함수)
+- [ ] server/routers/modelRouting.ts: 모델 라우팅 규칙 CRUD API (list, update, reset, getLogs, getStats)
+- [ ] server/routers.ts: modelRoutingRouter 등록
+- [ ] client/src/pages/erp/ModelRoutingSettings.tsx: 모델 라우팅 설정 UI (규칙 테이블, 모델 변경, 비용 통계)
+- [ ] ERPLayout.tsx: 모델 라우팅 설정 라우트 및 사이드바 메뉴 추가
+- [ ] server/modelRouting.test.ts: 단위 테스트 작성
+
+### 우선순위 2: 신규 파트너 온보딩 UI
+- [x] DB 스키마: partner_onboarding 테이블 추가 (브랜드명, 사업자번호, 담당자, 상태, OCR 결과 등)
+- [x] DB 스키마: portonePaymentId 컬럼 추가 (마이그레이션 0044)
+- [x] server/routers/partnerOnboarding.ts: 가입 신청 CRUD + OCR 분석 API + 수동 시드 프로시저
+- [x] server/uploadRoutes.ts: 사업자등록증 파일 업로드 엔드포인트 (busboy)
+- [x] client/src/pages/PartnerOnboarding.tsx: 파트너 온보딩 페이지 (3단계: 기본정보→OCR→플랜선택+결제)
+- [x] client/src/pages/erp/PartnerOnboardingAdmin.tsx: ERP 파트너 신청 관리 페이지
+- [x] App.tsx: /partner/join 라우트 등록
+- [x] ERPLayout.tsx: 파트너 온보딩 관리 메뉴 추가 (CRM 섹션)
+
+### 우선순위 3: 카테고리별 샘플 선택 + DB 복제 자동화
+- [x] server/services/sampleDataSeeder.ts: 카테고리별 샘플 패키지 6개 자동 생성 (국내/해외/혼합)
+- [x] 파트너 온보딩 승인 시 자동 샘플 시드 실행 연동
+- [x] 관리자 수동 시드 실행 프로시저 (seedSampleData)
+
+### 우선순위 4: 파트너별 격리 DB 구조 (보류)
+- [x] DB 스키마: tenants 테이블 추가 (스키마에만 추가, 실제 구현 보류)
+- [ ] 기존 주요 테이블에 tenantId 컬럼 추가 마이그레이션 (보류 - 단일 DB 유지)
+- [ ] tRPC 미들웨어: 파트너 세션에서 tenantId 자동 주입 (보류)
+- [ ] 파트너 매니져 접근 시 tenantId 기반 데이터 격리 확인 (보류)
+
+### 우선순위 5: 구독 플랜 UI + 포트원 V2 결제 연동
+- [x] server/products.ts: 구독 플랜 상품 정의 (스타터/스탠다드/프리미엄)
+- [x] server/services/portone.ts: 포트원 V2 결제 서비스 (검증/취소/조회)
+- [x] server/routers/subscriptions.ts: 구독 결제 tRPC 라우터 (포트원 V2 기반)
+- [x] 포트원 V2 환경변수 등록 (VITE_PORTONE_STORE_ID, VITE_PORTONE_CHANNEL_KEY, PORTONE_API_SECRET)
+- [x] PartnerOnboarding.tsx: 포트원 V2 결제창 연동 (스탠다드/프리미엄 플랜)
+- [x] server/portone.env.test.ts: 포트원 환경변수 검증 테스트 (통과)
+- [x] client/src/pages/Pricing.tsx: 구독 플랜 선택 페이지 (홈페이지용)
+- [x] client/src/pages/erp/SubscriptionManagement.tsx: ERP 구독 관리 페이지
+- [x] App.tsx: /pricing 라우트 등록
+- [x] ERPLayout.tsx: CRM 섹션에 구독 관리 메뉴 추가 (/subscriptions)

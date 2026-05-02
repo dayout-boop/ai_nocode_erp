@@ -370,30 +370,32 @@ export type PromptVersion = typeof promptVersions.$inferSelect;
 export type InsertPromptVersion = typeof promptVersions.$inferInsert;
 
 // ============================================================
-// MODEL_ROUTING_RULES - 태스크별 AI 모델 라우팅 규칙
+// MODEL_ROUTING_RULES - 복잡도별 AI 모델 라우팅 규칙
 // ============================================================
 export const modelRoutingRules = mysqlTable("model_routing_rules", {
   id: int("id").autoincrement().primaryKey(),
-  /** 태스크 유형 */
-  taskType: varchar("taskType", { length: 50 }).notNull().unique(),
-  /** 기본 모델 (예: gemini-2.5-flash) */
-  primaryModel: varchar("primaryModel", { length: 100 }).notNull(),
-  /** 폴백 모델 */
-  fallbackModel: varchar("fallbackModel", { length: 100 }),
-  /** 최대 토큰 수 */
-  maxTokens: int("maxTokens").default(2048),
-  /** 온도 (0.0~1.0) */
-  temperature: varchar("temperature", { length: 10 }).default("0.7"),
-  /** 캐시 TTL (초, 0=캐시 없음) */
-  cacheTtlSeconds: int("cacheTtlSeconds").default(0),
+  /** 복잡도 레벨: high=고복잡도, medium=중간, low=단순 */
+  complexity: mysqlEnum("complexity", ["high", "medium", "low"]).notNull(),
+  /** OpenRouter 모델 ID (예: google/gemini-2.5-pro-preview-05-06) */
+  modelId: varchar("modelId", { length: 200 }).notNull(),
+  /** 모델 표시명 */
+  modelName: varchar("modelName", { length: 200 }).notNull(),
+  /** 입력 토큰 단가 (USD per 1M tokens) */
+  inputPricePerMillion: decimal("inputPricePerMillion", { precision: 10, scale: 4 }).default("0"),
+  /** 출력 토큰 단가 (USD per 1M tokens) */
+  outputPricePerMillion: decimal("outputPricePerMillion", { precision: 10, scale: 4 }).default("0"),
+  /** 사용 목적 설명 */
+  description: text("description"),
   /** 활성화 여부 */
   isActive: boolean("isActive").default(true).notNull(),
-  /** 설명 */
-  description: text("description"),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  /** 우선순위 (낮을수록 우선) */
+  priority: int("priority").default(10).notNull(),
+  updatedBy: varchar("updatedBy", { length: 200 }),
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
 });
 export type ModelRoutingRule = typeof modelRoutingRules.$inferSelect;
-export type InsertModelRoutingRule = typeof modelRoutingRules.$inferInsert;;
+export type InsertModelRoutingRule = typeof modelRoutingRules.$inferInsert;
 
 // ============================================================
 // DEV_REQUESTS - 두골프 개발AI 요청 관리
@@ -1464,3 +1466,146 @@ export const manusTaskCandidates = mysqlTable("manus_task_candidates", {
 });
 export type ManusTaskCandidate = typeof manusTaskCandidates.$inferSelect;
 export type InsertManusTaskCandidate = typeof manusTaskCandidates.$inferInsert;
+
+// ─── AI 라우팅 로그 테이블 ───────────────────────────────────────────────────
+/**
+ * AI 모델 라우팅 호출 이력을 저장합니다.
+ * 비용 분석 및 모델별 성능 통계에 활용됩니다.
+ */
+export const aiRoutingLogs = mysqlTable("ai_routing_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 작업 유형 (text_summary, content_create 등) */
+  taskType: varchar("taskType", { length: 100 }),
+  /** 복잡도 레벨 */
+  complexity: mysqlEnum("complexity", ["high", "medium", "low"]).notNull(),
+  /** 실제 사용된 모델 ID */
+  modelId: varchar("modelId", { length: 200 }).notNull(),
+  /** 모델 표시명 */
+  modelName: varchar("modelName", { length: 200 }),
+  /** 입력 토큰 수 */
+  tokensIn: int("tokensIn").default(0),
+  /** 출력 토큰 수 */
+  tokensOut: int("tokensOut").default(0),
+  /** 비용 (USD) */
+  costUsd: decimal("costUsd", { precision: 10, scale: 6 }).default("0"),
+  /** 응답 시간 (ms) */
+  durationMs: int("durationMs").default(0),
+  /** 캐시 히트 여부 */
+  cacheHit: boolean("cacheHit").default(false),
+  /** 성공 여부 */
+  isSuccess: boolean("isSuccess").default(true),
+  /** 오류 메시지 (실패 시) */
+  errorMessage: text("errorMessage"),
+  /** 어시스턴트 유형 (master, golftalk, manager) */
+  assistantType: varchar("assistantType", { length: 50 }),
+  createdAt: timestamp("createdAt").defaultNow(),
+});
+export type AiRoutingLog = typeof aiRoutingLogs.$inferSelect;
+export type InsertAiRoutingLog = typeof aiRoutingLogs.$inferInsert;
+
+// ============================================================
+// PARTNER_ONBOARDING - 신규 파트너 온보딩 신청
+// ============================================================
+/**
+ * 신규 파트너(골프투어 여행사)의 ERP 가입 신청 정보를 저장합니다.
+ * 사업자등록증 OCR 결과, 샘플 DB 선택, 구독 플랜 정보를 포함합니다.
+ */
+export const partnerOnboarding = mysqlTable("partner_onboarding", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 신청 상태: pending | reviewing | approved | rejected | active */
+  status: mysqlEnum("status", ["pending", "reviewing", "approved", "rejected", "active"]).default("pending").notNull(),
+  /** 업체명 */
+  companyName: varchar("companyName", { length: 200 }).notNull(),
+  /** 사업자등록번호 */
+  businessNumber: varchar("businessNumber", { length: 20 }),
+  /** 대표자명 */
+  ceoName: varchar("ceoName", { length: 100 }),
+  /** 업태 */
+  businessType: varchar("businessType", { length: 100 }),
+  /** 종목 */
+  businessItem: varchar("businessItem", { length: 100 }),
+  /** 사업장 주소 */
+  address: text("address"),
+  /** 담당자명 */
+  contactName: varchar("contactName", { length: 100 }).notNull(),
+  /** 담당자 이메일 */
+  contactEmail: varchar("contactEmail", { length: 320 }).notNull(),
+  /** 담당자 전화번호 */
+  contactPhone: varchar("contactPhone", { length: 30 }),
+  /** 사업자등록증 이미지 S3 키 */
+  businessLicenseKey: varchar("businessLicenseKey", { length: 500 }),
+  /** 사업자등록증 이미지 URL */
+  businessLicenseUrl: varchar("businessLicenseUrl", { length: 500 }),
+  /** OCR 추출 원문 (JSON) */
+  ocrRawText: text("ocrRawText"),
+  /** OCR 추출 결과 (JSON) */
+  ocrResult: text("ocrResult"),
+  /** 선택한 샘플 카테고리: golf_tour_domestic | golf_tour_overseas | golf_tour_mixed */
+  sampleCategory: mysqlEnum("sampleCategory", ["golf_tour_domestic", "golf_tour_overseas", "golf_tour_mixed"]).default("golf_tour_mixed"),
+  /** 선택한 구독 플랜: starter | standard | premium */
+  subscriptionPlan: mysqlEnum("subscriptionPlan", ["starter", "standard", "premium"]).default("starter"),
+  /** 구독 결제 주기: monthly | yearly */
+  billingCycle: mysqlEnum("billingCycle", ["monthly", "yearly"]).default("monthly"),
+  /** Stripe 결제 세션 ID */
+  stripeSessionId: varchar("stripeSessionId", { length: 200 }),
+  /** Stripe 구독 ID */
+  stripeSubscriptionId: varchar("stripeSubscriptionId", { length: 200 }),
+  /** 포트원 V2 결제 ID */
+  portonePaymentId: varchar("portonePaymentId", { length: 200 }),
+  /** 파트너 ID (승인 후 partners 테이블 연결) */
+  partnerId: int("partnerId"),
+  /** 관리자 검토 메모 */
+  adminNote: text("adminNote"),
+  /** 검토자 */
+  reviewedBy: varchar("reviewedBy", { length: 200 }),
+  /** 검토 완료 시각 */
+  reviewedAt: timestamp("reviewedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type PartnerOnboarding = typeof partnerOnboarding.$inferSelect;
+export type InsertPartnerOnboarding = typeof partnerOnboarding.$inferInsert;
+
+// ============================================================
+// TENANTS - 멀티테넌트 파트너 격리 구조
+// ============================================================
+/**
+ * 테넌트(파트너사) 테이블
+ * - tenantId = null: 두골프 본사 데이터
+ * - tenantId = 1~N: 각 파트너사 격리 데이터
+ */
+export const tenants = mysqlTable("tenants", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 파트너 온보딩 ID (partner_onboarding 테이블 참조) */
+  onboardingId: int("onboardingId"),
+  /** 파트너 ID (partners 테이블 참조) */
+  partnerId: int("partnerId"),
+  /** 테넌트 식별 슬러그 (URL 등에 사용) */
+  slug: varchar("slug", { length: 100 }).notNull().unique(),
+  /** 업체명 */
+  companyName: varchar("companyName", { length: 200 }).notNull(),
+  /** 구독 플랜 */
+  subscriptionPlan: mysqlEnum("subscriptionPlan", ["starter", "standard", "premium"]).default("starter").notNull(),
+  /** 구독 결제 주기 */
+  billingCycle: mysqlEnum("billingCycle", ["monthly", "yearly"]).default("monthly").notNull(),
+  /** 구독 상태 */
+  subscriptionStatus: mysqlEnum("subscriptionStatus", ["trial", "active", "suspended", "cancelled"]).default("trial").notNull(),
+  /** 구독 만료일 */
+  subscriptionExpiresAt: timestamp("subscriptionExpiresAt"),
+  /** Stripe 고객 ID */
+  stripeCustomerId: varchar("stripeCustomerId", { length: 200 }),
+  /** Stripe 구독 ID */
+  stripeSubscriptionId: varchar("stripeSubscriptionId", { length: 200 }),
+  /** 활성 여부 */
+  isActive: boolean("isActive").default(true).notNull(),
+  /** 샘플 데이터 카테고리 */
+  sampleCategory: mysqlEnum("sampleCategory", ["golf_tour_domestic", "golf_tour_overseas", "golf_tour_mixed"]).default("golf_tour_mixed"),
+  /** 샘플 데이터 시드 완료 여부 */
+  sampleSeeded: boolean("sampleSeeded").default(false).notNull(),
+  /** 메모 */
+  memo: text("memo"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type Tenant = typeof tenants.$inferSelect;
+export type InsertTenant = typeof tenants.$inferInsert;

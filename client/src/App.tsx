@@ -22,6 +22,8 @@ import Privacy from "./pages/Privacy";
 // Partner Pages
 import PartnerDashboard from "./pages/Partner/PartnerDashboard";
 import PartnerChat from "./pages/Partner/PartnerChat";
+import PartnerOnboarding from "./pages/PartnerOnboarding";
+import Pricing from "./pages/Pricing";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -53,6 +55,12 @@ function Router() {
       {/* 파트너 센터 */}
       <Route path={"/partner"} component={PartnerDashboard} />
       <Route path={"/partner/chat"} component={PartnerChat} />
+
+      {/* 파트너 신규 가입 신청 (공개) */}
+      <Route path={"/partner/join"} component={PartnerOnboarding} />
+
+      {/* 구독 플랜 페이지 */}
+      <Route path={"/pricing"} component={Pricing} />
 
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />
