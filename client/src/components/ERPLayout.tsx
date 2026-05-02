@@ -67,6 +67,7 @@ import ManagedProjects from "@/pages/erp/ManagedProjects";
 import ModelRoutingSettings from "@/pages/erp/ModelRoutingSettings";
 import PartnerOnboardingAdmin from "@/pages/erp/PartnerOnboardingAdmin";
 import SubscriptionManagement from "@/pages/erp/SubscriptionManagement";
+import FileAnalysisHistory from "@/pages/erp/FileAnalysisHistory";
 import { Loader2 } from "lucide-react";
 
 interface NavChild {
@@ -116,6 +117,7 @@ const navItems: NavItem[] = [
       { label: "버전 이력", href: "/dev-ai?tab=versions", icon: <GitBranch size={14} /> },
       { label: "오류 로그", href: "/ai-dev-engine", icon: <AlertTriangle size={14} /> },
       { label: "관리 프로젝트", href: "/managed-projects", icon: <FolderOpen size={14} /> },
+      { label: "파일 분석 이력", href: "/ai-engine/file-analysis", icon: <FileText size={14} /> },
     ],
   },
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -308,6 +310,7 @@ function ERPContent() {
           <Route path="/ai-engine" component={AIEngine} />
           <Route path="/ai-engine/features" component={FeatureCatalog} />
           <Route path="/ai-engine/model-routing" component={ModelRoutingSettings} />
+          <Route path="/ai-engine/file-analysis" component={FileAnalysisHistory} />
           <Route path="/partner-onboarding" component={PartnerOnboardingAdmin} />
           <Route path="/subscriptions" component={SubscriptionManagement} />
           <Route path="/golftalk-admin" component={GolfTalkAdmin} />
