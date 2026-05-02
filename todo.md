@@ -1327,3 +1327,13 @@ Detected
 - [x] MasterAI.tsx: pipelineStatus state 추가 (connected, taskId, recentCount)
 - [x] MasterAI.tsx: useEffect로 /api/scheduled/pipeline-status 조회 (마운트 시 1회)
 - [x] MasterAI.tsx: 헤더 배지 영역에 Activity 아이콘 + "파이프라인 연결됨/미연결" 배지 추가
+
+## MasterAI UI/UX 전면 재설계 (2026-05-02)
+- [x] 우측 슬라이드 패널 추가 (개발 완료 결과, AI 엔진 상태, 연동 서비스 현황)
+- [x] 파일/이미지 첨부 기능 추가 (드래그앤드롭 + 클릭 업로드)
+- [x] 입력창 하단 아이콘 툴바 추가 (첨부, 빠른명령, 개발요청, 통계)
+- [x] 개발 완료 결과 채팅 내 인라인 표시 (완료된 devRequest 결과 카드)
+- [x] AI 엔진 상태 패널 (오케스트라/어시스턴트/에이전트 탭)
+- [x] 외부 연동 서비스 상태 표시 (GitHub, Slack, DB 연결 상태)
+- [x] 채팅 세션 히스토리 슬라이드 패널 (이전 대화 목록)
+- [x] 기술 로직도 보고서 문서 생성 (docs/master-ai-report.md)
