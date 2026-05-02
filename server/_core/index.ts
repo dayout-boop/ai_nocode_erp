@@ -11,6 +11,7 @@ import { serveStatic, setupVite } from "./vite";
 import { registerStripeWebhook } from "../stripe";
 import { registerMasterStreamRoute } from "../masterStream";
 import { registerUploadRoutes } from "../uploadRoutes";
+import { registerScheduledRoutes } from "../scheduledRoutes";
 import { reportError } from "./errorWatcher.js";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -44,6 +45,7 @@ async function startServer() {
   registerOAuthRoutes(app);
   registerMasterStreamRoute(app);
   registerUploadRoutes(app);
+  registerScheduledRoutes(app);
   // tRPC API
   app.use(
     "/api/trpc",

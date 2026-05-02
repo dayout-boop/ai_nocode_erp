@@ -1278,15 +1278,15 @@ Detected
 ## Phase 1 로드맵 (2026-05-02~)
 
 ### 우선순위 1: AI 오케스트라 라우터 통합 (OpenRouter 기반)
-- [ ] DB 스키마: model_routing_rules 테이블 추가 (taskType, complexity, modelId, modelName, isActive, priority)
-- [ ] DB 스키마: ai_routing_logs 테이블 추가 (taskType, complexity, modelId, tokensIn, tokensOut, costUsd, durationMs, cacheHit)
-- [ ] pnpm db:push 실행
-- [ ] server/services/openrouter.ts: DB 기반 동적 모델 라우팅 지원 (routeModelFromDb 함수)
-- [ ] server/routers/modelRouting.ts: 모델 라우팅 규칙 CRUD API (list, update, reset, getLogs, getStats)
-- [ ] server/routers.ts: modelRoutingRouter 등록
-- [ ] client/src/pages/erp/ModelRoutingSettings.tsx: 모델 라우팅 설정 UI (규칙 테이블, 모델 변경, 비용 통계)
-- [ ] ERPLayout.tsx: 모델 라우팅 설정 라우트 및 사이드바 메뉴 추가
-- [ ] server/modelRouting.test.ts: 단위 테스트 작성
+- [x] DB 스키마: model_routing_rules 테이블 추가 (complexity, modelId, modelName, isActive, priority)
+- [x] DB 스키마: ai_routing_logs 테이블 추가 (complexity, modelId, tokensIn, tokensOut, costUsd, durationMs)
+- [x] 마이그레이션 SQL 직접 실행 (0041_model_routing_ai_logs.sql)
+- [x] server/services/openrouter.ts: DB 기반 동적 모델 라우팅 지원 (routeModelFromDb 함수)
+- [x] server/routers/modelRouting.ts: 모델 라우팅 규칙 CRUD API (list, upsert, reset, getLogs, getStats, getAvailableModels)
+- [x] server/routers.ts: modelRoutingRouter 등록
+- [x] client/src/pages/erp/ModelRoutingSettings.tsx: 모델 라우팅 설정 UI (규칙 테이블, 모델 변경, 비용 통계)
+- [x] ERPLayout.tsx: 모델 라우팅 설정 라우트 및 사이드바 메뉴 추가 (/ai-engine/model-routing)
+- [x] server/phase1-roadmap.test.ts: Phase 1 통합 테스트 작성 (159개 통과)
 
 ### 우선순위 2: 신규 파트너 온보딩 UI
 - [x] DB 스키마: partner_onboarding 테이블 추가 (브랜드명, 사업자번호, 담당자, 상태, OCR 결과 등)
@@ -1305,9 +1305,9 @@ Detected
 
 ### 우선순위 4: 파트너별 격리 DB 구조 (보류)
 - [x] DB 스키마: tenants 테이블 추가 (스키마에만 추가, 실제 구현 보류)
-- [ ] 기존 주요 테이블에 tenantId 컬럼 추가 마이그레이션 (보류 - 단일 DB 유지)
-- [ ] tRPC 미들웨어: 파트너 세션에서 tenantId 자동 주입 (보류)
-- [ ] 파트너 매니져 접근 시 tenantId 기반 데이터 격리 확인 (보류)
+- [ ] 기존 주요 테이블에 tenantId 컨럼 추가 마이그레이션 (보류 - 단일 DB 유지 결정)
+- [ ] tRPC 미들웨어: 파트너 세션에서 tenantId 자동 주입 (보류 - 단일 DB 유지 결정)
+- [ ] 파트너 매니저 접근 시 tenantId 기반 데이터 격리 확인 (보류 - 단일 DB 유지 결정)
 
 ### 우선순위 5: 구독 플랜 UI + 포트원 V2 결제 연동
 - [x] server/products.ts: 구독 플랜 상품 정의 (스타터/스탠다드/프리미엄)
@@ -1320,3 +1320,10 @@ Detected
 - [x] client/src/pages/erp/SubscriptionManagement.tsx: ERP 구독 관리 페이지
 - [x] App.tsx: /pricing 라우트 등록
 - [x] ERPLayout.tsx: CRM 섹션에 구독 관리 메뉴 추가 (/subscriptions)
+
+## 두골프마스터 → Manus API 파이프라인 구축 (2026-05-02)
+- [x] server/scheduledRoutes.ts: /api/scheduled/dev-request, /api/scheduled/pipeline-status 엔드포인트 구현
+- [x] server/_core/index.ts: registerScheduledRoutes 등록
+- [x] MasterAI.tsx: pipelineStatus state 추가 (connected, taskId, recentCount)
+- [x] MasterAI.tsx: useEffect로 /api/scheduled/pipeline-status 조회 (마운트 시 1회)
+- [x] MasterAI.tsx: 헤더 배지 영역에 Activity 아이콘 + "파이프라인 연결됨/미연결" 배지 추가

@@ -551,6 +551,28 @@ export default function MasterAI() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  // 파이프라인 상태 조회
+  const [pipelineStatus, setPipelineStatus] = useState<{
+    connected: boolean;
+    taskId?: string;
+    recentCount?: number;
+  }>({ connected: false });
+
+  useEffect(() => {
+    fetch('/api/scheduled/pipeline-status', { credentials: 'include' })
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) {
+          setPipelineStatus({
+            connected: data.stats.manusConnected,
+            taskId: data.stats.currentTaskId,
+            recentCount: data.stats.total,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const autoSendMutation = trpc.devRequest.autoRegisterAndSend.useMutation({
     onSuccess: (data) => {
       if (data.success) {
@@ -852,6 +874,18 @@ export default function MasterAI() {
           <Badge variant="outline" className="text-xs text-green-600 border-green-200 bg-green-50 hidden sm:flex items-center gap-1">
             <Database size={9} />
             DB 직접 접근
+          </Badge>
+          <Badge
+            variant="outline"
+            className={`text-xs hidden sm:flex items-center gap-1 ${
+              pipelineStatus.connected
+                ? 'text-emerald-600 border-emerald-200 bg-emerald-50'
+                : 'text-gray-400 border-gray-200 bg-gray-50'
+            }`}
+            title={pipelineStatus.taskId ? `태스크 ID: ${pipelineStatus.taskId}` : '파이프라인 미연결'}
+          >
+            <Activity size={9} />
+            {pipelineStatus.connected ? '파이프라인 연결됨' : '파이프라인 미연결'}
           </Badge>
           <Button
             variant="outline"
