@@ -352,4 +352,109 @@ JSON 형식: {"recommendedIndex": 숫자(1부터 시작), "confidence": 0.0~1.0,
         .where(eq(manusTaskCandidates.taskId, input.taskId));
       return { success: true };
     }),
+
+  /**
+   * 자동 완료 키워드 목록 조회
+   */
+  getCompletionKeywords: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return { keywords: DEFAULT_COMPLETION_KEYWORDS, isCustom: false };
+    const rows = await db
+      .select()
+      .from(systemSettings)
+      .where(eq(systemSettings.settingKey, SETTING_KEY_COMPLETION_KEYWORDS))
+      .limit(1);
+    if (rows.length === 0 || !rows[0].settingValue) {
+      return { keywords: DEFAULT_COMPLETION_KEYWORDS, isCustom: false };
+    }
+    return { keywords: JSON.parse(rows[0].settingValue) as string[], isCustom: true };
+  }),
+
+  /**
+   * 자동 완료 키워드 목록 업데이트
+   */
+  updateCompletionKeywords: adminProcedure
+    .input(z.object({ keywords: z.array(z.string().min(1)).min(1) }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error('DB 연결 실패');
+      const existing = await db
+        .select({ id: systemSettings.id })
+        .from(systemSettings)
+        .where(eq(systemSettings.settingKey, SETTING_KEY_COMPLETION_KEYWORDS))
+        .limit(1);
+      if (existing.length > 0) {
+        await db
+          .update(systemSettings)
+          .set({
+            settingValue: JSON.stringify(input.keywords),
+            updatedBy: ctx.user.name ?? ctx.user.openId,
+            updatedAt: new Date(),
+          })
+          .where(eq(systemSettings.settingKey, SETTING_KEY_COMPLETION_KEYWORDS));
+      } else {
+        await db.insert(systemSettings).values({
+          settingKey: SETTING_KEY_COMPLETION_KEYWORDS,
+          settingValue: JSON.stringify(input.keywords),
+          description: 'Manus AI 응답에서 개발 완료를 감지하는 키워드 목록 (JSON 배열)',
+          updatedBy: ctx.user.name ?? ctx.user.openId,
+        });
+      }
+      return { success: true, count: input.keywords.length };
+    }),
+
+  /**
+   * 자동 완료 키워드를 기본값으로 초기화
+   */
+  resetCompletionKeywords: adminProcedure.mutation(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new Error('DB 연결 실패');
+    await db
+      .delete(systemSettings)
+      .where(eq(systemSettings.settingKey, SETTING_KEY_COMPLETION_KEYWORDS));
+    return { success: true, keywords: DEFAULT_COMPLETION_KEYWORDS };
+  }),
 });
+
+// ─── 자동 완료 키워드 관리 (별도 export) ─────────────────────────────────────
+// 기본 완료 키워드 목록
+const DEFAULT_COMPLETION_KEYWORDS = [
+  '체크포인트를 저장했습니다',
+  '체크포인트 저장',
+  'webdev_save_checkpoint',
+  '배포 준비가 완료',
+  '구현이 완료되었습니다',
+  '구현 완료',
+  '개발이 완료되었습니다',
+  '개발 완료',
+  '작업이 완료되었습니다',
+  '작업 완료',
+  '버그 수정 완료',
+  '기능 구현 완료',
+  '배포하시려면 Publish 버튼',
+  '배포 후 확인',
+  '수정 완료되었습니다',
+  '수정 완료',
+];
+
+export const SETTING_KEY_COMPLETION_KEYWORDS = 'completion_keywords';
+
+/**
+ * DB에서 자동 완료 키워드 목록을 가져옵니다.
+ * DB에 없으면 기본값을 반환합니다.
+ */
+export async function getCompletionKeywordsFromDb(): Promise<string[]> {
+  try {
+    const db = await getDb();
+    if (!db) return DEFAULT_COMPLETION_KEYWORDS;
+    const rows = await db
+      .select()
+      .from(systemSettings)
+      .where(eq(systemSettings.settingKey, SETTING_KEY_COMPLETION_KEYWORDS))
+      .limit(1);
+    if (rows.length === 0 || !rows[0].settingValue) return DEFAULT_COMPLETION_KEYWORDS;
+    return JSON.parse(rows[0].settingValue) as string[];
+  } catch {
+    return DEFAULT_COMPLETION_KEYWORDS;
+  }
+}

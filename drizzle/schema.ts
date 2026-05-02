@@ -1446,7 +1446,7 @@ export type InsertSystemSetting = typeof systemSettings.$inferInsert;
  */
 export const manusTaskCandidates = mysqlTable("manus_task_candidates", {
   id: int("id").autoincrement().primaryKey(),
-  taskId: varchar("taskId", { length: 100 }).notNull().unique(),
+  taskId: varchar("taskId", { length: 100 }).unique(),
   taskName: varchar("taskName", { length: 200 }).notNull(),
   projectName: varchar("projectName", { length: 200 }),
   description: text("description"),

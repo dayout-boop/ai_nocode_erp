@@ -281,6 +281,13 @@
       "when": 1777674518129,
       "tag": "0039_lean_mongu",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "5",
+      "when": 1777680896238,
+      "tag": "0040_handy_hiroim",
+      "breakpoints": true
     }
   ]
 }

@@ -1268,3 +1268,9 @@ Detected
 ## 추가 요청 (2026-05-02)
 - [x] Footer 저작권 명칭 수정: DB companyName='데이아웃(두골프)', copyright='© {YEAR} 데이아웃(두골프). All Rights Reserved. Powered by dogolfai'
 - [x] in_progress → done 자동 완료 처리: MasterAI.tsx SSE done 이벤트에서 detectCompleteMutation 자동 호출 + devRequest.ts detectAndCompleteFromResponse 프로시저 추가
+
+## 태스크 후보 다양화 + 자동 완료 키워드 튜닝 UI (2026-05-02 v2)
+- [x] DB 시드: manus_task_candidates에 두골프 ERP 개발 태스크(기본값), 홈페이지 개선 태스크, 신규 파트너 온보딩 태스크 3개 등록
+- [x] SystemSettings.tsx: 자동 완료 키워드 목록 CRUD UI 추가 (추가/삭제/기본값 초기화)
+- [x] 서버: systemSettings.getCompletionKeywords / updateCompletionKeywords / resetCompletionKeywords 프로시저 추가
+- [x] devRequest.ts: detectAndCompleteFromResponse에서 DB의 키워드 목록 동적 조회 (하드코딩 제거)

@@ -1,0 +1,1 @@
+ALTER TABLE `manus_task_candidates` MODIFY COLUMN `taskId` varchar(100);
