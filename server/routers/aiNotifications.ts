@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { eq, desc, and, isNull, gte } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
+import { publish } from "../services/realtimeEvents";
 import { router, adminProcedure, protectedProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { aiNotifications } from "../../drizzle/schema";
@@ -36,7 +37,11 @@ export async function createAiNotification(params: {
       priority: params.priority ?? "medium",
       source: params.source ?? "ai",
     }).$returningId();
-    return result?.id ?? null;
+    const newId = result?.id ?? null;
+    if (newId) {
+      publish("notification_created", { id: newId, type: params.type, title: params.title, priority: params.priority ?? "medium" });
+    }
+    return newId;
   } catch (e) {
     console.error("[aiNotifications] createAiNotification 오류:", e);
     return null;

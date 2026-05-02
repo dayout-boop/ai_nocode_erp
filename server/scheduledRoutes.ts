@@ -14,6 +14,7 @@ import { getDb } from "./db";
 import { devRequests, aiScheduledTasks } from "../drizzle/schema";
 import { desc, eq, and, lte } from "drizzle-orm";
 import { createAiNotification } from "./routers/aiNotifications";
+import { publish } from "./services/realtimeEvents";
 import { sdk } from "./_core/sdk";
 import { ENV } from "./_core/env";
 
@@ -211,6 +212,7 @@ export function registerScheduledRoutes(app: Express): void {
         }).catch(() => {});
       }
 
+      publish("pipeline_done", { devRequestId, manusTaskId: manusResult.taskId, success: manusResult.success });
       res.json({
         ok: true,
         devRequestId,

@@ -1412,3 +1412,23 @@ Detected
 - [x] masterStream.ts에 승인 대기 → 승인 완료 후 도구 실행 재개 로직 추가
 - [x] MasterAI.tsx에 approval_request 이벤트 수신 및 승인/거부 UI 추가
 - [x] TypeScript 오류 0개 확인 및 체크포인트 저장
+
+## AI 파이프라인-데이터 동기화 실시간성 개선 [ID: 300008] (2026-05-02)
+- [x] server/services/realtimeEvents.ts: SSE 이벤트 브로커 서비스 구현 (subscribe/unsubscribe/publish)
+- [x] server/_core/index.ts에 /api/realtime/events SSE 엔드포인트 등록
+- [x] devRequest.ts 상태 변경 시 realtimeEvents.publish 호출 (created/updated/completed)
+- [x] masterStream.ts done 이벤트 시 realtimeEvents.publish 호출 (ai_log_created)
+- [x] scheduledRoutes.ts 파이프라인 실행 완료 시 realtimeEvents.publish 호출 (pipeline_done)
+- [x] MasterAI.tsx useEffect로 /api/realtime/events SSE 구독 (EventSource)
+- [x] MasterAI.tsx SSE 이벤트 수신 시 해당 쿼리 자동 invalidate (devRequests, aiLogs, notifications)
+- [x] MasterAI.tsx 실시간 연결 상태 표시 (연결됨/재연결 중 배지)
+- [x] TypeScript 오류 0개 확인 및 체크포인트 저장
+
+## 개발 요청-Manus API 양방향 동기화 긴급 수정 [ID: 300009] (2026-05-02)
+- [x] server/services/manusPipe.ts: createDevRequestTask() 함수 추가 (개발 요청 생성 시 Manus Task 1:1 매핑)
+- [x] server/routers/devRequest.ts create 프로시저: 생성 후 Manus Task 자동 생성 및 manusTaskId 저장
+- [x] server/services/manusSync.ts: Manus Task 상태 폴링 서비스 구현 (5분 간격, in_progress 요청 대상)
+- [x] server/scheduledRoutes.ts: /api/scheduled/manus-sync 엔드포인트 추가 (폴링 트리거)
+- [x] server/_core/index.ts: 서버 시작 시 manusSync 자동 폴링 시작
+- [x] scripts/migrate-manus-mapping.mjs: 잘못 매핑된 in_progress 요청 검증 및 재할당 스크립트
+- [x] TypeScript 오류 0개 확인 및 체크포인트 저장

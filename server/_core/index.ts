@@ -13,6 +13,9 @@ import { registerMasterStreamRoute } from "../masterStream";
 import { registerUploadRoutes } from "../uploadRoutes";
 import { registerScheduledRoutes } from "../scheduledRoutes";
 import { reportError } from "./errorWatcher.js";
+import { subscribe, startHeartbeat } from "../services/realtimeEvents";
+import { startManusSync } from "../services/manusSync";
+import { sdk } from "./sdk";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -46,6 +49,24 @@ async function startServer() {
   registerMasterStreamRoute(app);
   registerUploadRoutes(app);
   registerScheduledRoutes(app);
+
+  // ─── 실시간 이벤트 SSE 엔드포인트 ─────────────────────────────────────────
+  // GET /api/realtime/events - 관리자 전용 SSE 스트림
+  app.get("/api/realtime/events", async (req, res) => {
+    try {
+      const user = await sdk.authenticateRequest(req);
+      if (!user || user.role !== "admin") {
+        res.status(401).json({ error: "관리자 인증이 필요합니다" });
+        return;
+      }
+      // 구독자 ID: userId + 타임스탬프로 고유 식별
+      const subscriberId = `user-${user.id}-${Date.now()}`;
+      subscribe(subscriberId, user.id, res);
+    } catch {
+      res.status(500).json({ error: "SSE 연결 실패" });
+    }
+  });
+
   // tRPC API
   app.use(
     "/api/trpc",
@@ -70,6 +91,9 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+    // 하트비트 시작 (25초 간격)
+    startHeartbeat(25_000);
+    startManusSync(); // 300009: Manus Task 상태 폴링 기반 양방향 동기화
   });
 }
 

@@ -10,7 +10,7 @@
  */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq, desc, and, count } from "drizzle-orm";
+import { eq, desc, and, count, isNotNull } from "drizzle-orm";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { devRequests } from "../../drizzle/schema";
@@ -22,6 +22,7 @@ import {
 import { invokeLLM } from "../_core/llm";
 import { getCompletionKeywordsFromDb } from "./systemSettings";
 import { createAiNotification } from "./aiNotifications";
+import { publish } from "../services/realtimeEvents";
 
 // 관리자 전용 프로시저
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -64,6 +65,7 @@ export const devRequestRouter = router({
         })
         .$returningId();
 
+      publish("dev_request_created", { id: inserted.id, title: input.title, priority: input.priority, status: "pending" });
       return { id: inserted.id, success: true };
     }),
 
@@ -121,6 +123,7 @@ export const devRequestRouter = router({
         .update(devRequests)
         .set({ status: input.status, updatedAt: new Date() })
         .where(eq(devRequests.id, input.id));
+      publish("dev_request_updated", { id: input.id, status: input.status });
 
       return { success: true };
     }),
@@ -416,6 +419,7 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
           const priorityMap: Record<string, 'critical' | 'high' | 'medium' | 'low'> = {
             critical: 'critical', high: 'high', medium: 'medium', low: 'low',
           };
+          publish("dev_request_completed", { id: reqInfo.id, title: reqInfo.title });
           createAiNotification({
             type: 'dev_complete',
             title: `개발 완료: ${reqInfo.title}`,
@@ -475,6 +479,7 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
         const priorityMap: Record<string, 'critical' | 'high' | 'medium' | 'low'> = {
           critical: 'critical', high: 'high', medium: 'medium', low: 'low',
         };
+        publish("dev_request_completed", { id: req.id, title: req.title });
         createAiNotification({
           type: 'dev_complete',
           title: `개발 완료: ${req.title}`,
@@ -487,5 +492,60 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
         }).catch((e: unknown) => console.error('[devRequest] 알림 생성 실패:', e));
       }
       return { success: true };
+    }),
+
+  /**
+   * 300009 마이그레이션: 잘못 매핑된 in_progress 요청 데이터 검증 및 정리
+   * - manusTaskId가 없는 in_progress 요청을 pending으로 되돌림
+   * - manusTaskId가 있는 in_progress 요청 목록 반환 (수동 검토용)
+   */
+  migrateOrphanedRequests: adminProcedure
+    .mutation(async () => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+      // 1. manusTaskId 없는 in_progress 요청 → pending으로 되돌림
+      const orphanRows = await db
+        .select({ id: devRequests.id })
+        .from(devRequests)
+        .where(
+          and(
+            eq(devRequests.status, 'in_progress'),
+            eq(devRequests.manusTaskId, null as unknown as string)
+          )
+        );
+      let orphanFixed = 0;
+      for (const row of orphanRows) {
+        await db
+          .update(devRequests)
+          .set({ status: 'pending', updatedAt: new Date() })
+          .where(eq(devRequests.id, row.id));
+        orphanFixed++;
+      }
+      // 2. 현재 in_progress 중 manusTaskId가 있는 요청 목록 반환 (수동 검토용)
+      const inProgressWithTask = await db
+        .select({
+          id: devRequests.id,
+          title: devRequests.title,
+          status: devRequests.status,
+          manusTaskId: devRequests.manusTaskId,
+          manusRoutingType: devRequests.manusRoutingType,
+          updatedAt: devRequests.updatedAt,
+        })
+        .from(devRequests)
+        .where(
+          and(
+            eq(devRequests.status, 'in_progress'),
+            isNotNull(devRequests.manusTaskId)
+          )
+        )
+        .limit(50);
+      console.log(`[Migration 300009] orphanFixed=${orphanFixed}, inProgressWithTask=${inProgressWithTask.length}`);
+      publish('migration_completed', { orphanFixed, inProgressCount: inProgressWithTask.length });
+      return {
+        success: true,
+        orphanFixed,
+        inProgressWithTask,
+        message: `${orphanFixed}개 고아 요청을 pending으로 복구. ${inProgressWithTask.length}개 진행 중 요청 확인 필요.`,
+      };
     }),
 });

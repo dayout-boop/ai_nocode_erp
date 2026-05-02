@@ -3,7 +3,9 @@
  *
  * 개발 요청을 Manus API로 전송할 때 지능형 라우팅을 수행합니다.
  *
- * 라우팅 로직:
+ * 라우팅 로직 (우선순위):
+ *   0. MANUS_DOGOLF_TASK_ID가 설정된 경우
+ *      → 해당 기존 Task에 sendMessage (신규 Task 생성 없음, 기존 프로젝트 유지)
  *   1. 동일 모듈에 in_progress 상태의 기존 Manus Task가 있으면
  *      → task.sendMessage (기존 스레드에 추가, 크레딧 절약)
  *   2. 없거나 만료된 경우
@@ -12,7 +14,7 @@
  * 환경변수:
  *   MANUS_API_KEY        - Manus API 인증 키
  *   MANUS_PROJECT_ID     - 두골프 전용 Manus 프로젝트 ID (task.create 시 사용)
- *   MANUS_DOGOLF_TASK_ID - 레거시 호환용 (미설정 시 무시)
+ *   MANUS_DOGOLF_TASK_ID - 두골프 ERP 기본 Task ID (설정 시 항상 이 Task로 sendMessage)
  */
 import { eq, and, isNotNull, desc } from "drizzle-orm";
 import { getDb } from "../db";
@@ -28,6 +30,14 @@ function getManusApiKey(): string {
 function getManusProjectId(): string {
   // MANUS_PROJECT_ID 우선, 없으면 레거시 MANUS_DOGOLF_TASK_ID 사용
   return process.env.MANUS_PROJECT_ID ?? process.env.MANUS_DOGOLF_TASK_ID ?? "";
+}
+/**
+ * 두골프 ERP 전용 기본 Task ID를 반환합니다.
+ * MANUS_DOGOLF_TASK_ID 환경변수에 설정된 Task ID가 있으면 해당 Task로 모든 개발 요청을 전달합니다.
+ * 이 방식으로 신규 Task 생성 없이 기존 프로젝트 내에서 작업을 이어갑니다.
+ */
+function getDefaultTaskId(): string | null {
+  return process.env.MANUS_DOGOLF_TASK_ID ?? null;
 }
 
 // ─── 타입 정의 ────────────────────────────────────────────────────────────────
@@ -354,6 +364,23 @@ export async function smartSendToManus(req: {
     };
   }
 
+  // 0.5. MANUS_DOGOLF_TASK_ID가 설정된 경우 → 기존 두골프 ERP Task에 sendMessage (신규 Task 생성 방지)
+  const defaultTaskId = getDefaultTaskId();
+  if (defaultTaskId && !req.forceNewTask) {
+    const message = await formatDevRequestMessage({ ...req, isFollowUp: false });
+    const result = await sendMessageToExistingTask(defaultTaskId, message);
+    if (result.success) {
+      console.log(`[ManusPipe] 기본 Task(${defaultTaskId})로 sendMessage 성공 (신규 Task 생성 없음)`);
+      return {
+        success: true,
+        routingType: "send_message",
+        routingReason: `두골프 ERP 기본 Task로 전달 (MANUS_DOGOLF_TASK_ID: ${defaultTaskId})`,
+        taskId: defaultTaskId,
+      };
+    }
+    console.warn(`[ManusPipe] 기본 Task(${defaultTaskId}) sendMessage 실패, 스마트 라우팅으로 폴백`);
+  }
+
   // 1. 동일 모듈 활성 태스크 조회
   const activeTask = await findActiveTaskForModule(req.module);
 
@@ -519,7 +546,6 @@ export async function sendPendingRequestsToManus(): Promise<{
 
   return { sent, failed, results };
 }
-
 // ─── 자동 등록 + 스마트 전송 (두골프 마스터 AI 연동) ─────────────────────────
 export async function autoRegisterAndSend(devRequest: {
   title: string;

@@ -19,6 +19,7 @@ import { orchestratorChatStream, orchestratorChat } from "./services/openrouter"
 import { classifyIntent, fetchPackageContext, fetchReservationContext, compressHistory } from "./services/rag";
 import { MASTER_SYSTEM_PROMPT } from "./services/prompts/master";
 import { MASTER_TOOLS, executeTool, APPROVAL_REQUIRED_TOOLS, type ToolCallResult } from "./services/masterTools";
+import { publish } from "./services/realtimeEvents";
 import { z } from "zod";
 
 const inputSchema = z.object({
@@ -273,6 +274,7 @@ export function registerMasterStreamRoute(app: Express) {
           grounded: false,
         });
 
+        publish("ai_log_created", { sessionId: input.sessionId, assistant: "master", role: "assistant" });
         sendEvent("done", {
           model: finalResponse.model,
           tokensIn: finalResponse.tokensIn,
@@ -326,6 +328,7 @@ export function registerMasterStreamRoute(app: Express) {
             grounded: false,
           });
 
+          publish("ai_log_created", { sessionId: input.sessionId, assistant: "master", role: "assistant" });
           sendEvent("done", {
             model: meta.model,
             tokensIn: meta.tokensIn,

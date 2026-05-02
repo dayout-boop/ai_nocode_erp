@@ -960,6 +960,7 @@ export default function MasterAI() {
 
   // ─── 예약 작업 상태 ────────────────────────────────────────────────────
   const [showScheduledPanel, setShowScheduledPanel] = useState(false);
+  const trpcUtils = trpc.useUtils();
   const { data: scheduledTasksData, refetch: refetchScheduledTasks } = trpc.scheduledTasks.list.useQuery(
     { status: 'all', limit: 30 },
     { enabled: showScheduledPanel, staleTime: 15_000 }
@@ -972,7 +973,89 @@ export default function MasterAI() {
     onError: (err) => toast.error(`취소 실패: ${err.message}`),
   });
 
-  // ─── Human-in-the-Loop 승인 요청 상태 ──────────────────────────────────
+  // ─── 실시간 이벤트 SSE 구독 (서버 → 클라이언트 즉시 반영) ─────────────────
+  useEffect(() => {
+    const es = new EventSource("/api/realtime-events");
+    es.onopen = () => console.log("[MasterAI] SSE 연결됨");
+    es.addEventListener("message", (e: MessageEvent) => {
+      try {
+        const evt = JSON.parse(e.data) as { type: string; data: Record<string, unknown> };
+        if (evt.type === "dev_request_created" || evt.type === "dev_request_updated" || evt.type === "dev_request_completed") {
+          // 개발 요청 데이터 즉시 갱신
+          trpcUtils.devRequest.list.invalidate().catch(() => {});
+        }
+        if (evt.type === "notification_created") {
+          // 알림 즉시 갱신 (폴링 간격 단축 효과)
+          setLastPollTime(new Date(Date.now() - 1000));
+          trpcUtils.aiNotifications.list.invalidate().catch(() => {});
+        }
+        if (evt.type === "pipeline_done") {
+          // 파이프라인 완료 시 개발 요청 + 예약 작업 갱신
+          trpcUtils.devRequest.list.invalidate().catch(() => {});
+          trpcUtils.scheduledTasks.list.invalidate().catch(() => {});
+          const d = evt.data as { devRequestId?: number; success?: boolean };
+          if (d.success) {
+            toast.success(`개발 요청 #${d.devRequestId} Manus 전달 완료`);
+          }
+        }
+        if (evt.type === "ai_log_created") {
+          // AI 대화 로그 갱신
+          trpcUtils.aiLogs.list.invalidate().catch(() => {});
+        }
+      } catch {
+        // JSON 파싱 오류 무시
+      }
+    });
+    es.onerror = () => {
+      // 연결 오류 시 자동 재연결 (브라우저 기본 동작)
+      console.warn("[MasterAI] SSE 연결 오류 - 재연결 시도 중");
+    };
+    return () => {
+      es.close();
+    };
+  }, [trpcUtils]);
+    // ─── 실시간 이벤트 SSE 구독 (서버 → 클라이언트 즉시 반영) ─────────────────
+  useEffect(() => {
+    const es = new EventSource("/api/realtime-events");
+    es.onopen = () => console.log("[MasterAI] SSE 연결됨");
+    es.addEventListener("message", (e: MessageEvent) => {
+      try {
+        const evt = JSON.parse(e.data) as { type: string; data: Record<string, unknown> };
+        if (evt.type === "dev_request_created" || evt.type === "dev_request_updated" || evt.type === "dev_request_completed") {
+          // 개발 요청 데이터 즉시 갱신
+          trpcUtils.devRequest.list.invalidate().catch(() => {});
+        }
+        if (evt.type === "notification_created") {
+          // 알림 즉시 갱신 (폴링 간격 단축 효과)
+          setLastPollTime(new Date(Date.now() - 1000));
+          trpcUtils.aiNotifications.list.invalidate().catch(() => {});
+        }
+        if (evt.type === "pipeline_done") {
+          // 파이프라인 완료 시 개발 요청 + 예약 작업 갱신
+          trpcUtils.devRequest.list.invalidate().catch(() => {});
+          trpcUtils.scheduledTasks.list.invalidate().catch(() => {});
+          const d = evt.data as { devRequestId?: number; success?: boolean };
+          if (d.success) {
+            toast.success(`개발 요청 #${d.devRequestId} Manus 전달 완료`);
+          }
+        }
+        if (evt.type === "ai_log_created") {
+          // AI 대화 로그 갱신
+          trpcUtils.aiLogs.list.invalidate().catch(() => {});
+        }
+      } catch {
+        // JSON 파싱 오류 무시
+      }
+    });
+    es.onerror = () => {
+      // 연결 오류 시 자동 재연결 (브라우저 기본 동작)
+      console.warn("[MasterAI] SSE 연결 오류 - 재연결 시도 중");
+    };
+    return () => {
+      es.close();
+    };
+  }, [trpcUtils]);
+    // ─── Human-in-the-Loop 승인 요청 상태 ──────────────────────────────────
   const [pendingApproval, setPendingApproval] = useState<{
     id: string;
     toolName: string;
