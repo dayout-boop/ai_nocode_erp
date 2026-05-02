@@ -801,8 +801,8 @@ async function getErrorLogs(db: any, args: Record<string, unknown>, start: numbe
   const [agg] = await db
     .select({
       total: count(),
-      newCount: sql<number>`SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END)`,
-      apiErrors: sql<number>`SUM(CASE WHEN error_type = 'api' THEN 1 ELSE 0 END)`,
+      newCount: sql<number>`SUM(CASE WHEN ${aiEngineLogs.status} = 'new' THEN 1 ELSE 0 END)`,
+      apiErrors: sql<number>`SUM(CASE WHEN ${aiEngineLogs.errorType} = 'api' THEN 1 ELSE 0 END)`,
     })
     .from(aiEngineLogs)
     .where(and(...conditions));

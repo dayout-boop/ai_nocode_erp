@@ -33,7 +33,7 @@ async function getManusTaskStatus(taskId: string): Promise<{
     const url = new URL(`${MANUS_API_BASE}/task.listMessages`);
     url.searchParams.set("task_id", taskId);
     url.searchParams.set("order", "desc");
-    url.searchParams.set("limit", "5");
+    url.searchParams.set("limit", "50");
 
     const res = await fetch(url.toString(), {
       headers: {
@@ -56,29 +56,49 @@ async function getManusTaskStatus(taskId: string): Promise<{
           status_detail?: unknown;
         };
         content?: Array<{ type: string; text?: string }>;
+        assistant_message?: { content: string };
       }>;
     };
 
     if (!data.ok || !data.messages) return null;
 
     // status_update 이벤트에서 agent_status 추출
+    let detectedStatus: "running" | "waiting" | "stopped" | "error" | null = null;
     for (const msg of data.messages) {
       if (msg.type === "status_update" && msg.status_update) {
         const agentStatus = msg.status_update.agent_status as string;
         if (agentStatus === "stopped" || agentStatus === "running" || agentStatus === "waiting" || agentStatus === "error") {
-          return { agentStatus };
+          detectedStatus = agentStatus as "running" | "waiting" | "stopped" | "error";
+          break;
         }
       }
     }
 
-    // assistant_message에서 마지막 텍스트 추출 (완료 감지용)
+    // assistant_message에서 최신 텍스트 추출 (완료 결과물용)
+    let lastMessage: string | undefined;
     for (const msg of data.messages) {
+      // 형식 1: assistant_message.content (문자열)
+      if (msg.type === "assistant_message" && msg.assistant_message?.content) {
+        lastMessage = msg.assistant_message.content.slice(0, 2000);
+        break;
+      }
+      // 형식 2: content 배열에서 text 추출
       if (msg.type === "assistant_message" && msg.content) {
         const textContent = msg.content.find((c) => c.type === "text");
         if (textContent?.text) {
-          return { agentStatus: "stopped", lastMessage: textContent.text.slice(0, 200) };
+          lastMessage = textContent.text.slice(0, 2000);
+          break;
         }
       }
+    }
+
+    if (detectedStatus) {
+      return { agentStatus: detectedStatus, lastMessage };
+    }
+
+    // status_update 없이 assistant_message만 있으면 stopped로 간주
+    if (lastMessage) {
+      return { agentStatus: "stopped", lastMessage };
     }
 
     return { agentStatus: "unknown" };
@@ -134,9 +154,9 @@ export async function syncManusTaskStatuses(): Promise<{
 
       // Manus Task가 완료(stopped)되면 ERP 상태 업데이트
       if (taskStatus.agentStatus === "stopped") {
-        // Manus Task 완료 시 result 자동 저장
+        // Manus Task 완료 시 result 자동 저장 (300011: 전체 assistant 응답 저장)
         const resultText = taskStatus.lastMessage
-          ? `[Manus 자동 수집] ${taskStatus.lastMessage}`
+          ? `[Manus 자동 수집 - ${new Date().toLocaleString('ko-KR')}]\n\n${taskStatus.lastMessage}`
           : null;
         await db
           .update(devRequests)

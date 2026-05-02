@@ -17,7 +17,7 @@ import {
   TrendingUp, Package, AlertTriangle, Activity, Plus, GitBranch, Star,
   PanelRight, X, Paperclip, Image as ImageIcon, FileText, ChevronRight,
   GitCommit, Layers, Link2, CheckSquare, XCircle, Wifi, WifiOff,
-  Bell, BellRing, Sparkles,
+  Bell, BellRing, Sparkles, History, ChevronLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -631,10 +631,11 @@ function RightPanel({
       {/* 탭 콘텐츠 */}
       <div className="flex-1 overflow-hidden flex flex-col min-h-0">
         <Tabs defaultValue="dev" className="flex-1 flex flex-col min-h-0">
-          <TabsList className="mx-3 mt-3 shrink-0 grid grid-cols-3 h-8">
-            <TabsTrigger value="dev" className="text-xs">개발현황</TabsTrigger>
+          <TabsList className="mx-3 mt-3 shrink-0 grid grid-cols-4 h-8">
+            <TabsTrigger value="dev" className="text-xs">개발</TabsTrigger>
             <TabsTrigger value="engine" className="text-xs">AI엔진</TabsTrigger>
-            <TabsTrigger value="services" className="text-xs">연동서비스</TabsTrigger>
+            <TabsTrigger value="services" className="text-xs">연동</TabsTrigger>
+            <TabsTrigger value="history" className="text-xs">대화이력</TabsTrigger>
           </TabsList>
 
           {/* 개발현황 탭 */}
@@ -819,9 +820,181 @@ function RightPanel({
               </div>
             </div>
           </TabsContent>
+
+          {/* 대화이력 탭 (300012) */}
+          <ChatHistoryTab open={open} />
+
         </Tabs>
       </div>
     </div>
+  );
+}
+
+// ─── 대화 이력 탭 컴포넌트 (300012) ────────────────────────────────────────────────────────────────────────────────
+function ChatHistoryTab({ open }: { open: boolean }) {
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const LIMIT = 20;
+
+  // 세션 목록 조회
+  const { data: sessionsData, isLoading: sessionsLoading } = trpc.chat.listMasterSessions.useQuery(
+    { limit: LIMIT, offset: page * LIMIT },
+    { enabled: open }
+  );
+
+  // 선택된 세션 메시지 조회
+  const { data: msgData, isLoading: msgLoading } = trpc.chat.getMasterSessionMessages.useQuery(
+    { sessionId: selectedSessionId! },
+    { enabled: !!selectedSessionId }
+  );
+
+  const sessions = sessionsData?.sessions ?? [];
+  const messages = msgData?.messages ?? [];
+  const total = sessionsData?.total ?? 0;
+
+  const formatTime = (d: Date | string) => {
+    const date = new Date(d);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    if (mins < 1) return '방금';
+    if (mins < 60) return `${mins}분 전`;
+    if (hours < 24) return `${hours}시간 전`;
+    if (days < 7) return `${days}일 전`;
+    return date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+  };
+
+  return (
+    <TabsContent value="history" className="flex-1 overflow-hidden flex flex-col" style={{ minHeight: 0 }}>
+      {selectedSessionId ? (
+        // 대화 메시지 뷰
+        <div className="flex flex-col flex-1 min-h-0">
+          {/* 뒤로가기 헤더 */}
+          <div className="flex items-center gap-2 px-3 py-2 border-b shrink-0 bg-gray-50">
+            <button
+              onClick={() => setSelectedSessionId(null)}
+              className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 transition-colors"
+            >
+              <ChevronLeft size={14} className="text-gray-600" />
+            </button>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-gray-700 truncate">대화 이어가기</p>
+              <p className="text-[10px] text-gray-400 font-mono truncate">{selectedSessionId.slice(0, 20)}...</p>
+            </div>
+          </div>
+          {/* 메시지 목록 */}
+          <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2" style={{ minHeight: 0 }}>
+            {msgLoading ? (
+              <div className="flex items-center justify-center py-8 text-gray-400">
+                <Loader2 size={16} className="animate-spin mr-2" />
+                <span className="text-xs">로딩 중...</span>
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <History size={24} className="mx-auto mb-2 opacity-40" />
+                <p className="text-xs">메시지가 없습니다.</p>
+              </div>
+            ) : (
+              messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`rounded-lg px-3 py-2 text-xs ${
+                    msg.role === 'user'
+                      ? 'bg-indigo-50 border border-indigo-100 ml-4'
+                      : 'bg-gray-50 border border-gray-100 mr-4'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className={`font-semibold ${
+                      msg.role === 'user' ? 'text-indigo-600' : 'text-gray-600'
+                    }`}>
+                      {msg.role === 'user' ? '나' : '두골프마스터'}
+                    </span>
+                    <span className="text-[10px] text-gray-400">{formatTime(msg.createdAt)}</span>
+                  </div>
+                  <p className="text-gray-700 leading-relaxed line-clamp-6 whitespace-pre-wrap">{msg.content}</p>
+                  {msg.costUsd && Number(msg.costUsd) > 0 && (
+                    <p className="text-[10px] text-gray-400 mt-1">${Number(msg.costUsd).toFixed(6)}</p>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+          {/* 이어가기 버튼 */}
+          <div className="px-3 py-2 border-t shrink-0">
+            <p className="text-[10px] text-gray-400 text-center">이어가기: 아래 채팅창에서 세션 ID를 사용하세요</p>
+            <p className="text-[10px] text-indigo-500 text-center font-mono mt-0.5 truncate">{selectedSessionId}</p>
+          </div>
+        </div>
+      ) : (
+        // 세션 목록 뷰
+        <div className="flex flex-col flex-1 min-h-0">
+          <div className="px-3 pt-2 pb-1 shrink-0">
+            <p className="text-xs font-semibold text-gray-600 flex items-center gap-1">
+              <History size={11} className="text-indigo-500" />
+              마스터 AI 대화 이력
+              {total > 0 && <span className="text-[10px] text-gray-400">({total}건)</span>}
+            </p>
+          </div>
+          <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-2" style={{ minHeight: 0 }}>
+            {sessionsLoading ? (
+              <div className="flex items-center justify-center py-8 text-gray-400">
+                <Loader2 size={16} className="animate-spin mr-2" />
+                <span className="text-xs">로딩 중...</span>
+              </div>
+            ) : sessions.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <History size={28} className="mx-auto mb-2 opacity-30" />
+                <p className="text-xs">대화 이력이 없습니다.</p>
+                <p className="text-[10px] mt-1">두골프 마스터와 대화를 시작하세요.</p>
+              </div>
+            ) : (
+              sessions.map((session) => (
+                <button
+                  key={session.sessionId}
+                  onClick={() => setSelectedSessionId(session.sessionId)}
+                  className="w-full text-left rounded-xl border border-gray-100 bg-gray-50 hover:bg-indigo-50 hover:border-indigo-200 px-3 py-2.5 transition-all group"
+                >
+                  <div className="flex items-start justify-between gap-1 mb-1">
+                    <p className="text-xs font-medium text-gray-800 leading-tight line-clamp-2 group-hover:text-indigo-700">
+                      {session.title}
+                    </p>
+                    <ChevronRight size={12} className="text-gray-300 group-hover:text-indigo-400 shrink-0 mt-0.5" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-gray-400">{formatTime(session.lastMessageAt)}</span>
+                    <span className="text-[10px] text-gray-300">·</span>
+                    <span className="text-[10px] text-gray-400">{session.messageCount}개 메시지</span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+          {/* 페이지네이션 */}
+          {total > LIMIT && (
+            <div className="flex items-center justify-between px-3 py-2 border-t shrink-0">
+              <button
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="text-xs text-gray-500 disabled:opacity-30 hover:text-indigo-600 transition-colors"
+              >
+                ← 이전
+              </button>
+              <span className="text-[10px] text-gray-400">{page + 1} / {Math.ceil(total / LIMIT)}</span>
+              <button
+                onClick={() => setPage(p => p + 1)}
+                disabled={(page + 1) * LIMIT >= total}
+                className="text-xs text-gray-500 disabled:opacity-30 hover:text-indigo-600 transition-colors"
+              >
+                다음 →
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </TabsContent>
   );
 }
 

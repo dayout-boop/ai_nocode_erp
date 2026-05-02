@@ -1441,3 +1441,29 @@ Detected
 - [x] 개발 완료 자동 전환: manusSync 폴링에서 Manus Task stopped 감지 시 ERP 상태 자동 completed 업데이트 (manusSync.ts 구현)
 - [x] Manus 결과 자동 수집: manusSync.ts 완료 감지 시 result 자동 저장 + AI 알림 자동 생성 (createAiNotification 연동)
 - [x] 모바일 UI: 개발 요청 목록 및 이어나가기 기능 모바일 최적화 (MasterAI.tsx 모바일 패널 w-[85vw] 수정)
+
+## [ID: 300010] 오류 로그 조회 API DB 쿼리 실패 버그 수정 (2026-05-02)
+- [x] get_error_logs API 관련 코드 위치 파악 (masterTools.ts getErrorLogs 함수)
+- [x] DB 쿼리 실패 원인 분석 (집계 쿼리에서 Drizzle ORM 컬럼 참조 방식 확인)
+- [x] 버그 수정 및 쿼리 정상화 (aiEngineLogs.errorType, aiEngineLogs.status 컬럼 참조 수정)
+- [x] TypeScript 오류 0개 확인
+- [x] 체크포인트 저장
+
+## [ID: 300011] 개발 완료 결과물 메모 자동 입력 기능 (2026-05-02)
+- [x] 개발 요청 상세 페이지에서 '자동가져오기' 버튼 및 메모 입력 관련 코드 위치 파악
+- [x] devRequest.ts updateStatus 또는 markCompleted 시 메모 자동 입력 서버 로직 추가
+- [x] manusSync.ts 완료 감지 시 result를 notes/memo 필드에 자동 저장 (resultText 자동 저장 구현)
+- [x] 프론트엔드: 개발 완료 상태 전환 시 메모 자동 갱신 (SSE dev_request_completed 이벤트 활용)
+- [x] TypeScript 오류 0개 확인
+- [x] 체크포인트 저장
+
+## [ID: 300012] 대화 이력 사이드 메뉴 및 이어가기 기능 (2026-05-02)
+- [x] aiLogs 테이블에서 세션 그룹화 가능한지 확인 (sessionId 컬럼 있음, assistant='master' 필터)
+- [x] 별도 테이블 불필요 - 기존 aiLogs 테이블 sessionId 활용
+- [x] chat.ts 라우터에 listMasterSessions, getMasterSessionMessages 프로시저 추가
+- [x] MasterAI.tsx RightPanel에 '대화이력' 탭 추가 (4번째 탭)
+- [x] 세션 목록: 날짜별 그룹핑, 첫 메시지 제목, 메시지 수 표시
+- [x] 세션 클릭 시 해당 대화 내용 로드 및 이어가기 기능
+- [x] 새 대화 시작 버튼 추가
+- [x] TypeScript 오류 0개 확인
+- [x] 체크포인트 저장

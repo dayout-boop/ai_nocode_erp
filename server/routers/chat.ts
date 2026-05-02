@@ -4,10 +4,12 @@
  * - getSession: 세션 조회
  * - closeSession: 세션 종료 + AI 요약 생성
  * - listSessions: 세션 목록 (관리자)
+ * - listMasterSessions: 두골프 마스터 AI 대화 이력 목록 (300012)
+ * - getMasterSessionMessages: 특정 세션 메시지 조회 (300012)
  */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq, desc, and, count } from "drizzle-orm";
+import { eq, desc, and, count, sql, ne } from "drizzle-orm";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { chatSessions, aiLogs } from "../../drizzle/schema";
@@ -158,5 +160,115 @@ export const chatRouter = router({
         .where(conditions.length > 0 ? and(...conditions) : undefined);
 
       return { sessions, total: total.count };
+    }),
+
+  /**
+   * [300012] 두골프 마스터 AI 대화 이력 목록 조회
+   * ai_logs 테이블에서 assistant="master" 세션을 그룹화하여 반환
+   * 각 세션의 첫 번째 user 메시지를 제목으로 사용
+   */
+  listMasterSessions: adminProcedure
+    .input(
+      z.object({
+        limit: z.number().min(1).max(100).default(30),
+        offset: z.number().default(0),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // 세션별 최신 메시지 시각 + 메시지 수 집계
+      const sessionStats = await db
+        .select({
+          sessionId: aiLogs.sessionId,
+          messageCount: count(aiLogs.id),
+          lastMessageAt: sql<Date>`MAX(${aiLogs.createdAt})`,
+          firstMessageAt: sql<Date>`MIN(${aiLogs.createdAt})`,
+        })
+        .from(aiLogs)
+        .where(eq(aiLogs.assistant, "master"))
+        .groupBy(aiLogs.sessionId)
+        .orderBy(desc(sql`MAX(${aiLogs.createdAt})`))
+        .limit(input.limit)
+        .offset(input.offset);
+
+      if (sessionStats.length === 0) {
+        return { sessions: [], total: 0 };
+      }
+
+      // 각 세션의 첫 번째 user 메시지 조회 (제목용)
+      const sessionIds = sessionStats.map((s) => s.sessionId);
+      const firstMessages = await Promise.all(
+        sessionIds.map(async (sid) => {
+          const [firstUserMsg] = await db
+            .select({ content: aiLogs.content })
+            .from(aiLogs)
+            .where(and(eq(aiLogs.sessionId, sid), eq(aiLogs.role, "user")))
+            .orderBy(aiLogs.createdAt)
+            .limit(1);
+          return { sessionId: sid, title: firstUserMsg?.content?.slice(0, 60) ?? "새 대화" };
+        })
+      );
+
+      const titleMap = new Map(firstMessages.map((m) => [m.sessionId, m.title]));
+
+      // 전체 세션 수
+      const [totalResult] = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${aiLogs.sessionId})` })
+        .from(aiLogs)
+        .where(eq(aiLogs.assistant, "master"));
+
+      const sessions = sessionStats.map((s) => ({
+        sessionId: s.sessionId,
+        title: titleMap.get(s.sessionId) ?? "새 대화",
+        messageCount: Number(s.messageCount),
+        lastMessageAt: s.lastMessageAt,
+        firstMessageAt: s.firstMessageAt,
+      }));
+
+      return {
+        sessions,
+        total: Number(totalResult?.count ?? 0),
+      };
+    }),
+
+  /**
+   * [300012] 특정 세션의 메시지 전체 조회 (대화 이어가기용)
+   */
+  getMasterSessionMessages: adminProcedure
+    .input(
+      z.object({
+        sessionId: z.string().min(1).max(100),
+        limit: z.number().min(1).max(200).default(100),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const messages = await db
+        .select({
+          id: aiLogs.id,
+          role: aiLogs.role,
+          content: aiLogs.content,
+          modelUsed: aiLogs.modelUsed,
+          tokensIn: aiLogs.tokensIn,
+          tokensOut: aiLogs.tokensOut,
+          costUsd: aiLogs.costUsd,
+          createdAt: aiLogs.createdAt,
+        })
+        .from(aiLogs)
+        .where(
+          and(
+            eq(aiLogs.sessionId, input.sessionId),
+            eq(aiLogs.assistant, "master"),
+            ne(aiLogs.role, "system")
+          )
+        )
+        .orderBy(aiLogs.createdAt)
+        .limit(input.limit);
+
+      return { messages, sessionId: input.sessionId };
     }),
 });
