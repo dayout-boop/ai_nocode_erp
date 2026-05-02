@@ -1371,3 +1371,8 @@ Detected
 - [x] 터치 이벤트 및 스크롤 처리 개선
 - [x] 탭 전환 및 콘텐츠 표시 오류 수정
 - [x] TypeScript 오류 0개 확인 및 체크포인트 저장
+
+## AI 대화 이력 조회 DB 쿼리 오류 수정 [ID: 300003] (2026-05-02)
+- [x] ai_logs 테이블 쿼리 오류 원인 파악 (session_id snake_case → sessionId camelCase 컬럼명 불일치)
+- [x] DB 쿼리 수정 (sql`COUNT(DISTINCT session_id)` → countDistinct(aiLogs.sessionId) Drizzle ORM 방식)
+- [x] TypeScript 오류 0개 확인 및 체크포인트 저장

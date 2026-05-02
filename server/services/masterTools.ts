@@ -17,7 +17,7 @@ import {
   users,
   aiLogs,
 } from "../../drizzle/schema";
-import { eq, gte, lte, and, sql, desc, count, sum, isNull } from "drizzle-orm";
+import { eq, gte, lte, and, sql, desc, count, sum, isNull, countDistinct } from "drizzle-orm";
 import { maskPhone, maskEmail } from "./rag";
 
 // ─── Tool 정의 (OpenRouter Tool Calling 형식) ───────────────────
@@ -824,7 +824,7 @@ async function getAiChatLogs(db: any, args: Record<string, unknown>, start: numb
     .select({
       totalCalls: count(),
       totalCost: sum(aiLogs.costUsd),
-      uniqueSessions: sql<number>`COUNT(DISTINCT session_id)`,
+      uniqueSessions: countDistinct(aiLogs.sessionId),
     })
     .from(aiLogs)
     .where(and(...conditions));
