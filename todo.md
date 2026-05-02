@@ -1385,3 +1385,13 @@ Detected
 - [x] devRequest.ts markCompleted / detectAndCompleteFromResponse에서 알림 자동 생성 연동
 - [x] MasterAI.tsx 능동적 알림 수신 UI (30초 폴링 + Bell/BellRing 배지 + 알림 패널 슬라이드)
 - [x] TypeScript 오류 0개 확인 및 체크포인트 저장
+
+## AI 비동기 실행 및 스케줄링 기능 도입 [ID: 300005] (2026-05-02)
+- [x] drizzle/schema.ts에 ai_scheduled_tasks 테이블 추가 (taskType, title, prompt, scheduledAt, status, result, executedAt, notifyOnComplete)
+- [x] DB 마이그레이션 (직접 SQL로 테이블 생성 확인)
+- [x] masterTools.ts에 schedule_task 도구 추가 (AI가 Tool Calling으로 자연어 명령 시 자동 예약 등록)
+- [x] server/routers/scheduledTasks.ts 라우터 구현 (create, list, cancel, execute, getStats)
+- [x] server/routers.ts에 scheduledTasksRouter 등록
+- [x] scheduledRoutes.ts에 /api/scheduled/run-tasks 엔드포인트 추가 (Manus 스케줄 폴링용, 실행 예정 작업 자동 처리)
+- [x] MasterAI.tsx 예약 작업 패널 UI (Clock 버튼 + 대기 배지 + 슬라이드 패널 + 취소 기능)
+- [x] TypeScript 오류 0개 확인 및 체크포인트 저장

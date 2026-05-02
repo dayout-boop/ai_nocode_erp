@@ -958,6 +958,20 @@ export default function MasterAI() {
     { enabled: showNotifPanel, staleTime: 10_000 }
   );
 
+  // ─── 예약 작업 상태 ────────────────────────────────────────────────────
+  const [showScheduledPanel, setShowScheduledPanel] = useState(false);
+  const { data: scheduledTasksData, refetch: refetchScheduledTasks } = trpc.scheduledTasks.list.useQuery(
+    { status: 'all', limit: 30 },
+    { enabled: showScheduledPanel, staleTime: 15_000 }
+  );
+  const cancelScheduledTaskMutation = trpc.scheduledTasks.cancel.useMutation({
+    onSuccess: () => {
+      toast.success('예약 작업이 취소되었습니다.');
+      refetchScheduledTasks();
+    },
+    onError: (err) => toast.error(`취소 실패: ${err.message}`),
+  });
+
   // 파일 업로드 + 텍스트 추출 mutation
   const uploadFileMutation = trpc.fileAnalysis.uploadAndExtract.useMutation();
   const analyzeFileMutation = trpc.fileAnalysis.analyzeWithAI.useMutation();
@@ -1419,6 +1433,26 @@ export default function MasterAI() {
               {unreadNotifCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
                   {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                </span>
+              )}
+            </Button>
+            {/* 예약 작업 버튼 */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowScheduledPanel(!showScheduledPanel);
+                if (!showScheduledPanel) refetchScheduledTasks();
+              }}
+              className={`text-xs h-7 px-2 relative ${
+                showScheduledPanel ? 'text-indigo-600 border-indigo-300 bg-indigo-50' : ''
+              }`}
+              title="예약 작업 목록"
+            >
+              <Clock size={13} />
+              {(scheduledTasksData?.tasks?.filter(t => t.status === 'pending').length ?? 0) > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                  {scheduledTasksData!.tasks.filter(t => t.status === 'pending').length}
                 </span>
               )}
             </Button>
@@ -1905,6 +1939,91 @@ export default function MasterAI() {
         onConfirm={handleTaskConfirm}
         suggestion={pendingDevRequest?.suggestion ?? null}
       />
+
+      {/* 예약 작업 패널 */}
+      {showScheduledPanel && (
+        <div className="absolute top-14 right-2 z-50 w-80 bg-white rounded-xl shadow-xl border border-indigo-100 overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2.5 bg-indigo-50 border-b border-indigo-100">
+            <div className="flex items-center gap-2">
+              <Clock size={15} className="text-indigo-600" />
+              <span className="text-sm font-semibold text-indigo-800">예약 작업</span>
+              {(scheduledTasksData?.tasks?.filter(t => t.status === 'pending').length ?? 0) > 0 && (
+                <Badge className="text-[10px] bg-indigo-500 text-white px-1.5 py-0">
+                  대기 {scheduledTasksData!.tasks.filter(t => t.status === 'pending').length}
+                </Badge>
+              )}
+            </div>
+            <button onClick={() => setShowScheduledPanel(false)} className="text-gray-400 hover:text-gray-600">
+              <X size={14} />
+            </button>
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {!scheduledTasksData?.tasks?.length ? (
+              <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+                <Clock size={28} className="mb-2 opacity-30" />
+                <p className="text-xs">예약된 작업이 없습니다</p>
+                <p className="text-[10px] mt-1 text-gray-300">"무었을 언제 보고해줘" 라고 말해보세요</p>
+              </div>
+            ) : (
+              scheduledTasksData.tasks.map((task) => {
+                const scheduledDate = new Date(task.scheduledAt);
+                const kstDate = new Date(scheduledDate.getTime() + 9 * 60 * 60 * 1000);
+                const timeStr = kstDate.toLocaleString('ko-KR', { timeZone: 'UTC', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                const statusColors: Record<string, string> = {
+                  pending: 'bg-blue-100 text-blue-700',
+                  running: 'bg-yellow-100 text-yellow-700',
+                  completed: 'bg-green-100 text-green-700',
+                  cancelled: 'bg-gray-100 text-gray-500',
+                  failed: 'bg-red-100 text-red-700',
+                };
+                const statusLabels: Record<string, string> = {
+                  pending: '대기',
+                  running: '실행중',
+                  completed: '완료',
+                  cancelled: '취소',
+                  failed: '실패',
+                };
+                return (
+                  <div key={task.id} className="px-3 py-2.5 border-b border-gray-50 hover:bg-gray-50">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-800 truncate">{task.title}</p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">{timeStr} (KST)</p>
+                        {task.result && (
+                          <p className="text-[10px] text-green-600 mt-0.5 truncate">{task.result.slice(0, 60)}</p>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <Badge className={`text-[10px] px-1.5 py-0 ${statusColors[task.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                          {statusLabels[task.status] ?? task.status}
+                        </Badge>
+                        {task.status === 'pending' && (
+                          <button
+                            onClick={() => cancelScheduledTaskMutation.mutate({ id: task.id })}
+                            className="text-[10px] text-red-400 hover:text-red-600"
+                            disabled={cancelScheduledTaskMutation.isPending}
+                          >
+                            취소
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+          <div className="px-3 py-2 border-t bg-gray-50">
+            <p className="text-[10px] text-gray-400 text-center">"무었을 언제 보고해줘" 라고 말하면 AI가 자동 예약합니다</p>
+          </div>
+        </div>
+      )}
+      {showScheduledPanel && (
+        <div
+          className="fixed inset-0 bg-black/20 z-40"
+          onClick={() => setShowScheduledPanel(false)}
+        />
+      )}
     </div>
   );
 }

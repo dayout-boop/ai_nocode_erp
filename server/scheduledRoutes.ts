@@ -11,8 +11,9 @@
  */
 import type { Express, Request, Response } from "express";
 import { getDb } from "./db";
-import { devRequests } from "../drizzle/schema";
-import { desc, eq } from "drizzle-orm";
+import { devRequests, aiScheduledTasks } from "../drizzle/schema";
+import { desc, eq, and, lte } from "drizzle-orm";
+import { createAiNotification } from "./routers/aiNotifications";
 import { sdk } from "./_core/sdk";
 import { ENV } from "./_core/env";
 
@@ -222,6 +223,124 @@ export function registerScheduledRoutes(app: Express): void {
       });
     } catch (e) {
       console.error("[ScheduledRoutes] dev-request 오류:", e);
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  /**
+   * POST /api/scheduled/run-tasks
+   * 예약된 AI 작업 실행 (Manus 스케줄 기능으로 주기적 호출)
+   */
+  app.post("/api/scheduled/run-tasks", async (req: Request, res: Response) => {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+
+    try {
+      const db = await getDb();
+      if (!db) {
+        res.status(500).json({ ok: false, error: "DB 연결 실패" });
+        return;
+      }
+
+      const now = new Date();
+
+      // 실행 예정인 대기 작업 조회
+      const pendingTasks = await db
+        .select()
+        .from(aiScheduledTasks)
+        .where(and(
+          eq(aiScheduledTasks.status, "pending"),
+          lte(aiScheduledTasks.scheduledAt, now)
+        ))
+        .limit(10);
+
+      if (pendingTasks.length === 0) {
+        res.json({ ok: true, executed: 0, message: "실행할 작업 없음" });
+        return;
+      }
+
+      const results: { id: number; title: string; success: boolean; error?: string }[] = [];
+
+      for (const task of pendingTasks) {
+        // 실행중 상태로 변경
+        await db.update(aiScheduledTasks).set({
+          status: "running",
+          executedAt: now,
+          updatedAt: now,
+        }).where(eq(aiScheduledTasks.id, task.id));
+
+        try {
+          // 작업 유형에 따라 실행
+          let resultMessage = "";
+
+          if (task.taskType === "report") {
+            // 보고 작업: AI에게 리포트 요청
+            const reportPrompt = `[AI 예약 보고 실행]
+예약된 시간: ${task.scheduledAt.toLocaleString('ko-KR')}
+작업: ${task.prompt}
+
+위 내용을 지금 실행하여 결과를 알림으로 전달해주세요.`;
+            resultMessage = `보고 작업 실행: ${task.title}`;
+
+            // AI 알림 생성
+            await createAiNotification({
+              type: "system",
+              title: `⏰ 예약 보고: ${task.title}`,
+              body: `${task.prompt}\n\n예약된 시간에 도달하여 자동 실행되었습니다. 마스터 AI에게 문의하여 상세 보고를 받아보세요.`,
+              priority: "high",
+              source: "system",
+              actionLabel: "마스터 AI 열기",
+              actionUrl: "/admin/master-ai",
+            });
+
+            // Manus에 전달 (선택적)
+            if (process.env.MANUS_API_KEY && process.env.MANUS_DOGOLF_TASK_ID) {
+              await sendToCurrentTask(reportPrompt).catch(() => {});
+            }
+          } else if (task.taskType === "reminder") {
+            // 리마인더 작업
+            await createAiNotification({
+              type: "system",
+              title: task.title,
+              body: task.prompt,
+              priority: "medium",
+              source: "system",
+            });
+            resultMessage = `리마인더 전송 완료: ${task.title}`;
+          } else {
+            resultMessage = `작업 실행 완료: ${task.title}`;
+          }
+
+          // 완료 상태로 업데이트
+          await db.update(aiScheduledTasks).set({
+            status: "completed",
+            result: resultMessage,
+            executedAt: new Date(),
+            updatedAt: new Date(),
+          }).where(eq(aiScheduledTasks.id, task.id));
+
+          results.push({ id: task.id, title: task.title, success: true });
+        } catch (taskErr) {
+          // 실패 상태로 업데이트
+          const errMsg = String(taskErr);
+          await db.update(aiScheduledTasks).set({
+            status: "failed",
+            result: `실패: ${errMsg}`,
+            updatedAt: new Date(),
+          }).where(eq(aiScheduledTasks.id, task.id));
+
+          results.push({ id: task.id, title: task.title, success: false, error: errMsg });
+        }
+      }
+
+      res.json({
+        ok: true,
+        executed: results.length,
+        results,
+        message: `${results.length}개 작업 실행 완료`,
+      });
+    } catch (e) {
+      console.error("[ScheduledRoutes] run-tasks 오류:", e);
       res.status(500).json({ ok: false, error: String(e) });
     }
   });

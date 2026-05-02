@@ -16,6 +16,7 @@ import {
   aiFixRequests,
   users,
   aiLogs,
+  aiScheduledTasks,
 } from "../../drizzle/schema";
 import { eq, gte, lte, and, sql, desc, count, sum, isNull, countDistinct } from "drizzle-orm";
 import { maskPhone, maskEmail } from "./rag";
@@ -277,6 +278,41 @@ export const MASTER_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "schedule_task",
+      description: "특정 시각에 AI 작업을 예약합니다. '15분 후 예약 현황 보고', '내일 오전 9시 매출 분석' 등 시간 기반 작업을 등록합니다. 사용자가 미래 시각에 보고나 알림을 요청할 때 사용하세요.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: {
+            type: "string",
+            description: "작업 제목 (예: '15분 후 예약 현황 보고')",
+          },
+          prompt: {
+            type: "string",
+            description: "실행 시 AI에게 전달할 프롬프트 (예: '현재 예약 현황을 조회하고 오늘 신규 예약 수, 총 매출을 보고해주세요')",
+          },
+          scheduledAt: {
+            type: "string",
+            description: "실행 예정 시각 (ISO 8601 형식, 예: '2026-05-02T10:30:00.000Z')",
+          },
+          taskType: {
+            type: "string",
+            enum: ["report", "reminder", "analysis", "custom"],
+            description: "작업 유형: report=보고서, reminder=리마인더, analysis=분석, custom=사용자정의",
+          },
+          notifyOnComplete: {
+            type: "boolean",
+            description: "완료 시 알림 전송 여부 (기본값: true)",
+          },
+        },
+        required: ["title", "prompt", "scheduledAt"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 // ─── Tool 실행 함수 ─────────────────────────────────────────────
@@ -318,6 +354,8 @@ export async function executeTool(toolName: string, args: Record<string, unknown
         return await getAiChatLogs(db, args, start);
       case "get_system_health":
         return await getSystemHealth(db, start);
+      case "schedule_task":
+        return await scheduleTask(db, args, start);
       default:
         return { tool: toolName, success: false, error: `알 수 없는 도구: ${toolName}`, queryTime: Date.now() - start };
     }
@@ -903,6 +941,88 @@ async function getSystemHealth(db: any, start: number): Promise<ToolCallResult> 
         inquiries: inquiryPending?.count ?? 0,
       },
       source: "bookings, ai_cost_logs, ai_engine_logs, dev_requests, inquiries 테이블",
+    },
+    queryTime: Date.now() - start,
+  };
+}
+
+// ─── schedule_task 도구 구현 ─────────────────────────────────────
+
+async function scheduleTask(
+  db: Awaited<ReturnType<typeof getDb>>,
+  args: Record<string, unknown>,
+  start: number
+): Promise<ToolCallResult> {
+  if (!db) return { tool: "schedule_task", success: false, error: "DB 연결 실패", queryTime: Date.now() - start };
+
+  const title = String(args.title ?? "");
+  const prompt = String(args.prompt ?? "");
+  const scheduledAtStr = String(args.scheduledAt ?? "");
+  const taskType = (args.taskType as "report" | "reminder" | "analysis" | "custom") ?? "custom";
+  const notifyOnComplete = args.notifyOnComplete !== false;
+
+  if (!title || !prompt || !scheduledAtStr) {
+    return {
+      tool: "schedule_task",
+      success: false,
+      error: "title, prompt, scheduledAt 파라미터가 필요합니다.",
+      queryTime: Date.now() - start,
+    };
+  }
+
+  const scheduledAt = new Date(scheduledAtStr);
+  if (isNaN(scheduledAt.getTime())) {
+    return {
+      tool: "schedule_task",
+      success: false,
+      error: `scheduledAt 형식이 올바르지 않습니다: ${scheduledAtStr}`,
+      queryTime: Date.now() - start,
+    };
+  }
+
+  // 과거 시각 방지 (5분 이상 과거)
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+  if (scheduledAt < fiveMinutesAgo) {
+    return {
+      tool: "schedule_task",
+      success: false,
+      error: "예약 시각은 현재 시각 이후여야 합니다.",
+      queryTime: Date.now() - start,
+    };
+  }
+
+  const [result] = await db
+    .insert(aiScheduledTasks)
+    .values({
+      taskType,
+      title,
+      prompt,
+      scheduledAt,
+      status: "pending",
+      notifyOnComplete,
+    })
+    .$returningId();
+
+  const id = result?.id;
+  if (!id) {
+    return { tool: "schedule_task", success: false, error: "작업 등록 실패", queryTime: Date.now() - start };
+  }
+
+  // 한국 시간으로 표시
+  const kstTime = new Date(scheduledAt.getTime() + 9 * 60 * 60 * 1000);
+  const timeStr = kstTime.toLocaleString("ko-KR", { timeZone: "UTC" });
+
+  return {
+    tool: "schedule_task",
+    success: true,
+    data: {
+      id,
+      title,
+      scheduledAt: scheduledAt.toISOString(),
+      scheduledAtKST: timeStr,
+      taskType,
+      notifyOnComplete,
+      message: `✅ 작업이 예약되었습니다. ID: ${id}\n예약 시각: ${timeStr} (KST)\n완료 시 알림: ${notifyOnComplete ? "예" : "아니오"}`,
     },
     queryTime: Date.now() - start,
   };

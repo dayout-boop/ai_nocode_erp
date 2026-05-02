@@ -1678,3 +1678,35 @@ export const aiNotifications = mysqlTable("ai_notifications", {
 });
 export type AiNotification = typeof aiNotifications.$inferSelect;
 export type InsertAiNotification = typeof aiNotifications.$inferInsert;
+
+/**
+ * AI 예약 작업 테이블 (ai_scheduled_tasks)
+ * AI가 "15분 후 보고", "매일 오전 9시 요약" 등 시간 기반 작업을 예약하고 추적하는 테이블
+ */
+export const aiScheduledTasks = mysqlTable("ai_scheduled_tasks", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 작업 유형: report=보고서 생성, reminder=리마인더, analysis=분석, custom=사용자 정의 */
+  taskType: mysqlEnum("taskType", ["report", "reminder", "analysis", "custom"]).notNull().default("custom"),
+  /** 작업 제목 (예: "15분 후 예약 현황 보고") */
+  title: varchar("title", { length: 200 }).notNull(),
+  /** AI에게 전달할 실행 프롬프트 */
+  prompt: text("prompt").notNull(),
+  /** 예약 실행 시각 (UTC) */
+  scheduledAt: timestamp("scheduledAt").notNull(),
+  /** 작업 상태: pending=대기, running=실행중, completed=완료, cancelled=취소, failed=실패 */
+  status: mysqlEnum("status", ["pending", "running", "completed", "cancelled", "failed"]).notNull().default("pending"),
+  /** 실행 결과 (AI 응답 텍스트) */
+  result: text("result"),
+  /** 오류 메시지 (실패 시) */
+  errorMessage: varchar("errorMessage", { length: 500 }),
+  /** 실제 실행 시각 */
+  executedAt: timestamp("executedAt"),
+  /** 등록한 사용자 ID */
+  createdBy: int("createdBy"),
+  /** 알림 전송 여부 (완료 시 ai_notifications 생성) */
+  notifyOnComplete: boolean("notifyOnComplete").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type AiScheduledTask = typeof aiScheduledTasks.$inferSelect;
+export type InsertAiScheduledTask = typeof aiScheduledTasks.$inferInsert;
