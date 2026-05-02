@@ -17,7 +17,8 @@ import {
   devRequests, devFeatures, devVersions,
   aiCostLogs,
   payments, kakaoNotifications, packageVideos, automationLogs,
-  reservations
+  reservations,
+  aiLogs
 } from "../drizzle/schema";
 // AI 엔진 테이블은 별도 import로 처리됨 (아래 참조)
 import { eq, desc, and, gte, lte, like, sql, count, asc, isNotNull } from "drizzle-orm";
@@ -3285,12 +3286,30 @@ const aiDevEngineRouter = router({
       const [approvedFixes] = await db.select({ count: count() }).from(aiFixRequests).where(eq(aiFixRequests.status, "approved"));
       const [totalLogs] = await db.select({ count: count() }).from(aiEngineLogs);
       const recentLogs = await db.select().from(aiEngineLogs).orderBy(desc(aiEngineLogs.createdAt)).limit(5);
+      // ai_logs 통계 추가 (실제 AI 호출 현황)
+      const [totalAiCalls] = await db.select({ count: count() }).from(aiLogs);
+      const [todayAiCalls] = await db.select({ count: count() }).from(aiLogs).where(
+        gte(aiLogs.createdAt, new Date(new Date().setHours(0, 0, 0, 0)))
+      );
+      // 분석 완료 로그 (status != 'new')
+      const [analyzedLogs] = await db.select({ count: count() }).from(aiEngineLogs).where(
+        sql`${aiEngineLogs.status} != 'new'`
+      );
+      // 수정 요청 전체
+      const [totalFixRequests] = await db.select({ count: count() }).from(aiFixRequests);
+      // 승인 대기 (pending)
+      const [pendingApproval] = await db.select({ count: count() }).from(aiFixRequests).where(eq(aiFixRequests.status, "pending"));
       return {
         newErrors: newErrors.count,
         pendingFixes: pendingFixes.count,
         approvedFixes: approvedFixes.count,
         totalLogs: totalLogs.count,
         recentLogs,
+        totalAiCalls: totalAiCalls.count,
+        todayAiCalls: todayAiCalls.count,
+        analyzedLogs: analyzedLogs.count,
+        totalFixRequests: totalFixRequests.count,
+        pendingApproval: pendingApproval.count,
       };
     }),
 });

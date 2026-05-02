@@ -384,7 +384,7 @@ export function registerScheduledRoutes(app: Express): void {
         pending: recent.filter(r => r.status === "pending").length,
         completed: recent.filter(r => r.status === "completed").length,
         fromMasterAI: recent.filter(r => r.source === "master_ai").length,
-        manusConnected: !!process.env.MANUS_API_KEY && !!process.env.MANUS_DOGOLF_TASK_ID,
+        manusConnected: !!process.env.MANUS_API_KEY,
         currentTaskId: process.env.MANUS_DOGOLF_TASK_ID ?? null,
         projectId: process.env.MANUS_PROJECT_ID ?? null,
       };

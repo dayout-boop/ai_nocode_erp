@@ -61,8 +61,8 @@ function DashboardStats() {
   const stats = [
     { label: "신규 오류", value: data?.newErrors ?? 0, icon: Bug, color: "text-red-500", bg: "bg-red-50" },
     { label: "대기 수정", value: data?.pendingFixes ?? 0, icon: Clock, color: "text-orange-500", bg: "bg-orange-50" },
-    { label: "승인 완료", value: data?.approvedFixes ?? 0, icon: CheckCircle, color: "text-green-500", bg: "bg-green-50" },
-    { label: "전체 로그", value: data?.totalLogs ?? 0, icon: Zap, color: "text-blue-500", bg: "bg-blue-50" },
+    { label: "오늘 AI 호출", value: (data as any)?.todayAiCalls ?? 0, icon: Zap, color: "text-purple-500", bg: "bg-purple-50" },
+    { label: "총 AI 호출", value: (data as any)?.totalAiCalls ?? 0, icon: CheckCircle, color: "text-blue-500", bg: "bg-blue-50" },
   ];
 
   return (
@@ -1080,10 +1080,10 @@ function PipelineDiagram() {
         </div>
         {/* 요약 수치 */}
         <div className="mt-3 pt-3 border-t border-gray-200 flex flex-wrap gap-4 text-xs text-gray-500">
-          <span>전체 로그: <strong className="text-gray-700">{stats?.totalLogs ?? 0}건</strong></span>
+          <span>오늘 AI 호출: <strong className="text-purple-600">{(stats as any)?.todayAiCalls ?? 0}건</strong></span>
+          <span>총 AI 호출: <strong className="text-blue-600">{(stats as any)?.totalAiCalls ?? 0}건</strong></span>
           <span>신규 오류: <strong className="text-red-600">{stats?.newErrors ?? 0}건</strong></span>
-          <span>대기 수정: <strong className="text-blue-600">{stats?.pendingFixes ?? 0}건</strong></span>
-          <span>승인 완료: <strong className="text-green-600">{stats?.approvedFixes ?? 0}건</strong></span>
+          <span>대기 수정: <strong className="text-orange-600">{stats?.pendingFixes ?? 0}건</strong></span>
         </div>
       </div>
     </div>

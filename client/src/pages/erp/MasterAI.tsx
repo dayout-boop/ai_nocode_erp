@@ -564,7 +564,7 @@ function RightPanel({
     { enabled: open }
   );
 
-  const devItems = (devRequestsData as { items?: unknown[] } | undefined)?.items ?? [];
+  const devItems = (devRequestsData as { rows?: unknown[] } | undefined)?.rows ?? [];
 
   const STATUS_COLORS: Record<string, string> = {
     pending: "bg-yellow-100 text-yellow-700",
@@ -584,7 +584,7 @@ function RightPanel({
     {
       name: "Manus API",
       status: pipelineStatus.connected,
-      detail: pipelineStatus.taskId ? `태스크: ${pipelineStatus.taskId.slice(0, 12)}...` : "미연결",
+      detail: pipelineStatus.connected ? (pipelineStatus.taskId ? `태스크: ${pipelineStatus.taskId.slice(0, 12)}...` : "API 키 연결됨") : "미연결",
       icon: <GitCommit size={13} />,
     },
     {

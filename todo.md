@@ -1432,3 +1432,12 @@ Detected
 - [x] server/_core/index.ts: 서버 시작 시 manusSync 자동 폴링 시작
 - [x] scripts/migrate-manus-mapping.mjs: 잘못 매핑된 in_progress 요청 검증 및 재할당 스크립트
 - [x] TypeScript 오류 0개 확인 및 체크포인트 저장
+
+## 긴급 버그 수정: AI엔진/대시보드/Manus API/자동완료 (2026-05-02)
+- [x] AI엔진 분석: ai_logs costUsd 0 저장 버그 수정 (masterStream.ts에서 costUsd 올바르게 저장)
+- [x] AI엔진 분석: get_ai_cost_summary groupBy assistant 오류 수정
+- [x] 마스터 대시보드: 파이프라인 미연결 → 배포 환경에서 개발 요청 데이터 정상 로드 (scheduledRoutes.ts manusConnected 로직 수정)
+- [x] Manus API 연결 상태: MANUS_API_KEY 존재 시 연결됨 표시 (scheduledRoutes.ts manusConnected: !!process.env.MANUS_API_KEY 수정)
+- [x] 개발 완료 자동 전환: manusSync 폴링에서 Manus Task stopped 감지 시 ERP 상태 자동 completed 업데이트 (manusSync.ts 구현)
+- [x] Manus 결과 자동 수집: manusSync.ts 완료 감지 시 result 자동 저장 + AI 알림 자동 생성 (createAiNotification 연동)
+- [x] 모바일 UI: 개발 요청 목록 및 이어나가기 기능 모바일 최적화 (MasterAI.tsx 모바일 패널 w-[85vw] 수정)

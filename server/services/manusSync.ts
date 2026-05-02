@@ -134,10 +134,15 @@ export async function syncManusTaskStatuses(): Promise<{
 
       // Manus Task가 완료(stopped)되면 ERP 상태 업데이트
       if (taskStatus.agentStatus === "stopped") {
+        // Manus Task 완료 시 result 자동 저장
+        const resultText = taskStatus.lastMessage
+          ? `[Manus 자동 수집] ${taskStatus.lastMessage}`
+          : null;
         await db
           .update(devRequests)
           .set({
             status: "completed",
+            ...(resultText && !req.result ? { result: resultText } : {}),
             updatedAt: new Date(),
           })
           .where(eq(devRequests.id, req.id));
