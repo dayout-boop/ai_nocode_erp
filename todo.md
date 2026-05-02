@@ -1376,3 +1376,12 @@ Detected
 - [x] ai_logs 테이블 쿼리 오류 원인 파악 (session_id snake_case → sessionId camelCase 컬럼명 불일치)
 - [x] DB 쿼리 수정 (sql`COUNT(DISTINCT session_id)` → countDistinct(aiLogs.sessionId) Drizzle ORM 방식)
 - [x] TypeScript 오류 0개 확인 및 체크포인트 저장
+
+## AI 능동적 알림 기능 추가 [ID: 300004] (2026-05-02)
+- [x] drizzle/schema.ts에 ai_notifications 테이블 추가 (type, title, body, devRequestId, isRead, actionUrl, actionLabel, priority, source)
+- [x] DB 마이그레이션 (직접 SQL 스크립트로 테이블 생성 확인)
+- [x] server/routers/aiNotifications.ts 라우터 구현 (create, listUnread, list, markRead, markAllRead, getUnreadCount, pollNew)
+- [x] server/routers.ts에 aiNotifications 라우터 등록
+- [x] devRequest.ts markCompleted / detectAndCompleteFromResponse에서 알림 자동 생성 연동
+- [x] MasterAI.tsx 능동적 알림 수신 UI (30초 폴링 + Bell/BellRing 배지 + 알림 패널 슬라이드)
+- [x] TypeScript 오류 0개 확인 및 체크포인트 저장

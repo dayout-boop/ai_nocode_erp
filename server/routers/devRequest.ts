@@ -21,6 +21,7 @@ import {
 } from "../services/manusPipe";
 import { invokeLLM } from "../_core/llm";
 import { getCompletionKeywordsFromDb } from "./systemSettings";
+import { createAiNotification } from "./aiNotifications";
 
 // 관리자 전용 프로시저
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -405,20 +406,49 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
       const matchedKeywords = COMPLETION_KEYWORDS.filter((kw: string) => input.responseText.includes(kw));
 
       if (input.devRequestId) {
+        const [reqInfo] = await db.select().from(devRequests).where(eq(devRequests.id, input.devRequestId)).limit(1);
         const result = await db
           .update(devRequests)
           .set({ status: 'completed', updatedAt: new Date() })
           .where(and(eq(devRequests.id, input.devRequestId), eq(devRequests.status, 'in_progress')));
         updatedCount = (result as unknown as { affectedRows?: number })?.affectedRows ?? 1;
+        if (updatedCount > 0 && reqInfo) {
+          const priorityMap: Record<string, 'critical' | 'high' | 'medium' | 'low'> = {
+            critical: 'critical', high: 'high', medium: 'medium', low: 'low',
+          };
+          createAiNotification({
+            type: 'dev_complete',
+            title: `개발 완료: ${reqInfo.title}`,
+            body: `개발 요청 [ID: ${reqInfo.id}] '${reqInfo.title}'이(가) 완료되었습니다.\n\n새로고침하여 변경사항을 확인하세요.`,
+            devRequestId: reqInfo.id,
+            actionUrl: '/erp/dev-requests',
+            actionLabel: '개발 요청 목록 보기',
+            priority: priorityMap[reqInfo.priority ?? 'medium'] ?? 'medium',
+            source: 'ai',
+          }).catch((e: unknown) => console.error('[devRequest] 알림 생성 실패:', e));
+        }
       } else if (input.manusTaskId) {
         const rows = await db
-          .select({ id: devRequests.id })
+          .select()
           .from(devRequests)
           .where(and(eq(devRequests.manusTaskId, input.manusTaskId), eq(devRequests.status, 'in_progress')))
           .limit(5);
         for (const row of rows) {
           await db.update(devRequests).set({ status: 'completed', updatedAt: new Date() }).where(eq(devRequests.id, row.id));
           updatedCount++;
+          const priorityMap: Record<string, 'critical' | 'high' | 'medium' | 'low'> = {
+            critical: 'critical', high: 'high', medium: 'medium', low: 'low',
+          };
+          createAiNotification({
+            type: 'dev_complete',
+            title: `개발 완료: ${row.title}`,
+            body: `개발 요청 [ID: ${row.id}] '${row.title}'이(가) 완료되었습니다.\n\n새로고침하여 변경사항을 확인하세요.`,
+            devRequestId: row.id,
+            actionUrl: '/erp/dev-requests',
+            actionLabel: '개발 요청 목록 보기',
+            priority: priorityMap[row.priority ?? 'medium'] ?? 'medium',
+            source: 'ai',
+          }).catch((e: unknown) => console.error('[devRequest] 알림 생성 실패:', e));
         }
       }
 
@@ -433,10 +463,29 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
-      await db
+      // 완료 전 요청 정보 조회
+      const [req] = await db.select().from(devRequests).where(eq(devRequests.id, input.id)).limit(1);
+      const result = await db
         .update(devRequests)
         .set({ status: 'completed', updatedAt: new Date() })
         .where(and(eq(devRequests.id, input.id), eq(devRequests.status, 'in_progress')));
+      const affected = (result as unknown as { affectedRows?: number })?.affectedRows ?? 0;
+      // 완료 시 AI 알림 자동 생성
+      if (affected > 0 && req) {
+        const priorityMap: Record<string, 'critical' | 'high' | 'medium' | 'low'> = {
+          critical: 'critical', high: 'high', medium: 'medium', low: 'low',
+        };
+        createAiNotification({
+          type: 'dev_complete',
+          title: `개발 완료: ${req.title}`,
+          body: `개발 요청 [ID: ${req.id}] '${req.title}'이(가) 완료되었습니다.\n\n새로고침하여 변경사항을 확인하세요.`,
+          devRequestId: req.id,
+          actionUrl: '/erp/dev-requests',
+          actionLabel: '개발 요청 목록 보기',
+          priority: priorityMap[req.priority ?? 'medium'] ?? 'medium',
+          source: 'system',
+        }).catch((e: unknown) => console.error('[devRequest] 알림 생성 실패:', e));
+      }
       return { success: true };
     }),
 });

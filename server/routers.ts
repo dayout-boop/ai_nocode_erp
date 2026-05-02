@@ -3308,6 +3308,7 @@ import { partnerOnboardingRouter } from "./routers/partnerOnboarding";
 import { tenantsRouter } from "./routers/tenants";
 import { subscriptionsRouter } from "./routers/subscriptions";
 import { fileAnalysisRouter } from "./routers/fileAnalysis";
+import { aiNotificationsRouter } from "./routers/aiNotifications";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -3357,5 +3358,6 @@ export const appRouter = router({
   tenants: tenantsRouter,
   subscriptions: subscriptionsRouter,
   fileAnalysis: fileAnalysisRouter,
+  aiNotifications: aiNotificationsRouter,
 });
 export type AppRouter = typeof appRouter;

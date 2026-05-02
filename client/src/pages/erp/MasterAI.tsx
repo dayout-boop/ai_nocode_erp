@@ -17,6 +17,7 @@ import {
   TrendingUp, Package, AlertTriangle, Activity, Plus, GitBranch, Star,
   PanelRight, X, Paperclip, Image as ImageIcon, FileText, ChevronRight,
   GitCommit, Layers, Link2, CheckSquare, XCircle, Wifi, WifiOff,
+  Bell, BellRing, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -903,6 +904,60 @@ export default function MasterAI() {
       .catch(() => {});
   }, []);
 
+  // ─── AI 능동적 알림 상태 ────────────────────────────────────────────────────
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [lastPollTime, setLastPollTime] = useState(() => new Date());
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
+
+  // 30초마다 새 알림 폴링
+  const { data: pollData, refetch: refetchNotifs } = trpc.aiNotifications.pollNew.useQuery(
+    { since: lastPollTime },
+    {
+      refetchInterval: 30_000,
+      refetchIntervalInBackground: false,
+      staleTime: 25_000,
+    }
+  );
+
+  // 새 알림 수신 시 채팅창에 인라인 메시지 삽입
+  useEffect(() => {
+    if (!pollData?.hasNew || !pollData.notifications.length) return;
+    const newNotifs = pollData.notifications;
+    // 미읽음 카운트 업데이트
+    setUnreadNotifCount(prev => prev + newNotifs.length);
+    // 채팅창에 알림 메시지 삽입
+    newNotifs.forEach((notif) => {
+      const notifMsg: Message = {
+        id: `notif-${notif.id}-${Date.now()}`,
+        role: "assistant",
+        content: `🔔 **${notif.title}**\n\n${notif.body}${
+          notif.actionUrl && notif.actionLabel
+            ? `\n\n👉 [${notif.actionLabel}](${notif.actionUrl})`
+            : ""
+        }`,
+        timestamp: new Date(notif.createdAt),
+        phase: "done",
+      };
+      setMessages(prev => [...prev, notifMsg]);
+    });
+    // 폴링 기준 시각 갱신
+    setLastPollTime(new Date());
+  }, [pollData]);
+
+  // 알림 패널 열기 시 읽음 처리
+  const markAllReadMutation = trpc.aiNotifications.markAllRead.useMutation({
+    onSuccess: () => {
+      setUnreadNotifCount(0);
+      refetchNotifs();
+    },
+  });
+
+  // 알림 목록 조회 (패널용)
+  const { data: notifListData } = trpc.aiNotifications.list.useQuery(
+    { limit: 20, onlyUnread: false },
+    { enabled: showNotifPanel, staleTime: 10_000 }
+  );
+
   // 파일 업로드 + 텍스트 추출 mutation
   const uploadFileMutation = trpc.fileAnalysis.uploadAndExtract.useMutation();
   const analyzeFileMutation = trpc.fileAnalysis.analyzeWithAI.useMutation();
@@ -1343,6 +1398,30 @@ export default function MasterAI() {
                 중단
               </Button>
             )}
+            {/* AI 알림 버튼 */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowNotifPanel(!showNotifPanel);
+                if (!showNotifPanel && unreadNotifCount > 0) {
+                  markAllReadMutation.mutate();
+                }
+              }}
+              className={`text-xs h-7 px-2 relative ${
+                unreadNotifCount > 0
+                  ? 'text-amber-600 border-amber-300 bg-amber-50 hover:bg-amber-100'
+                  : ''
+              }`}
+              title="AI 알림"
+            >
+              {unreadNotifCount > 0 ? <BellRing size={13} className="animate-pulse" /> : <Bell size={13} />}
+              {unreadNotifCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                  {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                </span>
+              )}
+            </Button>
             {/* 우측 패널 토글 버튼 */}
             <Button
               variant={rightPanelOpen ? "default" : "outline"}
@@ -1704,6 +1783,115 @@ export default function MasterAI() {
         <div
           className="fixed inset-0 bg-black/30 z-40"
           onClick={() => setRightPanelOpen(false)}
+        />
+      )}
+
+      {/* AI 알림 패널 */}
+      {showNotifPanel && (
+        <div className="fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-50 flex flex-col border-l">
+          <div className="flex items-center justify-between px-4 py-3 border-b bg-amber-50">
+            <div className="flex items-center gap-2">
+              <BellRing size={15} className="text-amber-600" />
+              <h2 className="font-semibold text-sm text-gray-800">AI 알림</h2>
+              {unreadNotifCount > 0 && (
+                <Badge className="text-[10px] bg-red-500 text-white px-1.5 py-0">{unreadNotifCount}</Badge>
+              )}
+            </div>
+            <button
+              onClick={() => setShowNotifPanel(false)}
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {!notifListData?.notifications.length ? (
+              <div className="flex flex-col items-center justify-center h-full text-gray-400 py-12">
+                <Bell size={28} className="mb-2 opacity-30" />
+                <p className="text-sm">알림이 없습니다</p>
+                <p className="text-xs mt-1">개발 완료 시 자동으로 표시됩니다</p>
+              </div>
+            ) : (
+              notifListData.notifications.map((notif) => (
+                <div
+                  key={notif.id}
+                  className={`rounded-lg border p-3 text-xs transition-colors ${
+                    !notif.isRead
+                      ? 'bg-amber-50 border-amber-200'
+                      : 'bg-gray-50 border-gray-100'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles size={11} className={!notif.isRead ? 'text-amber-500' : 'text-gray-400'} />
+                      <span className="font-semibold text-gray-800 leading-tight">{notif.title}</span>
+                    </div>
+                    <span className="text-[10px] text-gray-400 shrink-0">
+                      {new Date(notif.createdAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <p className="text-gray-600 leading-relaxed whitespace-pre-line">{notif.body}</p>
+                  {notif.actionUrl && notif.actionLabel && (
+                    <a
+                      href={notif.actionUrl}
+                      className="inline-flex items-center gap-1 mt-2 text-indigo-600 hover:text-indigo-800 font-medium"
+                    >
+                      <ExternalLink size={10} />
+                      {notif.actionLabel}
+                    </a>
+                  )}
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <Badge
+                      className={`text-[9px] px-1 py-0 ${
+                        notif.type === 'dev_complete' ? 'bg-green-100 text-green-700' :
+                        notif.type === 'deploy' ? 'bg-blue-100 text-blue-700' :
+                        notif.type === 'feature' ? 'bg-purple-100 text-purple-700' :
+                        notif.type === 'error' ? 'bg-red-100 text-red-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {notif.type === 'dev_complete' ? '개발완료' :
+                       notif.type === 'deploy' ? '배포' :
+                       notif.type === 'feature' ? '신기능' :
+                       notif.type === 'error' ? '오류' : '시스템'}
+                    </Badge>
+                    <Badge
+                      className={`text-[9px] px-1 py-0 ${
+                        notif.priority === 'critical' ? 'bg-red-100 text-red-700' :
+                        notif.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                        notif.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {notif.priority === 'critical' ? '최우선' :
+                       notif.priority === 'high' ? '높음' :
+                       notif.priority === 'medium' ? '중간' : '낙음'}
+                    </Badge>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          {(notifListData?.notifications.length ?? 0) > 0 && (
+            <div className="px-3 py-2 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs h-7"
+                onClick={() => markAllReadMutation.mutate()}
+                disabled={markAllReadMutation.isPending}
+              >
+                {markAllReadMutation.isPending ? <Loader2 size={11} className="animate-spin mr-1" /> : <CheckSquare size={11} className="mr-1" />}
+                모두 읽음 처리
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+      {showNotifPanel && (
+        <div
+          className="fixed inset-0 bg-black/20 z-40"
+          onClick={() => setShowNotifPanel(false)}
         />
       )}
 

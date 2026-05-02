@@ -1645,3 +1645,36 @@ export const fileAnalysis = mysqlTable("file_analysis", {
 
 export type FileAnalysis = typeof fileAnalysis.$inferSelect;
 export type InsertFileAnalysis = typeof fileAnalysis.$inferInsert;
+
+// ─── AI 능동적 알림 테이블 ─────────────────────────────────────────────────────
+/**
+ * AI 능동적 알림 테이블
+ * 개발 완료, 배포, 주요 업데이트 시 AI가 자동으로 생성하는 알림
+ */
+export const aiNotifications = mysqlTable("ai_notifications", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 알림 유형: dev_complete=개발완료, deploy=배포, feature=신기능, system=시스템 */
+  type: mysqlEnum("type", ["dev_complete", "deploy", "feature", "system", "error"]).notNull().default("system"),
+  /** 알림 제목 */
+  title: varchar("title", { length: 200 }).notNull(),
+  /** 알림 본문 (마크다운 지원) */
+  body: text("body").notNull(),
+  /** 연결된 개발 요청 ID (선택) */
+  devRequestId: int("devRequestId"),
+  /** 체크포인트 버전 ID (배포 알림 시) */
+  checkpointVersionId: varchar("checkpointVersionId", { length: 50 }),
+  /** 읽음 여부 */
+  isRead: boolean("isRead").default(false).notNull(),
+  /** 행동 유도 URL (예: /erp/dev-requests) */
+  actionUrl: varchar("actionUrl", { length: 300 }),
+  /** 행동 유도 레이블 (예: '새로고침', '기능 확인하기') */
+  actionLabel: varchar("actionLabel", { length: 100 }),
+  /** 알림 우선순위 */
+  priority: mysqlEnum("priority", ["critical", "high", "medium", "low"]).default("medium").notNull(),
+  /** 알림 생성 주체 (ai=AI 자동생성, system=시스템) */
+  source: mysqlEnum("source", ["ai", "system", "manual"]).default("ai").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type AiNotification = typeof aiNotifications.$inferSelect;
+export type InsertAiNotification = typeof aiNotifications.$inferInsert;
