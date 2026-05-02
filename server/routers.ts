@@ -2746,6 +2746,7 @@ const orchestratorRouter = router({
           errorMessage: errorMessage ?? undefined,
           userId: ctx.user.id,
           promptPreview: input.message.slice(0, 200),
+          assistant: "master",
         });
       } catch (logErr) {
         console.error("[Orchestrator] 비용 로그 저장 실패:", logErr);

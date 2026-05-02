@@ -1395,3 +1395,9 @@ Detected
 - [x] scheduledRoutes.ts에 /api/scheduled/run-tasks 엔드포인트 추가 (Manus 스케줄 폴링용, 실행 예정 작업 자동 처리)
 - [x] MasterAI.tsx 예약 작업 패널 UI (Clock 버튼 + 대기 배지 + 슬라이드 패널 + 취소 기능)
 - [x] TypeScript 오류 0개 확인 및 체크포인트 저장
+
+## AI 비용 분석 및 로그 데이터 무결성 오류 수정 [ID: 300006] (2026-05-02)
+- [x] masterTools.ts get_ai_cost_summary groupBy 'assistant' 오류 수정: ai_cost_logs에 assistant 콼럼 추가 및 groupBy 매핑 수정
+- [x] masterStream.ts ai_logs costUsd 0 기록 수정: String((finalResponse.costUsd || 0).toFixed(6)) 사용
+- [x] routers.ts aiCostLogs insert에 assistant 필드 추가
+- [x] TypeScript 오류 0개 확인 및 체크포인트 저장

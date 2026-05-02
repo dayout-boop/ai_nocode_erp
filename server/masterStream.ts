@@ -260,7 +260,7 @@ export function registerMasterStreamRoute(app: Express) {
           modelUsed: finalResponse.model,
           tokensIn: finalResponse.tokensIn,
           tokensOut: finalResponse.tokensOut,
-          costUsd: "0",
+          costUsd: String((finalResponse.costUsd || 0).toFixed(6)),
           grounded: false,
         });
 
@@ -268,7 +268,7 @@ export function registerMasterStreamRoute(app: Express) {
           model: finalResponse.model,
           tokensIn: finalResponse.tokensIn,
           tokensOut: finalResponse.tokensOut,
-          costUsd: 0,
+          costUsd: finalResponse.costUsd || 0,
           durationMs: Date.now() - startTime,
           devRequestSuggestion,
           toolsUsed: [],

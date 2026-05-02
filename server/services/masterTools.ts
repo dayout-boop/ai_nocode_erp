@@ -572,8 +572,9 @@ async function getAiCostSummary(db: any, args: Record<string, unknown>, start: n
 
   let groupExpr;
   if (groupBy === "model") groupExpr = aiCostLogs.model;
-  else if (groupBy === "assistant") groupExpr = aiCostLogs.taskType;
-  else groupExpr = sql`DATE(created_at)`;
+  else if (groupBy === "assistant") groupExpr = aiCostLogs.assistant;
+  else if (groupBy === "taskType") groupExpr = aiCostLogs.taskType;
+  else groupExpr = sql`DATE(createdAt)`;
 
   const rows = await db
     .select({

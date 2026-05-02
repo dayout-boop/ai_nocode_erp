@@ -539,6 +539,8 @@ export const aiCostLogs = mysqlTable("ai_cost_logs", {
   userId: int("userId"),
   /** 요청 프롬프트 앞 200자 (디버깅용) */
   promptPreview: varchar("promptPreview", { length: 200 }),
+  /** 어시스턴트 채널 구분 (master/golftalk/manager) */
+  assistant: varchar("assistant", { length: 20 }).default("master"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type AiCostLog = typeof aiCostLogs.$inferSelect;
