@@ -402,7 +402,7 @@ function CompletionKeywordsSection() {
           </div>
         ) : (
           <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
-            {currentKeywords.map((kw) => (
+            {currentKeywords.map((kw: string) => (
               <span
                 key={kw}
                 className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded-full"
