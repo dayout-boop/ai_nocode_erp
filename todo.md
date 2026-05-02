@@ -1337,3 +1337,22 @@ Detected
 - [x] 외부 연동 서비스 상태 표시 (GitHub, Slack, DB 연결 상태)
 - [x] 채팅 세션 히스토리 슬라이드 패널 (이전 대화 목록)
 - [x] 기술 로직도 보고서 문서 생성 (docs/master-ai-report.md)
+
+## AI 엔진 파일 직접 분석 기능 [ID: 270001] (2026-05-02)
+- [ ] DB 스키마: fileAnalysis 테이블 추가 (drizzle/schema.ts)
+- [ ] 서버: 파일 업로드 tRPC 프로시저 (multipart/form-data → S3 저장)
+- [ ] 서버: 텍스트 추출 서비스 (PDF/DOCX/이미지 → 텍스트)
+- [ ] 서버: RAG 파이프라인 (파일 컨텍스트 + LLM 질의응답)
+- [ ] 서버: masterStream.ts에 파일 컨텍스트 주입 로직 추가
+- [ ] 프론트엔드: MasterAI 파일 첨부 → 업로드 → 분석 결과 표시
+- [ ] TypeScript 오류 0개 확인 및 체크포인트 저장
+
+## AI 엔진 파일 직접 분석 기능 [ID: 270001] - 2026-05-02 완료
+
+- [x] file_analysis DB 테이블 생성 (SQL 직접 실행)
+- [x] server/services/fileExtractor.ts - PDF(pdfjs-dist)/DOCX(mammoth)/이미지(LLM Vision)/텍스트 추출
+- [x] server/routers/fileAnalysis.ts - uploadAndExtract / analyzeWithAI / listBySession / getById / deleteFile
+- [x] server/routers.ts - fileAnalysis 라우터 등록
+- [x] MasterAI.tsx - 파일 업로드 → 텍스트 추출 → AI 분석 파이프라인 연동
+- [x] MasterAI.tsx - 파일 분석 결과 채팅 내 인라인 표시
+- [x] TypeScript 오류 0개 확인

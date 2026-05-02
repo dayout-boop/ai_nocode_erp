@@ -902,6 +902,10 @@ export default function MasterAI() {
       .catch(() => {});
   }, []);
 
+  // 파일 업로드 + 텍스트 추출 mutation
+  const uploadFileMutation = trpc.fileAnalysis.uploadAndExtract.useMutation();
+  const analyzeFileMutation = trpc.fileAnalysis.analyzeWithAI.useMutation();
+
   const autoSendMutation = trpc.devRequest.autoRegisterAndSend.useMutation({
     onSuccess: (data) => {
       if (data.success) {
@@ -987,17 +991,15 @@ export default function MasterAI() {
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isStreaming) return;
 
-    // 첨부 파일이 있으면 메시지에 포함
-    const attachmentNote = attachedFiles.length > 0
-      ? `\n\n[첨부 파일 ${attachedFiles.length}개: ${attachedFiles.map(f => f.name).join(", ")}]`
-      : "";
+    // 첨부 파일 스냅샷 (전송 전 복사)
+    const filesToUpload = [...attachedFiles];
 
     const userMsg: Message = {
       id: `user-${Date.now()}`,
       role: "user",
       content: text.trim(),
       timestamp: new Date(),
-      attachments: attachedFiles.length > 0 ? [...attachedFiles] : undefined,
+      attachments: filesToUpload.length > 0 ? filesToUpload : undefined,
     };
     const assistantId = `assistant-${Date.now()}`;
     const assistantMsg: Message = {
@@ -1017,6 +1019,74 @@ export default function MasterAI() {
 
     const history = messages.slice(-20).map((m) => ({ role: m.role, content: m.content }));
 
+    // ── 파일 업로드 + AI 분석 파이프라인 ──────────────────────────────────────
+    let fileContextText = "";
+    if (filesToUpload.length > 0) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId ? { ...m, phase: "querying" as const } : m
+        )
+      );
+      for (const file of filesToUpload) {
+        try {
+          if (!file.dataUrl) continue;
+          const base64Data = file.dataUrl.split(",")[1];
+          if (!base64Data) continue;
+          // 1) 업로드 + 텍스트 추출
+          const uploadResult = await uploadFileMutation.mutateAsync({
+            fileName: file.name,
+            mimeType: file.type || "application/octet-stream",
+            base64Data,
+            fileSize: file.size,
+            sessionId,
+          });
+          if (uploadResult.extractStatus === "done" && uploadResult.id) {
+            // 2) AI 분석 (질문과 함께)
+            const analysisResult = await analyzeFileMutation.mutateAsync({
+              fileId: uploadResult.id,
+              question: text.trim() || "이 파일의 내용을 요약하고 분석해주세요.",
+              history: history.slice(-6),
+            });
+            fileContextText += `\n\n---\n📎 **${file.name}** 분석 결과:\n${analysisResult.answer}`;
+            // 분석 결과를 즉시 메시지에 표시
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, content: m.content + fileContextText, phase: "analyzing" as const }
+                  : m
+              )
+            );
+            // 파일 분석만으로 충분한 경우 스트리밍 종료
+            if (!text.trim() || text.trim().length < 5) {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, streaming: false, phase: "done" as const }
+                    : m
+                )
+              );
+              setIsStreaming(false);
+              return;
+            }
+          } else if (uploadResult.extractStatus === "failed") {
+            const errMsg = (uploadResult as { error?: string }).error ?? "알 수 없는 오류";
+            fileContextText += `\n\n[파일 분석 실패: ${file.name} - ${errMsg}]`;
+          }
+        } catch (fileErr) {
+          const errMsg = fileErr instanceof Error ? fileErr.message : String(fileErr);
+          fileContextText += `\n\n[파일 처리 오류: ${file.name} - ${errMsg}]`;
+        }
+      }
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId ? { ...m, phase: "thinking" as const } : m
+        )
+      );
+    }
+
+    // ── SSE 스트리밍 (일반 텍스트 질문) ─────────────────────────────────────
+    const messageWithFileContext = text.trim() + (fileContextText ? `\n\n[파일 분석 완료 - 추가 질문: ${text.trim()}]` : "");
+
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -1025,7 +1095,7 @@ export default function MasterAI() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ message: text.trim() + attachmentNote, sessionId, history }),
+        body: JSON.stringify({ message: messageWithFileContext, sessionId, history }),
         signal: controller.signal,
       });
 
@@ -1153,7 +1223,7 @@ export default function MasterAI() {
       abortRef.current = null;
       textareaRef.current?.focus();
     }
-  }, [isStreaming, messages, sessionId, streamingAutoScroll, attachedFiles, lastSentDevRequestId, lastSentManusTaskId, detectCompleteMutation]);
+  }, [isStreaming, messages, sessionId, streamingAutoScroll, attachedFiles, lastSentDevRequestId, lastSentManusTaskId, detectCompleteMutation, uploadFileMutation, analyzeFileMutation]);
 
   const handleSendDevRequest = useCallback(
     (msgId: string, suggestion: DevRequestSuggestion) => {

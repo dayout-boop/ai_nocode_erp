@@ -3307,6 +3307,7 @@ import { systemSettingsRouter } from "./routers/systemSettings";
 import { partnerOnboardingRouter } from "./routers/partnerOnboarding";
 import { tenantsRouter } from "./routers/tenants";
 import { subscriptionsRouter } from "./routers/subscriptions";
+import { fileAnalysisRouter } from "./routers/fileAnalysis";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -3355,5 +3356,6 @@ export const appRouter = router({
   partnerOnboarding: partnerOnboardingRouter,
   tenants: tenantsRouter,
   subscriptions: subscriptionsRouter,
+  fileAnalysis: fileAnalysisRouter,
 });
 export type AppRouter = typeof appRouter;

@@ -1609,3 +1609,39 @@ export const tenants = mysqlTable("tenants", {
 });
 export type Tenant = typeof tenants.$inferSelect;
 export type InsertTenant = typeof tenants.$inferInsert;
+
+// ============================================================
+// FILE ANALYSIS - AI 파일 직접 분석 (RAG 파이프라인)
+// ============================================================
+export const fileAnalysis = mysqlTable("file_analysis", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 업로드한 사용자 ID */
+  userId: int("userId").notNull(),
+  /** 원본 파일명 */
+  fileName: varchar("fileName", { length: 500 }).notNull(),
+  /** S3 저장 키 */
+  fileKey: varchar("fileKey", { length: 500 }).notNull(),
+  /** S3 URL */
+  fileUrl: varchar("fileUrl", { length: 1000 }).notNull(),
+  /** MIME 타입 (application/pdf, image/jpeg, ...) */
+  mimeType: varchar("mimeType", { length: 100 }).notNull(),
+  /** 파일 크기 (bytes) */
+  fileSize: int("fileSize").notNull(),
+  /** 추출된 텍스트 (최대 64KB) */
+  extractedText: text("extractedText"),
+  /** 추출 상태 */
+  extractStatus: mysqlEnum("extractStatus", ["pending", "processing", "done", "failed"]).default("pending").notNull(),
+  /** 추출 오류 메시지 */
+  extractError: text("extractError"),
+  /** 세션 ID (MasterAI 채팅 세션과 연결) */
+  sessionId: varchar("sessionId", { length: 100 }),
+  /** 파일 요약 (LLM이 생성) */
+  summary: text("summary"),
+  /** 분석 완료 여부 */
+  analyzed: boolean("analyzed").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type FileAnalysis = typeof fileAnalysis.$inferSelect;
+export type InsertFileAnalysis = typeof fileAnalysis.$inferInsert;
