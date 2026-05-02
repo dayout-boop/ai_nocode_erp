@@ -95,7 +95,7 @@ function TaskCandidateDialog({
       onSuccess();
       onClose();
     },
-    onError: (e) => toast.error(`추가 실패: ${e.message}`),
+    onError: (e: unknown) => toast.error(`추가 실패: ${e instanceof Error ? e.message : String(e)}`),
   });
 
   const updateMutation = trpc.systemSettings.updateTaskCandidate.useMutation({
@@ -105,7 +105,7 @@ function TaskCandidateDialog({
       onSuccess();
       onClose();
     },
-    onError: (e) => toast.error(`수정 실패: ${e.message}`),
+    onError: (e: unknown) => toast.error(`수정 실패: ${e instanceof Error ? e.message : String(e)}`),
   });
 
   const handleSubmit = () => {
@@ -437,7 +437,7 @@ export default function SystemSettings() {
       refetchTaskId();
       setEditingTaskId(false);
     },
-    onError: (e) => toast.error(`저장 실패: ${e.message}`),
+    onError: (e: unknown) => toast.error(`저장 실패: ${e instanceof Error ? e.message : String(e)}`),
   });
 
   const deleteMutation = trpc.systemSettings.deleteTaskCandidate.useMutation({
@@ -445,7 +445,7 @@ export default function SystemSettings() {
       toast.success("태스크 후보가 비활성화되었습니다.");
       utils.systemSettings.listTaskCandidates.invalidate();
     },
-    onError: (e) => toast.error(`삭제 실패: ${e.message}`),
+    onError: (e: unknown) => toast.error(`삭제 실패: ${e instanceof Error ? e.message : String(e)}`),
   });
 
   const setActiveMutation = trpc.systemSettings.updateTaskCandidate.useMutation({
@@ -453,7 +453,7 @@ export default function SystemSettings() {
       toast.success("변경되었습니다.");
       utils.systemSettings.listTaskCandidates.invalidate();
     },
-    onError: (e) => toast.error(`변경 실패: ${e.message}`),
+    onError: (e: unknown) => toast.error(`변경 실패: ${e instanceof Error ? e.message : String(e)}`),
   });
 
   const handleOpenAdd = () => {
