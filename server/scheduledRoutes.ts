@@ -395,3 +395,71 @@ export function registerScheduledRoutes(app: Express): void {
     }
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 파트너 랜딩페이지용 공개 API (인증 불필요)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/public/dev-history
+ * 날짜별 기능 개발 이력 (최근 50건, 완료된 것만)
+ * 파트너 랜딩페이지에서 실시간 개발 현황 표시용
+ */
+export function registerPublicLandingRoutes(app: Express) {
+  app.get("/api/public/dev-history", async (_req: Request, res: Response) => {
+    try {
+      const db = await getDb();
+      if (!db) return res.status(503).json({ ok: false, error: "DB 연결 오류" });
+
+      const history = await db
+        .select({
+          id: devRequests.id,
+          title: devRequests.title,
+          aiCategory: devRequests.aiCategory,
+          module: devRequests.module,
+          priority: devRequests.priority,
+          estimatedHours: devRequests.estimatedHours,
+          createdAt: devRequests.createdAt,
+          updatedAt: devRequests.updatedAt,
+        })
+        .from(devRequests)
+        .where(eq(devRequests.status, "completed"))
+        .orderBy(desc(devRequests.updatedAt))
+        .limit(50);
+
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cache-Control", "public, max-age=300"); // 5분 캐시
+      res.json({ ok: true, history });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+
+  /**
+   * GET /api/public/stats
+   * 플랫폼 통계 (파트너 수, 개발 완료 건수 등)
+   */
+  app.get("/api/public/stats", async (_req: Request, res: Response) => {
+    try {
+      const db = await getDb();
+      if (!db) return res.status(503).json({ ok: false, error: "DB 연결 오류" });
+
+      const [completedCount] = await db
+        .select({ count: devRequests.id })
+        .from(devRequests)
+        .where(eq(devRequests.status, "completed"));
+
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cache-Control", "public, max-age=60");
+      res.json({
+        ok: true,
+        stats: {
+          completedFeatures: completedCount?.count ?? 0,
+          lastUpdated: new Date().toISOString(),
+        },
+      });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: String(e) });
+    }
+  });
+}

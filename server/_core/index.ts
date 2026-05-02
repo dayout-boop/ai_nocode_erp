@@ -11,7 +11,7 @@ import { serveStatic, setupVite } from "./vite";
 import { registerStripeWebhook } from "../stripe";
 import { registerMasterStreamRoute } from "../masterStream";
 import { registerUploadRoutes } from "../uploadRoutes";
-import { registerScheduledRoutes } from "../scheduledRoutes";
+import { registerScheduledRoutes, registerPublicLandingRoutes } from "../scheduledRoutes";
 import { reportError } from "./errorWatcher.js";
 import { subscribe, startHeartbeat } from "../services/realtimeEvents";
 import { startManusSync } from "../services/manusSync";
@@ -49,6 +49,7 @@ async function startServer() {
   registerMasterStreamRoute(app);
   registerUploadRoutes(app);
   registerScheduledRoutes(app);
+  registerPublicLandingRoutes(app);
 
   // ─── 실시간 이벤트 SSE 엔드포인트 ─────────────────────────────────────────
   // GET /api/realtime/events - 관리자 전용 SSE 스트림
