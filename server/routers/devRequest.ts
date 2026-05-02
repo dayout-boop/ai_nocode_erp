@@ -13,16 +13,51 @@ import { TRPCError } from "@trpc/server";
 import { eq, desc, and, count, isNotNull } from "drizzle-orm";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { devRequests } from "../../drizzle/schema";
+import { devRequests, systemSettings } from "../../drizzle/schema";
 import {
   sendSingleRequestToManus,
   sendPendingRequestsToManus,
   autoRegisterAndSend,
 } from "../services/manusPipe";
 import { invokeLLM } from "../_core/llm";
-import { getCompletionKeywordsFromDb } from "./systemSettings";
 import { createAiNotification } from "./aiNotifications";
 import { publish } from "../services/realtimeEvents";
+
+// 자동 완료 키워드 기본값 (DB에 없으면 사용)
+const DEFAULT_COMPLETION_KEYWORDS = [
+  '체크포인트를 저장했습니다',
+  '체크포인트 저장',
+  'webdev_save_checkpoint',
+  '배포 준비가 완료',
+  '구현이 완료되었습니다',
+  '구현 완료',
+  '개발이 완료되었습니다',
+  '개발 완료',
+  '작업이 완료되었습니다',
+  '작업 완료',
+  '버그 수정 완료',
+  '기능 구현 완료',
+  '배포하시려면 Publish 버튼',
+  '배포 후 확인',
+  '수정 완료되었습니다',
+  '수정 완료',
+];
+
+async function getCompletionKeywordsLocal(): Promise<string[]> {
+  try {
+    const db = await getDb();
+    if (!db) return DEFAULT_COMPLETION_KEYWORDS;
+    const rows = await db
+      .select()
+      .from(systemSettings)
+      .where(eq(systemSettings.settingKey, 'completion_keywords'))
+      .limit(1);
+    if (rows.length === 0 || !rows[0].settingValue) return DEFAULT_COMPLETION_KEYWORDS;
+    return JSON.parse(rows[0].settingValue) as string[];
+  } catch {
+    return DEFAULT_COMPLETION_KEYWORDS;
+  }
+}
 
 // 관리자 전용 프로시저
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -397,7 +432,7 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
     )
     .mutation(async ({ input }) => {
       // DB에서 완료 키워드 동적 조회 (없으면 기본값 사용)
-      const COMPLETION_KEYWORDS = await getCompletionKeywordsFromDb();
+      const COMPLETION_KEYWORDS = await getCompletionKeywordsLocal();
 
       const isCompleted = COMPLETION_KEYWORDS.some((kw: string) => input.responseText.includes(kw));
       if (!isCompleted) return { detected: false, updatedCount: 0 };
