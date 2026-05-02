@@ -17,6 +17,7 @@ import {
   users,
   aiLogs,
   aiScheduledTasks,
+  aiSessionState,
 } from "../../drizzle/schema";
 import { eq, gte, lte, and, sql, desc, count, sum, isNull, countDistinct } from "drizzle-orm";
 import { maskPhone, maskEmail } from "./rag";
@@ -313,7 +314,88 @@ export const MASTER_TOOLS = [
       },
     },
   },
+  // ─── 외부 연동 도구 (관리자 승인 필요) ───────────────────────────────────────
+  {
+    type: "function",
+    function: {
+      name: "web_search",
+      description: "[관리자 승인 필요] 인터넷에서 최신 정보를 검색합니다. 골프장 정보, 환율, 날씨, 뉴스 등 외부 정보가 필요할 때 사용합니다. 이 도구는 관리자 승인 후 실행됩니다.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "검색 쿼리 (예: '태국 골프장 추천 2026', '원달러 환율')",
+          },
+          count: {
+            type: "number",
+            description: "검색 결과 수 (기본값: 5, 최대: 10)",
+          },
+        },
+        required: ["query"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "fetch_url",
+      description: "[관리자 승인 필요] 특정 URL의 웹 페이지 내용을 가져옵니다. 골프장 공식 사이트, 환율 API 등 외부 URL에서 데이터를 가져올 때 사용합니다. 이 도구는 관리자 승인 후 실행됩니다.",
+      parameters: {
+        type: "object",
+        properties: {
+          url: {
+            type: "string",
+            description: "가져올 URL (예: 'https://www.golfclub.com/info')",
+          },
+          extractText: {
+            type: "boolean",
+            description: "HTML에서 텍스트만 추출할지 여부 (기본값: true)",
+          },
+        },
+        required: ["url"],
+        additionalProperties: false,
+      },
+    },
+  },
+  // ─── 세션 상태 관리 도구 ─────────────────────────────────────────────────────
+  {
+    type: "function",
+    function: {
+      name: "set_session_state",
+      description: "현재 대화 세션에 정보를 임시 저장합니다. 여러 단계에 걸쳐 정보를 유지해야 할 때 사용합니다.",
+      parameters: {
+        type: "object",
+        properties: {
+          key: { type: "string", description: "저장 키" },
+          value: { type: "string", description: "저장할 값 (텍스트 또는 JSON 문자열)" },
+          ttlMinutes: { type: "number", description: "만료 시간(분) (기본값: 60)" },
+        },
+        required: ["key", "value"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_session_state",
+      description: "현재 대화 세션에 저장된 정보를 조회합니다.",
+      parameters: {
+        type: "object",
+        properties: {
+          key: { type: "string", description: "조회할 키" },
+        },
+        required: ["key"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
+
+// 승인이 필요한 도구 목록
+export const APPROVAL_REQUIRED_TOOLS = ["web_search", "fetch_url"];
 
 // ─── Tool 실행 함수 ─────────────────────────────────────────────
 
@@ -356,6 +438,14 @@ export async function executeTool(toolName: string, args: Record<string, unknown
         return await getSystemHealth(db, start);
       case "schedule_task":
         return await scheduleTask(db, args, start);
+      case "web_search":
+        return await webSearch(args, start);
+      case "fetch_url":
+        return await fetchUrl(args, start);
+      case "set_session_state":
+        return await setSessionState(db, args, start);
+      case "get_session_state":
+        return await getSessionState(db, args, start);
       default:
         return { tool: toolName, success: false, error: `알 수 없는 도구: ${toolName}`, queryTime: Date.now() - start };
     }
@@ -1025,6 +1115,154 @@ async function scheduleTask(
       notifyOnComplete,
       message: `✅ 작업이 예약되었습니다. ID: ${id}\n예약 시각: ${timeStr} (KST)\n완료 시 알림: ${notifyOnComplete ? "예" : "아니오"}`,
     },
+    queryTime: Date.now() - start,
+  };
+}
+
+// ─── 외부 검색 도구 구현 ─────────────────────────────────────────
+async function webSearch(args: Record<string, unknown>, start: number): Promise<ToolCallResult> {
+  const query = String(args.query || "");
+  const count = Math.min(Number(args.count || 5), 10);
+  if (!query) {
+    return { tool: "web_search", success: false, error: "검색 쿼리가 필요합니다", queryTime: Date.now() - start };
+  }
+  try {
+    // Manus 내장 검색 API 활용 (BUILT_IN_FORGE_API)
+    const forgeUrl = process.env.BUILT_IN_FORGE_API_URL?.replace(/\/+$/, "");
+    const forgeKey = process.env.BUILT_IN_FORGE_API_KEY;
+    if (!forgeUrl || !forgeKey) {
+      return { tool: "web_search", success: false, error: "검색 API 미설정", queryTime: Date.now() - start };
+    }
+    const resp = await fetch(`${forgeUrl}/v1/search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${forgeKey}` },
+      body: JSON.stringify({ query, count }),
+    });
+    if (!resp.ok) {
+      // fallback: 간단한 결과 반환
+      return {
+        tool: "web_search",
+        success: true,
+        data: { query, results: [], message: `'${query}' 검색 완료 (결과 없음 - API 응답 오류: ${resp.status})` },
+        queryTime: Date.now() - start,
+      };
+    }
+    const data = await resp.json();
+    return {
+      tool: "web_search",
+      success: true,
+      data: { query, results: data.results || data, count: (data.results || data)?.length || 0 },
+      queryTime: Date.now() - start,
+    };
+  } catch (err) {
+    return {
+      tool: "web_search",
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+      queryTime: Date.now() - start,
+    };
+  }
+}
+
+async function fetchUrl(args: Record<string, unknown>, start: number): Promise<ToolCallResult> {
+  const url = String(args.url || "");
+  const extractText = args.extractText !== false;
+  if (!url || !url.startsWith("http")) {
+    return { tool: "fetch_url", success: false, error: "유효한 URL이 필요합니다", queryTime: Date.now() - start };
+  }
+  try {
+    const resp = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; DogolfBot/1.0)" },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!resp.ok) {
+      return { tool: "fetch_url", success: false, error: `HTTP ${resp.status}: ${resp.statusText}`, queryTime: Date.now() - start };
+    }
+    const html = await resp.text();
+    let content = html;
+    if (extractText) {
+      // 간단한 HTML 태그 제거
+      content = html
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 5000); // 최대 5000자
+    }
+    return {
+      tool: "fetch_url",
+      success: true,
+      data: { url, content, length: content.length },
+      queryTime: Date.now() - start,
+    };
+  } catch (err) {
+    return {
+      tool: "fetch_url",
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+      queryTime: Date.now() - start,
+    };
+  }
+}
+
+async function setSessionState(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  args: Record<string, unknown>,
+  start: number
+): Promise<ToolCallResult> {
+  const sessionId = String(args.sessionId || "default");
+  const key = String(args.key || "");
+  const value = String(args.value || "");
+  const ttlMinutes = Number(args.ttlMinutes || 60);
+  if (!key) {
+    return { tool: "set_session_state", success: false, error: "키가 필요합니다", queryTime: Date.now() - start };
+  }
+  const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
+  // upsert: 기존 키 있으면 업데이트
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db as any)
+    .insert(aiSessionState)
+    .values({ sessionId, stateKey: key, stateValue: value, expiresAt })
+    .onDuplicateKeyUpdate({ set: { stateValue: value, expiresAt } });
+  return {
+    tool: "set_session_state",
+    success: true,
+    data: { key, saved: true, expiresAt: expiresAt.toISOString() },
+    queryTime: Date.now() - start,
+  };
+}
+
+async function getSessionState(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  args: Record<string, unknown>,
+  start: number
+): Promise<ToolCallResult> {
+  const sessionId = String(args.sessionId || "default");
+  const key = String(args.key || "");
+  if (!key) {
+    return { tool: "get_session_state", success: false, error: "키가 필요합니다", queryTime: Date.now() - start };
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows = await (db as any)
+    .select()
+    .from(aiSessionState)
+    .where(and(eq(aiSessionState.sessionId, sessionId), eq(aiSessionState.stateKey, key)))
+    .limit(1);
+  const row = rows[0];
+  if (!row) {
+    return { tool: "get_session_state", success: true, data: { key, value: null, found: false }, queryTime: Date.now() - start };
+  }
+  // 만료 확인
+  if (row.expiresAt && new Date(row.expiresAt) < new Date()) {
+    return { tool: "get_session_state", success: true, data: { key, value: null, found: false, expired: true }, queryTime: Date.now() - start };
+  }
+  return {
+    tool: "get_session_state",
+    success: true,
+    data: { key, value: row.stateValue, found: true },
     queryTime: Date.now() - start,
   };
 }

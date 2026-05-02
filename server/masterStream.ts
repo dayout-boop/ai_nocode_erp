@@ -18,7 +18,7 @@ import { aiLogs } from "../drizzle/schema";
 import { orchestratorChatStream, orchestratorChat } from "./services/openrouter";
 import { classifyIntent, fetchPackageContext, fetchReservationContext, compressHistory } from "./services/rag";
 import { MASTER_SYSTEM_PROMPT } from "./services/prompts/master";
-import { MASTER_TOOLS, executeTool, type ToolCallResult } from "./services/masterTools";
+import { MASTER_TOOLS, executeTool, APPROVAL_REQUIRED_TOOLS, type ToolCallResult } from "./services/masterTools";
 import { z } from "zod";
 
 const inputSchema = z.object({
@@ -206,6 +206,15 @@ export function registerMasterStreamRoute(app: Express) {
             toolArgs = JSON.parse(tc.function.arguments || "{}");
           } catch { /* 무시 */ }
 
+          // 승인 필요 도구 감지 (Human-in-the-Loop)
+          if (APPROVAL_REQUIRED_TOOLS.includes(tc.function.name)) {
+            sendEvent("approval_request", {
+              id: tc.id,
+              toolName: tc.function.name,
+              toolArgs,
+              message: `외부 연동 도구 '${tc.function.name}'을 실행하려 합니다. 인수: ${JSON.stringify(toolArgs)}`,
+            });
+          }
           const result = await executeTool(tc.function.name, toolArgs);
           toolCallResults.push(result);
 

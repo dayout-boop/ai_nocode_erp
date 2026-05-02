@@ -1712,3 +1712,57 @@ export const aiScheduledTasks = mysqlTable("ai_scheduled_tasks", {
 });
 export type AiScheduledTask = typeof aiScheduledTasks.$inferSelect;
 export type InsertAiScheduledTask = typeof aiScheduledTasks.$inferInsert;
+
+// ─── AI 에이전트 승인 테이블 ──────────────────────────────────────────────────
+/**
+ * AI 에이전트 승인 요청 테이블 (ai_agent_approvals)
+ * Human-in-the-Loop: AI가 외부 연동 등 민감한 작업 수행 전 관리자 승인을 요청하는 테이블
+ */
+export const aiAgentApprovals = mysqlTable("ai_agent_approvals", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 대화 세션 ID */
+  sessionId: varchar("session_id", { length: 100 }).notNull(),
+  /** 실행 요청 도구명 (예: web_search, fetch_url) */
+  toolName: varchar("tool_name", { length: 100 }).notNull(),
+  /** 도구 실행 인수 (JSON) */
+  toolArgs: json("tool_args"),
+  /** 실행 계획 설명 (AI가 작성한 한국어 설명) */
+  planDescription: text("plan_description"),
+  /** 승인 상태: pending=대기, approved=승인, rejected=거부, expired=만료 */
+  status: mysqlEnum("status", ["pending", "approved", "rejected", "expired"]).notNull().default("pending"),
+  /** 요청한 사용자 ID */
+  requestedBy: int("requested_by"),
+  /** 승인/거부한 관리자 ID */
+  approvedBy: int("approved_by"),
+  /** 거부 사유 */
+  rejectionReason: text("rejection_reason"),
+  /** 만료 시각 (기본 5분) */
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type AiAgentApproval = typeof aiAgentApprovals.$inferSelect;
+export type InsertAiAgentApproval = typeof aiAgentApprovals.$inferInsert;
+
+// ─── AI 세션 상태 테이블 ──────────────────────────────────────────────────────
+/**
+ * AI 세션 상태 관리 테이블 (ai_session_state)
+ * 대화 세션 내에서 API 키, 인증 토큰 등 외부 연동 정보를 임시 저장
+ * 세션 종료 시 만료 처리 (is_sensitive=true 항목은 만료 후 즉시 삭제)
+ */
+export const aiSessionState = mysqlTable("ai_session_state", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 대화 세션 ID */
+  sessionId: varchar("session_id", { length: 100 }).notNull(),
+  /** 상태 키 (예: github_token, search_context) */
+  stateKey: varchar("state_key", { length: 200 }).notNull(),
+  /** 상태 값 (텍스트, JSON 문자열 등) */
+  stateValue: text("state_value"),
+  /** 민감 정보 여부 (true이면 만료 후 즉시 삭제) */
+  isSensitive: boolean("is_sensitive").default(false).notNull(),
+  /** 만료 시각 (null이면 세션 종료 시까지) */
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type AiSessionState = typeof aiSessionState.$inferSelect;
+export type InsertAiSessionState = typeof aiSessionState.$inferInsert;

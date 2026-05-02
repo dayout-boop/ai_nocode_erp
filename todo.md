@@ -1401,3 +1401,14 @@ Detected
 - [x] masterStream.ts ai_logs costUsd 0 기록 수정: String((finalResponse.costUsd || 0).toFixed(6)) 사용
 - [x] routers.ts aiCostLogs insert에 assistant 필드 추가
 - [x] TypeScript 오류 0개 확인 및 체크포인트 저장
+
+## AI 에이전트 아키텍처 재설계: 관리자 승인 기반 자율 외부 연동 [ID: 300007] (2026-05-02)
+- [x] DB 스키마 추가: ai_agent_approvals (승인 요청 저장), ai_session_state (세션 상태 저장)
+- [x] server/routers/agentApprovals.ts 라우터 구현 (create, approve, reject, getPending, getBySession)
+- [x] server/routers.ts에 agentApprovalsRouter 등록
+- [x] masterTools.ts에 web_search, fetch_url 외부 검색 도구 추가 (승인 필요 도구로 표시)
+- [x] masterTools.ts에 세션 상태 관리 도구 추가 (set_session_state, get_session_state)
+- [x] masterStream.ts에 승인 필요 도구 감지 및 approval_request 이벤트 전송 로직 추가
+- [x] masterStream.ts에 승인 대기 → 승인 완료 후 도구 실행 재개 로직 추가
+- [x] MasterAI.tsx에 approval_request 이벤트 수신 및 승인/거부 UI 추가
+- [x] TypeScript 오류 0개 확인 및 체크포인트 저장

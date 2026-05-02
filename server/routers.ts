@@ -3311,6 +3311,7 @@ import { subscriptionsRouter } from "./routers/subscriptions";
 import { fileAnalysisRouter } from "./routers/fileAnalysis";
 import { aiNotificationsRouter } from "./routers/aiNotifications";
 import { scheduledTasksRouter } from "./routers/scheduledTasks";
+import { agentApprovalsRouter } from "./routers/agentApprovals";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -3362,5 +3363,6 @@ export const appRouter = router({
   fileAnalysis: fileAnalysisRouter,
   aiNotifications: aiNotificationsRouter,
   scheduledTasks: scheduledTasksRouter,
+  agentApprovals: agentApprovalsRouter,
 });
 export type AppRouter = typeof appRouter;

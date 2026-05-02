@@ -972,6 +972,14 @@ export default function MasterAI() {
     onError: (err) => toast.error(`취소 실패: ${err.message}`),
   });
 
+  // ─── Human-in-the-Loop 승인 요청 상태 ──────────────────────────────────
+  const [pendingApproval, setPendingApproval] = useState<{
+    id: string;
+    toolName: string;
+    toolArgs: Record<string, unknown>;
+    message: string;
+  } | null>(null);
+
   // 파일 업로드 + 텍스트 추출 mutation
   const uploadFileMutation = trpc.fileAnalysis.uploadAndExtract.useMutation();
   const analyzeFileMutation = trpc.fileAnalysis.analyzeWithAI.useMutation();
@@ -1272,6 +1280,14 @@ export default function MasterAI() {
                   });
                 }
 
+              } else if (eventType === "approval_request") {
+                // Human-in-the-Loop: 승인 요청 이벤트 수신
+                setPendingApproval({
+                  id: data.id || `approval-${Date.now()}`,
+                  toolName: data.toolName || "",
+                  toolArgs: data.toolArgs || {},
+                  message: data.message || `'${data.toolName}' 도구 실행 승인이 필요합니다.`,
+                });
               } else if (eventType === "error") {
                 setMessages((prev) =>
                   prev.map((m) =>
@@ -2018,6 +2034,56 @@ export default function MasterAI() {
           </div>
         </div>
       )}
+      {/* Human-in-the-Loop 승인 다이얼로그 */}
+      <Dialog open={!!pendingApproval} onOpenChange={(v) => !v && setPendingApproval(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-700">
+              <AlertTriangle size={16} className="text-amber-600" />
+              외부 연동 승인 요청
+            </DialogTitle>
+            <DialogDescription className="text-xs text-gray-500">
+              AI가 외부 서비스에 접근하려 합니다. 승인하시겠습니까?
+            </DialogDescription>
+          </DialogHeader>
+          {pendingApproval && (
+            <div className="space-y-3">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <p className="text-xs text-amber-700 font-medium mb-1">요청 내용</p>
+                <p className="text-sm text-gray-800">{pendingApproval.message}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg px-3 py-2">
+                <p className="text-xs text-gray-500 font-medium mb-1">도구: <code className="bg-gray-200 px-1 rounded">{pendingApproval.toolName}</code></p>
+                <pre className="text-xs text-gray-600 overflow-auto max-h-24">{JSON.stringify(pendingApproval.toolArgs, null, 2)}</pre>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setPendingApproval(null);
+                toast.info('승인이 거부되었습니다.');
+              }}
+              className="text-red-600 border-red-200 hover:bg-red-50"
+            >
+              <XCircle size={13} className="mr-1" />승인 거부
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setPendingApproval(null);
+                toast.success('승인되었습니다. AI가 작업을 계속합니다.');
+              }}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              <CheckCircle2 size={13} className="mr-1" />승인
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {showScheduledPanel && (
         <div
           className="fixed inset-0 bg-black/20 z-40"
