@@ -51,11 +51,15 @@ async function startServer() {
   registerScheduledRoutes(app);
   registerPublicLandingRoutes(app);
 
-  // partner.dayoutgolf.com 접속 시 /partner-landing으로 리다이렉트
+  // partner.dayoutgolf.com 접속 시 파트너 랜딩페이지로 리다이렉트
+  // DNS CNAME으로 인해 host가 변경될 수 있으므로 절대 URL로 리다이렉트
   app.use((req, res, next) => {
-    const host = req.hostname || (req.headers.host ?? '');
-    if (host.startsWith('partner.') && !req.path.startsWith('/partner-landing') && !req.path.startsWith('/api')) {
-      return res.redirect(301, '/partner-landing' + (req.path === '/' ? '' : req.path));
+    const rawHost = (req.headers.host ?? '').split(':')[0];
+    const hostname = req.hostname || rawHost;
+    const isPartnerDomain = hostname === 'partner.dayoutgolf.com' || rawHost === 'partner.dayoutgolf.com';
+    if (isPartnerDomain && !req.path.startsWith('/partner-landing') && !req.path.startsWith('/api') && !req.path.startsWith('/manus-storage')) {
+      // 절대 URL로 리다이렉트 (DNS CNAME 우회)
+      return res.redirect(302, 'https://dogolf-tour-dkz3fsmp.manus.space/partner-landing');
     }
     next();
   });

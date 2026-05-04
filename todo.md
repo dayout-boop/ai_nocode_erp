@@ -1539,3 +1539,9 @@ Detected
 - [x] UI: PartnerMyPage.tsx 신규 생성 (OCR 결과 수정 + 하위 담당자 관리)
 - [x] UI: PartnerStaffLogin.tsx 신규 생성 (하위 담당자 로그인 + 비밀번호 재설정)
 - [x] App.tsx 라우트 등록: /partner/my, /partner/staff/login
+
+## [버그 수정 - partner.dayoutgolf.com 리다이렉트] (2026-05-04)
+- [x] partner.dayoutgolf.com 접속 시 /partner-landing으로 리다이렉트 안 되는 문제 수정
+- [ ] 커스텀 로그인 페이지 구현 (/partner/login)
+- [ ] 비밀번호 재설정 페이지 구현 (/partner/reset-password)
+- [ ] 체크포인트 저장 및 배포
