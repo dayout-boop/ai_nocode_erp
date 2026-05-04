@@ -71,7 +71,7 @@ export default function Navbar() {
           {/* CTA 버튼 */}
           <div className="hidden md:flex items-center gap-3">
             <a
-              href="https://dogolf-tour-dkz3fsmp.manus.space/partner/chat"
+              href="/partner/login"
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm px-4 py-2 rounded-lg border transition-all duration-200"
@@ -93,7 +93,7 @@ export default function Navbar() {
               파트너 로그인
             </a>
             <a
-              href="https://dogolf-tour-dkz3fsmp.manus.space/partner/chat"
+              href="/partner/login"
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm px-4 py-2 rounded-lg font-semibold text-white transition-all duration-200 glow-green"
@@ -138,7 +138,7 @@ export default function Navbar() {
             ))}
             <div className="pt-2 border-t border-[oklch(0.25_0.04_260/0.5)]">
               <a
-                href="https://dogolf-tour-dkz3fsmp.manus.space/partner/chat"
+                href="/partner/login"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block w-full text-center text-sm px-4 py-2.5 rounded-lg font-semibold text-white mt-2"

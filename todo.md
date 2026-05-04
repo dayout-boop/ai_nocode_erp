@@ -1520,7 +1520,7 @@ Detected
 - [x] partner-landing 소스 dogolf 프로젝트에 통합 (/partner-landing 라우트)
 - [x] 파트너 랜딩 전용 CSS 스타일 index.css에 추가 (glass, gradient-text, particle-bg 등)
 - [x] App.tsx에 /partner-landing 라우트 등록
-- [ ] 체크포인트 저장 및 배포 준비
+- [x] 체크포인트 저장 및 배포 준비
 - [ ] partner.dayoutgolf.com 도메인 연결 (Settings → Domains)
 
 ## [파트너 가입 플로우 완성 - 구현 완료] (2026-05-04)
@@ -1542,6 +1542,6 @@ Detected
 
 ## [버그 수정 - partner.dayoutgolf.com 리다이렉트] (2026-05-04)
 - [x] partner.dayoutgolf.com 접속 시 /partner-landing으로 리다이렉트 안 되는 문제 수정
-- [ ] 커스텀 로그인 페이지 구현 (/partner/login)
-- [ ] 비밀번호 재설정 페이지 구현 (/partner/reset-password)
-- [ ] 체크포인트 저장 및 배포
+- [x] 커스텀 로그인 페이지 구현 (/partner/login)
+- [x] 비밀번호 재설정 페이지 구현 (/partner/reset-password)
+- [x] 체크포인트 저장 및 배포

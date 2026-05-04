@@ -82,7 +82,7 @@ export default function HeroSection() {
           style={{ animationDelay: '0.3s', opacity: 0 }}
         >
           <a
-            href="https://dogolf-tour-dkz3fsmp.manus.space/partner/chat"
+            href="/partner/login"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 px-8 py-4 rounded-xl font-bold text-white text-lg transition-all duration-200 glow-green"
