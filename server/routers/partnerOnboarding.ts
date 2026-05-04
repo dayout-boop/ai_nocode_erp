@@ -250,6 +250,36 @@ export const partnerOnboardingRouter = router({
       return result;
     }),
 
+  /** 내 온보딩 신청 상태 확인 (로그인 사용자) */
+  getMyStatus: protectedProcedure
+    .query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) return { hasApplication: false, status: null, data: null };
+      const email = ctx.user?.email;
+      if (!email) return { hasApplication: false, status: null, data: null };
+      const [row] = await db
+        .select()
+        .from(partnerOnboarding)
+        .where(eq(partnerOnboarding.contactEmail, email))
+        .limit(1);
+      if (!row) return { hasApplication: false, status: null, data: null };
+      return {
+        hasApplication: true,
+        status: row.status,
+        data: {
+          id: row.id,
+          companyName: row.companyName,
+          contactName: row.contactName,
+          contactEmail: row.contactEmail,
+          subscriptionPlan: row.subscriptionPlan,
+          sampleCategory: row.sampleCategory,
+          businessLicenseUrl: row.businessLicenseUrl ?? null,
+          adminNote: row.adminNote ?? null,
+          createdAt: row.createdAt,
+        },
+      };
+    }),
+
   /** 파일 업로드 URL 생성 (사업자등록증 이미지) */
   getUploadUrl: publicProcedure
     .input(

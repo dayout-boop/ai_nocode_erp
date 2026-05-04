@@ -1485,3 +1485,10 @@ Detected
 - [ ] 하위 담당자 로그인 기능
 - [ ] TypeScript 오류 0개 확인
 - [ ] 체크포인트 저장
+
+## [파트너 챗봇 가입 플로우 개선] (2026-05-04)
+- [x] 파트너 온보딩 라우터에 getMyStatus 프로시저 추가 (로그인 사용자 신청 상태 확인)
+- [x] PartnerChat.tsx 개선: 비로그인 시 구글 간편가입 화면 표시
+- [x] PartnerChat.tsx 개선: 로그인 후 온보딩 미신청 시 가입 안내 화면 표시
+- [x] PartnerChat.tsx 개선: 온보딩 신청 중(pending/reviewing/rejected) 상태별 화면 표시
+- [x] PartnerChat.tsx 개선: 승인 완료 시 기존 채팅 UI 표시
