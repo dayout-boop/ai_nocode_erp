@@ -1522,3 +1522,20 @@ Detected
 - [x] App.tsx에 /partner-landing 라우트 등록
 - [ ] 체크포인트 저장 및 배포 준비
 - [ ] partner.dayoutgolf.com 도메인 연결 (Settings → Domains)
+
+## [파트너 가입 플로우 완성 - 구현 완료] (2026-05-04)
+- [x] DB 스키마: partnerOnboarding에 관광사업자등록증 필드 추가
+- [x] DB 스키마: partner_staff 테이블 신규 생성 (하위 담당자)
+- [x] DB 스키마: partner_staff_password_reset 테이블 생성
+- [x] 서버: ocrTourismLicense 프로시저 (관광사업자등록증 OCR)
+- [x] 서버: submitWithBothOcr 프로시저 (두 등록증 OCR + 자동 승인 처리)
+- [x] 서버: updateMyInfo 프로시저 (파트너 정보 수정)
+- [x] 서버: getMyStatus 확장 (전체 파트너 정보 포함)
+- [x] 서버: partnerStaff CRUD (list, add, update, delete)
+- [x] 서버: partnerStaff.login (하위 담당자 로그인 - JWT 발급)
+- [x] 서버: partnerStaff.requestPasswordReset (이메일 재설정 링크)
+- [x] 서버: partnerStaff.resetPassword (토큰 검증 후 비밀번호 변경)
+- [x] UI: PartnerOnboarding.tsx 전면 개편 (두 등록증 OCR + 자동 승인 플로우)
+- [x] UI: PartnerMyPage.tsx 신규 생성 (OCR 결과 수정 + 하위 담당자 관리)
+- [x] UI: PartnerStaffLogin.tsx 신규 생성 (하위 담당자 로그인 + 비밀번호 재설정)
+- [x] App.tsx 라우트 등록: /partner/my, /partner/staff/login

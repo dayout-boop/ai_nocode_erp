@@ -1,11 +1,11 @@
 /**
  * 신규 파트너 온보딩 페이지 (공개)
- * Step 1: 기본 정보 입력
- * Step 2: 사업자등록증 업로드 + OCR 자동 추출
- * Step 3: 샘플 DB 카테고리 + 구독 플랜 선택 + 포트원 V2 결제
- * Step 4: 완료 화면
+ * Step 1: 담당자 연락처 입력 (수기 입력 최소화)
+ * Step 2: 사업자등록증 + 관광사업자등록증 OCR 업로드 (수기 입력 없음)
+ * Step 3: 플랜 선택 + 결제
+ * Step 4: 완료 (두 등록증 모두 업로드 시 자동 승인)
  */
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,26 +15,27 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   CheckCircle2, ChevronRight, ChevronLeft, Upload, Loader2,
-  Building2, FileText, LayoutGrid, CreditCard, Sparkles, Phone, Mail, User
+  FileText, LayoutGrid, CreditCard, Sparkles, User, ShieldCheck, AlertCircle
 } from "lucide-react";
 import * as PortOne from "@portone/browser-sdk/v2";
 
 // ─── 타입 정의 ───────────────────────────────────────────────────────────────
 type Step = 1 | 2 | 3 | 4;
 
+interface LicenseState {
+  key: string;
+  url: string;
+  previewUrl: string | null;
+  ocrResult: string; // JSON 문자열
+  ocrRawText: string;
+  uploading: boolean;
+  ocrLoading: boolean;
+}
+
 interface FormData {
-  companyName: string;
-  businessNumber: string;
-  ceoName: string;
-  businessType: string;
-  businessItem: string;
-  address: string;
   contactName: string;
   contactEmail: string;
   contactPhone: string;
-  businessLicenseKey: string;
-  businessLicenseUrl: string;
-  ocrResult: string;
   sampleCategory: "golf_tour_domestic" | "golf_tour_overseas" | "golf_tour_mixed";
   subscriptionPlan: "starter" | "standard" | "premium";
   billingCycle: "monthly" | "yearly";
@@ -106,8 +107,8 @@ const SAMPLE_CATEGORIES = [
 // ─── 단계 인디케이터 ─────────────────────────────────────────────────────────
 function StepIndicator({ current }: { current: Step }) {
   const steps = [
-    { n: 1, label: "기본 정보" },
-    { n: 2, label: "사업자등록증" },
+    { n: 1, label: "담당자 정보" },
+    { n: 2, label: "등록증 업로드" },
     { n: 3, label: "플랜 선택" },
     { n: 4, label: "완료" },
   ];
@@ -115,7 +116,7 @@ function StepIndicator({ current }: { current: Step }) {
     <div className="flex items-center justify-center gap-0 mb-8">
       {steps.map((s, i) => (
         <div key={s.n} className="flex items-center">
-          <div className={`flex flex-col items-center gap-1`}>
+          <div className="flex flex-col items-center gap-1">
             <div
               className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
                 current > s.n
@@ -140,87 +141,236 @@ function StepIndicator({ current }: { current: Step }) {
   );
 }
 
+// ─── 등록증 업로드 카드 컴포넌트 ──────────────────────────────────────────────
+function LicenseUploadCard({
+  title,
+  description,
+  icon,
+  state,
+  onFileChange,
+  ocrFields,
+}: {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  state: LicenseState;
+  onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  ocrFields: { label: string; key: string }[];
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const isLoading = state.uploading || state.ocrLoading;
+  const isDone = !!state.url && !isLoading;
+
+  let parsedOcr: Record<string, string> = {};
+  try { if (state.ocrResult) parsedOcr = JSON.parse(state.ocrResult); } catch {}
+
+  return (
+    <Card className={`shadow-md transition-all ${isDone ? "border-green-400 bg-green-50/30" : "border-gray-200"}`}>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          {icon}
+          {title}
+          {isDone && <CheckCircle2 size={16} className="text-green-600 ml-auto" />}
+        </CardTitle>
+        <CardDescription className="text-xs">{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* 업로드 영역 */}
+        <div
+          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+            isDone
+              ? "border-green-400 bg-green-50"
+              : "border-gray-200 hover:border-green-400 hover:bg-green-50/30"
+          }`}
+          onClick={() => !isLoading && fileInputRef.current?.click()}
+        >
+          {state.previewUrl ? (
+            <div className="space-y-2">
+              <img src={state.previewUrl} alt={title} className="max-h-36 mx-auto rounded-lg object-contain" />
+              <p className={`text-sm font-medium ${isDone ? "text-green-600" : "text-blue-600"}`}>
+                {state.uploading ? "업로드 중..." : state.ocrLoading ? "AI 분석 중..." : "업로드 완료 ✓"}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                {isLoading ? <Loader2 size={18} className="animate-spin text-green-600" /> : <Upload size={18} className="text-green-600" />}
+              </div>
+              <p className="font-medium text-gray-700 text-sm">클릭하여 파일 선택</p>
+              <p className="text-xs text-muted-foreground">JPG, PNG, PDF 지원 (최대 10MB)</p>
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,.pdf"
+            className="hidden"
+            onChange={onFileChange}
+          />
+        </div>
+
+        {/* OCR 결과 표시 */}
+        {state.ocrResult && Object.keys(parsedOcr).length > 0 && (
+          <div className="bg-green-50 rounded-xl p-3 space-y-1.5 border border-green-200">
+            <p className="text-xs font-semibold text-green-800 flex items-center gap-1">
+              <Sparkles size={12} /> AI 자동 추출 결과
+            </p>
+            {ocrFields
+              .filter((f) => parsedOcr[f.key])
+              .map((f) => (
+                <div key={f.key} className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">{f.label}</span>
+                  <span className="font-medium text-gray-800">{parsedOcr[f.key]}</span>
+                </div>
+              ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── 메인 컴포넌트 ───────────────────────────────────────────────────────────
 export default function PartnerOnboarding() {
   const [step, setStep] = useState<Step>(1);
   const [onboardingId, setOnboardingId] = useState<number | null>(null);
+  const [autoApproved, setAutoApproved] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
+
   const [form, setForm] = useState<FormData>({
-    companyName: "",
-    businessNumber: "",
-    ceoName: "",
-    businessType: "",
-    businessItem: "",
-    address: "",
     contactName: "",
     contactEmail: "",
     contactPhone: "",
-    businessLicenseKey: "",
-    businessLicenseUrl: "",
-    ocrResult: "",
     sampleCategory: "golf_tour_mixed",
     subscriptionPlan: "standard",
     billingCycle: "monthly",
   });
-  const [ocrLoading, setOcrLoading] = useState(false);
-  const [uploadLoading, setUploadLoading] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 사업자등록증 상태
+  const [bizLicense, setBizLicense] = useState<LicenseState>({
+    key: "", url: "", previewUrl: null, ocrResult: "", ocrRawText: "", uploading: false, ocrLoading: false,
+  });
+
+  // 관광사업자등록증 상태
+  const [tourLicense, setTourLicense] = useState<LicenseState>({
+    key: "", url: "", previewUrl: null, ocrResult: "", ocrRawText: "", uploading: false, ocrLoading: false,
+  });
 
   const setField = (key: keyof FormData, value: string) => {
     setForm((f) => ({ ...f, [key]: value }));
   };
 
-  // OCR 뮤테이션
-  const ocrMutation = trpc.partnerOnboarding.ocrBusinessLicense.useMutation({
+  // ─── OCR 뮤테이션 ─────────────────────────────────────────────────────────
+  const bizOcrMutation = trpc.partnerOnboarding.ocrBusinessLicense.useMutation({
     onSuccess: (data) => {
       if (data.success && data.data) {
-        const d = data.data;
-        setForm((f) => ({
-          ...f,
-          companyName: d.companyName ?? f.companyName,
-          businessNumber: d.businessNumber ?? f.businessNumber,
-          ceoName: d.ceoName ?? f.ceoName,
-          businessType: d.businessType ?? f.businessType,
-          businessItem: d.businessItem ?? f.businessItem,
-          address: d.address ?? f.address,
+        const d = data.data as Record<string, string>;
+        setBizLicense((prev) => ({
+          ...prev,
           ocrResult: JSON.stringify(d),
+          ocrLoading: false,
         }));
-        toast.success("사업자등록증 정보가 자동으로 입력되었습니다.");
+        toast.success("사업자등록증 정보가 자동으로 추출되었습니다.");
       } else {
-        toast.error("OCR 추출에 실패했습니다. 수동으로 입력해주세요.");
+        setBizLicense((prev) => ({ ...prev, ocrLoading: false }));
+        toast.warning("사업자등록증 OCR 추출에 실패했습니다. 파일을 다시 확인해주세요.");
       }
-      setOcrLoading(false);
     },
     onError: () => {
-      toast.error("OCR 처리 중 오류가 발생했습니다.");
-      setOcrLoading(false);
+      setBizLicense((prev) => ({ ...prev, ocrLoading: false }));
+      toast.error("사업자등록증 OCR 처리 중 오류가 발생했습니다.");
     },
   });
 
-  // 신청 뮤테이션 (Step 3 → 결제 전 DB 저장)
-  const applyMutation = trpc.partnerOnboarding.submit.useMutation({
+  const tourOcrMutation = trpc.partnerOnboarding.ocrTourismLicense.useMutation({
+    onSuccess: (data) => {
+      if (data.success && data.data) {
+        const d = data.data as Record<string, string>;
+        setTourLicense((prev) => ({
+          ...prev,
+          ocrResult: JSON.stringify(d),
+          ocrLoading: false,
+        }));
+        toast.success("관광사업자등록증 정보가 자동으로 추출되었습니다.");
+      } else {
+        setTourLicense((prev) => ({ ...prev, ocrLoading: false }));
+        toast.warning("관광사업자등록증 OCR 추출에 실패했습니다. 파일을 다시 확인해주세요.");
+      }
+    },
+    onError: () => {
+      setTourLicense((prev) => ({ ...prev, ocrLoading: false }));
+      toast.error("관광사업자등록증 OCR 처리 중 오류가 발생했습니다.");
+    },
+  });
+
+  // ─── 파일 업로드 핸들러 ───────────────────────────────────────────────────
+  const handleLicenseUpload = async (
+    file: File,
+    type: "biz" | "tour",
+  ) => {
+    const setter = type === "biz" ? setBizLicense : setTourLicense;
+    const prefix = type === "biz" ? "partner-onboarding/business-license" : "partner-onboarding/tourism-license";
+
+    // 미리보기
+    const reader = new FileReader();
+    reader.onload = (ev) => setter((prev) => ({ ...prev, previewUrl: ev.target?.result as string }));
+    reader.readAsDataURL(file);
+
+    setter((prev) => ({ ...prev, uploading: true }));
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("prefix", prefix);
+      const res = await fetch("/api/upload/storage", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(`업로드 실패: ${res.status}`);
+      const { key, url } = await res.json() as { key: string; url: string };
+      setter((prev) => ({ ...prev, key, url, uploading: false, ocrLoading: true }));
+      toast.success("파일이 업로드되었습니다. AI 분석 중...");
+
+      // OCR 자동 실행
+      if (type === "biz") {
+        bizOcrMutation.mutate({ imageUrl: url });
+      } else {
+        tourOcrMutation.mutate({ imageUrl: url });
+      }
+    } catch (err) {
+      setter((prev) => ({ ...prev, uploading: false }));
+      toast.error("파일 업로드에 실패했습니다.");
+      console.error(err);
+    }
+  };
+
+  // ─── 최종 제출 뮤테이션 ───────────────────────────────────────────────────
+  const submitMutation = trpc.partnerOnboarding.submitWithBothOcr.useMutation({
     onSuccess: async (data) => {
-      const id = data.id;
-      setOnboardingId(id);
+      setOnboardingId(data.id);
+      setAutoApproved(data.autoApproved);
 
+      if (data.autoApproved) {
+        // 두 등록증 모두 업로드 → 자동 승인 → 플랜 선택 없이 완료
+        setStep(4);
+        toast.success("두 등록증 확인 완료! 자동으로 승인되었습니다.");
+        return;
+      }
+
+      // 한 개만 업로드 → 플랜 선택 단계로
       const selectedPlan = PLANS.find((p) => p.id === form.subscriptionPlan)!;
-
-      // 스타터(무료) 플랜은 결제 없이 바로 완료
       if (form.subscriptionPlan === "starter") {
         setStep(4);
         return;
       }
-
-      // 유료 플랜 - 포트원 결제 진행
-      await handlePortonePayment(id);
+      await handlePortonePayment(data.id);
     },
     onError: (err) => {
       toast.error(`신청 실패: ${err.message}`);
     },
   });
 
-  // 결제 검증 뮤테이션
+  // ─── 결제 뮤테이션 ────────────────────────────────────────────────────────
   const verifyMutation = trpc.subscriptions.verifyAndActivate.useMutation({
     onSuccess: (data) => {
       if (data.success) {
@@ -234,34 +384,23 @@ export default function PartnerOnboarding() {
     },
   });
 
-  // 결제 준비 뮤테이션
   const prepareMutation = trpc.subscriptions.preparePayment.useMutation({});
 
-  // 포트원 V2 결제 실행
   const handlePortonePayment = async (id: number) => {
     setPaymentLoading(true);
     try {
-      // 서버에서 결제 정보 준비
       const prepared = await prepareMutation.mutateAsync({
         plan: form.subscriptionPlan,
         billingCycle: form.billingCycle,
-        companyName: form.companyName,
+        companyName: form.contactName,
         contactEmail: form.contactEmail,
         contactName: form.contactName,
         onboardingId: id,
       });
+      if (prepared.isFree) { setStep(4); return; }
+      if (!prepared.paymentId || !prepared.amount) throw new Error("결제 정보 생성에 실패했습니다.");
 
-      if (prepared.isFree) {
-        setStep(4);
-        return;
-      }
-
-      if (!prepared.paymentId || !prepared.amount) {
-        throw new Error("결제 정보 생성에 실패했습니다.");
-      }
-
-      // 포트원 V2 결제창 호출
-      const portoneRequest = {
+      const response = await PortOne.requestPayment({
         storeId: prepared.storeId,
         channelKey: prepared.channelKey,
         paymentId: prepared.paymentId,
@@ -269,108 +408,71 @@ export default function PartnerOnboarding() {
         totalAmount: prepared.amount,
         currency: "CURRENCY_KRW" as const,
         payMethod: "CARD" as const,
-        customer: {
-          email: prepared.customerEmail,
-          fullName: prepared.customerName,
-        },
+        customer: { email: prepared.customerEmail, fullName: prepared.customerName },
         customData: prepared.customData ? JSON.parse(prepared.customData) : undefined,
-      };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const response = await PortOne.requestPayment(portoneRequest as any);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
 
       if (!response || response.code !== undefined) {
-        // 결제 실패 또는 취소
-        const msg = response?.message ?? "결제가 취소되었습니다.";
-        toast.error(msg);
+        toast.error(response?.message ?? "결제가 취소되었습니다.");
         setPaymentLoading(false);
         return;
       }
-
-      // 결제 완료 → 서버 검증
       await verifyMutation.mutateAsync({
         paymentId: prepared.paymentId,
         plan: form.subscriptionPlan,
         billingCycle: form.billingCycle,
-        companyName: form.companyName,
+        companyName: form.contactName,
         contactEmail: form.contactEmail,
         contactName: form.contactName,
         onboardingId: id,
       });
     } catch (err) {
       console.error("결제 오류:", err);
-      toast.error("결제 처리 중 오류가 발생했습니다. 다시 시도해주세요.");
+      toast.error("결제 처리 중 오류가 발생했습니다.");
       setPaymentLoading(false);
     }
   };
 
-  // 파일 업로드 처리
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // ─── 유효성 검사 ──────────────────────────────────────────────────────────
+  const step1Valid = form.contactName.trim() && form.contactEmail.trim();
+  const hasBizLicense = !!bizLicense.url;
+  const hasTourLicense = !!tourLicense.url;
+  const hasBothLicenses = hasBizLicense && hasTourLicense;
+  const isAnyLoading = bizLicense.uploading || bizLicense.ocrLoading || tourLicense.uploading || tourLicense.ocrLoading;
 
-    // 미리보기
-    const reader = new FileReader();
-    reader.onload = (ev) => setPreviewUrl(ev.target?.result as string);
-    reader.readAsDataURL(file);
-
-    // S3 업로드 (FormData 방식)
-    setUploadLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("prefix", "partner-onboarding/business-license");
-
-      const res = await fetch("/api/upload/storage", {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-
-      if (!res.ok) throw new Error(`업로드 실패: ${res.status}`);
-      const { key, url } = await res.json() as { key: string; url: string };
-
-      setField("businessLicenseKey", key);
-      setField("businessLicenseUrl", url);
-      toast.success("파일이 업로드되었습니다.");
-
-      // OCR 자동 실행
-      setOcrLoading(true);
-      ocrMutation.mutate({ imageUrl: url });
-    } catch (err) {
-      toast.error("파일 업로드에 실패했습니다.");
-      console.error(err);
-    } finally {
-      setUploadLoading(false);
+  const handleStep2Next = () => {
+    if (!hasBizLicense && !hasTourLicense) {
+      toast.error("최소 하나의 등록증을 업로드해주세요.");
+      return;
     }
-  };
-
-  // Step 1 유효성 검사
-  const step1Valid = form.companyName.trim() && form.contactName.trim() && form.contactEmail.trim();
-
-  // 최종 신청 (DB 저장 → 결제)
-  const handleSubmit = () => {
-    applyMutation.mutate({
-      companyName: form.companyName,
-      businessNumber: form.businessNumber || undefined,
-      ceoName: form.ceoName || undefined,
-      businessType: form.businessType || undefined,
-      businessItem: form.businessItem || undefined,
-      address: form.address || undefined,
-      contactName: form.contactName,
-      contactEmail: form.contactEmail,
-      contactPhone: form.contactPhone || undefined,
-      businessLicenseKey: form.businessLicenseKey || undefined,
-      businessLicenseUrl: form.businessLicenseUrl || undefined,
-      ocrResult: form.ocrResult || undefined,
-      sampleCategory: form.sampleCategory,
-      subscriptionPlan: form.subscriptionPlan,
-      billingCycle: form.billingCycle,
-    });
+    if (hasBothLicenses) {
+      // 두 등록증 모두 업로드 → 바로 제출 (자동 승인)
+      submitMutation.mutate({
+        contactName: form.contactName,
+        contactEmail: form.contactEmail,
+        contactPhone: form.contactPhone || undefined,
+        businessLicenseKey: bizLicense.key || undefined,
+        businessLicenseUrl: bizLicense.url || undefined,
+        ocrRawText: bizLicense.ocrRawText || undefined,
+        ocrResult: bizLicense.ocrResult || undefined,
+        tourismLicenseKey: tourLicense.key || undefined,
+        tourismLicenseUrl: tourLicense.url || undefined,
+        tourismOcrRawText: tourLicense.ocrRawText || undefined,
+        tourismOcrResult: tourLicense.ocrResult || undefined,
+        sampleCategory: form.sampleCategory,
+        subscriptionPlan: "starter",
+        billingCycle: "monthly",
+      });
+    } else {
+      // 한 개만 업로드 → 플랜 선택 단계로
+      setStep(3);
+    }
   };
 
   const selectedPlan = PLANS.find((p) => p.id === form.subscriptionPlan)!;
   const planPrice = form.billingCycle === "yearly" ? selectedPlan.yearlyPrice : selectedPlan.monthlyPrice;
-  const isProcessing = applyMutation.isPending || paymentLoading || verifyMutation.isPending || prepareMutation.isPending;
+  const isProcessing = submitMutation.isPending || paymentLoading || verifyMutation.isPending || prepareMutation.isPending;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50">
@@ -390,99 +492,58 @@ export default function PartnerOnboarding() {
       <div className="max-w-3xl mx-auto px-4 py-8">
         <StepIndicator current={step} />
 
-        {/* ── Step 1: 기본 정보 ── */}
+        {/* ── Step 1: 담당자 연락처 ── */}
         {step === 1 && (
           <Card className="shadow-md">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Building2 size={20} className="text-green-600" />
-                기본 정보 입력
+                <User size={20} className="text-green-600" />
+                담당자 연락처 입력
               </CardTitle>
-              <CardDescription>업체 정보와 담당자 연락처를 입력해주세요.</CardDescription>
+              <CardDescription>
+                업체 정보는 다음 단계에서 등록증 OCR로 자동 추출됩니다.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex gap-3">
+                <ShieldCheck size={18} className="text-blue-600 shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <p className="font-semibold mb-1">간편 가입 안내</p>
+                  <p className="text-xs text-blue-700">
+                    사업자등록증과 관광사업자등록증을 업로드하면 AI가 자동으로 정보를 추출하고 즉시 승인 처리합니다.
+                    수기 입력 없이 빠르게 가입하세요.
+                  </p>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label>업체명 <span className="text-red-500">*</span></Label>
+                  <Label>담당자명 <span className="text-red-500">*</span></Label>
                   <Input
-                    placeholder="(주)두골프투어"
-                    value={form.companyName}
-                    onChange={(e) => setField("companyName", e.target.value)}
+                    placeholder="김담당"
+                    value={form.contactName}
+                    onChange={(e) => setField("contactName", e.target.value)}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>사업자등록번호</Label>
+                  <Label>이메일 <span className="text-red-500">*</span></Label>
                   <Input
-                    placeholder="000-00-00000"
-                    value={form.businessNumber}
-                    onChange={(e) => setField("businessNumber", e.target.value)}
+                    type="email"
+                    placeholder="contact@company.com"
+                    value={form.contactEmail}
+                    onChange={(e) => setField("contactEmail", e.target.value)}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>대표자명</Label>
+                  <Label>전화번호</Label>
                   <Input
-                    placeholder="홍길동"
-                    value={form.ceoName}
-                    onChange={(e) => setField("ceoName", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>업태</Label>
-                  <Input
-                    placeholder="서비스업"
-                    value={form.businessType}
-                    onChange={(e) => setField("businessType", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>종목</Label>
-                  <Input
-                    placeholder="여행업"
-                    value={form.businessItem}
-                    onChange={(e) => setField("businessItem", e.target.value)}
+                    placeholder="010-0000-0000"
+                    value={form.contactPhone}
+                    onChange={(e) => setField("contactPhone", e.target.value)}
                   />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label>사업장 주소</Label>
-                <Input
-                  placeholder="서울특별시 강남구..."
-                  value={form.address}
-                  onChange={(e) => setField("address", e.target.value)}
-                />
-              </div>
-              <div className="border-t pt-4 mt-2">
-                <p className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
-                  <User size={14} /> 담당자 정보
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>담당자명 <span className="text-red-500">*</span></Label>
-                    <Input
-                      placeholder="김담당"
-                      value={form.contactName}
-                      onChange={(e) => setField("contactName", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>이메일 <span className="text-red-500">*</span></Label>
-                    <Input
-                      type="email"
-                      placeholder="contact@company.com"
-                      value={form.contactEmail}
-                      onChange={(e) => setField("contactEmail", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>전화번호</Label>
-                    <Input
-                      placeholder="010-0000-0000"
-                      value={form.contactPhone}
-                      onChange={(e) => setField("contactPhone", e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
+
               <div className="flex justify-end pt-2">
                 <Button
                   onClick={() => setStep(2)}
@@ -496,94 +557,109 @@ export default function PartnerOnboarding() {
           </Card>
         )}
 
-        {/* ── Step 2: 사업자등록증 ── */}
+        {/* ── Step 2: 두 등록증 업로드 ── */}
         {step === 2 && (
-          <Card className="shadow-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText size={20} className="text-green-600" />
-                사업자등록증 업로드
-              </CardTitle>
-              <CardDescription>AI가 자동으로 정보를 추출합니다. (선택사항)</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {/* 업로드 영역 */}
-              <div
-                className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center cursor-pointer hover:border-green-400 hover:bg-green-50/30 transition-colors"
-                onClick={() => fileInputRef.current?.click()}
+          <div className="space-y-5">
+            {/* 안내 배너 */}
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex gap-3">
+              <ShieldCheck size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+              <div className="text-sm text-emerald-800">
+                <p className="font-semibold mb-1">두 등록증 모두 업로드 시 즉시 자동 승인!</p>
+                <p className="text-xs text-emerald-700">
+                  사업자등록증 + 관광사업자등록증을 모두 업로드하면 별도 심사 없이 즉시 ERP 이용이 가능합니다.
+                  한 가지만 업로드하면 플랜 선택 후 담당자 검토가 진행됩니다.
+                </p>
+              </div>
+            </div>
+
+            {/* 진행 상황 표시 */}
+            <div className="flex gap-3">
+              <div className={`flex-1 p-3 rounded-xl border-2 text-center text-sm transition-all ${hasBizLicense ? "border-green-400 bg-green-50 text-green-700" : "border-gray-200 text-gray-400"}`}>
+                {hasBizLicense ? <CheckCircle2 size={16} className="inline mr-1" /> : <AlertCircle size={16} className="inline mr-1" />}
+                사업자등록증 {hasBizLicense ? "완료" : "미업로드"}
+              </div>
+              <div className={`flex-1 p-3 rounded-xl border-2 text-center text-sm transition-all ${hasTourLicense ? "border-green-400 bg-green-50 text-green-700" : "border-gray-200 text-gray-400"}`}>
+                {hasTourLicense ? <CheckCircle2 size={16} className="inline mr-1" /> : <AlertCircle size={16} className="inline mr-1" />}
+                관광사업자등록증 {hasTourLicense ? "완료" : "미업로드"}
+              </div>
+            </div>
+
+            {/* 사업자등록증 업로드 */}
+            <LicenseUploadCard
+              title="사업자등록증"
+              description="JPG, PNG, PDF 지원 · AI가 업체명, 사업자번호, 대표자명 등을 자동 추출합니다."
+              icon={<FileText size={18} className="text-green-600" />}
+              state={bizLicense}
+              onFileChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleLicenseUpload(file, "biz");
+              }}
+              ocrFields={[
+                { label: "업체명", key: "companyName" },
+                { label: "사업자번호", key: "businessNumber" },
+                { label: "대표자", key: "ceoName" },
+                { label: "업태", key: "businessType" },
+                { label: "종목", key: "businessItem" },
+                { label: "주소", key: "address" },
+              ]}
+            />
+
+            {/* 관광사업자등록증 업로드 */}
+            <LicenseUploadCard
+              title="관광사업자등록증"
+              description="JPG, PNG, PDF 지원 · AI가 등록번호, 사업 종류, 개업일 등을 자동 추출합니다."
+              icon={<FileText size={18} className="text-blue-600" />}
+              state={tourLicense}
+              onFileChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleLicenseUpload(file, "tour");
+              }}
+              ocrFields={[
+                { label: "등록번호", key: "licenseNo" },
+                { label: "사업 종류", key: "licenseType" },
+                { label: "개업일", key: "openDate" },
+                { label: "업체명", key: "companyName" },
+                { label: "대표자", key: "ceoName" },
+              ]}
+            />
+
+            {/* 두 등록증 완료 시 자동 승인 안내 */}
+            {hasBothLicenses && (
+              <div className="bg-green-50 border-2 border-green-400 rounded-xl p-4 flex gap-3 animate-pulse-once">
+                <CheckCircle2 size={20} className="text-green-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-green-800 text-sm">두 등록증 업로드 완료!</p>
+                  <p className="text-xs text-green-700 mt-0.5">
+                    아래 버튼을 클릭하면 즉시 자동 승인 처리됩니다.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-between pt-2">
+              <Button variant="outline" onClick={() => setStep(1)}>
+                <ChevronLeft size={16} className="mr-1" /> 이전
+              </Button>
+              <Button
+                onClick={handleStep2Next}
+                disabled={isAnyLoading || isProcessing || (!hasBizLicense && !hasTourLicense)}
+                className={hasBothLicenses ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"}
               >
-                {previewUrl ? (
-                  <div className="space-y-3">
-                    <img src={previewUrl} alt="사업자등록증 미리보기" className="max-h-48 mx-auto rounded-lg object-contain" />
-                    <p className="text-sm text-green-600 font-medium">
-                      {uploadLoading ? "업로드 중..." : ocrLoading ? "AI 분석 중..." : "업로드 완료"}
-                    </p>
-                  </div>
+                {isAnyLoading ? (
+                  <><Loader2 size={14} className="animate-spin mr-1" /> 처리 중...</>
+                ) : isProcessing ? (
+                  <><Loader2 size={14} className="animate-spin mr-1" /> 신청 중...</>
+                ) : hasBothLicenses ? (
+                  <><ShieldCheck size={16} className="mr-1" /> 즉시 자동 승인 신청</>
                 ) : (
-                  <div className="space-y-2">
-                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                      <Upload size={22} className="text-green-600" />
-                    </div>
-                    <p className="font-medium text-gray-700">클릭하여 파일 선택</p>
-                    <p className="text-xs text-muted-foreground">JPG, PNG, PDF 지원 (최대 10MB)</p>
-                  </div>
+                  <>다음 단계 (플랜 선택) <ChevronRight size={16} className="ml-1" /></>
                 )}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*,.pdf"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-              </div>
-
-              {/* OCR 결과 표시 */}
-              {form.ocrResult && (() => {
-                try {
-                  const d = JSON.parse(form.ocrResult);
-                  return (
-                    <div className="bg-green-50 rounded-xl p-4 space-y-2 border border-green-200">
-                      <p className="text-sm font-semibold text-green-800 flex items-center gap-1.5">
-                        <Sparkles size={14} /> AI 자동 추출 결과
-                      </p>
-                      {[
-                        { label: "업체명", value: d.companyName },
-                        { label: "사업자번호", value: d.businessNumber },
-                        { label: "대표자", value: d.ceoName },
-                        { label: "업태", value: d.businessType },
-                        { label: "종목", value: d.businessItem },
-                      ].filter((r) => r.value).map((r) => (
-                        <div key={r.label} className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">{r.label}</span>
-                          <span className="font-medium">{r.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                } catch { return null; }
-              })()}
-
-              <div className="flex justify-between pt-2">
-                <Button variant="outline" onClick={() => setStep(1)}>
-                  <ChevronLeft size={16} className="mr-1" /> 이전
-                </Button>
-                <Button
-                  onClick={() => setStep(3)}
-                  disabled={uploadLoading || ocrLoading}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  {uploadLoading || ocrLoading ? (
-                    <><Loader2 size={14} className="animate-spin mr-1" /> 처리 중...</>
-                  ) : (
-                    <>다음 단계 <ChevronRight size={16} className="ml-1" /></>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </Button>
+            </div>
+          </div>
         )}
 
-        {/* ── Step 3: 플랜 선택 + 결제 ── */}
+        {/* ── Step 3: 플랜 선택 + 결제 (한 개 등록증만 업로드 시) ── */}
         {step === 3 && (
           <div className="space-y-6">
             {/* 샘플 카테고리 선택 */}
@@ -640,107 +716,110 @@ export default function PartnerOnboarding() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* 결제 주기 토글 */}
-                <div className="flex items-center justify-center gap-2 bg-gray-100 rounded-full p-1 w-fit mx-auto">
+                <div className="flex items-center gap-3 p-1 bg-gray-100 rounded-lg w-fit">
                   <button
-                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                      form.billingCycle === "monthly" ? "bg-white shadow text-gray-900" : "text-gray-500"
-                    }`}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${form.billingCycle === "monthly" ? "bg-white shadow text-gray-900" : "text-gray-500"}`}
                     onClick={() => setField("billingCycle", "monthly")}
                   >
-                    월간 결제
+                    월간
                   </button>
                   <button
-                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                      form.billingCycle === "yearly" ? "bg-white shadow text-gray-900" : "text-gray-500"
-                    }`}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${form.billingCycle === "yearly" ? "bg-white shadow text-gray-900" : "text-gray-500"}`}
                     onClick={() => setField("billingCycle", "yearly")}
                   >
-                    연간 결제 <span className="text-xs text-green-400 ml-1">2개월 무료</span>
+                    연간 <span className="text-green-600 text-xs ml-1">17% 할인</span>
                   </button>
                 </div>
 
-                {/* 플랜 카드 */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {PLANS.map((plan) => (
-                    <div
-                      key={plan.id}
-                      className={`rounded-xl border-2 cursor-pointer transition-all overflow-hidden ${
-                        form.subscriptionPlan === plan.id ? plan.color : "border-gray-200"
-                      } ${form.subscriptionPlan === plan.id ? "shadow-md" : "hover:shadow-sm"}`}
-                      onClick={() => setField("subscriptionPlan", plan.id)}
-                    >
-                      <div className={`p-4 ${plan.headerColor}`}>
-                        <div className="flex items-center justify-between mb-1">
-                          <h3 className="font-bold">{plan.name}</h3>
-                          {plan.badge && (
-                            <Badge className={plan.badgeColor}>
-                              {plan.badge}
-                            </Badge>
-                          )}
+                  {PLANS.map((plan) => {
+                    const price = form.billingCycle === "yearly" ? plan.yearlyPrice : plan.monthlyPrice;
+                    return (
+                      <div
+                        key={plan.id}
+                        className={`rounded-xl border-2 cursor-pointer transition-all overflow-hidden ${
+                          form.subscriptionPlan === plan.id ? plan.color + " shadow-md" : "border-gray-200 hover:border-gray-300"
+                        }`}
+                        onClick={() => setField("subscriptionPlan", plan.id)}
+                      >
+                        <div className={`p-3 ${form.subscriptionPlan === plan.id ? plan.headerColor : "bg-gray-50"}`}>
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-bold text-sm">{plan.name}</h4>
+                            <Badge className={`text-xs text-white ${plan.badgeColor}`}>{plan.badge}</Badge>
+                          </div>
+                          <div className="mt-1">
+                            {price === 0 ? (
+                              <span className="text-lg font-bold">무료</span>
+                            ) : (
+                              <span className="text-lg font-bold">
+                                {price.toLocaleString()}원
+                                <span className="text-xs font-normal text-muted-foreground">
+                                  /{form.billingCycle === "yearly" ? "년" : "월"}
+                                </span>
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-2xl font-bold text-gray-900">
-                          {plan.monthlyPrice === 0 ? (
-                            <span className="text-gray-600">무료</span>
-                          ) : (
-                            <>₩{(form.billingCycle === "yearly" ? plan.yearlyPrice : plan.monthlyPrice).toLocaleString()}</>
-                          )}
+                        <div className="p-3">
+                          <ul className="space-y-1">
+                            {plan.features.map((f) => (
+                              <li key={f} className="text-xs text-gray-600 flex items-center gap-1">
+                                <CheckCircle2 size={10} className="text-green-500 shrink-0" />
+                                {f}
+                              </li>
+                            ))}
+                          </ul>
                         </div>
-                        {plan.monthlyPrice > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            /{form.billingCycle === "yearly" ? "년" : "월"}
-                          </p>
-                        )}
                       </div>
-                      <div className="p-4">
-                        <ul className="space-y-1.5">
-                          {plan.features.map((f) => (
-                            <li key={f} className="text-xs text-gray-600 flex items-center gap-1.5">
-                              <CheckCircle2 size={11} className="text-green-500 shrink-0" />
-                              {f}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-              </CardContent>
-            </Card>
 
-            {/* 신청 요약 + 결제 버튼 */}
-            <Card className="shadow-md border-green-200 bg-green-50/50">
-              <CardContent className="pt-5">
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <div>
-                    <p className="font-semibold text-gray-900">신청 요약</p>
-                    <p className="text-sm text-muted-foreground">
-                      {form.companyName} · {selectedPlan.name} · {form.billingCycle === "yearly" ? "연간" : "월간"} 결제
-                    </p>
-                    <p className="text-lg font-bold text-green-700 mt-1">
-                      {planPrice === 0 ? "무료" : `₩${planPrice.toLocaleString()}/${form.billingCycle === "yearly" ? "년" : "월"}`}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setStep(2)} disabled={isProcessing}>
-                      <ChevronLeft size={16} className="mr-1" /> 이전
-                    </Button>
+                <div className="flex justify-between items-center pt-2 border-t">
+                  <Button variant="outline" onClick={() => setStep(2)}>
+                    <ChevronLeft size={16} className="mr-1" /> 이전
+                  </Button>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">선택 플랜</p>
+                      <p className="font-bold text-gray-900">
+                        {selectedPlan.name} · {planPrice === 0 ? "무료" : `${planPrice.toLocaleString()}원`}
+                      </p>
+                    </div>
                     <Button
-                      onClick={handleSubmit}
+                      onClick={() => {
+                        submitMutation.mutate({
+                          contactName: form.contactName,
+                          contactEmail: form.contactEmail,
+                          contactPhone: form.contactPhone || undefined,
+                          businessLicenseKey: bizLicense.key || undefined,
+                          businessLicenseUrl: bizLicense.url || undefined,
+                          ocrRawText: bizLicense.ocrRawText || undefined,
+                          ocrResult: bizLicense.ocrResult || undefined,
+                          tourismLicenseKey: tourLicense.key || undefined,
+                          tourismLicenseUrl: tourLicense.url || undefined,
+                          tourismOcrRawText: tourLicense.ocrRawText || undefined,
+                          tourismOcrResult: tourLicense.ocrResult || undefined,
+                          sampleCategory: form.sampleCategory,
+                          subscriptionPlan: form.subscriptionPlan,
+                          billingCycle: form.billingCycle,
+                        });
+                      }}
                       disabled={isProcessing}
-                      className="bg-green-600 hover:bg-green-700 min-w-[140px]"
+                      className="bg-green-600 hover:bg-green-700"
                     >
                       {isProcessing ? (
-                        <><Loader2 size={14} className="animate-spin mr-1" />
-                          {applyMutation.isPending ? "신청 중..." : paymentLoading ? "결제 처리 중..." : "검증 중..."}
-                        </>
+                        <><Loader2 size={14} className="animate-spin mr-1" /> 처리 중...</>
+                      ) : planPrice === 0 ? (
+                        "신청 완료"
                       ) : (
-                        planPrice === 0 ? "무료로 시작하기" : "결제 후 신청 완료"
+                        <>결제하기 <CreditCard size={14} className="ml-1" /></>
                       )}
                     </Button>
                   </div>
                 </div>
                 {planPrice > 0 && (
-                  <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <CreditCard size={11} />
                     포트원(PortOne) 안전결제 · 카드/계좌이체 지원
                   </p>
@@ -754,49 +833,95 @@ export default function PartnerOnboarding() {
         {step === 4 && (
           <Card className="shadow-md text-center">
             <CardContent className="pt-10 pb-10 space-y-5">
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                <CheckCircle2 size={40} className="text-green-600" />
+              <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto ${autoApproved ? "bg-green-100" : "bg-blue-100"}`}>
+                {autoApproved
+                  ? <ShieldCheck size={40} className="text-green-600" />
+                  : <CheckCircle2 size={40} className="text-blue-600" />
+                }
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">신청이 완료되었습니다!</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  {autoApproved ? "자동 승인 완료!" : "신청이 완료되었습니다!"}
+                </h2>
                 <p className="text-muted-foreground">
-                  <strong>{form.companyName}</strong>의 두골프 ERP 파트너 신청을 접수했습니다.
+                  {autoApproved
+                    ? "두 등록증 OCR 인식이 완료되어 즉시 ERP 이용이 가능합니다."
+                    : `${form.contactName}님의 두골프 ERP 파트너 신청을 접수했습니다.`
+                  }
                 </p>
               </div>
-              <div className="bg-gray-50 rounded-xl p-5 text-left space-y-2 max-w-sm mx-auto">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">담당자 이메일</span>
-                  <span className="font-medium">{form.contactEmail}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">선택 플랜</span>
-                  <span className="font-medium">{selectedPlan.name}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">샘플 데이터</span>
-                  <span className="font-medium">
-                    {SAMPLE_CATEGORIES.find((c) => c.id === form.sampleCategory)?.name}
-                  </span>
-                </div>
-                {form.subscriptionPlan !== "starter" && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">결제 방식</span>
-                    <span className="font-medium text-green-700">포트원 결제 완료</span>
+
+              {autoApproved && (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-left max-w-sm mx-auto">
+                  <p className="text-sm font-semibold text-green-800 mb-2 flex items-center gap-1.5">
+                    <Sparkles size={14} /> OCR 자동 승인 완료
+                  </p>
+                  <div className="space-y-1.5">
+                    {bizLicense.ocrResult && (() => {
+                      try {
+                        const d = JSON.parse(bizLicense.ocrResult) as Record<string, string>;
+                        return (
+                          <>
+                            {d.companyName && (
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">업체명</span>
+                                <span className="font-medium">{d.companyName}</span>
+                              </div>
+                            )}
+                            {d.businessNumber && (
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">사업자번호</span>
+                                <span className="font-medium">{d.businessNumber}</span>
+                              </div>
+                            )}
+                          </>
+                        );
+                      } catch { return null; }
+                    })()}
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">담당자 이메일</span>
+                      <span className="font-medium">{form.contactEmail}</span>
+                    </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+
+              {!autoApproved && (
+                <div className="bg-gray-50 rounded-xl p-5 text-left space-y-2 max-w-sm mx-auto">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">담당자 이메일</span>
+                    <span className="font-medium">{form.contactEmail}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">선택 플랜</span>
+                    <span className="font-medium">{selectedPlan.name}</span>
+                  </div>
+                </div>
+              )}
+
               <p className="text-sm text-muted-foreground">
-                {form.subscriptionPlan === "starter"
-                  ? "영업일 기준 1~2일 내 담당자가 이메일로 연락드립니다."
-                  : "결제가 확인되어 ERP 시스템이 활성화됩니다. 담당자가 연락드립니다."}
+                {autoApproved
+                  ? "로그인 후 파트너 대시보드에서 ERP를 바로 이용하실 수 있습니다."
+                  : "영업일 기준 1~2일 내 담당자가 이메일로 연락드립니다."
+                }
               </p>
-              <Button
-                variant="outline"
-                onClick={() => window.location.href = "/"}
-                className="mt-2"
-              >
-                홈으로 돌아가기
-              </Button>
+
+              <div className="flex gap-3 justify-center">
+                {autoApproved && (
+                  <Button
+                    onClick={() => window.location.href = "/partner"}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    파트너 대시보드 바로가기
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  onClick={() => window.location.href = "/"}
+                >
+                  홈으로 돌아가기
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}

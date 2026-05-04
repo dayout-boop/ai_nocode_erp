@@ -3325,6 +3325,7 @@ import { siteSettingsRouter } from "./routers/siteSettings";
 import { managedProjectsRouter } from "./routers/managedProjects";
 import { systemSettingsRouter } from "./routers/systemSettings";
 import { partnerOnboardingRouter } from "./routers/partnerOnboarding";
+import { partnerStaffRouter } from "./routers/partnerStaff";
 import { tenantsRouter } from "./routers/tenants";
 import { subscriptionsRouter } from "./routers/subscriptions";
 import { fileAnalysisRouter } from "./routers/fileAnalysis";
@@ -3377,6 +3378,7 @@ export const appRouter = router({
   managedProjects: managedProjectsRouter,
   systemSettings: systemSettingsRouter,
   partnerOnboarding: partnerOnboardingRouter,
+  partnerStaff: partnerStaffRouter,
   tenants: tenantsRouter,
   subscriptions: subscriptionsRouter,
   fileAnalysis: fileAnalysisRouter,

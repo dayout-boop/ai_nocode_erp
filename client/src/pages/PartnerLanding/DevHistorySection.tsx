@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Rocket, Bug, Zap, Wrench, RefreshCw, Clock } from 'lucide-react'
 
 interface DevItem {
@@ -16,7 +16,7 @@ interface ApiResponse {
   lastUpdated: string
 }
 
-const categoryConfig: Record<string, { icon: JSX.Element; label: string; color: string }> = {
+const categoryConfig: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
   FEATURE: { icon: <Rocket size={14} />, label: '신기능', color: 'oklch(0.74 0.17 162)' },
   BUG: { icon: <Bug size={14} />, label: '버그수정', color: 'oklch(0.65 0.2 25)' },
   IMPROVEMENT: { icon: <Zap size={14} />, label: '개선', color: 'oklch(0.85 0.15 85)' },
