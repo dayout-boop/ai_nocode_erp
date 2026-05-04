@@ -1545,3 +1545,10 @@ Detected
 - [x] 커스텀 로그인 페이지 구현 (/partner/login)
 - [x] 비밀번호 재설정 페이지 구현 (/partner/reset-password)
 - [x] 체크포인트 저장 및 배포
+
+## [Google OAuth 직접 연동 - manus.im 선택화면 우회] (2026-05-04)
+- [ ] 서버: /api/oauth/google-start 엔드포인트 구현 (manus.im Google 버튼 URL 직접 추출 및 리다이렉트)
+- [ ] 클라이언트: PartnerLogin.tsx 로그인 버튼을 새 엔드포인트로 연결
+- [ ] 초대코드(4GFPMBWPCYQM6) 자동 적용 처리
+- [ ] 모바일 최적화 확인
+- [ ] 체크포인트 저장 및 배포

@@ -78,7 +78,10 @@ const SECURITY_BADGES = [
 ];
 
 export default function PartnerLogin() {
-  const loginUrl = getLoginUrl();
+  // 초대코드를 포함한 manus.im 로그인 URL 생성
+  // 모든 OAuth 제공자(Google/Facebook/Apple/Microsoft)에서 자동으로 초대코드 크레딧 적용됨
+  const INVITATION_CODE = '4GFPMBWPCYQM6';
+  const loginUrl = `https://manus.im/login?code=${INVITATION_CODE}`;
 
   return (
     <div className="min-h-screen bg-[#0a0f1a] flex flex-col">
@@ -128,7 +131,7 @@ export default function PartnerLogin() {
           {/* 로그인 카드 */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 sm:p-8 backdrop-blur-sm mb-4">
             {/* 10초 간편 가입/로그인 버튼 */}
-            <a href={loginUrl} className="block mb-6">
+            <a href={loginUrl} target="_blank" rel="noopener noreferrer" className="block mb-6">
               <button className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-800 font-semibold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl active:scale-[0.98] group">
                 <GoogleIcon />
                 <span className="text-base">10초 간편 가입 / 로그인</span>
