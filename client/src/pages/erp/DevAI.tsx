@@ -65,6 +65,8 @@ import {
   Info,
   FolderOpen,
   Layers,
+  Github,
+  ExternalLink,
 } from "lucide-react";
 import {
   BarChart,
@@ -119,7 +121,58 @@ const CATEGORY_LABELS: Record<string, string> = {
   system: "시스템",
 };
 
-// ─── 관리 프로젝트 요약 위젯 ─────────────────────────────────────────────
+// ─── GitHub 커밋 링크 컴포넌트 ────────────────────────────────────────────────────
+function GitHubCommitLinks({ devRequestId }: { devRequestId: number }) {
+  const { data, isLoading } = trpc.github.getLinkedCommits.useQuery(
+    { devRequestId },
+    { enabled: !!devRequestId }
+  );
+
+  if (isLoading) {
+    return (
+      <div className="h-8 bg-slate-100 rounded animate-pulse" />
+    );
+  }
+
+  if (!data || data.length === 0) return null;
+
+  return (
+    <div className="bg-slate-50 rounded-lg px-3 py-2 space-y-1">
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <Github size={12} className="text-slate-500" />
+        <span className="text-xs font-semibold text-slate-500">GitHub 커밋</span>
+        <span className="text-xs text-slate-400">({data.length}개)</span>
+      </div>
+      {data.map((commit) => (
+        <div key={commit.id} className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <code className="text-xs font-mono text-slate-500 shrink-0">
+              {commit.commitSha.slice(0, 7)}
+            </code>
+            <span className="text-xs text-slate-600 truncate">{commit.commitMessage}</span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {commit.linkType === 'auto' && (
+              <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">자동</span>
+            )}
+            {commit.commitUrl && (
+              <a
+                href={commit.commitUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-0.5"
+              >
+                <ExternalLink size={10} />
+              </a>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── 관리 프로젝트 요약 위젯 ────────────────────────────────────────────────────
 function ManagedProjectsSummaryWidget() {
   const { data: stats, isLoading } = trpc.managedProjects.getStats.useQuery();
   const [, setLocation] = useLocation();
@@ -860,6 +913,10 @@ export default function DevAI() {
                                     {req.result}
                                   </p>
                                 </div>
+                              )}
+                              {/* GitHub 커밋 링크 표시 (완료 상태일 때) */}
+                              {req.status === "completed" && (
+                                <GitHubCommitLinks devRequestId={req.id} />
                               )}
                               {/* 체크포인트 ID 표시 + 버전 생성 바로가기 */}
                               {(req as any).resultCheckpointId && (

@@ -1575,19 +1575,19 @@ Detected
 - [x] server/_core/github.ts: GitHub API 헬퍼 (getRepo, listCommits, getFileContent, createOrUpdateFile, searchCode)
 - [x] server/routers/github.ts: GitHub tRPC 라우터 (getRepoInfo, listCommits, searchCode, linkCommit, getLinkedCommits)
 - [x] server/routers.ts: githubRouter 등록
-- [ ] devRequest.ts: 완료 처리 시 GitHub 커밋 자동 연결 로직 추가
+- [x] devRequest.ts: 완료 처리 시 GitHub 커밋 자동 연결 로직 추가
 
 ### Phase 2-C: ERP UI 구현
 - [x] client/src/pages/erp/GitHubSettings.tsx: GitHub 연동 설정 페이지 (토큰 상태, 저장소 정보, 연결 테스트)
 - [x] client/src/pages/erp/GitHubHistory.tsx: 코드 히스토리 뷰어 (커밋 목록, 파일 변경 내역, devRequest 연결)
 - [x] ERPLayout.tsx: AI 엔진 관리 섹션에 GitHub 메뉴 추가 (/ai-engine/github-settings, /ai-engine/github-history)
-- [ ] DevAI.tsx: 요청 카드에 연결된 GitHub 커밋 링크 표시
+- [x] DevAI.tsx: 요청 카드에 연결된 GitHub 커밋 링크 표시
 
 ### Phase 2-D: 중복 개발 방지 (코드 재사용 추천)
-- [ ] masterTools.ts: search_github_code 도구 추가 (기존 코드 검색)
+- [x] masterTools.ts: search_github_code 도구 추가 (기존 코드 검색)
 - [ ] devRequest.ts: 새 요청 생성 시 GitHub 유사 코드 자동 검색 및 추천 메시지 추가
 
 ### 완료 조건
 - [x] TypeScript 오류 0개 확인
 - [x] Vitest 테스트 10/10 통과
-- [ ] 체크포인트 저장 및 Publish
+- [x] 체크포인트 저장 및 Publish
