@@ -4,7 +4,7 @@
  * 초대코드를 자동으로 포함하여 가입 시 크레딧 자동 적용
  */
 
-import { env } from './env';
+import { ENV as env } from './env';
 
 interface OAuthProviderConfig {
   clientId: string;

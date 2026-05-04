@@ -68,7 +68,9 @@ import ModelRoutingSettings from "@/pages/erp/ModelRoutingSettings";
 import PartnerOnboardingAdmin from "@/pages/erp/PartnerOnboardingAdmin";
 import SubscriptionManagement from "@/pages/erp/SubscriptionManagement";
 import FileAnalysisHistory from "@/pages/erp/FileAnalysisHistory";
-import { Loader2 } from "lucide-react";
+import GitHubSettings from "@/pages/erp/GitHubSettings";
+import GitHubHistory from "@/pages/erp/GitHubHistory";
+import { Loader2, Github } from "lucide-react";
 
 interface NavChild {
   label: string;
@@ -118,9 +120,11 @@ const navItems: NavItem[] = [
       { label: "오류 로그", href: "/ai-dev-engine", icon: <AlertTriangle size={14} /> },
       { label: "관리 프로젝트", href: "/managed-projects", icon: <FolderOpen size={14} /> },
       { label: "파일 분석 이력", href: "/ai-engine/file-analysis", icon: <FileText size={14} /> },
+      { label: "GitHub 연동", href: "/ai-engine/github-settings", icon: <Github size={14} /> },
+      { label: "코드 히스토리", href: "/ai-engine/github-history", icon: <GitBranch size={14} /> },
     ],
   },
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 운영 카테고리
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   { label: "대시보드", icon: <LayoutDashboard size={18} />, href: "/" },
@@ -311,6 +315,8 @@ function ERPContent() {
           <Route path="/ai-engine/features" component={FeatureCatalog} />
           <Route path="/ai-engine/model-routing" component={ModelRoutingSettings} />
           <Route path="/ai-engine/file-analysis" component={FileAnalysisHistory} />
+          <Route path="/ai-engine/github-settings" component={GitHubSettings} />
+          <Route path="/ai-engine/github-history" component={GitHubHistory} />
           <Route path="/partner-onboarding" component={PartnerOnboardingAdmin} />
           <Route path="/subscriptions" component={SubscriptionManagement} />
           <Route path="/golftalk-admin" component={GolfTalkAdmin} />
