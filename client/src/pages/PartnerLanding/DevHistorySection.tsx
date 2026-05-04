@@ -48,7 +48,13 @@ export default function DevHistorySection() {
       )
       if (!res.ok) throw new Error('API 응답 오류')
       const json = await res.json()
-      setData(json)
+      // API 응답 구조: { ok, history } → { items, total, lastUpdated } 로 정규화
+      const normalized: ApiResponse = {
+        items: json.items ?? json.history ?? [],
+        total: json.total ?? (json.history?.length ?? 0),
+        lastUpdated: json.lastUpdated ?? new Date().toISOString(),
+      }
+      setData(normalized)
       setLastRefresh(new Date())
     } catch {
       setError('데이터를 불러오는 중 오류가 발생했습니다')
