@@ -51,6 +51,15 @@ async function startServer() {
   registerScheduledRoutes(app);
   registerPublicLandingRoutes(app);
 
+  // partner.dayoutgolf.com 접속 시 /partner-landing으로 리다이렉트
+  app.use((req, res, next) => {
+    const host = req.hostname || (req.headers.host ?? '');
+    if (host.startsWith('partner.') && !req.path.startsWith('/partner-landing') && !req.path.startsWith('/api')) {
+      return res.redirect(301, '/partner-landing' + (req.path === '/' ? '' : req.path));
+    }
+    next();
+  });
+
   // ─── 실시간 이벤트 SSE 엔드포인트 ─────────────────────────────────────────
   // GET /api/realtime/events - 관리자 전용 SSE 스트림
   app.get("/api/realtime/events", async (req, res) => {
