@@ -1552,3 +1552,13 @@ Detected
 - [ ] 초대코드(4GFPMBWPCYQM6) 자동 적용 처리
 - [ ] 모바일 최적화 확인
 - [ ] 체크포인트 저장 및 배포
+
+
+## [커스텀 OAuth 로그인 페이지 구현 - manus.im 완전 우회]
+- [x] 서버: OAuth 제공자별(Google/Facebook/Apple/Microsoft) 단독 로그인 URL 생성 엔드포인트 구현
+- [x] 서버: 초대코드(4GFPMBWPCYQM6) 자동 적용 로직 구현
+- [x] 클라이언트: 커스텀 OAuth 로그인 페이지 UI 구현 (Google/Microsoft/Meta/Apple 아이콘)
+- [x] 클라이언트: 모바일 최적화 (반응형 디자인)
+- [x] 클라이언트: 모든 URL에서 "manus" 텍스트 제거
+- [ ] 테스트: Google/Facebook/Apple/Microsoft 로그인 각각 테스트
+- [ ] 테스트: 초대코드 크레딧 자동 적용 확인

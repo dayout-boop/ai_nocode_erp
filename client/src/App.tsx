@@ -27,6 +27,7 @@ import PartnerMyPage from "./pages/Partner/PartnerMyPage";
 import PartnerStaffLogin from "./pages/Partner/PartnerStaffLogin";
 import PartnerLogin from "./pages/Partner/PartnerLogin";
 import PartnerResetPassword from "./pages/Partner/PartnerResetPassword";
+import PartnerCustomLogin from "./pages/Partner/PartnerCustomLogin";
 import Pricing from "./pages/Pricing";
 
 // 투어커뮤니케이션 파트너 랜딩페이지
@@ -77,6 +78,8 @@ function Router() {
       <Route path={"/partner/staff/login"} component={PartnerStaffLogin} />
       {/* 비밀번호 재설정 */}
       <Route path={"/partner/reset-password"} component={PartnerResetPassword} />
+      {/* 커스텀 OAuth 로그인 */}
+      <Route path={"/partner/custom-login"} component={PartnerCustomLogin} />
 
       {/* 구독 플랜 페이지 */}
       <Route path={"/pricing"} component={Pricing} />

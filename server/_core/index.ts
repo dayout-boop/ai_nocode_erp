@@ -5,6 +5,7 @@ import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
+import { getManusLoginUrlWithInvitation } from "./customOAuth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
@@ -46,6 +47,29 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
   registerOAuthRoutes(app);
+  
+  // 커스텀 OAuth 엔드포인트 - manus.im 선택 화면 우회
+  app.get('/api/oauth/custom-login/:provider', (req, res) => {
+    const { provider } = req.params;
+    const { code: invitationCode } = req.query;
+    
+    if (!invitationCode || typeof invitationCode !== 'string') {
+      return res.status(400).json({ error: '초대코드가 필요합니다' });
+    }
+    
+    if (!['google', 'microsoft', 'facebook', 'apple'].includes(provider)) {
+      return res.status(400).json({ error: '지원하지 않는 OAuth 제공자입니다' });
+    }
+    
+    try {
+      const oauthUrl = getManusLoginUrlWithInvitation(invitationCode);
+      res.json({ url: oauthUrl });
+    } catch (error) {
+      console.error('Custom OAuth URL generation error:', error);
+      res.status(500).json({ error: 'OAuth URL 생성 실패' });
+    }
+  });
+  
   registerMasterStreamRoute(app);
   registerUploadRoutes(app);
   registerScheduledRoutes(app);
