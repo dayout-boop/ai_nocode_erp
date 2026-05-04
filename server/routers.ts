@@ -2132,7 +2132,29 @@ const devAIRouter = router({
         console.error("[createRequest] AI 자동 분석 실패:", e);
       }
     });
-    return { id: newId, success: true };
+    // GitHub 유사 코드 자동 검색 (비동기, 실패해도 등록에 영향 없음)
+    let githubSuggestions: Array<{ name: string; path: string; url: string; repository: string }> = [];
+    try {
+      const { searchCode } = await import("./_core/github.js");
+      const keywords = input.title
+        .replace(/[^\uac00-\ud7a3a-zA-Z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter((w: string) => w.length > 1)
+        .slice(0, 3)
+        .join(' ');
+      if (keywords.length > 0) {
+        const results = await searchCode(keywords, { perPage: 5 });
+        githubSuggestions = results.items.slice(0, 5).map((item: { name: string; path: string; htmlUrl: string; repository: { fullName: string } }) => ({
+          name: item.name,
+          path: item.path,
+          url: item.htmlUrl,
+          repository: item.repository.fullName,
+        }));
+      }
+    } catch {
+      // GitHub 미연동 또는 검색 실패 시 조용히 무시
+    }
+    return { id: newId, success: true, githubSuggestions };
   }),
   updateRequest: adminProcedure.input(z.object({
     id: z.number(),

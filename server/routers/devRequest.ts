@@ -23,7 +23,7 @@ import { invokeLLM } from "../_core/llm";
 import { createAiNotification } from "./aiNotifications";
 import { publish } from "../services/realtimeEvents";
 import { githubCommits } from "../../drizzle/schema";
-import { listCommits } from "../_core/github";
+import { listCommits, searchCode } from "../_core/github";
 
 // 자동 완료 키워드 기본값 (DB에 없으면 사용)
 const DEFAULT_COMPLETION_KEYWORDS = [
@@ -146,7 +146,31 @@ export const devRequestRouter = router({
         .$returningId();
 
       publish("dev_request_created", { id: inserted.id, title: input.title, priority: input.priority, status: "pending" });
-      return { id: inserted.id, success: true };
+
+      // GitHub 유사 코드 자동 검색 (비동기, 실패해도 등록에 영향 없음)
+      let githubSuggestions: Array<{ name: string; path: string; url: string; repository: string }> = [];
+      try {
+        // 제목에서 핵심 키워드 추출 (첫 3단어)
+        const keywords = input.title
+          .replace(/[^가-힣a-zA-Z0-9\s]/g, ' ')
+          .split(/\s+/)
+          .filter(w => w.length > 1)
+          .slice(0, 3)
+          .join(' ');
+        if (keywords.length > 0) {
+          const results = await searchCode(keywords, { perPage: 5 });
+          githubSuggestions = results.items.slice(0, 5).map((item) => ({
+            name: item.name,
+            path: item.path,
+            url: item.htmlUrl,
+            repository: item.repository.fullName,
+          }));
+        }
+      } catch {
+        // GitHub 미연동 또는 검색 실패 시 조용히 무시
+      }
+
+      return { id: inserted.id, success: true, githubSuggestions };
     }),
 
   /**

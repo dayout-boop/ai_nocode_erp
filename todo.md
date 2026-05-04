@@ -1585,7 +1585,7 @@ Detected
 
 ### Phase 2-D: 중복 개발 방지 (코드 재사용 추천)
 - [x] masterTools.ts: search_github_code 도구 추가 (기존 코드 검색)
-- [ ] devRequest.ts: 새 요청 생성 시 GitHub 유사 코드 자동 검색 및 추천 메시지 추가
+- [x] devRequest.ts: 새 요청 생성 시 GitHub 유사 코드 자동 검색 및 추천 메시지 추가
 
 ### 완료 조건
 - [x] TypeScript 오류 0개 확인
