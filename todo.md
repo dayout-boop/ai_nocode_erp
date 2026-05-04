@@ -1492,3 +1492,33 @@ Detected
 - [x] PartnerChat.tsx 개선: 로그인 후 온보딩 미신청 시 가입 안내 화면 표시
 - [x] PartnerChat.tsx 개선: 온보딩 신청 중(pending/reviewing/rejected) 상태별 화면 표시
 - [x] PartnerChat.tsx 개선: 승인 완료 시 기존 채팅 UI 표시
+
+## [파트너 가입 플로우 완성] OCR 자동 등록 + 하위 담당자 (2026-05-04)
+- [ ] DB 스키마: partnerOnboarding에 관광사업자등록증 필드 추가 (tourismLicenseKey, tourismLicenseUrl, tourismOcrResult, tourismLicenseNo, tourismLicenseType, tourismOpenDate)
+- [ ] DB 스키마: partner_staff 테이블 신규 생성 (하위 담당자: partnerId, name, email, phone, role, loginId, loginPwHash, isActive)
+- [ ] DB 마이그레이션 실행 (pnpm db:push)
+- [ ] 서버: partnerOnboarding.ocrTourismLicense 프로시저 추가 (관광사업자등록증 OCR)
+- [ ] 서버: partnerOnboarding.submitWithOcr 프로시저 개선 (수기 입력 없이 OCR 결과로만 자동 등록)
+- [ ] 서버: partnerOnboarding.updateMyInfo 프로시저 추가 (승인 후 정보 수정)
+- [ ] 서버: partnerStaff.create/list/update/delete 프로시저 추가 (하위 담당자 CRUD)
+- [ ] 서버: partnerStaff.login 프로시저 추가 (하위 담당자 로그인 - JWT 발급)
+- [ ] UI: PartnerJoin.tsx 개선 - 사업자등록증 + 관광사업자등록증 OCR 업로드 UI (수기 입력 제거)
+- [ ] UI: PartnerMyPage.tsx 신규 생성 - OCR 결과 수정 + 하위 담당자 관리 페이지
+- [ ] UI: PartnerStaffLogin.tsx 신규 생성 - 하위 담당자 로그인 페이지 (/partner/staff-login)
+- [ ] App.tsx에 /partner/mypage, /partner/staff-login 라우트 추가
+
+## [OCR 자동 승인 + 비밀번호 재설정] (2026-05-04)
+- [ ] submitWithBothOcr: 두 등록증 OCR 완료 시 자동으로 approved 상태 처리 (관리자 검토 없음)
+- [ ] 자동 승인 시 샘플 데이터 자동 생성 (onPartnerApproved 호출)
+- [ ] DB: partner_staff_password_reset 테이블 생성 (token, staffId, expiresAt)
+- [ ] 서버: partnerStaff.requestPasswordReset 프로시저 (이메일로 재설정 링크 발송)
+- [ ] 서버: partnerStaff.resetPassword 프로시저 (토큰 검증 후 비밀번호 변경)
+- [ ] UI: 하위 담당자 로그인 페이지에 "비밀번호 찾기" 링크 추가
+- [ ] UI: 비밀번호 재설정 페이지 (/partner/reset-password?token=xxx)
+
+## [투어커뮤니케이션 파트너 랜딩페이지] (2026-05-04)
+- [x] partner-landing 소스 dogolf 프로젝트에 통합 (/partner-landing 라우트)
+- [x] 파트너 랜딩 전용 CSS 스타일 index.css에 추가 (glass, gradient-text, particle-bg 등)
+- [x] App.tsx에 /partner-landing 라우트 등록
+- [ ] 체크포인트 저장 및 배포 준비
+- [ ] partner.dayoutgolf.com 도메인 연결 (Settings → Domains)

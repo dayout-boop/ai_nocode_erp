@@ -25,6 +25,9 @@ import PartnerChat from "./pages/Partner/PartnerChat";
 import PartnerOnboarding from "./pages/PartnerOnboarding";
 import Pricing from "./pages/Pricing";
 
+// 투어커뮤니케이션 파트너 랜딩페이지
+import PartnerLandingPage from "./pages/PartnerLanding/PartnerLandingApp";
+
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
@@ -61,6 +64,9 @@ function Router() {
 
       {/* 구독 플랜 페이지 */}
       <Route path={"/pricing"} component={Pricing} />
+
+      {/* 투어커뮤니케이션 파트너 랜딩페이지 */}
+      <Route path={"/partner-landing"} component={PartnerLandingPage} />
 
       <Route path={"/404"} component={NotFound} />
       <Route component={NotFound} />

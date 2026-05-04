@@ -1542,6 +1542,20 @@ export const partnerOnboarding = mysqlTable("partner_onboarding", {
   ocrRawText: text("ocrRawText"),
   /** OCR 추출 결과 (JSON) */
   ocrResult: text("ocrResult"),
+  /** 관광사업자등록증 이미지 S3 키 */
+  tourismLicenseKey: varchar("tourismLicenseKey", { length: 500 }),
+  /** 관광사업자등록증 이미지 URL */
+  tourismLicenseUrl: varchar("tourismLicenseUrl", { length: 500 }),
+  /** 관광사업자 OCR 추출 원문 (JSON) */
+  tourismOcrRawText: text("tourismOcrRawText"),
+  /** 관광사업자 OCR 추출 결과 (JSON) */
+  tourismOcrResult: text("tourismOcrResult"),
+  /** 관광사업자 등록번호 */
+  tourismLicenseNo: varchar("tourismLicenseNo", { length: 50 }),
+  /** 관광사업자 업종 (예: 국외여행업, 국내여행업) */
+  tourismLicenseType: varchar("tourismLicenseType", { length: 100 }),
+  /** 관광사업자 등록일 */
+  tourismOpenDate: varchar("tourismOpenDate", { length: 20 }),
   /** 선택한 샘플 카테고리: golf_tour_domestic | golf_tour_overseas | golf_tour_mixed */
   sampleCategory: mysqlEnum("sampleCategory", ["golf_tour_domestic", "golf_tour_overseas", "golf_tour_mixed"]).default("golf_tour_mixed"),
   /** 선택한 구독 플랜: starter | standard | premium */
@@ -1766,3 +1780,59 @@ export const aiSessionState = mysqlTable("ai_session_state", {
 });
 export type AiSessionState = typeof aiSessionState.$inferSelect;
 export type InsertAiSessionState = typeof aiSessionState.$inferInsert;
+
+// ============================================================
+// PARTNER_STAFF - 파트너사 하위 담당자
+// ============================================================
+/**
+ * 파트너사(여행사)의 하위 담당자 계정 테이블
+ * - 파트너 승인 후 대표자가 하위 담당자를 등록하여 ERP 접근 권한 부여
+ * - 하위 담당자는 별도 로그인 ID/PW로 파트너 ERP에 접근
+ */
+export const partnerStaff = mysqlTable("partner_staff", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 소속 파트너 ID (partners 테이블 참조) */
+  partnerId: int("partnerId").notNull(),
+  /** 파트너 온보딩 ID (partner_onboarding 테이블 참조) */
+  onboardingId: int("onboardingId"),
+  /** 담당자명 */
+  name: varchar("name", { length: 100 }).notNull(),
+  /** 이메일 */
+  email: varchar("email", { length: 320 }),
+  /** 전화번호 */
+  phone: varchar("phone", { length: 30 }),
+  /** 역할: manager(팀장) | staff(일반 담당자) */
+  role: mysqlEnum("role", ["manager", "staff"]).default("staff").notNull(),
+  /** 로그인 ID (이메일 또는 아이디) */
+  loginId: varchar("loginId", { length: 100 }).notNull().unique(),
+  /** 로그인 PW (bcrypt 해시) */
+  loginPwHash: varchar("loginPwHash", { length: 255 }).notNull(),
+  /** 활성 상태 */
+  isActive: boolean("isActive").default(true).notNull(),
+  /** 메모 */
+  memo: text("memo"),
+  /** 마지막 로그인 시각 */
+  lastLoginAt: timestamp("lastLoginAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type PartnerStaff = typeof partnerStaff.$inferSelect;
+export type InsertPartnerStaff = typeof partnerStaff.$inferInsert;
+
+// ============================================================
+// PARTNER_STAFF_PASSWORD_RESET - 하위 담당자 비밀번호 재설정 토큰
+// ============================================================
+export const partnerStaffPasswordReset = mysqlTable("partner_staff_password_reset", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 담당자 ID (partner_staff 테이블 참조) */
+  staffId: int("staffId").notNull(),
+  /** 재설정 토큰 (랜덤 128자) */
+  token: varchar("token", { length: 128 }).notNull().unique(),
+  /** 만료 시각 (기본 30분) */
+  expiresAt: timestamp("expiresAt").notNull(),
+  /** 사용 완료 시각 */
+  usedAt: timestamp("usedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type PartnerStaffPasswordReset = typeof partnerStaffPasswordReset.$inferSelect;
+export type InsertPartnerStaffPasswordReset = typeof partnerStaffPasswordReset.$inferInsert;
