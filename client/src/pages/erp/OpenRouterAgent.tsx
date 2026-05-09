@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Send, Trash2, Bot, User, Zap, Settings2 } from 'lucide-react';
+import { Loader2, Send, Trash2, Bot, User, Zap, Settings2, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { Streamdown } from 'streamdown';
 
@@ -18,6 +18,7 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  attachments?: string[];
 }
 
 // 인기 모델 목록 (하드코딩 - 빠른 로딩)
@@ -44,13 +45,29 @@ export default function OpenRouterAgent() {
 
   // 채팅 뮤테이션
   const chatMutation = trpc.openrouterAgent.chat.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
+      let content = data.response;
+      const attachments: string[] = [];
+      
+      // 메시지 분할 시 첨부 파일 정보 추가
+      if (data._isSplit && data._attachmentCount > 0) {
+        content += '\n\n📎 **' + data._attachmentCount + '개 파일 첨부됨:**\n';
+        if (data.attachments && Array.isArray(data.attachments)) {
+          (data.attachments as string[]).forEach((file: string) => {
+            const filename = file.split('/').pop() || 'attachment';
+            content += '- [' + filename + '](' + file + ')\n';
+            attachments.push(file);
+          });
+        }
+      }
+      
       setMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
-          content: data.response,
+          content,
           timestamp: new Date(),
+          attachments: attachments.length > 0 ? attachments : undefined,
         },
       ]);
     },
@@ -194,49 +211,67 @@ export default function OpenRouterAgent() {
             ) : (
               <div className="space-y-4">
                 {messages.map((msg, i) => (
-                  <div
-                    key={i}
-                    className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-                  >
-                    {/* 아바타 */}
+                  <div key={i}>
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        msg.role === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-gradient-to-br from-violet-500 to-purple-600 text-white'
-                      }`}
+                      className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
                     >
-                      {msg.role === 'user' ? (
-                        <User className="w-4 h-4" />
-                      ) : (
-                        <Bot className="w-4 h-4" />
-                      )}
-                    </div>
-
-                    {/* 메시지 버블 */}
-                    <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
-                        msg.role === 'user'
-                          ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                          : 'bg-muted text-foreground rounded-tl-sm'
-                      }`}
-                    >
-                      {msg.role === 'assistant' ? (
-                        <Streamdown>{msg.content}</Streamdown>
-                      ) : (
-                        <p className="whitespace-pre-wrap">{msg.content}</p>
-                      )}
-                      <p
-                        className={`text-[10px] mt-1 ${
-                          msg.role === 'user' ? 'text-primary-foreground/60' : 'text-muted-foreground'
+                      {/* 아바타 */}
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          msg.role === 'user'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-gradient-to-br from-violet-500 to-purple-600 text-white'
                         }`}
                       >
-                        {msg.timestamp.toLocaleTimeString('ko-KR', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
+                        {msg.role === 'user' ? (
+                          <User className="w-4 h-4" />
+                        ) : (
+                          <Bot className="w-4 h-4" />
+                        )}
+                      </div>
+
+                      {/* 메시지 버블 */}
+                      <div
+                        className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
+                          msg.role === 'user'
+                            ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                            : 'bg-muted text-foreground rounded-tl-sm'
+                        }`}
+                      >
+                        {msg.role === 'assistant' ? (
+                          <Streamdown>{msg.content}</Streamdown>
+                        ) : (
+                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                        )}
+                        <p
+                          className={`text-[10px] mt-1 ${
+                            msg.role === 'user' ? 'text-primary-foreground/60' : 'text-muted-foreground'
+                          }`}
+                        >
+                          {msg.timestamp.toLocaleTimeString('ko-KR', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
                     </div>
+
+                    {/* 첨부 파일 표시 */}
+                    {msg.attachments && msg.attachments.length > 0 && (
+                      <div className="mt-2 ml-11 space-y-1">
+                        {msg.attachments.map((file, idx) => (
+                          <a
+                            key={idx}
+                            href={file}
+                            download
+                            className="flex items-center gap-2 text-xs text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300 p-2 rounded bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 hover:bg-violet-100 dark:hover:bg-violet-950/30 transition-colors"
+                          >
+                            <FileText className="w-3 h-3" />
+                            <span className="truncate">{file.split('/').pop()}</span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
 
@@ -297,6 +332,7 @@ export default function OpenRouterAgent() {
             OpenRouter SDK 기반 모듈형 에이전트로, 300+ 모델에 통합 접근합니다.
             도구 호출(Tool Use)을 통해 ERP 데이터를 실시간으로 조회하고 안내합니다.
             모델은 상단 드롭다운에서 변경할 수 있으며, <code className="bg-muted px-1 rounded">openrouter/auto</code>를 선택하면 최적 모델이 자동 선택됩니다.
+            4,000자 이상의 긴 응답은 자동으로 파일로 분할되어 첨부됩니다.
           </p>
         </CardContent>
       </Card>

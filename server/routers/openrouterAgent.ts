@@ -13,6 +13,7 @@ import { router, protectedProcedure, publicProcedure } from '../_core/trpc.js';
 import { ENV } from '../_core/env.js';
 import { createAgent } from '../agent/agent.js';
 import { dogolfTools } from '../agent/tools.js';
+import { applyMessageSplit } from '../_core/messageSplitter.js';
 
 // ─── 세션별 에이전트 관리 ─────────────────────────────────────────────────────
 // 사용자 ID별로 에이전트 인스턴스를 메모리에 유지
@@ -92,10 +93,20 @@ export const openrouterAgentRouter = router({
 
       try {
         const response = await currentAgent.sendSync(input.message);
+        
+        // 메시지 길이 제한 자동 분할 처리
+        const { response: splitResponse, attachments } = applyMessageSplit(
+          { response },
+          'response'
+        );
+        
         return {
           success: true,
-          response,
+          response: splitResponse.response,
           messageCount: currentAgent.getMessages().length,
+          _isSplit: splitResponse._isSplit,
+          _attachmentCount: splitResponse._attachmentCount,
+          attachments,
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
