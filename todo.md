@@ -1598,4 +1598,8 @@ Detected
 - [x] messageSplitter.ts: 메시지 자동 분할 유틸리티 (4,000자 초과 시 파일 생성)
 - [x] openrouterAgent.ts: chat 뮤테이션에 분할 로직 통합
 - [x] OpenRouterAgent.tsx: 첨부 파일 UI 표시 (다운로드 링크)
+- [x] OpenRouterAgent.tsx: 요청 입력 4,000자 자동 분할 기능 추가
+- [x] OpenRouterAgent.tsx: 문자 수 실시간 표시 + 진행률 바
+- [x] OpenRouterAgent.tsx: 분할 메시지 순서 표시 ([1/3] 형식)
+- [x] openrouterAgent.ts: 순차 전송 시 500ms 딜레이 (레이트 리밋 방지)
 - [x] TypeScript 오류 0개 확인

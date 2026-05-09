@@ -1,6 +1,7 @@
 /**
  * 두골프 ERP - OpenRouter 에이전트 페이지
  * OpenRouter SDK 기반 모듈형 AI 에이전트 인터페이스
+ * 요청/응답 양방향 4,000자 자동 분할 기능 포함
  */
 import { useState, useRef, useEffect } from 'react';
 import { trpc } from '@/lib/trpc';
@@ -10,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Send, Trash2, Bot, User, Zap, Settings2, FileText } from 'lucide-react';
+import { Loader2, Send, Trash2, Bot, User, Zap, Settings2, FileText, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Streamdown } from 'streamdown';
 
@@ -19,6 +20,9 @@ interface ChatMessage {
   content: string;
   timestamp: Date;
   attachments?: string[];
+  isSplit?: boolean;
+  splitIndex?: number;
+  splitTotal?: number;
 }
 
 // 인기 모델 목록 (하드코딩 - 빠른 로딩)
@@ -43,12 +47,37 @@ export default function OpenRouterAgent() {
     refetchInterval: 30000,
   });
 
+  // 메시지 분할 함수 (4,000자 초과 시)
+  const splitMessage = (text: string): string[] => {
+    const MAX_LENGTH = 3800;
+    const chunks: string[] = [];
+    let remaining = text;
+
+    while (remaining.length > MAX_LENGTH) {
+      // 마지막 공백 위치에서 분할
+      let splitPos = MAX_LENGTH;
+      const lastSpace = remaining.lastIndexOf(' ', MAX_LENGTH);
+      if (lastSpace > MAX_LENGTH - 200) {
+        splitPos = lastSpace;
+      }
+
+      chunks.push(remaining.substring(0, splitPos).trim());
+      remaining = remaining.substring(splitPos).trim();
+    }
+
+    if (remaining.length > 0) {
+      chunks.push(remaining);
+    }
+
+    return chunks;
+  };
+
   // 채팅 뮤테이션
   const chatMutation = trpc.openrouterAgent.chat.useMutation({
     onSuccess: (data: any) => {
       let content = data.response;
       const attachments: string[] = [];
-      
+
       // 메시지 분할 시 첨부 파일 정보 추가
       if (data._isSplit && data._attachmentCount > 0) {
         content += '\n\n📎 **' + data._attachmentCount + '개 파일 첨부됨:**\n';
@@ -60,7 +89,7 @@ export default function OpenRouterAgent() {
           });
         }
       }
-      
+
       setMessages((prev) => [
         ...prev,
         {
@@ -68,6 +97,7 @@ export default function OpenRouterAgent() {
           content,
           timestamp: new Date(),
           attachments: attachments.length > 0 ? attachments : undefined,
+          isSplit: data._isSplit || false,
         },
       ]);
     },
@@ -91,20 +121,57 @@ export default function OpenRouterAgent() {
     }
   }, [messages, chatMutation.isPending]);
 
+  // 입력 필드 문자 수 표시
+  const charCount = input.length;
+  const isLongMessage = charCount > 4000;
+  const charPercentage = Math.min((charCount / 4000) * 100, 100);
+
   const handleSend = async () => {
     const text = input.trim();
     if (!text || chatMutation.isPending) return;
 
     setInput('');
-    setMessages((prev) => [
-      ...prev,
-      { role: 'user', content: text, timestamp: new Date() },
-    ]);
 
-    chatMutation.mutate({
-      message: text,
-      model: selectedModel !== 'openrouter/auto' ? selectedModel : undefined,
-    });
+    // 4,000자 초과 시 분할
+    if (text.length > 4000) {
+      const chunks = splitMessage(text);
+      toast.info(`📤 긴 메시지가 ${chunks.length}개 부분으로 분할되어 전송됩니다.`);
+
+      // 각 청크를 순차적으로 전송
+      chunks.forEach((chunk, index) => {
+        const displayText = `[${index + 1}/${chunks.length}] ${chunk}`;
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'user',
+            content: displayText,
+            timestamp: new Date(),
+            isSplit: true,
+            splitIndex: index + 1,
+            splitTotal: chunks.length,
+          },
+        ]);
+
+        // 약간의 딜레이를 두고 전송 (API 레이트 리밋 방지)
+        setTimeout(() => {
+          chatMutation.mutate({
+            message: chunk,
+            model: selectedModel !== 'openrouter/auto' ? selectedModel : undefined,
+          });
+        }, index * 500);
+      });
+    } else {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'user', content: text, timestamp: new Date() },
+      ]);
+
+      chatMutation.mutate({
+        message: text,
+        model: selectedModel !== 'openrouter/auto' ? selectedModel : undefined,
+      });
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -238,6 +305,14 @@ export default function OpenRouterAgent() {
                             : 'bg-muted text-foreground rounded-tl-sm'
                         }`}
                       >
+                        {msg.isSplit && msg.splitIndex && (
+                          <div className="flex items-center gap-1.5 mb-2 pb-2 border-b border-current/20">
+                            <AlertCircle className="w-3.5 h-3.5" />
+                            <span className="text-[11px] font-semibold">
+                              분할 메시지 {msg.splitIndex}/{msg.splitTotal}
+                            </span>
+                          </div>
+                        )}
                         {msg.role === 'assistant' ? (
                           <Streamdown>{msg.content}</Streamdown>
                         ) : (
@@ -295,27 +370,55 @@ export default function OpenRouterAgent() {
           </ScrollArea>
 
           {/* 입력 영역 */}
-          <div className="border-t p-3 flex gap-2">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="메시지를 입력하세요... (Enter로 전송)"
-              disabled={chatMutation.isPending}
-              className="flex-1 text-sm"
-            />
-            <Button
-              onClick={handleSend}
-              disabled={!input.trim() || chatMutation.isPending}
-              size="sm"
-              className="bg-violet-600 hover:bg-violet-700 text-white px-4"
-            >
-              {chatMutation.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-            </Button>
+          <div className="border-t p-3 flex flex-col gap-2">
+            {/* 문자 수 표시 바 */}
+            {charCount > 0 && (
+              <div className="flex items-center justify-between text-xs">
+                <span className={isLongMessage ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-muted-foreground'}>
+                  {charCount.toLocaleString()} / 4,000자
+                </span>
+                {isLongMessage && (
+                  <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    자동으로 분할되어 전송됩니다
+                  </span>
+                )}
+              </div>
+            )}
+            {charCount > 0 && (
+              <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all ${
+                    isLongMessage ? 'bg-amber-500' : 'bg-violet-500'
+                  }`}
+                  style={{ width: `${charPercentage}%` }}
+                />
+              </div>
+            )}
+
+            {/* 입력 필드 */}
+            <div className="flex gap-2">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="메시지를 입력하세요... (Enter로 전송, Shift+Enter로 줄바꿈)"
+                disabled={chatMutation.isPending}
+                className="flex-1 text-sm"
+              />
+              <Button
+                onClick={handleSend}
+                disabled={!input.trim() || chatMutation.isPending}
+                size="sm"
+                className="bg-violet-600 hover:bg-violet-700 text-white px-4"
+              >
+                {chatMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -332,7 +435,9 @@ export default function OpenRouterAgent() {
             OpenRouter SDK 기반 모듈형 에이전트로, 300+ 모델에 통합 접근합니다.
             도구 호출(Tool Use)을 통해 ERP 데이터를 실시간으로 조회하고 안내합니다.
             모델은 상단 드롭다운에서 변경할 수 있으며, <code className="bg-muted px-1 rounded">openrouter/auto</code>를 선택하면 최적 모델이 자동 선택됩니다.
-            4,000자 이상의 긴 응답은 자동으로 파일로 분할되어 첨부됩니다.
+            <br />
+            <strong>양방향 자동 분할:</strong> 요청과 응답 모두 4,000자 이상이면 자동으로 분할되어 전송/표시됩니다.
+            긴 응답은 파일로 첨부되며 다운로드 가능합니다.
           </p>
         </CardContent>
       </Card>
