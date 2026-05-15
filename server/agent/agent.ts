@@ -209,21 +209,30 @@ export class Agent extends EventEmitter<AgentEvents> {
     while (steps < this.config.maxSteps) {
       steps++;
 
-      const response = await this.client.chat.completions.create({
-        model: this.config.model,
-        messages: openaiMessages,
-        tools: tools.length > 0 ? tools : undefined,
-        tool_choice: tools.length > 0 ? 'auto' : undefined,
-        temperature: this.config.temperature,
-        stream: true,
-      });
+      try {
+        // 타임아웃 설정 (30초)
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('OpenRouter API 응답 타임아웃 (30초)')), 30000)
+        );
 
-      this.emit('stream:start');
-      let accumulated = '';
-      const toolCallsMap = new Map<number, { id: string; name: string; args: string }>();
-      let finishReason = '';
+        const response = await Promise.race([
+          this.client.chat.completions.create({
+            model: this.config.model,
+            messages: openaiMessages,
+            tools: tools.length > 0 ? tools : undefined,
+            tool_choice: tools.length > 0 ? 'auto' : undefined,
+            temperature: this.config.temperature,
+            stream: true,
+          }),
+          timeoutPromise,
+        ]);
 
-      for await (const chunk of response) {
+        this.emit('stream:start');
+        let accumulated = '';
+        const toolCallsMap = new Map<number, { id: string; name: string; args: string }>();
+        let finishReason = '';
+
+        for await (const chunk of response) {
         const delta = chunk.choices[0]?.delta;
         const reason = chunk.choices[0]?.finish_reason;
         if (reason) finishReason = reason;
@@ -249,13 +258,13 @@ export class Agent extends EventEmitter<AgentEvents> {
         }
       }
 
-      if (accumulated) {
-        fullText = accumulated;
-        this.emit('stream:end', fullText);
-      }
+        if (accumulated) {
+          fullText = accumulated;
+          this.emit('stream:end', fullText);
+        }
 
-      // 도구 호출 처리
-      if (finishReason === 'tool_calls' && toolCallsMap.size > 0) {
+        // 도구 호출 처리
+        if (finishReason === 'tool_calls' && toolCallsMap.size > 0) {
         const toolCallsList = Array.from(toolCallsMap.values());
 
         // assistant 메시지에 tool_calls 추가
@@ -296,12 +305,31 @@ export class Agent extends EventEmitter<AgentEvents> {
           });
         }
 
-        // 루프 계속
-        continue;
-      }
+          // 루프 계속
+          continue;
+        }
 
-      // 일반 응답 완료
-      break;
+        // 일반 응답 완료
+        break;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`[Agent] 에러 (Step ${steps}):`, errorMessage);
+        this.emit('error', new Error(errorMessage));
+        
+        // 재시도 가능한 에러인 경우 계속 진행, 아니면 중단
+        if (errorMessage.includes('타임아웃') || errorMessage.includes('ECONNRESET')) {
+          fullText = `에러: ${errorMessage}. 다시 시도해주세요.`;
+          break;
+        }
+        
+        // 다른 에러는 그대로 throw
+        throw error;
+      }
+    }
+
+    // fullText가 비어있으면 에러 메시지 반환
+    if (!fullText) {
+      fullText = '에러: 에이전트가 응답을 생성하지 못했습니다. 다시 시도해주세요.';
     }
 
     const assistantMessage: Message = { role: 'assistant', content: fullText };
