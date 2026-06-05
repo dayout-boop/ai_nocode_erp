@@ -1697,3 +1697,8 @@ Detected
 - [x] server/routers.ts: knowledgeBlock 라우터 통합
 - [x] client/src/pages/erp/KnowledgeBlockLog.tsx: 차단 이력 ERP UI 페이지
 - [x] ERPLayout.tsx: 사이드바에 "지식 차단 관리" 메뉴 추가
+
+## 버그 수정 [ID: 450001] - 로그아웃 시 로그인 페이지 즉시 리디렉션
+- [x] ERPLayout.tsx 로그아웃 버튼 클릭 후 /erp 로그인 페이지로 즉시 리디렉션 처리
+- [x] adminAuth.logout tRPC 뮤테이션 onSuccess에서 window.location.href 또는 setLocation 호출
+- [x] 로그아웃 후 ERP 세션 상태 초기화 확인

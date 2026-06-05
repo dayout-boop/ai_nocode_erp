@@ -352,6 +352,19 @@ export default function ERPLayout() {
   const [showWeeklyPopup, setShowWeeklyPopup] = useState(false);
   const weeklyPopupRef = useRef<HTMLDivElement>(null);
 
+  // 마스터 ERP 로그아웃 뮤테이션 (세션 파기 + localStorage 초기화 + 로그인 페이지 리디렉션)
+  const adminLogoutMutation = trpc.adminAuth.logout.useMutation({
+    onSuccess: () => {
+      localStorage.removeItem('adminLoginTime');
+      window.location.href = `${window.location.origin}/erp/login`;
+    },
+    onError: () => {
+      // 오류가 발생해도 로컬 세션 초기화 후 리디렉션
+      localStorage.removeItem('adminLoginTime');
+      window.location.href = `${window.location.origin}/erp/login`;
+    },
+  });
+
   // 마스터 ERP 세션 확인 (Manus 로그인과 별도)
   const adminSessionQuery = trpc.adminAuth.me.useQuery(undefined, {
     refetchInterval: 5 * 60 * 1000, // 5분마다 확인
@@ -491,10 +504,10 @@ export default function ERPLayout() {
           </a>
           <div
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-700 cursor-pointer transition-colors"
-            onClick={logout}
+            onClick={() => adminLogoutMutation.mutate()}
           >
             <LogOut size={16} className="shrink-0" />
-            {!sidebarCollapsed && <span className="text-xs">로그아웃</span>}
+            {!sidebarCollapsed && <span className="text-xs">{adminLogoutMutation.isPending ? '로그아웃 중...' : '로그아웃'}</span>}
           </div>
         </div>
       </aside>
