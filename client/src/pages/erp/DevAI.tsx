@@ -94,6 +94,7 @@ type TabId = "dashboard" | "requests" | "features" | "versions" | "accuracy";
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   pending: { label: "대기", color: "bg-amber-50 text-amber-700 border-amber-200", icon: Clock },
   in_progress: { label: "진행중", color: "bg-blue-50 text-blue-700 border-blue-200", icon: Zap },
+  approved: { label: "승인", color: "bg-violet-50 text-violet-700 border-violet-200", icon: CheckCircle2 },
   completed: { label: "완료", color: "bg-green-50 text-green-700 border-green-200", icon: CheckCircle2 },
   rejected: { label: "반려", color: "bg-red-50 text-red-700 border-red-200", icon: XCircle },
 };
@@ -119,6 +120,9 @@ const CATEGORY_LABELS: Record<string, string> = {
   cms: "CMS",
   finance: "재무",
   system: "시스템",
+  manager_talk: "두골프 매니저톡",
+  ui_ux: "UI/UX",
+  erp: "ERP",
 };
 
 // ─── GitHub 커밋 링크 컴포넌트 ────────────────────────────────────────────────────
@@ -402,7 +406,11 @@ export default function DevAI() {
 
   const updateReqMutation = trpc.devAI.updateRequest.useMutation({
     onSuccess: (data, variables) => {
-      toast.success("요청이 업데이트되었습니다.");
+      if (variables.status === "approved") {
+        toast.success("승인되었습니다. 자율수행데스크에 자동 전송 중...", { duration: 4000 });
+      } else {
+        toast.success("요청이 업데이트되었습니다.");
+      }
       setEditReqOpen(false);
       utils.devAI.listRequests.invalidate();
       utils.devAI.dashboardStats.invalidate();
@@ -732,6 +740,7 @@ export default function DevAI() {
                   <SelectContent>
                     <SelectItem value="all">전체 상태</SelectItem>
                     <SelectItem value="pending">대기</SelectItem>
+                    <SelectItem value="approved">승인</SelectItem>
                     <SelectItem value="in_progress">진행중</SelectItem>
                     <SelectItem value="completed">완료</SelectItem>
                     <SelectItem value="rejected">반려</SelectItem>
@@ -958,7 +967,7 @@ export default function DevAI() {
                               )}
                               {/* 상태 변경 빠른 버튼 */}
                               <div className="flex gap-2 flex-wrap">
-                                {["pending", "in_progress", "completed", "rejected"].map((s) => (
+                                {["pending", "approved", "in_progress", "completed", "rejected"].map((s) => (
                                   <Button
                                     key={s}
                                     variant="outline"
@@ -1769,6 +1778,7 @@ export default function DevAI() {
                       <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pending">대기</SelectItem>
+                        <SelectItem value="approved">승인</SelectItem>
                         <SelectItem value="in_progress">진행중</SelectItem>
                         <SelectItem value="completed">완료</SelectItem>
                         <SelectItem value="rejected">반려</SelectItem>

@@ -212,22 +212,38 @@ export const devRequestRouter = router({
   /**
    * 상태 변경
    */
-  updateStatus: adminProcedure
+   updateStatus: adminProcedure
     .input(
       z.object({
         id: z.number().int().positive(),
-        status: z.enum(["pending", "in_progress", "completed", "rejected"]),
+        status: z.enum(["pending", "approved", "in_progress", "completed", "rejected"]),
       })
     )
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-
       await db
         .update(devRequests)
         .set({ status: input.status, updatedAt: new Date() })
         .where(eq(devRequests.id, input.id));
       publish("dev_request_updated", { id: input.id, status: input.status });
+
+      // 승인(approved) 시 자율수행데스크(Manus)에 자동 전송
+      if (input.status === "approved") {
+        setImmediate(async () => {
+          try {
+            const result = await sendSingleRequestToManus(input.id);
+            if (result.success) {
+              console.log(`[DevRequest] 승인 자동 연동 성공: id=${input.id}, taskId=${result.manusTaskId}`);
+              publish("dev_request_updated", { id: input.id, status: "in_progress", autoSent: true });
+            } else {
+              console.error(`[DevRequest] 승인 자동 연동 실패: id=${input.id}`);
+            }
+          } catch (e) {
+            console.error(`[DevRequest] 승인 자동 연동 오류: id=${input.id}`, e);
+          }
+        });
+      }
 
       return { success: true };
     }),

@@ -2165,7 +2165,7 @@ const devAIRouter = router({
     id: z.number(),
     title: z.string().optional(),
     description: z.string().optional(),
-    status: z.enum(["pending", "in_progress", "completed", "rejected"]).optional(),
+    status: z.enum(["pending", "in_progress", "completed", "rejected", "approved"]).optional(),
     priority: z.enum(["high", "medium", "low"]).optional(),
     result: z.string().optional(),
     slackMessageTs: z.string().optional(),
@@ -2173,8 +2173,12 @@ const devAIRouter = router({
   })).mutation(async ({ input }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    const { id, ...data } = input;
-    await db.update(devRequests).set(data).where(eq(devRequests.id, id));
+    const { id, ...rawData } = input;
+    // undefined 필드 제거 (Drizzle ORM이 undefined를 null로 처리하는 버그 방지)
+    const data = Object.fromEntries(
+      Object.entries(rawData).filter(([, v]) => v !== undefined)
+    ) as Partial<typeof rawData>;
+    await db.update(devRequests).set({ ...data, updatedAt: new Date() }).where(eq(devRequests.id, id));
     return { success: true };
   }),
   deleteRequest: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => {

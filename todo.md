@@ -1676,3 +1676,10 @@ Detected
 - [x] Route 등록 (/manager-chat → ManagerChat 컴포넌트)
 - [x] TypeScript 오류 0개 확인
 - [x] managerChat API 동작 확인 (Gemini 2.5 Flash 응답)
+
+## 개발요청 시스템 버그 수정 및 자율수행데스크 연동 [ID: 390002] (2026-06-05)
+- [x] 상태 원복 버그 수정 - updateRequest에서 undefined 필드 제거 (Drizzle ORM null 처리 버그 방지)
+- [x] approved(승인) 상태 추가 - updateRequest/updateStatus enum에 approved 추가
+- [x] 카테고리 추가 - CATEGORY_LABELS에 manager_talk(두골프 매니저톡), ui_ux, erp 추가
+- [x] 승인 시 자율수행데스크 자동 연동 - updateStatus approved 시 sendSingleRequestToManus 자동 호출
+- [x] 프론트엔드 상태 버튼 업데이트 - 승인 버튼 추가, 승인 시 알림 메시지 표시
