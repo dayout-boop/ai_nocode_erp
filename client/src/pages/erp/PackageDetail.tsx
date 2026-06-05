@@ -34,10 +34,11 @@ const OPTION_TYPE_MAP: Record<string, string> = {
 
 export default function PackageDetail() {
   const [, params] = useRoute("/erp/packages/:id");
-  const id = Number(params?.id);
+  const isNew = params?.id === 'new';
+  const id = isNew ? 0 : Number(params?.id);
   const utils = trpc.useUtils();
 
-  const { data, isLoading } = trpc.packages.get.useQuery({ id }, { enabled: !!id });
+  const { data, isLoading } = trpc.packages.get.useQuery({ id }, { enabled: !!id && !isNew });
 
   // Price form
   const [priceForm, setPriceForm] = useState({
@@ -263,6 +264,24 @@ export default function PackageDetail() {
     setIsDragging(false);
     handleFileSelect(e.dataTransfer.files);
   };
+
+  if (isNew) return (
+    <div className="py-20 text-center">
+      <div className="inline-flex flex-col items-center gap-4 max-w-sm">
+        <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center">
+          <Plus size={28} className="text-indigo-500" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-800">상품 등록</h2>
+        <p className="text-slate-500 text-sm">상품 목록에서 "새 상품 등록" 버튼을 이용하여 새 상품을 등록하세요.</p>
+        <Link href="/erp/packages">
+          <Button className="bg-indigo-600 hover:bg-indigo-700 text-white">
+            <ArrowLeft size={16} className="mr-2" />
+            상품 목록으로 이동
+          </Button>
+        </Link>
+      </div>
+    </div>
+  );
 
   if (isLoading) return <div className="py-20 text-center text-slate-400">로딩 중...</div>;
   if (!data) return <div className="py-20 text-center text-slate-400">상품을 찾을 수 없습니다.</div>;

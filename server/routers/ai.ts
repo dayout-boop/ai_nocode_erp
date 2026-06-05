@@ -16,12 +16,23 @@ import { orchestratorChat } from "../services/openrouter";
 import { MASTER_SYSTEM_PROMPT } from "../services/prompts/master";
 import { GOLFTALK_SYSTEM_PROMPT, GOLFTALK_FALLBACK_MESSAGE } from "../services/prompts/golftalk";
 
-// 관리자 전용 프로시저
+// Manus OAuth 기반 관리자 전용 프로시저 (masterChat 등 Manus 로그인 필요 기능)
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "admin") {
     throw new TRPCError({ code: "FORBIDDEN", message: "관리자만 접근 가능합니다." });
   }
   return next({ ctx });
+});
+// ERP 마스터 세션 기반 프로시저 (admin_session 쿠키 인증 - Manus 로그인 불필요)
+const erpLoginProcedure = publicProcedure.use(async ({ ctx, next }) => {
+  const adminSession = (ctx.req as any).adminSession;
+  if (!adminSession) {
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: '마스터 ERP 로그인이 필요합니다',
+    });
+  }
+  return next({ ctx: { ...ctx, adminSession } });
 });
 
 // Rate limit 저장소 (인메모리, 프로세스 재시작 시 초기화)
@@ -275,7 +286,7 @@ export const aiRouter = router({
   /**
    * AI 사용 로그 조회 (관리자 전용)
    */
-  getLogs: adminProcedure
+  getLogs: erpLoginProcedure
     .input(
       z.object({
         assistant: z.enum(["master", "golftalk", "manager", "all"]).default("all"),
@@ -307,7 +318,7 @@ export const aiRouter = router({
   /**
    * AI 비용 집계 (관리자 전용)
    */
-  getCostSummary: adminProcedure
+  getCostSummary: erpLoginProcedure
     .input(
       z.object({
         period: z.enum(["today", "week", "month"]).default("month"),
@@ -431,7 +442,7 @@ export const aiRouter = router({
   /**
    * 세션별 대화 내역 조회
    */
-  getSessionMessages: adminProcedure
+  getSessionMessages: erpLoginProcedure
     .input(z.object({ sessionId: z.string() }))
     .query(async ({ input }) => {
       const db = await getDb();

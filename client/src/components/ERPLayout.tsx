@@ -74,6 +74,7 @@ import GitHubHistory from "@/pages/erp/GitHubHistory";
 import AdminManagementPage from "@/pages/erp/AdminManagement";
 import ManagerChat from "@/pages/erp/ManagerChat";
 import KnowledgeBlockLog from "@/pages/erp/KnowledgeBlockLog";
+import SettlementsSuppliers from "@/pages/erp/SettlementsSuppliers";
 import { Loader2, Github } from "lucide-react";
 
 interface NavChild {
@@ -127,6 +128,9 @@ const navItems: NavItem[] = [
       { label: "파일 분석 이력", href: "/ai-engine/file-analysis", icon: <FileText size={14} /> },
       { label: "GitHub 연동", href: "/ai-engine/github-settings", icon: <Github size={14} /> },
       { label: "코드 히스토리", href: "/ai-engine/github-history", icon: <GitBranch size={14} /> },
+      { label: "Gemini 어시스턴트", href: "/gemini", icon: <Sparkles size={14} /> },
+      { label: "AI 로그", href: "/ai-logs", icon: <History size={14} /> },
+      { label: "오케스트레이터", href: "/orchestrator", icon: <Zap size={14} /> },
     ],
   },
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -298,6 +302,7 @@ function ERPContent() {
           <Route path="/bookings" component={ERPBookings} />
           <Route path="/inquiries" component={ERPInquiries} />
           <Route path="/settlements" component={ERPSettlements} />
+          <Route path="/settlements/suppliers" component={SettlementsSuppliers} />
           <Route path="/crm" component={ERPCRMCustomers} />
           <Route path="/crm/partners" component={ERPCRMPartners} />
           <Route path="/crm/affiliates" component={AffiliateManagement} />

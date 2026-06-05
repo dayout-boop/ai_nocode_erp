@@ -1711,3 +1711,11 @@ Detected
 - [x] server/routers/devRequests.ts: markComplete 프로시저에 Manus Publish API 호출 로직 추가
 - [x] ERP 개발 요청 완료 처리 시 Manus WebDev 게시(Publish) 자동 트리거
 - [x] 게시 성공/실패 결과를 ERP UI에 표시
+
+## 시스템 전체 기능 및 UI 정합성 검토 [ID: 480001]
+- [ ] ERP 전체 구조 파악 (라우터/페이지/사이드바/DB 전수 조사)
+- [ ] 기능별 정합성 검증 (API 연결 상태, 빈 페이지, 미작동 기능)
+- [ ] 조사 결과 리스트업 및 우선순위 분류
+- [ ] CRITICAL/HIGH 문제 즉시 수정
+- [ ] MEDIUM 문제 수정 및 UI 정합성 개선
+- [ ] 최종 검증 및 체크포인트 저장
