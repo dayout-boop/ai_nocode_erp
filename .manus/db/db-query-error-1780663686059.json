@@ -1,0 +1,8 @@
+{
+  "query": "SELECT id, complexity, model_id, model_name, is_active FROM model_routing_rules WHERE model_id LIKE '%flash-lite%' OR model_id LIKE '%gemini%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26cugxGHXFTgwBN.root --database dkz3FsMPRyyRyzyL9KrQXe --execute SELECT id, complexity, model_id, model_name, is_active FROM model_routing_rules WHERE model_id LIKE '%flash-lite%' OR model_id LIKE '%gemini%';",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'model_id' in 'where clause'"
+  ]
+}

@@ -1683,3 +1683,9 @@ Detected
 - [x] 카테고리 추가 - CATEGORY_LABELS에 manager_talk(두골프 매니저톡), ui_ux, erp 추가
 - [x] 승인 시 자율수행데스크 자동 연동 - updateStatus approved 시 sendSingleRequestToManus 자동 호출
 - [x] 프론트엔드 상태 버튼 업데이트 - 승인 버튼 추가, 승인 시 알림 메시지 표시
+
+## 마스터 AI OpenRouter 모델 404 오류 수정 [ID: 420001] (2026-06-05)
+- [x] DB model_routing_rules에서 gemini-2.0-flash-lite-001 → gemini-2.5-flash-lite 업데이트
+- [x] server/routers/modelRouting.ts DEFAULT_MODEL_RULES 기본값 수정
+- [x] server/routers.ts 초기화 기본값 수정
+- [x] server/services/openrouter.ts MODEL_MAP low 모델 수정

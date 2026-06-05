@@ -1,0 +1,37 @@
+{
+  "query": "SELECT id, complexity, modelId, modelName, inputPricePerMillion, outputPricePerMillion, isActive FROM model_routing_rules ORDER BY id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26cugxGHXFTgwBN.root --database dkz3FsMPRyyRyzyL9KrQXe --execute SELECT id, complexity, modelId, modelName, inputPricePerMillion, outputPricePerMillion, isActive FROM model_routing_rules ORDER BY id;",
+  "rows": [
+    {
+      "id": "1",
+      "complexity": "high",
+      "modelId": "google/gemini-2.5-pro-preview-05-06",
+      "modelName": "Gemini 2.5 Pro Preview",
+      "inputPricePerMillion": "1.2500",
+      "outputPricePerMillion": "10.0000",
+      "isActive": "1"
+    },
+    {
+      "id": "2",
+      "complexity": "medium",
+      "modelId": "google/gemini-2.5-flash",
+      "modelName": "Gemini 2.5 Flash",
+      "inputPricePerMillion": "0.1500",
+      "outputPricePerMillion": "0.6000",
+      "isActive": "1"
+    },
+    {
+      "id": "3",
+      "complexity": "low",
+      "modelId": "google/gemini-2.5-flash-lite",
+      "modelName": "Gemini 2.5 Flash Lite",
+      "inputPricePerMillion": "0.1000",
+      "outputPricePerMillion": "0.4000",
+      "isActive": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tcomplexity\tmodelId\tmodelName\tinputPricePerMillion\toutputPricePerMillion\tisActive\n1\thigh\tgoogle/gemini-2.5-pro-preview-05-06\tGemini 2.5 Pro Preview\t1.2500\t10.0000\t1\n2\tmedium\tgoogle/gemini-2.5-flash\tGemini 2.5 Flash\t0.1500\t0.6000\t1\n3\tlow\tgoogle/gemini-2.5-flash-lite\tGemini 2.5 Flash Lite\t0.1000\t0.4000\t1\n",
+  "stderr": "",
+  "execution_time_ms": 1758
+}

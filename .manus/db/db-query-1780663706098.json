@@ -1,0 +1,9 @@
+{
+  "query": "UPDATE model_routing_rules SET modelId = 'google/gemini-2.5-flash-lite', modelName = 'Gemini 2.5 Flash Lite', inputPricePerMillion = 0.10, outputPricePerMillion = 0.40, updatedAt = NOW() WHERE id = 3 AND modelId = 'google/gemini-2.0-flash-lite-001';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26cugxGHXFTgwBN.root --database dkz3FsMPRyyRyzyL9KrQXe --execute UPDATE model_routing_rules SET modelId = 'google/gemini-2.5-flash-lite', modelName = 'Gemini 2.5 Flash Lite', inputPricePerMillion = 0.10, outputPricePerMillion = 0.40, updatedAt = NOW() WHERE id = 3 AND modelId = 'google/gemini-2.0-flash-lite-001';",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1768
+}

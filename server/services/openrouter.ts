@@ -4,7 +4,7 @@
  * 모델 라우팅:
  *  high   → google/gemini-2.5-pro-preview (추론·분석·오류검수)
  *  medium → google/gemini-2.5-flash       (생성·요약·상담)
- *  low    → google/gemini-2.0-flash-lite  (분류·태깅·단순응답)
+ *  low    → google/gemini-2.5-flash-lite  (분류·태깅·단순응답)
  *
  * Tool Calling 지원 (두골프 마스터 전용)
  */
@@ -29,10 +29,10 @@ const MODEL_MAP: Record<"high" | "medium" | "low", { id: string; name: string; i
     outputPrice: 0.6,
   },
   low: {
-    id: "google/gemini-2.0-flash-lite-001",
-    name: "Gemini 2.0 Flash Lite",
-    inputPrice: 0.075,
-    outputPrice: 0.3,
+    id: "google/gemini-2.5-flash-lite",
+    name: "Gemini 2.5 Flash Lite",
+    inputPrice: 0.10,
+    outputPrice: 0.40,
   },
 };
 

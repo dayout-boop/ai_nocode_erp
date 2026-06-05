@@ -2021,7 +2021,7 @@ const modelRoutingRouter = router({
     const defaults = [
       { complexity: "high" as const, modelId: "google/gemini-2.5-pro-preview-05-06", modelName: "Gemini 2.5 Pro Preview", inputPricePerMillion: "1.25", outputPricePerMillion: "10.0", description: "추론·분석·오류검수 등 고복잡도 작업", isActive: true, priority: 1 },
       { complexity: "medium" as const, modelId: "google/gemini-2.5-flash", modelName: "Gemini 2.5 Flash", inputPricePerMillion: "0.15", outputPricePerMillion: "0.6", description: "생성·요약·상담 등 중간 복잡도 작업", isActive: true, priority: 2 },
-      { complexity: "low" as const, modelId: "google/gemini-2.0-flash-lite-001", modelName: "Gemini 2.0 Flash Lite", inputPricePerMillion: "0.075", outputPricePerMillion: "0.3", description: "분류·태깅·단순응답 등 저복잡도 작업", isActive: true, priority: 3 },
+      { complexity: "low" as const, modelId: "google/gemini-2.5-flash-lite", modelName: "Gemini 2.5 Flash Lite", inputPricePerMillion: "0.10", outputPricePerMillion: "0.40", description: "분류·태깅·단순응답 등 저복잡도 작업", isActive: true, priority: 3 },
     ];
     for (const d of defaults) {
       await db.insert(modelRoutingRules).values({ ...d, updatedBy: ctx.user.name ?? ctx.user.openId });
