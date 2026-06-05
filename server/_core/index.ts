@@ -18,6 +18,7 @@ import { reportError } from "./errorWatcher.js";
 import { subscribe, startHeartbeat } from "../services/realtimeEvents";
 import { startManusSync } from "../services/manusSync";
 import { sdk } from "./sdk";
+import { validateAdminSession } from "./adminAuth";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -118,6 +119,18 @@ async function startServer() {
     } catch {
       res.status(500).json({ error: "SSE 연결 실패" });
     }
+  });
+
+  // admin_session 쿠키 검증 미들웨어 - masterProcedure에서 ctx.req.adminSession 사용
+  app.use('/api/trpc', (req, res, next) => {
+    const adminSessionId = req.cookies?.admin_session;
+    if (adminSessionId) {
+      const session = validateAdminSession(adminSessionId);
+      if (session) {
+        (req as any).adminSession = session;
+      }
+    }
+    next();
   });
 
   // tRPC API

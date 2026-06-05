@@ -18,6 +18,22 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
 
   if (!isUnauthorized) return;
 
+  // /erp 경로에서는 마스터 로그인 페이지로 리다이렉트 (Manus OAuth 아님)
+  const currentPath = window.location.pathname;
+  if (currentPath.startsWith('/erp')) {
+    // 마스터 세션이 없으면 마스터 로그인 페이지로
+    const adminLoginTime = localStorage.getItem('adminLoginTime');
+    if (!adminLoginTime) {
+      window.location.href = window.location.origin + '/erp/login';
+      return;
+    }
+    // 마스터 세션이 있는데 UNAUTHORIZED면 세션 만료 - 재로그인
+    localStorage.removeItem('adminLoginTime');
+    localStorage.removeItem('adminUsername');
+    window.location.href = window.location.origin + '/erp/login';
+    return;
+  }
+
   window.location.href = getLoginUrl();
 };
 

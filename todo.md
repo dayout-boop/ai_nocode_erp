@@ -1652,3 +1652,12 @@ Detected
   - [x] masterERP.test.ts 작성 (15개 테스트 - 모두 통과)
   - [x] TypeScript 오류 0개 확인
   - [x] Dev 서버 정상 실행 확인
+
+## ERP 마스터 로그인 버그 수정 (2026-06-05)
+- [x] ERPLayout 마스터 로그인 버튼 URL 중복 문제 수정 (wouter 상대경로 → 절대 URL)
+- [x] ERPLayout 중복 Manus OAuth 블록 제거 (데드코드)
+- [x] ERPLogin.tsx tRPC 요청 형식 수정 (json 래퍼 사용)
+- [x] cookie-parser 미들웨어 추가 (admin_session 쿠키 파싱)
+- [x] context.ts 수정: admin_session 쿠키 → ctx.user 주입 (protectedProcedure 마스터 세션 허용)
+- [x] index.ts 수정: admin_session 미들웨어 추가 (masterProcedure ctx.req.adminSession 설정)
+- [x] main.tsx 수정: /erp 경로에서 UNAUTHORIZED 시 Manus OAuth 대신 마스터 로그인 페이지로 리다이렉트
