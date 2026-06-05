@@ -38,20 +38,27 @@ class OAuthService {
     }
   }
 
-  private decodeState(state: string): string {
-    const redirectUri = atob(state);
-    return redirectUri;
+  private decodeState(state: string): { redirectUri: string; invitationCode?: string; skipPopup?: boolean } {
+    try {
+      const decoded = atob(state);
+      const data = JSON.parse(decoded);
+      return data;
+    } catch (e) {
+      // 기존 형식 (문자열만) 호환성 유지
+      return { redirectUri: atob(state) };
+    }
   }
 
   async getTokenByCode(
     code: string,
     state: string
   ): Promise<ExchangeTokenResponse> {
+    const stateData = this.decodeState(state);
     const payload: ExchangeTokenRequest = {
       clientId: ENV.appId,
       grantType: "authorization_code",
       code,
-      redirectUri: this.decodeState(state),
+      redirectUri: stateData.redirectUri,
     };
 
     const { data } = await this.client.post<ExchangeTokenResponse>(

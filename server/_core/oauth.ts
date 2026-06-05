@@ -44,6 +44,18 @@ export function registerOAuthRoutes(app: Express) {
       const cookieOptions = getSessionCookieOptions(req);
       res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
 
+      // 초대코드가 있으면 파트너 가입 페이지로 리다이렉트
+      try {
+        const stateData = JSON.parse(atob(state));
+        if (stateData.invitationCode) {
+          console.log(`[OAuth] 초대코드 적용: ${stateData.invitationCode}`);
+          res.redirect(302, "/partner/join?step=2");
+          return;
+        }
+      } catch (e) {
+        // state 파싱 실패 시 기본 동작
+      }
+
       res.redirect(302, "/");
     } catch (error) {
       console.error("[OAuth] Callback failed", error);

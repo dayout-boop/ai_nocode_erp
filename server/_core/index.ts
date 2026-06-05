@@ -62,7 +62,19 @@ async function startServer() {
     }
     
     try {
-      const oauthUrl = getManusLoginUrlWithInvitation(invitationCode);
+      const appId = process.env.VITE_APP_ID || '';
+      const oauthPortalUrl = process.env.OAUTH_SERVER_URL || '';
+      
+      if (!appId || !oauthPortalUrl) {
+        return res.status(500).json({ error: 'OAuth 설정이 누락되었습니다' });
+      }
+      
+      const oauthUrl = getManusLoginUrlWithInvitation(
+        invitationCode,
+        true,
+        appId,
+        oauthPortalUrl
+      );
       res.json({ url: oauthUrl });
     } catch (error) {
       console.error('Custom OAuth URL generation error:', error);

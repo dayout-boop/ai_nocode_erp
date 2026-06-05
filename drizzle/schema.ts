@@ -1306,7 +1306,7 @@ export const siteNavItems = mysqlTable("site_nav_items", {
   sortOrder: int("sortOrder").default(0).notNull(),
   isVisible: boolean("isVisible").default(true).notNull(),
   openInNewTab: boolean("openInNewTab").default(false).notNull(),
-  icon: varchar("icon", { length: 50 }),
+  icon: varchar("icon", { length: 100 }),
   createdAt: timestamp("createdAt").defaultNow(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
 });

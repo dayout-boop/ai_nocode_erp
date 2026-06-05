@@ -101,9 +101,34 @@ export async function getManusGoogleOAuthUrl(invitationCode: string): Promise<st
 }
 
 /**
- * 초대코드를 포함한 manus.im 로그인 URL 생성
+ * 초대코드를 포함한 Manus app-auth URL 생성
  * 모든 OAuth 제공자(Google/Facebook/Apple/Microsoft)에서 자동으로 초대코드 크레딧 적용
+ * 가입 후 우리 서비스로 자동 리다이렉트됨
  */
-export function getManusLoginUrlWithInvitation(invitationCode: string): string {
-  return `https://manus.im/login?code=${invitationCode}`;
+export function getManusLoginUrlWithInvitation(
+  invitationCode: string,
+  skipPopup: boolean = true,
+  appId: string,
+  oauthPortalUrl: string,
+  redirectUri: string = 'https://dogolf-tour-dkz3fsmp.manus.space/api/oauth/callback'
+): string {
+  // state에 초대코드 + skipPopup 파라미터 포함
+  const stateData = {
+    redirectUri,
+    invitationCode,
+    skipPopup,
+  };
+  const state = Buffer.from(JSON.stringify(stateData)).toString('base64');
+
+  const url = new URL(`${oauthPortalUrl}/app-auth`);
+  url.searchParams.set('appId', appId);
+  url.searchParams.set('redirectUri', redirectUri);
+  url.searchParams.set('state', state);
+  url.searchParams.set('type', 'signIn');
+  url.searchParams.set('code', invitationCode);  // 초대코드 추가
+  if (skipPopup) {
+    url.searchParams.set('skip_credit_popup', 'true');  // 팝업 억제
+  }
+
+  return url.toString();
 }

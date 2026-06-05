@@ -1,0 +1,170 @@
+/**
+ * 파일 텍스트 추출 서비스
+ * - PDF: pdf-parse
+ * - DOCX/DOC: mammoth
+ * - 이미지(JPG/PNG/WEBP): Gemini Vision API (LLM OCR)
+ * - TXT/CSV/MD: 직접 읽기
+ */
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import mammoth from "mammoth";
+import { invokeLLM } from "../_core/llm.v2";
+
+// pdfjs 워커 비활성화 (서버사이드)
+(pdfjsLib as unknown as { GlobalWorkerOptions: { workerSrc: string } }).GlobalWorkerOptions.workerSrc = "";
+
+export type ExtractResult = {
+  text: string;
+  pageCount?: number;
+  method: "pdf-parse" | "mammoth" | "llm-vision" | "plain-text" | "unsupported";
+  error?: string;
+};
+
+/**
+ * 파일 버퍼에서 텍스트 추출
+ */
+export async function extractTextFromBuffer(
+  buffer: Buffer,
+  mimeType: string,
+  fileName: string,
+  fileUrl?: string
+): Promise<ExtractResult> {
+  try {
+    // PDF
+    if (mimeType === "application/pdf" || fileName.toLowerCase().endsWith(".pdf")) {
+      try {
+        const uint8Array = new Uint8Array(buffer);
+        const loadingTask = (pdfjsLib as unknown as { getDocument: (src: { data: Uint8Array }) => { promise: Promise<{ numPages: number; getPage: (n: number) => Promise<{ getTextContent: () => Promise<{ items: Array<{ str: string }> }> }> }> } }).getDocument({ data: uint8Array });
+        const pdfDoc = await loadingTask.promise;
+        const numPages = pdfDoc.numPages;
+        const textParts: string[] = [];
+        for (let i = 1; i <= numPages; i++) {
+          const page = await pdfDoc.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map((item) => item.str).join(" ");
+          textParts.push(pageText);
+        }
+        return {
+          text: textParts.join("\n").slice(0, 50000),
+          pageCount: numPages,
+          method: "pdf-parse",
+        };
+      } catch (pdfErr) {
+        const msg = pdfErr instanceof Error ? pdfErr.message : String(pdfErr);
+        return { text: "", method: "pdf-parse", error: `PDF 파싱 실패: ${msg}` };
+      }
+    }
+
+    // DOCX / DOC
+    if (
+      mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      mimeType === "application/msword" ||
+      fileName.toLowerCase().endsWith(".docx") ||
+      fileName.toLowerCase().endsWith(".doc")
+    ) {
+      const result = await mammoth.extractRawText({ buffer });
+      return {
+        text: result.value.slice(0, 50000),
+        method: "mammoth",
+      };
+    }
+
+    // 이미지 (Gemini Vision OCR)
+    if (
+      mimeType.startsWith("image/") ||
+      /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(fileName)
+    ) {
+      if (!fileUrl) {
+        return { text: "", method: "llm-vision", error: "이미지 URL이 필요합니다." };
+      }
+      const response = await invokeLLM({
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "image_url",
+                image_url: { url: fileUrl, detail: "high" },
+              },
+              {
+                type: "text",
+                text: "이 이미지에서 모든 텍스트를 추출해 주세요. 표, 목록, 단락 구조를 최대한 유지하여 텍스트로 변환해 주세요. 텍스트가 없으면 이미지 내용을 상세히 설명해 주세요.",
+              },
+            ],
+          },
+        ],
+      });
+      const extracted = response?.choices?.[0]?.message?.content ?? "";
+      return {
+        text: typeof extracted === "string" ? extracted.slice(0, 50000) : "",
+        method: "llm-vision",
+      };
+    }
+
+    // 텍스트 기반 파일 (TXT, CSV, MD, JSON)
+    if (
+      mimeType.startsWith("text/") ||
+      mimeType === "application/json" ||
+      /\.(txt|csv|md|json|xml|html|htm)$/i.test(fileName)
+    ) {
+      return {
+        text: buffer.toString("utf-8").slice(0, 50000),
+        method: "plain-text",
+      };
+    }
+
+    return {
+      text: "",
+      method: "unsupported",
+      error: `지원하지 않는 파일 형식: ${mimeType}`,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      text: "",
+      method: "unsupported",
+      error: `텍스트 추출 실패: ${message}`,
+    };
+  }
+}
+
+/**
+ * 추출된 텍스트를 청크로 분할 (RAG용)
+ * 최대 청크 크기: 2,000자, 오버랩: 200자
+ */
+export function chunkText(text: string, chunkSize = 2000, overlap = 200): string[] {
+  if (!text || text.length === 0) return [];
+  const chunks: string[] = [];
+  let start = 0;
+  while (start < text.length) {
+    const end = Math.min(start + chunkSize, text.length);
+    chunks.push(text.slice(start, end));
+    start += chunkSize - overlap;
+    if (start >= text.length) break;
+  }
+  return chunks;
+}
+
+/**
+ * 파일 컨텍스트를 LLM 질의에 주입하기 위한 시스템 프롬프트 생성
+ */
+export function buildFileContext(
+  fileName: string,
+  extractedText: string,
+  summary?: string
+): string {
+  const truncated = extractedText.slice(0, 8000); // 컨텍스트 윈도우 절약
+  return `
+## 첨부 파일 분석 컨텍스트
+
+**파일명**: ${fileName}
+${summary ? `**요약**: ${summary}\n` : ""}
+
+**파일 내용**:
+\`\`\`
+${truncated}
+${extractedText.length > 8000 ? `\n... (내용이 길어 일부 생략됨, 총 ${extractedText.length}자)` : ""}
+\`\`\`
+
+위 파일 내용을 참고하여 사용자의 질문에 답변해 주세요.
+`.trim();
+}
