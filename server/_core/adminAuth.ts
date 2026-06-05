@@ -12,6 +12,7 @@ const adminSessions = new Map<
   {
     adminId: number;
     username: string;
+    role: string;
     loginTime: number;
     lastActivity: number;
   }
@@ -51,9 +52,11 @@ export async function authenticateAdmin(username: string, password: string) {
     const sessionId = generateSessionId();
     const now = Date.now();
 
+    // role 포함하여 세션 저장
     adminSessions.set(sessionId, {
       adminId: admin.id,
       username: admin.username,
+      role: admin.role || 'admin',
       loginTime: now,
       lastActivity: now,
     });
@@ -70,7 +73,7 @@ export async function authenticateAdmin(username: string, password: string) {
       sessionId,
       adminId: admin.id,
       username: admin.username,
-      role: admin.role,
+      role: admin.role || 'admin',
     };
   } catch (error) {
     throw error;
@@ -78,7 +81,7 @@ export async function authenticateAdmin(username: string, password: string) {
 }
 
 /**
- * 세션 검증
+ * 세션 검증 - role 포함하여 반환
  */
 export function validateAdminSession(sessionId: string) {
   const session = adminSessions.get(sessionId);
@@ -102,6 +105,7 @@ export function validateAdminSession(sessionId: string) {
   return {
     adminId: session.adminId,
     username: session.username,
+    role: session.role,
   };
 }
 
@@ -122,8 +126,8 @@ export async function hashPassword(password: string) {
 /**
  * 비밀번호 검증
  */
-export async function validatePassword(password: string, hash: string) {
-  return compare(password, hash);
+export async function validatePassword(password: string, hashStr: string) {
+  return compare(password, hashStr);
 }
 
 /**

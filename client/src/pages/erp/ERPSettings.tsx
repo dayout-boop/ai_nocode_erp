@@ -1,15 +1,19 @@
 /**
  * ERP 통합 설정 페이지
- * 모든 외부 서비스 연동 상태 확인 및 설정 가이드 제공
+ * - 연동 서비스 상태 확인 탭
+ * - ERP API 키 관리 탭 (master 전용)
  */
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   CheckCircle2, XCircle, AlertCircle, ExternalLink, RefreshCw,
-  CreditCard, MessageSquare, Video, Zap, Bot, Bell, Key, Settings
+  CreditCard, MessageSquare, Video, Zap, Bot, Bell, Key, Settings,
+  Eye, EyeOff, Pencil, Trash2, Plus, Save, X,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -25,7 +29,364 @@ interface ServiceStatus {
   category: string;
 }
 
-export default function ERPSettings() {
+// 지원하는 API 서비스 목록
+const API_SERVICES = [
+  { key: "openrouter", name: "OpenRouter", description: "AI 모델 라우팅 (GPT-4, Claude, Gemini 등)", category: "AI" },
+  { key: "gemini", name: "Google Gemini", description: "Google Gemini AI API", category: "AI" },
+  { key: "kakao", name: "카카오 알림톡", description: "카카오 비즈니스 알림톡 API", category: "알림" },
+  { key: "slack", name: "Slack", description: "Slack 웹훅 알림", category: "알림" },
+  { key: "runway", name: "Runway ML", description: "AI 영상 생성 API", category: "미디어" },
+  { key: "n8n", name: "n8n", description: "워크플로우 자동화", category: "자동화" },
+  { key: "manus", name: "Manus API", description: "Manus AI 에이전트 API", category: "AI" },
+  { key: "pixabay", name: "Pixabay", description: "이미지 검색 API", category: "미디어" },
+];
+
+// ─── API 키 관리 탭 ────────────────────────────────────────────────────────────
+function ApiKeyManagementTab() {
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [showValue, setShowValue] = useState<Record<string, boolean>>({});
+  const [addingNew, setAddingNew] = useState(false);
+  const [newKey, setNewKey] = useState({ serviceKey: "", serviceName: "", apiKey: "" });
+
+  const { data: keys, isLoading, refetch } = trpc.erpApiKeys.list.useQuery(undefined, {
+    retry: 1,
+  });
+
+  const upsertMutation = trpc.erpApiKeys.upsert.useMutation({
+    onSuccess: () => {
+      toast.success("API 키가 저장되었습니다");
+      setEditingKey(null);
+      setEditValue("");
+      setAddingNew(false);
+      setNewKey({ serviceKey: "", serviceName: "", apiKey: "" });
+      refetch();
+    },
+    onError: (e) => toast.error(e.message || "저장 실패"),
+  });
+
+  const deleteMutation = trpc.erpApiKeys.deleteKey.useMutation({
+    onSuccess: () => {
+      toast.success("API 키가 삭제되었습니다 (환경변수로 폴백)");
+      refetch();
+    },
+    onError: (e) => toast.error(e.message || "삭제 실패"),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12 text-slate-400">
+        <RefreshCw size={20} className="animate-spin mr-2" />
+        로딩 중...
+      </div>
+    );
+  }
+
+  // 권한 없음 (master가 아닌 경우)
+  if (!keys && !isLoading) {
+    return (
+      <Card className="border-0 shadow-sm">
+        <CardContent className="pt-6 pb-6 text-center">
+          <Key size={32} className="mx-auto mb-3 text-slate-300" />
+          <p className="text-slate-500 font-medium">마스터 관리자만 API 키를 관리할 수 있습니다</p>
+          <p className="text-slate-400 text-sm mt-1">admin 계정으로 로그인하세요</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // 서비스 목록과 DB 키 병합
+  const mergedServices = API_SERVICES.map((svc) => {
+    const dbKey = keys?.find((k) => k.serviceKey === svc.key);
+    return { ...svc, dbKey };
+  });
+
+  // DB에만 있는 커스텀 서비스
+  const customKeys = keys?.filter((k) => !API_SERVICES.find((s) => s.key === k.serviceKey)) || [];
+
+  return (
+    <div className="space-y-4">
+      {/* 안내 배너 */}
+      <Card className="border-0 shadow-sm bg-amber-50 border-l-4 border-l-amber-400">
+        <CardContent className="pt-4 pb-4">
+          <div className="flex items-start gap-3">
+            <Key size={18} className="text-amber-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-semibold text-amber-800 text-sm">ERP 내부 API 키 관리</p>
+              <p className="text-xs text-amber-700 mt-1">
+                여기서 등록한 API 키는 ERP DB에 암호화 저장됩니다. 어떤 직원 계정으로 로그인해도 마스터가 설정한 키가 사용됩니다.
+                DB 키가 없으면 환경변수(Manus Secrets)로 폴백됩니다.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 서비스별 API 키 목록 */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">API 키 목록</CardTitle>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setAddingNew(true)}
+              className="gap-1.5 text-xs"
+              disabled={addingNew}
+            >
+              <Plus size={13} />
+              커스텀 키 추가
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {/* 커스텀 키 추가 폼 */}
+          {addingNew && (
+            <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 space-y-2">
+              <p className="text-xs font-semibold text-slate-600">새 API 키 추가</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  placeholder="서비스 키 (예: my_service)"
+                  value={newKey.serviceKey}
+                  onChange={(e) => setNewKey({ ...newKey, serviceKey: e.target.value })}
+                  className="text-sm h-8"
+                />
+                <Input
+                  placeholder="서비스 이름 (예: My Service)"
+                  value={newKey.serviceName}
+                  onChange={(e) => setNewKey({ ...newKey, serviceName: e.target.value })}
+                  className="text-sm h-8"
+                />
+              </div>
+              <Input
+                placeholder="API 키 값"
+                value={newKey.apiKey}
+                onChange={(e) => setNewKey({ ...newKey, apiKey: e.target.value })}
+                className="text-sm h-8 font-mono"
+              />
+              <div className="flex gap-2 justify-end">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => { setAddingNew(false); setNewKey({ serviceKey: "", serviceName: "", apiKey: "" }); }}
+                  className="h-7 text-xs"
+                >
+                  <X size={12} className="mr-1" />취소
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (!newKey.serviceKey || !newKey.apiKey) {
+                      toast.error("서비스 키와 API 키를 입력하세요");
+                      return;
+                    }
+                    upsertMutation.mutate({
+                      serviceKey: newKey.serviceKey,
+                      serviceName: newKey.serviceName || newKey.serviceKey,
+                      apiKey: newKey.apiKey,
+                    });
+                  }}
+                  disabled={upsertMutation.isPending}
+                  className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+                >
+                  <Save size={12} className="mr-1" />저장
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* 기본 서비스 목록 */}
+          {mergedServices.map((svc, idx) => (
+            <div key={svc.key}>
+              {idx > 0 && <Separator className="my-2" />}
+              <ApiKeyRow
+                serviceKey={svc.key}
+                serviceName={svc.name}
+                description={svc.description}
+                category={svc.category}
+                dbKey={svc.dbKey}
+                editingKey={editingKey}
+                editValue={editValue}
+                showValue={showValue}
+                onEdit={(key) => { setEditingKey(key); setEditValue(""); }}
+                onSave={(key, value) => upsertMutation.mutate({ serviceKey: key, serviceName: svc.name, apiKey: value })}
+                onDelete={(key) => deleteMutation.mutate({ serviceKey: key })}
+                onToggleShow={(key) => setShowValue((prev) => ({ ...prev, [key]: !prev[key] }))}
+                onEditValueChange={setEditValue}
+                onCancelEdit={() => { setEditingKey(null); setEditValue(""); }}
+                isSaving={upsertMutation.isPending}
+                isDeleting={deleteMutation.isPending}
+              />
+            </div>
+          ))}
+
+          {/* 커스텀 서비스 목록 */}
+          {customKeys.length > 0 && (
+            <>
+              <Separator className="my-3" />
+              <p className="text-xs font-semibold text-slate-500 px-1">커스텀 서비스</p>
+              {customKeys.map((k) => (
+                <div key={k.serviceKey}>
+                  <Separator className="my-2" />
+                  <ApiKeyRow
+                    serviceKey={k.serviceKey}
+                    serviceName={k.serviceName}
+                    description="커스텀 API 키"
+                    category="기타"
+                    dbKey={k}
+                    editingKey={editingKey}
+                    editValue={editValue}
+                    showValue={showValue}
+                    onEdit={(key) => { setEditingKey(key); setEditValue(""); }}
+                    onSave={(key, value) => upsertMutation.mutate({ serviceKey: key, serviceName: k.serviceName, apiKey: value })}
+                    onDelete={(key) => deleteMutation.mutate({ serviceKey: key })}
+                    onToggleShow={(key) => setShowValue((prev) => ({ ...prev, [key]: !prev[key] }))}
+                    onEditValueChange={setEditValue}
+                    onCancelEdit={() => { setEditingKey(null); setEditValue(""); }}
+                    isSaving={upsertMutation.isPending}
+                    isDeleting={deleteMutation.isPending}
+                  />
+                </div>
+              ))}
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── API 키 행 컴포넌트 ────────────────────────────────────────────────────────
+function ApiKeyRow({
+  serviceKey, serviceName, description, category, dbKey,
+  editingKey, editValue, showValue,
+  onEdit, onSave, onDelete, onToggleShow, onEditValueChange, onCancelEdit,
+  isSaving, isDeleting,
+}: {
+  serviceKey: string;
+  serviceName: string;
+  description: string;
+  category: string;
+  dbKey?: { hasKey: boolean; apiKeyMasked?: string | null; isActive: boolean } | null;
+  editingKey: string | null;
+  editValue: string;
+  showValue: Record<string, boolean>;
+  onEdit: (key: string) => void;
+  onSave: (key: string, value: string) => void;
+  onDelete: (key: string) => void;
+  onToggleShow: (key: string) => void;
+  onEditValueChange: (val: string) => void;
+  onCancelEdit: () => void;
+  isSaving: boolean;
+  isDeleting: boolean;
+}) {
+  const isEditing = editingKey === serviceKey;
+  const hasKey = dbKey?.hasKey || false;
+
+  return (
+    <div className="flex items-start gap-3 py-1">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="font-medium text-slate-800 text-sm">{serviceName}</span>
+          <Badge className={`text-xs ${hasKey ? "bg-green-100 text-green-700 border-green-200" : "bg-slate-100 text-slate-500 border-slate-200"}`}>
+            {hasKey ? (
+              <><CheckCircle2 size={10} className="mr-1" />DB 키 사용</>
+            ) : (
+              <><XCircle size={10} className="mr-1" />ENV 폴백</>
+            )}
+          </Badge>
+          <Badge variant="outline" className="text-xs text-slate-400">{category}</Badge>
+        </div>
+        <p className="text-xs text-slate-400">{description}</p>
+
+        {/* 현재 키 값 표시 */}
+        {hasKey && dbKey?.apiKeyMasked && !isEditing && (
+          <div className="mt-1.5 flex items-center gap-2">
+            <code className="text-xs bg-slate-100 px-2 py-0.5 rounded font-mono text-slate-600">
+              {showValue[serviceKey] ? dbKey.apiKeyMasked : "••••••••••••"}
+            </code>
+            <button
+              onClick={() => onToggleShow(serviceKey)}
+              className="text-slate-400 hover:text-slate-600"
+            >
+              {showValue[serviceKey] ? <EyeOff size={13} /> : <Eye size={13} />}
+            </button>
+          </div>
+        )}
+
+        {/* 편집 폼 */}
+        {isEditing && (
+          <div className="mt-2 flex items-center gap-2">
+            <Input
+              type="text"
+              placeholder="새 API 키 입력"
+              value={editValue}
+              onChange={(e) => onEditValueChange(e.target.value)}
+              className="text-sm h-8 font-mono flex-1"
+              autoFocus
+            />
+            <Button
+              size="sm"
+              onClick={() => {
+                if (!editValue.trim()) {
+                  toast.error("API 키를 입력하세요");
+                  return;
+                }
+                onSave(serviceKey, editValue.trim());
+              }}
+              disabled={isSaving}
+              className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3"
+            >
+              <Save size={12} className="mr-1" />저장
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onCancelEdit}
+              className="h-8 text-xs px-2"
+            >
+              <X size={12} />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* 액션 버튼 */}
+      {!isEditing && (
+        <div className="flex items-center gap-1 shrink-0">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onEdit(serviceKey)}
+            className="h-7 w-7 p-0 text-slate-400 hover:text-indigo-600"
+            title={hasKey ? "키 변경" : "키 등록"}
+          >
+            <Pencil size={13} />
+          </Button>
+          {hasKey && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                if (confirm(`${serviceName} API 키를 삭제하시겠습니까? 환경변수로 폴백됩니다.`)) {
+                  onDelete(serviceKey);
+                }
+              }}
+              disabled={isDeleting}
+              className="h-7 w-7 p-0 text-slate-400 hover:text-red-600"
+              title="키 삭제 (ENV 폴백)"
+            >
+              <Trash2 size={13} />
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── 연동 상태 탭 ────────────────────────────────────────────────────────────
+function IntegrationStatusTab() {
   const [testing, setTesting] = useState<string | null>(null);
 
   const { data: integrationStatus, isLoading, refetch } = trpc.settings.getIntegrationStatus.useQuery();
@@ -50,7 +411,14 @@ export default function ERPSettings() {
       name: "Gemini AI",
       key: "gemini",
       status: integrationStatus?.gemini ? "ok" : "missing",
-      description: "두골프 마스터 AI, 골프톡, 매니저 AI의 핵심 엔진. 상품 설명 자동 생성, 고객 상담 등에 사용됩니다.",
+      description: "Google Gemini AI API - 파일 분석, 이미지 인식, 텍스트 생성에 사용됩니다.",
+      guideUrl: "https://makersuite.google.com/app/apikey",
+      guideSteps: [
+        "Google AI Studio (makersuite.google.com) 접속",
+        "Get API key 클릭",
+        "Create API key in new project 선택",
+        "생성된 키를 복사하여 Secrets에 GEMINI_API_KEY로 등록",
+      ],
       isRequired: true,
       category: "AI 핵심",
     },
@@ -58,115 +426,115 @@ export default function ERPSettings() {
       name: "OpenRouter",
       key: "openrouter",
       status: integrationStatus?.openrouter ? "ok" : "missing",
-      description: "AI 모델 라우팅 허브. 태스크 복잡도에 따라 최적 모델을 자동 선택합니다.",
+      description: "다양한 AI 모델(GPT-4, Claude, Llama 등)을 하나의 API로 사용하는 라우팅 서비스입니다.",
       guideUrl: "https://openrouter.ai/keys",
       guideSteps: [
-        "openrouter.ai 회원가입",
-        "API Keys 메뉴에서 키 생성",
-        "ERP 시크릿 관리에서 OPENROUTER_API_KEY 등록",
+        "OpenRouter (openrouter.ai) 가입 및 로그인",
+        "Keys 메뉴에서 Create Key 클릭",
+        "생성된 키를 Secrets에 OPENROUTER_API_KEY로 등록",
       ],
       isRequired: true,
       category: "AI 핵심",
     },
-    // ─── 결제 ───────────────────────────────────────────────
-    {
-      name: "Stripe 결제",
-      key: "stripe",
-      status: integrationStatus?.stripe ? "ok" : "missing",
-      description: "온라인 결제 처리. 예약금 결제, 잔금 결제에 사용됩니다. 현재 테스트 모드로 설정되어 있습니다.",
-      guideUrl: "https://dashboard.stripe.com/webhooks",
-      guideSteps: [
-        "Stripe 대시보드 → Developers → Webhooks",
-        "'Add endpoint' 클릭",
-        `엔드포인트 URL 입력: https://dogolf-tour-dkz3fsmp.manus.space/api/stripe/webhook`,
-        "이벤트 선택: payment_intent.succeeded, payment_intent.payment_failed",
-        "생성된 Webhook Secret을 STRIPE_WEBHOOK_SECRET에 등록",
-      ],
-      isRequired: false,
-      category: "결제",
-    },
-    // ─── 알림 ───────────────────────────────────────────────
-    {
-      name: "카카오 알림톡 (Solapi)",
-      key: "kakao",
-      status: integrationStatus?.kakao ? "ok" : "missing",
-      description: "예약 확정, 취소, 출발 D-7 알림을 고객 카카오톡으로 자동 발송합니다.",
-      guideUrl: "https://solapi.com",
-      guideSteps: [
-        "solapi.com 회원가입 및 사업자 인증",
-        "카카오 비즈니스 채널 연동 (카카오 비즈니스 계정 필요)",
-        "알림톡 템플릿 등록 및 심사 완료",
-        "API 키 발급 → KAKAO_API_KEY 등록",
-        "발신 프로필 키 → KAKAO_SENDER_KEY 등록",
-      ],
-      isRequired: false,
-      category: "알림",
-    },
-    {
-      name: "Slack 알림",
-      key: "slack",
-      status: integrationStatus?.slack ? "ok" : "missing",
-      description: "개발 요청, 오류 감지, 시스템 알림을 Slack 채널로 전송합니다.",
-      guideUrl: "https://api.slack.com/apps",
-      guideSteps: [
-        "api.slack.com → 'Create New App' → 'From scratch'",
-        "앱 이름 입력 (예: 두골프 ERP) → 워크스페이스 선택",
-        "'Incoming Webhooks' 활성화",
-        "'Add New Webhook to Workspace' → 채널 선택",
-        "생성된 Webhook URL (https://hooks.slack.com/...) 복사",
-        "SLACK_WEBHOOK_URL에 등록",
-      ],
-      isRequired: false,
-      category: "알림",
-    },
-    // ─── 자동화 ─────────────────────────────────────────────
-    {
-      name: "Runway ML 동영상 생성",
-      key: "runway",
-      status: integrationStatus?.runway ? "ok" : "missing",
-      description: "패키지 이미지를 10초 골프여행 홍보 동영상으로 자동 변환합니다. 미설정 시 개발 모드(더미 데이터)로 동작합니다.",
-      guideUrl: "https://app.runwayml.com/account/api-keys",
-      guideSteps: [
-        "runwayml.com 회원가입 (월 $15~$35 플랜 필요)",
-        "Account → API Keys에서 키 생성",
-        "RUNWAY_API_KEY에 등록",
-      ],
-      isRequired: false,
-      category: "자동화",
-    },
-    {
-      name: "n8n 자동화",
-      key: "n8n",
-      status: integrationStatus?.n8n ? "ok" : "missing",
-      description: "패키지 등록 시 인스타그램, 카카오채널 등 SNS에 자동 배포합니다. 미설정 시 개발 모드로 동작합니다.",
-      guideUrl: "https://n8n.io",
-      guideSteps: [
-        "n8n.io 클라우드 가입 또는 자체 서버 설치",
-        "Webhook 노드로 워크플로우 생성",
-        "생성된 Webhook URL을 N8N_WEBHOOK_URL에 등록",
-      ],
-      isRequired: false,
-      category: "자동화",
-    },
-    // ─── 개발 파이프 ─────────────────────────────────────────
     {
       name: "Manus API",
       key: "manus",
       status: integrationStatus?.manus ? "ok" : "missing",
-      description: "두골프 마스터 AI가 감지한 개발 요청을 Manus 에이전트로 자동 전송합니다.",
+      description: "Manus AI 에이전트 자동 실행 API - 두골프 마스터의 개발 요청 자동화에 사용됩니다.",
+      guideUrl: "https://manus.im",
+      guideSteps: [
+        "Manus 계정 설정에서 API 키 발급",
+        "MANUS_API_KEY로 Secrets에 등록",
+        "MANUS_PROJECT_ID도 함께 등록 (크레딧 절약)",
+      ],
       isRequired: false,
-      category: "개발 파이프",
+      category: "AI 핵심",
+    },
+    // ─── 결제 ────────────────────────────────────────────────
+    {
+      name: "Stripe",
+      key: "stripe",
+      status: integrationStatus?.stripe ? "ok" : "missing",
+      description: "온라인 결제 처리 서비스입니다.",
+      guideUrl: "https://dashboard.stripe.com/apikeys",
+      guideSteps: [
+        "Stripe 대시보드에서 API 키 확인",
+        "STRIPE_SECRET_KEY, VITE_STRIPE_PUBLISHABLE_KEY 등록",
+        "웹훅 설정 (아래 안내 참조)",
+      ],
+      isRequired: false,
+      category: "결제",
+    },
+    // ─── 알림 ────────────────────────────────────────────────
+    {
+      name: "카카오 알림톡",
+      key: "kakao",
+      status: integrationStatus?.kakao ? "ok" : "missing",
+      description: "카카오 비즈니스 알림톡 API - 예약 확정, 취소, 출발 알림 발송에 사용됩니다.",
+      guideUrl: "https://business.kakao.com",
+      guideSteps: [
+        "카카오 비즈니스 계정 생성 및 채널 등록",
+        "알림톡 발송 API 신청",
+        "KAKAO_API_KEY, KAKAO_SENDER_KEY 등록",
+      ],
+      isRequired: false,
+      category: "알림",
     },
     {
-      name: "Pixabay 이미지",
+      name: "Slack",
+      key: "slack",
+      status: integrationStatus?.slack ? "ok" : "missing",
+      description: "Slack 웹훅 알림 - 새 예약, 문의, 오류 발생 시 팀 채널에 알림을 보냅니다.",
+      guideUrl: "https://api.slack.com/apps",
+      guideSteps: [
+        "Slack API 앱 생성 (api.slack.com/apps)",
+        "Incoming Webhooks 활성화",
+        "채널 선택 후 웹훅 URL 복사",
+        "SLACK_WEBHOOK_URL로 Secrets에 등록",
+      ],
+      isRequired: false,
+      category: "알림",
+    },
+    // ─── 자동화 ──────────────────────────────────────────────
+    {
+      name: "n8n",
+      key: "n8n",
+      status: integrationStatus?.n8n ? "ok" : "missing",
+      description: "n8n 워크플로우 자동화 - 복잡한 업무 자동화 파이프라인 구성에 사용됩니다.",
+      guideUrl: "https://n8n.io",
+      guideSteps: [
+        "n8n 클라우드 또는 자체 호스팅 설정",
+        "API 키 발급",
+        "N8N_API_KEY, N8N_BASE_URL 등록",
+      ],
+      isRequired: false,
+      category: "자동화",
+    },
+    // ─── 이미지/미디어 ──────────────────────────────────────
+    {
+      name: "Runway ML",
+      key: "runway",
+      status: integrationStatus?.runway ? "ok" : "missing",
+      description: "AI 영상 생성 서비스 - 골프 투어 홍보 영상 자동 생성에 사용됩니다.",
+      guideUrl: "https://runwayml.com",
+      guideSteps: [
+        "Runway 계정 생성",
+        "API 키 발급",
+        "RUNWAY_API_KEY로 Secrets에 등록",
+      ],
+      isRequired: false,
+      category: "이미지",
+    },
+    {
+      name: "Pixabay",
       key: "pixabay",
       status: integrationStatus?.pixabay ? "ok" : "missing",
-      description: "패키지 이미지 탭에서 무료 골프 이미지를 검색하고 자동 등록합니다.",
+      description: "무료 이미지 검색 API - 패키지 이미지 자동 검색에 사용됩니다.",
       guideUrl: "https://pixabay.com/api/docs/",
       guideSteps: [
-        "pixabay.com 회원가입",
-        "API 키 발급 (무료)",
-        "PIXABAY_API_KEY에 등록",
+        "Pixabay 계정 생성",
+        "API 키 발급",
+        "PIXABAY_API_KEY로 Secrets에 등록",
       ],
       isRequired: false,
       category: "이미지",
@@ -207,19 +575,7 @@ export default function ERPSettings() {
   const totalCount = services.length;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      {/* 헤더 */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">연동 서비스 설정</h1>
-          <p className="text-slate-500 text-sm mt-1">외부 서비스 연동 상태를 확인하고 설정 방법을 안내합니다.</p>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
-          <RefreshCw size={14} />
-          새로고침
-        </Button>
-      </div>
-
+    <div className="space-y-4">
       {/* 전체 상태 요약 */}
       <Card className="border-0 shadow-sm bg-gradient-to-r from-slate-50 to-white">
         <CardContent className="pt-5 pb-4">
@@ -304,7 +660,6 @@ export default function ERPSettings() {
                         </div>
                         <p className="text-xs text-slate-500 leading-relaxed">{service.description}</p>
 
-                        {/* 설정 방법 (미설정 시 표시) */}
                         {service.status !== "ok" && service.guideSteps && (
                           <div className="mt-3 bg-slate-50 rounded-lg p-3 border border-slate-100">
                             <p className="text-xs font-semibold text-slate-600 mb-2">설정 방법</p>
@@ -332,7 +687,6 @@ export default function ERPSettings() {
                           </div>
                         )}
 
-                        {/* Stripe 웹훅 특별 안내 */}
                         {service.key === "stripe" && service.status === "ok" && (
                           <div className="mt-2 bg-blue-50 rounded-lg p-3 border border-blue-100">
                             <p className="text-xs font-semibold text-blue-700 mb-1">⚠️ Stripe 웹훅 등록 필요</p>
@@ -354,7 +708,6 @@ export default function ERPSettings() {
                           </div>
                         )}
 
-                        {/* 카카오 알림톡 템플릿 코드 안내 */}
                         {service.key === "kakao" && service.status !== "ok" && (
                           <div className="mt-2 bg-amber-50 rounded-lg p-3 border border-amber-100">
                             <p className="text-xs font-semibold text-amber-700 mb-1">등록 필요한 알림톡 템플릿</p>
@@ -447,13 +800,51 @@ export default function ERPSettings() {
             <div>
               <p className="font-semibold text-slate-800 text-sm">API 키 등록 방법</p>
               <p className="text-xs text-slate-500 mt-1">
-                모든 API 키는 Manus 관리 UI의 <strong>Settings → Secrets</strong> 에서 안전하게 등록할 수 있습니다.
+                환경변수 기반 키는 Manus 관리 UI의 <strong>Settings → Secrets</strong>에서 등록하세요.
+                ERP DB 기반 키는 위의 <strong>ERP API 키 관리</strong> 탭에서 직접 관리할 수 있습니다.
                 코드에 직접 키를 입력하지 마세요.
               </p>
             </div>
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// ─── 메인 설정 페이지 ─────────────────────────────────────────────────────────
+export default function ERPSettings() {
+  const [activeTab, setActiveTab] = useState("integration");
+
+  return (
+    <div className="p-6 max-w-4xl mx-auto space-y-4">
+      {/* 헤더 */}
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800">ERP 설정</h1>
+        <p className="text-slate-500 text-sm mt-1">외부 서비스 연동 상태 확인 및 API 키 관리</p>
+      </div>
+
+      {/* 탭 */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="integration" className="gap-2">
+            <Settings size={14} />
+            연동 서비스 상태
+          </TabsTrigger>
+          <TabsTrigger value="apikeys" className="gap-2">
+            <Key size={14} />
+            ERP API 키 관리
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="integration">
+          <IntegrationStatusTab />
+        </TabsContent>
+
+        <TabsContent value="apikeys">
+          <ApiKeyManagementTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

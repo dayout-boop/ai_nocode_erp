@@ -1661,3 +1661,10 @@ Detected
 - [x] context.ts 수정: admin_session 쿠키 → ctx.user 주입 (protectedProcedure 마스터 세션 허용)
 - [x] index.ts 수정: admin_session 미들웨어 추가 (masterProcedure ctx.req.adminSession 설정)
 - [x] main.tsx 수정: /erp 경로에서 UNAUTHORIZED 시 Manus OAuth 대신 마스터 로그인 페이지로 리다이렉트
+
+## ERP 계정 관리 및 API 키 관리 개선 (2026-06-05)
+- [x] 문제 1: API 키 및 ERP 시스템 독립성 - ERP DB에 암호화 저장, 마스터가 설정한 키를 모든 직원이 공유
+- [x] 문제 2: 계정 권한 분리 - master만 계정 생성/삭제/비활성화, admin은 자기 비밀번호만 변경
+- [x] AdminManagement.tsx 개선 - 역할 기반 UI (master/admin 구분), 보호된 계정 표시
+- [x] ERPSettings.tsx 탭 추가 - API 키 관리 탭 (master 전용)
+- [x] 백엔드 권한 검증 확인 - master 전용 API 키 관리, admin은 접근 불가 (FORBIDDEN 403)

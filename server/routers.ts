@@ -4,6 +4,7 @@ import { settingsRouter } from "./routers/settings";
 import { adminAccountsRouter } from "./routers/adminAccounts";
 import { adminAuthRouter } from "./routers/adminAuth";
 import { adminManagementRouter } from "./routers/adminManagement";
+import { erpApiKeysRouter } from "./routers/erpApiKeys";
 import { reservationInquiriesRouter, inquiryTemplatesRouter } from "./routers/reservationInquiries";
 import { reservationItinerariesRouter, customVariablesRouter } from "./routers/reservationItineraries";
 import { reservationAffiliateCostsRouter } from "./routers/reservationAffiliateCosts";
@@ -3416,5 +3417,6 @@ export const appRouter = router({
   github: githubRouter,
   adminAuth: adminAuthRouter,
   adminManagement: adminManagementRouter,
+  erpApiKeys: erpApiKeysRouter,
 });
 export type AppRouter = typeof appRouter;

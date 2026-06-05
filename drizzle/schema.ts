@@ -1911,3 +1911,32 @@ export const adminAccounts = mysqlTable("admin_accounts", {
 
 export type AdminAccount = typeof adminAccounts.$inferSelect;
 export type InsertAdminAccount = typeof adminAccounts.$inferInsert;
+
+/**
+ * ERP API 키 설정 테이블
+ * - Manus 환경변수와 독립적으로 ERP DB에 API 키 저장
+ * - master 역할 계정만 수정 가능
+ * - 저장된 키가 있으면 환경변수보다 우선 사용
+ */
+export const erpApiSettings = mysqlTable("erp_api_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 서비스 키 식별자 (예: openrouter, gemini, kakao 등) */
+  serviceKey: varchar("serviceKey", { length: 100 }).notNull().unique(),
+  /** 서비스 이름 (표시용) */
+  serviceName: varchar("serviceName", { length: 200 }).notNull(),
+  /** 암호화된 API 키 값 */
+  apiKeyEncrypted: text("apiKeyEncrypted"),
+  /** API 키 마스킹 표시용 (앞 4자 + ... + 뒤 4자) */
+  apiKeyMasked: varchar("apiKeyMasked", { length: 50 }),
+  /** 추가 설정값 (JSON) */
+  extraConfig: text("extraConfig"),
+  /** 활성화 여부 */
+  isActive: boolean("isActive").default(true).notNull(),
+  /** 마지막 수정자 */
+  updatedBy: int("updatedBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ErpApiSetting = typeof erpApiSettings.$inferSelect;
+export type InsertErpApiSetting = typeof erpApiSettings.$inferInsert;
