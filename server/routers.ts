@@ -1,6 +1,7 @@
 import { reservationsRouter } from "./routers/reservations";
 import { affiliatesRouter } from "./routers/affiliates";
 import { settingsRouter } from "./routers/settings";
+import { adminAccountsRouter } from "./routers/adminAccounts";
 import { reservationInquiriesRouter, inquiryTemplatesRouter } from "./routers/reservationInquiries";
 import { reservationItinerariesRouter, customVariablesRouter } from "./routers/reservationItineraries";
 import { reservationAffiliateCostsRouter } from "./routers/reservationAffiliateCosts";
@@ -18,7 +19,8 @@ import {
   aiCostLogs,
   payments, kakaoNotifications, packageVideos, automationLogs,
   reservations,
-  aiLogs
+  aiLogs,
+  adminAccounts
 } from "../drizzle/schema";
 // AI 엔진 테이블은 별도 import로 처리됨 (아래 참조)
 import { eq, desc, and, gte, lte, like, sql, count, asc, isNotNull } from "drizzle-orm";
@@ -3388,6 +3390,7 @@ export const appRouter = router({
   reservations: reservationsRouter,
   affiliates: affiliatesRouter,
   settings: settingsRouter,
+  adminAccounts: adminAccountsRouter,
   reservationInquiries: reservationInquiriesRouter,
   inquiryTemplates: inquiryTemplatesRouter,
   openrouterAgent: openrouterAgentRouter,

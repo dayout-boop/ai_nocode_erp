@@ -1603,3 +1603,27 @@ Detected
 - [x] OpenRouterAgent.tsx: 분할 메시지 순서 표시 ([1/3] 형식)
 - [x] openrouterAgent.ts: 순차 전송 시 500ms 딜레이 (레이트 리밋 방지)
 - [x] TypeScript 오류 0개 확인
+
+
+## CRM 마스터 관리자 계정 생성 기능 (ID: 360002)
+- [ ] Phase 1: CRM 모듈 현황 분석 및 DB 스키마 검토
+  - [ ] 기존 관리자 권한 구조 분석
+  - [ ] users 테이블 role 필드 검토
+  - [ ] 마스터 관리자 권한 정의
+- [ ] Phase 2: DB 스키마 수정 - 관리자 계정 관리 테이블 추가
+  - [ ] admin_accounts 테이블 생성 (id, username, passwordHash, role, createdBy, createdAt, updatedAt, isActive)
+  - [ ] pnpm db:push 실행
+- [ ] Phase 3: 백엔드 API 개발 - 관리자 계정 생성/조회/삭제
+  - [ ] tRPC adminAccounts 라우터 생성 (create, list, update, delete, changePassword)
+  - [ ] 비밀번호 해싱 로직 (bcrypt)
+  - [ ] 권한 검증 (adminProcedure 사용)
+- [ ] Phase 4: 프론트엔드 UI 개발 - 마스터 관리 페이지
+  - [ ] CRM 사이드바에 "마스터 관리" 메뉴 추가
+  - [ ] AdminMasterManagement.tsx 페이지 생성
+  - [ ] 관리자 목록 테이블 (username, role, createdAt, 수정/삭제 버튼)
+  - [ ] 신규 관리자 추가 다이얼로그 (username, password, role 선택)
+  - [ ] 비밀번호 변경 기능
+- [ ] Phase 5: 통합 테스트 및 배포
+  - [ ] 관리자 계정 생성/조회/삭제 테스트
+  - [ ] 권한 검증 테스트
+  - [ ] 체크포인트 저장 및 배포

@@ -1872,3 +1872,42 @@ export const githubCommits = mysqlTable("github_commits", {
 });
 export type GithubCommit = typeof githubCommits.$inferSelect;
 export type InsertGithubCommit = typeof githubCommits.$inferInsert;
+
+
+// ============================================================
+// ADMIN_ACCOUNTS - CRM 마스터 관리자 계정 관리
+// ============================================================
+/**
+ * CRM 마스터 관리자 계정 테이블
+ * - 기존 OAuth 로그인 외에 username/password 기반 로그인 지원
+ * - 마스터 관리자만 신규 계정 생성 가능
+ * - 각 계정은 동등한 권한 보유 (admin 역할)
+ */
+export const adminAccounts = mysqlTable("admin_accounts", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 관리자 로그인 ID (username) */
+  username: varchar("username", { length: 100 }).notNull().unique(),
+  /** 비밀번호 (bcrypt 해시) */
+  passwordHash: varchar("passwordHash", { length: 255 }).notNull(),
+  /** 관리자 이름 */
+  name: varchar("name", { length: 100 }),
+  /** 이메일 */
+  email: varchar("email", { length: 320 }),
+  /** 전화번호 */
+  phone: varchar("phone", { length: 30 }),
+  /** 역할: admin(일반 관리자) | master(마스터 관리자) */
+  role: mysqlEnum("role", ["admin", "master"]).default("admin").notNull(),
+  /** 활성 상태 */
+  isActive: boolean("isActive").default(true).notNull(),
+  /** 계정 생성자 ID (admin_accounts 테이블 참조) */
+  createdBy: int("createdBy"),
+  /** 마지막 로그인 시각 */
+  lastLoginAt: timestamp("lastLoginAt"),
+  /** 메모 */
+  memo: text("memo"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AdminAccount = typeof adminAccounts.$inferSelect;
+export type InsertAdminAccount = typeof adminAccounts.$inferInsert;
