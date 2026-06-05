@@ -25,6 +25,7 @@ import {
   // 설정
   Settings,
   Cpu,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -70,8 +71,8 @@ import SubscriptionManagement from "@/pages/erp/SubscriptionManagement";
 import FileAnalysisHistory from "@/pages/erp/FileAnalysisHistory";
 import GitHubSettings from "@/pages/erp/GitHubSettings";
 import GitHubHistory from "@/pages/erp/GitHubHistory";
-import AdminManagement from "@/pages/CRM/AdminManagement";
-import { Loader2, Github, Shield } from "lucide-react";
+import AdminManagementPage from "@/pages/erp/AdminManagement";
+import { Loader2, Github } from "lucide-react";
 
 interface NavChild {
   label: string;
@@ -296,7 +297,7 @@ function ERPContent() {
           <Route path="/crm" component={ERPCRMCustomers} />
           <Route path="/crm/partners" component={ERPCRMPartners} />
           <Route path="/crm/affiliates" component={AffiliateManagement} />
-          <Route path="/crm/admin-management" component={AdminManagement} />
+          <Route path="/crm/admin-management" component={AdminManagementPage} />
           <Route path="/reservations" component={ReservationManagement} />
           <Route path="/reservations/templates" component={InquiryTemplates} />
           <Route path="/reservations/estimate-templates" component={CustomerEstimateTemplates} />
@@ -338,11 +339,17 @@ function ERPContent() {
 
 export default function ERPLayout() {
   const { user, loading, isAuthenticated, logout } = useAuth();
+  const [, setLocation] = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   // 이번주 일정 위젯 상태태
   const [showWeeklyPopup, setShowWeeklyPopup] = useState(false);
   const weeklyPopupRef = useRef<HTMLDivElement>(null);
+
+  // 마스터 ERP 세션 확인 (Manus 로그인과 별도)
+  const adminSessionQuery = trpc.adminAuth.me.useQuery(undefined, {
+    refetchInterval: 5 * 60 * 1000, // 5분마다 확인
+  });
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -389,6 +396,27 @@ export default function ERPLayout() {
               관리자 로그인
             </Button>
           </a>
+        </div>
+      </div>
+    );
+  }
+
+  // 마스터 ERP 세션 확인
+  if (!adminSessionQuery.data) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Shield size={28} className="text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-2">마스터 ERP</h1>
+          <p className="text-slate-400 mb-6">마스터 관리자 계정으로 로그인이 필요합니다.</p>
+          <Button
+            onClick={() => setLocation('/erp/login')}
+            className="bg-amber-600 hover:bg-amber-700 text-white px-8 py-3"
+          >
+            마스터 로그인
+          </Button>
         </div>
       </div>
     );

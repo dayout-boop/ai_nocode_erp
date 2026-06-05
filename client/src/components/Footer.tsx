@@ -209,9 +209,9 @@ export default function Footer() {
                   </li>
                 ))}
                 <li className="pt-2 border-t border-white/10">
-                  <Link href="/partner/custom-login">
+                  <Link href="/erp/login">
                     <span className="text-dogolf-gold hover:text-dogolf-gold text-sm font-body font-semibold transition-colors cursor-pointer flex items-center gap-2">
-                      🔑 ERP 로그인
+                      🔑 마스터 ERP 로그인
                     </span>
                   </Link>
                 </li>
@@ -386,8 +386,8 @@ export default function Footer() {
                 ))}
               </div>
               <div className="pt-2 border-t border-white/10">
-                <Link href="/partner/custom-login">
-                  <span className="text-dogolf-gold hover:text-dogolf-gold text-sm font-body font-semibold block">🔑 ERP 로그인</span>
+                <Link href="/erp/login">
+                  <span className="text-dogolf-gold hover:text-dogolf-gold text-sm font-body font-semibold block">🔑 마스터 ERP 로그인</span>
                 </Link>
               </div>
             </div>

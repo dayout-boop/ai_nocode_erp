@@ -2,6 +2,8 @@ import { reservationsRouter } from "./routers/reservations";
 import { affiliatesRouter } from "./routers/affiliates";
 import { settingsRouter } from "./routers/settings";
 import { adminAccountsRouter } from "./routers/adminAccounts";
+import { adminAuthRouter } from "./routers/adminAuth";
+import { adminManagementRouter } from "./routers/adminManagement";
 import { reservationInquiriesRouter, inquiryTemplatesRouter } from "./routers/reservationInquiries";
 import { reservationItinerariesRouter, customVariablesRouter } from "./routers/reservationItineraries";
 import { reservationAffiliateCostsRouter } from "./routers/reservationAffiliateCosts";
@@ -3412,5 +3414,7 @@ export const appRouter = router({
   scheduledTasks: scheduledTasksRouter,
   agentApprovals: agentApprovalsRouter,
   github: githubRouter,
+  adminAuth: adminAuthRouter,
+  adminManagement: adminManagementRouter,
 });
 export type AppRouter = typeof appRouter;

@@ -1627,3 +1627,28 @@ Detected
   - [x] 관리자 계정 생성/조회/삭제 테스트
   - [x] 권한 검증 테스트
   - [x] 체크포인트 저장 및 배포
+
+
+## 마스터 ERP 독립 인증 시스템 구축 (ID: 360003)
+- [x] Phase 1: 마스터 ERP 로그인 페이지 생성 (/erp/login)
+  - [x] ID/PW 입력 폼 (Manus OAuth 없음)
+  - [x] admin_accounts 테이블 기반 인증
+  - [x] bcrypt 비밀번호 해싱
+- [x] Phase 2: 독립 인증 미들웨어 및 세션 관리
+  - [x] adminAuth.ts 미들웨어 구현
+  - [x] admin_session 쿠키 생성 및 검증
+  - [x] 세션 TTL 관리 (24시간)
+  - [x] 만료된 세션 자동 정리
+  - [x] ERPLayout에서 마스터 세션 확인
+- [x] Phase 3: tRPC 프로시저 분리 (마스터 vs Manus)
+  - [x] masterProcedure 정의 (마스터 세션 필수)
+  - [x] adminManagementRouter 구현 (list, create, update, delete, changePassword, toggleActive)
+  - [x] adminAuthRouter 구현 (login, logout, me)
+- [x] Phase 4: 네비게이션 및 UI 통합
+  - [x] CRM 메뉴에 "마스터 관리" 추가 (/crm/admin-management)
+  - [x] AdminManagement.tsx 페이지 구현 (관리자 목록, 생성, 수정, 삭제)
+  - [x] Footer 링크 업데이트 (/erp/login으로 변경)
+- [x] Phase 5: 테스트 및 배포
+  - [x] masterERP.test.ts 작성 (15개 테스트 - 모두 통과)
+  - [x] TypeScript 오류 0개 확인
+  - [x] Dev 서버 정상 실행 확인

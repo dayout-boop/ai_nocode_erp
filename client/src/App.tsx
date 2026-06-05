@@ -13,6 +13,7 @@ import PackageDetail from './pages/PackageDetail';
 
 // ERP Layout (handles all /erp/* routing internally)
 import ERPLayout from "./components/ERPLayout";
+import ERPLogin from "./pages/erp/ERPLogin";
 
 // Other Pages
 import EstimateView from "./pages/EstimateView";
@@ -52,6 +53,7 @@ function Router() {
       <Route path={"/inquiry"} component={Inquiry} />
 
       {/* ERP 관리자 백오피스 - ERPLayout이 내부 라우팅 처리 */}
+      <Route path={"/erp/login"} component={ERPLogin} />
       <Route path={"/erp"} nest component={ERPLayout} />
 
       {/* /admin → /erp 리다이렉트 */}
