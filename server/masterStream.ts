@@ -13,6 +13,7 @@
  */
 import type { Express, Request, Response } from "express";
 import { sdk } from "./_core/sdk";
+import { validateAdminSession } from "./_core/adminAuth";
 import { getDb } from "./db";
 import { aiLogs } from "../drizzle/schema";
 import { orchestratorChatStream, orchestratorChat } from "./services/openrouter";
@@ -54,18 +55,37 @@ interface ToolCall {
 
 export function registerMasterStreamRoute(app: Express) {
   app.post("/api/master-stream", async (req: Request, res: Response) => {
-    // 1. 인증 확인
-    let user: Awaited<ReturnType<typeof sdk.authenticateRequest>> | null = null;
-    try {
-      user = await sdk.authenticateRequest(req as any);
-    } catch {
+    // 1. 인증 확인 (Manus OAuth 또는 admin_session 쿠키)
+    let userId = 0;
+    
+    // 1-a. admin_session 쿠키 확인 (마스터 ERP 로그인)
+    const adminSessionId = (req as any).cookies?.admin_session;
+    if (adminSessionId) {
+      const adminSession = validateAdminSession(adminSessionId);
+      if (adminSession) {
+        userId = adminSession.adminId;
+      }
+    }
+    
+    // 1-b. Manus OAuth 세션 확인 (폴백)
+    if (!userId) {
+      try {
+        const oauthUser = await sdk.authenticateRequest(req as any);
+        if (oauthUser && oauthUser.role === "admin") {
+          userId = oauthUser.id;
+        }
+      } catch {
+        // Manus OAuth 인증 실패
+      }
+    }
+    
+    if (!userId) {
       res.status(401).json({ error: "인증이 필요합니다." });
       return;
     }
-    if (!user || user.role !== "admin") {
-      res.status(403).json({ error: "관리자 권한이 필요합니다." });
-      return;
-    }
+    
+    // user 객체 호환성을 위한 래퍼
+    const user = { id: userId };
 
     // 2. 입력 검증
     const parsed = inputSchema.safeParse(req.body);
