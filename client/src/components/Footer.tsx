@@ -208,6 +208,13 @@ export default function Footer() {
                     </Link>
                   </li>
                 ))}
+                <li className="pt-2 border-t border-white/10">
+                  <Link href="/partner/custom-login">
+                    <span className="text-dogolf-gold hover:text-dogolf-gold text-sm font-body font-semibold transition-colors cursor-pointer flex items-center gap-2">
+                      🔑 ERP 로그인
+                    </span>
+                  </Link>
+                </li>
               </ul>
             </div>
 
@@ -365,17 +372,24 @@ export default function Footer() {
           </MobileSection>
 
           <MobileSection title="고객 서비스">
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-              {[
-                { label: '예약 문의', href: '/inquiry' },
-                { label: '공지사항', href: '/notice' },
-                { label: '여행 갤러리', href: '/gallery' },
-                { label: '자주 묻는 질문', href: '/notice?tab=faq' },
-              ].map((item) => (
-                <Link key={item.label} href={item.href}>
-                  <span className="text-white/60 hover:text-white text-sm font-body block">{item.label}</span>
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                {[
+                  { label: '예약 문의', href: '/inquiry' },
+                  { label: '공지사항', href: '/notice' },
+                  { label: '여행 갤러리', href: '/gallery' },
+                  { label: '자주 묻는 질문', href: '/notice?tab=faq' },
+                ].map((item) => (
+                  <Link key={item.label} href={item.href}>
+                    <span className="text-white/60 hover:text-white text-sm font-body block">{item.label}</span>
+                  </Link>
+                ))}
+              </div>
+              <div className="pt-2 border-t border-white/10">
+                <Link href="/partner/custom-login">
+                  <span className="text-dogolf-gold hover:text-dogolf-gold text-sm font-body font-semibold block">🔑 ERP 로그인</span>
                 </Link>
-              ))}
+              </div>
             </div>
           </MobileSection>
 
