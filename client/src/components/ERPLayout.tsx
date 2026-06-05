@@ -72,6 +72,7 @@ import FileAnalysisHistory from "@/pages/erp/FileAnalysisHistory";
 import GitHubSettings from "@/pages/erp/GitHubSettings";
 import GitHubHistory from "@/pages/erp/GitHubHistory";
 import AdminManagementPage from "@/pages/erp/AdminManagement";
+import ManagerChat from "@/pages/erp/ManagerChat";
 import { Loader2, Github } from "lucide-react";
 
 interface NavChild {
@@ -97,6 +98,7 @@ const navItems: NavItem[] = [
     children: [
       { label: "두골프 마스터 🤖", href: "/master-ai", icon: <MessageSquare size={14} /> },
       { label: "골프톡 관리", href: "/golftalk-admin", icon: <Settings2 size={14} /> },
+      { label: "두골프 매니저 💼", href: "/manager-chat", icon: <MessageSquare size={14} /> },
       { label: "두골프 매니저 관리", href: "/manager-admin", icon: <UserCog size={14} /> },
       { label: "OpenRouter 에이전트 ⚡", href: "/openrouter-agent", icon: <Zap size={14} /> },
     ],
@@ -324,6 +326,7 @@ function ERPContent() {
           <Route path="/partner-onboarding" component={PartnerOnboardingAdmin} />
           <Route path="/subscriptions" component={SubscriptionManagement} />
           <Route path="/golftalk-admin" component={GolfTalkAdmin} />
+          <Route path="/manager-chat" component={ManagerChat} />
           <Route path="/manager-admin" component={ManagerAdmin} />
           <Route path="/settings" component={ERPSettings} />
           <Route path="/settings/system" component={SystemSettings} />

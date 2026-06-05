@@ -1668,3 +1668,11 @@ Detected
 - [x] AdminManagement.tsx 개선 - 역할 기반 UI (master/admin 구분), 보호된 계정 표시
 - [x] ERPSettings.tsx 탭 추가 - API 키 관리 탭 (master 전용)
 - [x] 백엔드 권한 검증 확인 - master 전용 API 키 관리, admin은 접근 불가 (FORBIDDEN 403)
+
+## 두골프 매니저 LLM 사이드바 메뉴 추가 [ID: 390001] (2026-06-05)
+- [x] ManagerChat.tsx 신규 생성 (두골프 매니저 LLM 채팅 전용 페이지)
+- [x] ERPLayout.tsx import 추가 (ManagerChat)
+- [x] 사이드바 navItems AI 챗봇 그룹에 '두골프 매니저 💼' 메뉴 추가 (/manager-chat)
+- [x] Route 등록 (/manager-chat → ManagerChat 컴포넌트)
+- [x] TypeScript 오류 0개 확인
+- [x] managerChat API 동작 확인 (Gemini 2.5 Flash 응답)
