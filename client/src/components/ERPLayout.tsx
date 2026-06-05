@@ -73,6 +73,7 @@ import GitHubSettings from "@/pages/erp/GitHubSettings";
 import GitHubHistory from "@/pages/erp/GitHubHistory";
 import AdminManagementPage from "@/pages/erp/AdminManagement";
 import ManagerChat from "@/pages/erp/ManagerChat";
+import KnowledgeBlockLog from "@/pages/erp/KnowledgeBlockLog";
 import { Loader2, Github } from "lucide-react";
 
 interface NavChild {
@@ -194,6 +195,7 @@ const navItems: NavItem[] = [
     children: [
       { label: "ERP 설정", href: "/settings", icon: <Settings size={14} /> },
       { label: "시스템 설정", href: "/settings/system", icon: <Cpu size={14} /> },
+      { label: "지식 차단 관리", href: "/knowledge-block", icon: <Shield size={14} /> },
     ],
   },
 ];
@@ -330,6 +332,7 @@ function ERPContent() {
           <Route path="/manager-admin" component={ManagerAdmin} />
           <Route path="/settings" component={ERPSettings} />
           <Route path="/settings/system" component={SystemSettings} />
+          <Route path="/knowledge-block" component={KnowledgeBlockLog} />
           <Route path="/openrouter-agent" component={OpenRouterAgent} />
           <Route path="/dev-dashboard" component={DevDashboard} />
           <Route path="/managed-projects" component={ManagedProjects} />

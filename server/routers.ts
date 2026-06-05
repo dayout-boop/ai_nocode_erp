@@ -5,6 +5,7 @@ import { adminAccountsRouter } from "./routers/adminAccounts";
 import { adminAuthRouter } from "./routers/adminAuth";
 import { adminManagementRouter } from "./routers/adminManagement";
 import { erpApiKeysRouter } from "./routers/erpApiKeys";
+import { knowledgeBlockRouter } from "./routers/knowledgeBlock";
 import { reservationInquiriesRouter, inquiryTemplatesRouter } from "./routers/reservationInquiries";
 import { reservationItinerariesRouter, customVariablesRouter } from "./routers/reservationItineraries";
 import { reservationAffiliateCostsRouter } from "./routers/reservationAffiliateCosts";
@@ -3422,5 +3423,6 @@ export const appRouter = router({
   adminAuth: adminAuthRouter,
   adminManagement: adminManagementRouter,
   erpApiKeys: erpApiKeysRouter,
+  knowledgeBlock: knowledgeBlockRouter,
 });
 export type AppRouter = typeof appRouter;

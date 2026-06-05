@@ -1689,3 +1689,11 @@ Detected
 - [x] server/routers/modelRouting.ts DEFAULT_MODEL_RULES 기본값 수정
 - [x] server/routers.ts 초기화 기본값 수정
 - [x] server/services/openrouter.ts MODEL_MAP low 모델 수정
+
+## 타 데스크 지식 차단 시스템 (ERP 서버 레벨)
+- [x] DB 스키마: knowledge_block_logs 테이블 추가 (차단 이력 저장)
+- [x] server/services/knowledgeFilter.ts: 차단 키워드 패턴 필터 서비스 구현
+- [x] server/routers/knowledgeBlock.ts: tRPC 라우터 (차단 로그 조회/수동 차단 등록)
+- [x] server/routers.ts: knowledgeBlock 라우터 통합
+- [x] client/src/pages/erp/KnowledgeBlockLog.tsx: 차단 이력 ERP UI 페이지
+- [x] ERPLayout.tsx: 사이드바에 "지식 차단 관리" 메뉴 추가

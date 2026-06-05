@@ -1940,3 +1940,50 @@ export const erpApiSettings = mysqlTable("erp_api_settings", {
 
 export type ErpApiSetting = typeof erpApiSettings.$inferSelect;
 export type InsertErpApiSetting = typeof erpApiSettings.$inferInsert;
+
+/**
+ * 타 데스크 지식 차단 로그 테이블
+ * - AI가 타 데스크 지식을 감지하고 차단한 이력을 기록
+ * - ERP 서버 레벨에서 직접 관리하는 독립 차단 시스템
+ */
+export const knowledgeBlockLogs = mysqlTable("knowledge_block_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 차단된 지식 이름 */
+  knowledgeName: varchar("knowledgeName", { length: 300 }).notNull(),
+  /** 차단 이유 (감지된 키워드 또는 패턴) */
+  blockReason: text("blockReason"),
+  /** 차단 유형: auto(자동감지) | manual(수동등록) */
+  blockType: mysqlEnum("blockType", ["auto", "manual"]).default("auto").notNull(),
+  /** 차단 출처 데스크 (추정) */
+  sourceDeskHint: varchar("sourceDeskHint", { length: 200 }),
+  /** 세션 ID (어느 세션에서 감지되었는지) */
+  sessionId: varchar("sessionId", { length: 100 }),
+  /** 차단 처리 여부 */
+  isBlocked: boolean("isBlocked").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type KnowledgeBlockLog = typeof knowledgeBlockLogs.$inferSelect;
+export type InsertKnowledgeBlockLog = typeof knowledgeBlockLogs.$inferInsert;
+
+/**
+ * 타 데스크 지식 차단 규칙 테이블
+ * - 마스터가 직접 차단 규칙을 추가/관리
+ * - ERP DB에 저장되어 Manus 플랫폼과 독립적으로 동작
+ */
+export const knowledgeBlockRules = mysqlTable("knowledge_block_rules", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 차단 규칙 이름 */
+  ruleName: varchar("ruleName", { length: 300 }).notNull(),
+  /** 차단 키워드 (쉼표 구분) */
+  keywords: text("keywords").notNull(),
+  /** 차단 이유 설명 */
+  description: text("description"),
+  /** 활성화 여부 */
+  isActive: boolean("isActive").default(true).notNull(),
+  /** 등록자 */
+  createdBy: varchar("createdBy", { length: 100 }).default("master"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type KnowledgeBlockRule = typeof knowledgeBlockRules.$inferSelect;
+export type InsertKnowledgeBlockRule = typeof knowledgeBlockRules.$inferInsert;
