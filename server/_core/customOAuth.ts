@@ -120,7 +120,8 @@ export function getManusLoginUrlWithInvitation(
   };
   const state = Buffer.from(JSON.stringify(stateData)).toString('base64');
 
-  const url = new URL(`${oauthPortalUrl}/app-auth`);
+  // ✅ Fix: 올바른 Manus 도메인 사용 (api.manus.im이 아니라 manus.im)
+  const url = new URL('https://manus.im/app-auth');
   url.searchParams.set('appId', appId);
   url.searchParams.set('redirectUri', redirectUri);
   url.searchParams.set('state', state);
@@ -130,5 +131,6 @@ export function getManusLoginUrlWithInvitation(
     url.searchParams.set('skip_credit_popup', 'true');  // 팝업 억제
   }
 
+  console.log('[OAuth] Generated Manus auth URL:', url.toString());
   return url.toString();
 }
