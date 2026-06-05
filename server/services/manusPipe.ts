@@ -659,3 +659,40 @@ export async function autoRegisterAndSend(devRequest: {
     success: result.success,
   };
 }
+
+/**
+ * Manus WebDev 최신 체크포인트를 게시(Publish)합니다.
+ * website.publish API를 호출하여 현재 최신 체크포인트를 배포합니다.
+ * @returns { ok: boolean, versionId?: string, websiteId?: string, error?: string }
+ */
+export async function publishManusSite(): Promise<{
+  ok: boolean;
+  versionId?: string;
+  websiteId?: string;
+  error?: string;
+}> {
+  const apiKey = process.env.MANUS_API_KEY;
+  const taskId = process.env.MANUS_DOGOLF_TASK_ID;
+  if (!apiKey || !taskId) {
+    return { ok: false, error: "MANUS_API_KEY 또는 MANUS_DOGOLF_TASK_ID가 설정되지 않았습니다." };
+  }
+  try {
+    const res = await fetch("https://api.manus.ai/v2/website.publish", {
+      method: "POST",
+      headers: {
+        "x-manus-api-key": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ task_id: taskId }),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      return { ok: false, error: `Manus Publish API 오류 (${res.status}): ${errText}` };
+    }
+    const data = (await res.json()) as { ok: boolean; version_id?: string; website_id?: string };
+    return { ok: data.ok, versionId: data.version_id, websiteId: data.website_id };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: `Manus Publish API 호출 실패: ${msg}` };
+  }
+}

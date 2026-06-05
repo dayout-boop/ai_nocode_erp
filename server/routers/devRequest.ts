@@ -18,6 +18,7 @@ import {
   sendSingleRequestToManus,
   sendPendingRequestsToManus,
   autoRegisterAndSend,
+  publishManusSite,
 } from "../services/manusPipe";
 import { invokeLLM } from "../_core/llm";
 import { createAiNotification } from "./aiNotifications";
@@ -614,6 +615,17 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
         autoLinkRecentCommits(db, req.id, req.title).catch(
           (e: unknown) => console.error('[devRequest] GitHub 커밋 자동 연결 실패:', e)
         );
+        // Manus WebDev 자동 게시 (비동기, 실패해도 완료 처리에 영향 없음)
+        publishManusSite()
+          .then((publishResult) => {
+            if (publishResult.ok) {
+              console.log(`[devRequest] Manus 자동 게시 성공: versionId=${publishResult.versionId}`);
+              publish('manus_published', { devRequestId: req.id, versionId: publishResult.versionId });
+            } else {
+              console.warn(`[devRequest] Manus 자동 게시 실패: ${publishResult.error}`);
+            }
+          })
+          .catch((e: unknown) => console.error('[devRequest] Manus 자동 게시 오류:', e));
       }
       return { success: true };
     }),

@@ -1702,3 +1702,12 @@ Detected
 - [x] ERPLayout.tsx 로그아웃 버튼 클릭 후 /erp 로그인 페이지로 즉시 리디렉션 처리
 - [x] adminAuth.logout tRPC 뮤테이션 onSuccess에서 window.location.href 또는 setLocation 호출
 - [x] 로그아웃 후 ERP 세션 상태 초기화 확인
+
+## 버그 수정 - 로그아웃 즉시 리디렉션 근본 원인 수정
+- [x] ERPLayout.tsx: hasMasterSession 조건에서 adminLoginTime 잔존 시 로그아웃 후에도 ERP 유지되는 문제 수정
+- [x] 로그아웃 버튼 클릭 시 adminLogoutMutation 호출 전 즉시 localStorage 초기화 처리
+
+## 신규 기능 - ERP 개발완료 버튼 → Manus Publish 자동 연동
+- [x] server/routers/devRequests.ts: markComplete 프로시저에 Manus Publish API 호출 로직 추가
+- [x] ERP 개발 요청 완료 처리 시 Manus WebDev 게시(Publish) 자동 트리거
+- [x] 게시 성공/실패 결과를 ERP UI에 표시

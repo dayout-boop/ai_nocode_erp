@@ -504,7 +504,12 @@ export default function ERPLayout() {
           </a>
           <div
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-700 cursor-pointer transition-colors"
-            onClick={() => adminLogoutMutation.mutate()}
+            onClick={() => {
+              // localStorage 즉시 초기화 (hasMasterSession이 true가 되는 것을 방지)
+              localStorage.removeItem('adminLoginTime');
+              // 서버 세션 파기 + 리디렉션
+              adminLogoutMutation.mutate();
+            }}
           >
             <LogOut size={16} className="shrink-0" />
             {!sidebarCollapsed && <span className="text-xs">{adminLogoutMutation.isPending ? '로그아웃 중...' : '로그아웃'}</span>}
