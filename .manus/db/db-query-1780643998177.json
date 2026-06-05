@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `admin_accounts` (\n  `id` int AUTO_INCREMENT PRIMARY KEY,\n  `username` varchar(100) NOT NULL UNIQUE,\n  `passwordHash` varchar(255) NOT NULL,\n  `name` varchar(100),\n  `email` varchar(320),\n  `phone` varchar(30),\n  `role` enum('admin', 'master') NOT NULL DEFAULT 'admin',\n  `isActive` boolean NOT NULL DEFAULT true,\n  `createdBy` int,\n  `lastLoginAt` timestamp,\n  `memo` text,\n  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26cugxGHXFTgwBN.root --database dkz3FsMPRyyRyzyL9KrQXe --execute CREATE TABLE `admin_accounts` (\n  `id` int AUTO_INCREMENT PRIMARY KEY,\n  `username` varchar(100) NOT NULL UNIQUE,\n  `passwordHash` varchar(255) NOT NULL,\n  `name` varchar(100),\n  `email` varchar(320),\n  `phone` varchar(30),\n  `role` enum('admin', 'master') NOT NULL DEFAULT 'admin',\n  `isActive` boolean NOT NULL DEFAULT true,\n  `createdBy` int,\n  `lastLoginAt` timestamp,\n  `memo` text,\n  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1839
+}

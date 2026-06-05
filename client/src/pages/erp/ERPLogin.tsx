@@ -1,31 +1,16 @@
 import { useState } from 'react';
-import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertCircle, Eye, EyeOff, Lock, User } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { trpc } from '@/lib/trpc';
 
 export default function ERPLogin() {
-  const [, setLocation] = useLocation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  const loginMutation = trpc.adminAuth.login.useMutation({
-    onSuccess: () => {
-      // 로그인 성공 - 세션 쿠키 설정됨
-      localStorage.setItem('adminLoginTime', new Date().toISOString());
-      setLocation('/erp/dashboard');
-    },
-    onError: (err: any) => {
-      setError(err.message || '로그인 실패. 아이디와 비밀번호를 확인하세요.');
-      setIsLoading(false);
-    },
-  });
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +23,50 @@ export default function ERPLogin() {
       return;
     }
 
-    loginMutation.mutate({ username, password });
+    try {
+      // tRPC superjson 형식으로 API 호출
+      const response = await fetch('/api/trpc/adminAuth.login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // 쿠키 포함 (admin_session)
+        body: JSON.stringify({
+          json: {
+            username: username.trim(),
+            password: password.trim(),
+          },
+        }),
+      });
+
+      const data = await response.json();
+
+      // tRPC 응답 형식 확인
+      if (data.error) {
+        // 단일 응답 오류 형식
+        const msg = data.error?.json?.message || '로그인 실패';
+        setError(msg);
+        setIsLoading(false);
+        return;
+      }
+
+      // 성공 응답: { result: { data: { json: { success, adminId, username, role } } } }
+      const resultData = data.result?.data?.json || data.result?.data;
+      if (resultData?.success) {
+        // 로그인 성공 - 세션 쿠키가 자동으로 설정됨
+        localStorage.setItem('adminLoginTime', new Date().toISOString());
+        localStorage.setItem('adminUsername', resultData.username || username.trim());
+        // 절대 URL로 /erp 이동
+        window.location.href = window.location.origin + '/erp';
+        return;
+      }
+
+      setError('로그인 실패. 응답을 확인하세요.');
+      setIsLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '네트워크 오류가 발생했습니다.');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -147,10 +175,13 @@ export default function ERPLogin() {
         {/* Back to Home */}
         <div className="text-center mt-6">
           <button
-            onClick={() => setLocation('/')}
+            onClick={() => {
+              const baseUrl = window.location.origin;
+              window.location.href = `${baseUrl}/`;
+            }}
             className="text-slate-400 hover:text-slate-300 text-sm transition-colors"
           >
-            ← 홈으로 돌아가기
+            ← 홀으로 돌아가기
           </button>
         </div>
       </div>

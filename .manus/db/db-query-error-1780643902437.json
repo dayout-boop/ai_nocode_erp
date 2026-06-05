@@ -1,0 +1,8 @@
+{
+  "query": "INSERT INTO admin_accounts (username, passwordHash, name, email, role, createdBy, createdAt, updatedAt, isActive) VALUES ('admin', '$2b$10$nbZunijm2As5zmFA9oFReuAV8IeHubvWRZ.2ESju3wpSMwyy8DKgG', '마스터 관리자', 'admin@dogolf.com', 'admin', 1, NOW(), NOW(), true);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26cugxGHXFTgwBN.root --database dkz3FsMPRyyRyzyL9KrQXe --execute INSERT INTO admin_accounts (username, passwordHash, name, email, role, createdBy, createdAt, updatedAt, isActive) VALUES ('admin', '$2b$10$nbZunijm2As5zmFA9oFReuAV8IeHubvWRZ.2ESju3wpSMwyy8DKgG', '마스터 관리자', 'admin@dogolf.com', 'admin', 1, NOW(), NOW(), true);",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1146 (42S02) at line 1: Table 'dkz3fsmpryyryzyl9krqxe.admin_accounts' doesn't exist"
+  ]
+}

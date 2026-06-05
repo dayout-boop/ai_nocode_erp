@@ -1,0 +1,16 @@
+{
+  "query": "SELECT id, username, role, isActive FROM admin_accounts LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 26cugxGHXFTgwBN.root --database dkz3FsMPRyyRyzyL9KrQXe --execute SELECT id, username, role, isActive FROM admin_accounts LIMIT 10;",
+  "rows": [
+    {
+      "id": "1",
+      "username": "admin",
+      "role": "admin",
+      "isActive": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tusername\trole\tisActive\n1\tadmin\tadmin\t1\n",
+  "stderr": "",
+  "execution_time_ms": 1758
+}

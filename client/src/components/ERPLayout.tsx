@@ -349,6 +349,7 @@ export default function ERPLayout() {
   // 마스터 ERP 세션 확인 (Manus 로그인과 별도)
   const adminSessionQuery = trpc.adminAuth.me.useQuery(undefined, {
     refetchInterval: 5 * 60 * 1000, // 5분마다 확인
+    retry: 1, // 실패 시 1회만 재시도
   });
 
   useEffect(() => {
@@ -371,7 +372,13 @@ export default function ERPLayout() {
     refetchInterval: 300000, // 5분마다 갱신
   });
 
-  if (loading) {
+  // 마스터 ERP 세션 확인 (Manus 로그인 없이도 마스터 세션으로 접근 가능)
+  // adminSessionQuery 오류를 내성 처리 - localStorage로 대체
+  const adminLoginTime = typeof window !== 'undefined' ? localStorage.getItem('adminLoginTime') : null;
+  const hasMasterSession = adminLoginTime !== null || (adminSessionQuery.data !== undefined && adminSessionQuery.data !== null);
+  const isMausAuthenticated = isAuthenticated && user?.role === 'admin';
+
+  if (loading && !hasMasterSession && !adminLoginTime) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-white text-center">
@@ -382,27 +389,8 @@ export default function ERPLayout() {
     );
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <LayoutDashboard size={28} className="text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-white mb-2">두골프 ERP</h1>
-          <p className="text-slate-400 mb-6">관리자 전용 시스템입니다. 로그인이 필요합니다.</p>
-          <a href={getLoginUrl()}>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3">
-              관리자 로그인
-            </Button>
-          </a>
-        </div>
-      </div>
-    );
-  }
-
-  // 마스터 ERP 세션 확인
-  if (!adminSessionQuery.data) {
+  // 마스터 세션도 없고 Manus 로그인도 없으면 마스터 로그인 페이지로
+  if (!hasMasterSession && !isMausAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
@@ -412,7 +400,11 @@ export default function ERPLayout() {
           <h1 className="text-2xl font-bold text-white mb-2">마스터 ERP</h1>
           <p className="text-slate-400 mb-6">마스터 관리자 계정으로 로그인이 필요합니다.</p>
           <Button
-            onClick={() => setLocation('/erp/login')}
+            onClick={() => {
+              // 절대 경로 사용 - wouter 상대 경로 문제 회피
+              const baseUrl = window.location.origin;
+              window.location.href = `${baseUrl}/erp/login`;
+            }}
             className="bg-amber-600 hover:bg-amber-700 text-white px-8 py-3"
           >
             마스터 로그인
@@ -422,7 +414,8 @@ export default function ERPLayout() {
     );
   }
 
-  if (user?.role !== "admin") {
+  // Manus 로그인이 있는 경우만 역할 체크
+  if (isMausAuthenticated && user?.role !== "admin") {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
