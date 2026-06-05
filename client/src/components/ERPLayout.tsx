@@ -70,7 +70,8 @@ import SubscriptionManagement from "@/pages/erp/SubscriptionManagement";
 import FileAnalysisHistory from "@/pages/erp/FileAnalysisHistory";
 import GitHubSettings from "@/pages/erp/GitHubSettings";
 import GitHubHistory from "@/pages/erp/GitHubHistory";
-import { Loader2, Github } from "lucide-react";
+import AdminManagement from "@/pages/CRM/AdminManagement";
+import { Loader2, Github, Shield } from "lucide-react";
 
 interface NavChild {
   label: string;
@@ -171,6 +172,7 @@ const navItems: NavItem[] = [
       { label: "제휴사 관리", href: "/crm/affiliates", icon: <Building2 size={14} /> },
       { label: "파트너 온보딩 관리", href: "/partner-onboarding", icon: <UserPlus size={14} /> },
       { label: "구독 관리", href: "/subscriptions", icon: <CreditCard size={14} /> },
+      { label: "마스터 관리", href: "/crm/admin-management", icon: <Shield size={14} /> },
     ],
   },
   {
@@ -294,6 +296,7 @@ function ERPContent() {
           <Route path="/crm" component={ERPCRMCustomers} />
           <Route path="/crm/partners" component={ERPCRMPartners} />
           <Route path="/crm/affiliates" component={AffiliateManagement} />
+          <Route path="/crm/admin-management" component={AdminManagement} />
           <Route path="/reservations" component={ReservationManagement} />
           <Route path="/reservations/templates" component={InquiryTemplates} />
           <Route path="/reservations/estimate-templates" component={CustomerEstimateTemplates} />
