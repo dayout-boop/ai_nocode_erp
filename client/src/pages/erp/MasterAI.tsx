@@ -805,7 +805,6 @@ function RightPanel({
               </p>
               <div className="space-y-1.5">
                 {[
-                  { name: "GitHub API", benefit: "코드 히스토리 보관 · 중복 개발 방지", priority: "🔴 최우선" },
                   { name: "벡터 DB (RAG)", benefit: "토큰 소모 40% 절감", priority: "🟠 높음" },
                   { name: "n8n 자동화", benefit: "Manus 호출 빈도 감소", priority: "🟠 높음" },
                 ].map((item) => (

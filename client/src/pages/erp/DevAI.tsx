@@ -65,7 +65,6 @@ import {
   Info,
   FolderOpen,
   Layers,
-  Github,
   ExternalLink,
 } from "lucide-react";
 import {
@@ -125,56 +124,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   erp: "ERP",
 };
 
-// ─── GitHub 커밋 링크 컴포넌트 ────────────────────────────────────────────────────
-function GitHubCommitLinks({ devRequestId }: { devRequestId: number }) {
-  const { data, isLoading } = trpc.github.getLinkedCommits.useQuery(
-    { devRequestId },
-    { enabled: !!devRequestId }
-  );
-
-  if (isLoading) {
-    return (
-      <div className="h-8 bg-slate-100 rounded animate-pulse" />
-    );
-  }
-
-  if (!data || data.length === 0) return null;
-
-  return (
-    <div className="bg-slate-50 rounded-lg px-3 py-2 space-y-1">
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <Github size={12} className="text-slate-500" />
-        <span className="text-xs font-semibold text-slate-500">GitHub 커밋</span>
-        <span className="text-xs text-slate-400">({data.length}개)</span>
-      </div>
-      {data.map((commit) => (
-        <div key={commit.id} className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <code className="text-xs font-mono text-slate-500 shrink-0">
-              {commit.commitSha.slice(0, 7)}
-            </code>
-            <span className="text-xs text-slate-600 truncate">{commit.commitMessage}</span>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {commit.linkType === 'auto' && (
-              <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">자동</span>
-            )}
-            {commit.commitUrl && (
-              <a
-                href={commit.commitUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-0.5"
-              >
-                <ExternalLink size={10} />
-              </a>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 // ─── 관리 프로젝트 요약 위젯 ────────────────────────────────────────────────────
 function ManagedProjectsSummaryWidget() {
@@ -294,8 +243,6 @@ export default function DevAI() {
   const [createFeatureOpen, setCreateFeatureOpen] = useState(false);
   const [createVersionOpen, setCreateVersionOpen] = useState(false);
   const [slackWebhookInput, setSlackWebhookInput] = useState("");
-  // GitHub 유사 코드 추천 상태
-  const [githubSuggestions, setGithubSuggestions] = useState<Array<{ name: string; path: string; url: string; repository: string }>>([]);
 
   // URL 파라미터로 새 요청 다이얼로그 자동 오픈 (ManagedProjects에서 네비게이션 시)
   const _autoOpened = useRef(false);
@@ -387,14 +334,7 @@ export default function DevAI() {
           toast.warning("요청은 등록되었으나 Slack 전송에 실패했습니다.");
         }
       }
-      // GitHub 유사 코드 추천 저장
-      if (createdReq.githubSuggestions && createdReq.githubSuggestions.length > 0) {
-        setGithubSuggestions(createdReq.githubSuggestions);
-        toast.success("개발 요청이 등록되었습니다. GitHub에서 유사 코드가 발견되었습니다!");
-      } else {
-        setGithubSuggestions([]);
-        toast.success("개발 요청이 등록되었습니다.");
-      }
+      toast.success("개발 요청이 등록되었습니다.");
       setCreateReqOpen(false);
       setReqForm({ title: "", description: "", priority: "medium", featureId: "" });
       setSlackWebhookInput("");
@@ -932,10 +872,7 @@ export default function DevAI() {
                                   </p>
                                 </div>
                               )}
-                              {/* GitHub 커밋 링크 표시 (완료 상태일 때) */}
-                              {req.status === "completed" && (
-                                <GitHubCommitLinks devRequestId={req.id} />
-                              )}
+
                               {/* 체크포인트 ID 표시 + 버전 생성 바로가기 */}
                               {(req as any).resultCheckpointId && (
                                 <div className="flex items-center justify-between bg-indigo-50 rounded-lg px-3 py-2">
@@ -1576,49 +1513,7 @@ export default function DevAI() {
           )}
         </div>
   
-        {/* ===== GitHub 유사 코드 추천 배너 ===== */}
-        {githubSuggestions.length > 0 && (
-          <div className="fixed bottom-6 right-6 z-50 w-96 bg-white border border-amber-200 rounded-xl shadow-xl p-4">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Github size={16} className="text-slate-700" />
-                <span className="text-sm font-semibold text-slate-800">유사 코드 발견</span>
-                <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">{githubSuggestions.length}개</span>
-              </div>
-              <button
-                onClick={() => setGithubSuggestions([])}
-                className="text-slate-400 hover:text-slate-600 text-xs"
-              >
-                ✕
-              </button>
-            </div>
-            <p className="text-xs text-slate-500 mb-3">중복 개발 방지를 위해 아래 파일을 먼저 확인해 보세요.</p>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {githubSuggestions.map((s, i) => (
-                <a
-                  key={i}
-                  href={s.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-start gap-2 p-2 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors group"
-                >
-                  <GitBranch size={12} className="text-slate-400 mt-0.5 shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-xs font-medium text-slate-700 truncate group-hover:text-violet-600">{s.name}</div>
-                    <div className="text-[10px] text-slate-400 truncate">{s.path}</div>
-                  </div>
-                  <ExternalLink size={10} className="text-slate-300 group-hover:text-violet-400 shrink-0 mt-0.5" />
-                </a>
-              ))}
-            </div>
-            <button
-              onClick={() => setGithubSuggestions([])}
-              className="mt-3 w-full text-xs text-slate-500 hover:text-slate-700 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              확인했습니다
-            </button>
-          </div>
-        )}
+
 
         {/* ===== 개발 요청 등록 다이얼로그 ===== */}
         <Dialog open={createReqOpen} onOpenChange={setCreateReqOpen}>

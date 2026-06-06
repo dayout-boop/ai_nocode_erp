@@ -35,10 +35,6 @@ export const ENV = {
   portoneApiSecret: process.env.PORTONE_API_SECRET ?? "",
   portoneStoreId: process.env.VITE_PORTONE_STORE_ID ?? "",
   portoneChannelKey: process.env.VITE_PORTONE_CHANNEL_KEY ?? "",
-  // GitHub 연동 (코드 히스토리 보관)
-  githubToken: process.env.GITHUB_TOKEN ?? "",
-  githubRepoOwner: process.env.GITHUB_REPO_OWNER ?? "",
-  githubRepoName: process.env.GITHUB_REPO_NAME ?? "",
   // LLM 설정 (v2 버전용)
   llmApiUrl: process.env.LLM_API_URL ?? "",
   llmApiKey: process.env.LLM_API_KEY ?? "",

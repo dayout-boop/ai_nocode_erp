@@ -69,13 +69,11 @@ import ModelRoutingSettings from "@/pages/erp/ModelRoutingSettings";
 import PartnerOnboardingAdmin from "@/pages/erp/PartnerOnboardingAdmin";
 import SubscriptionManagement from "@/pages/erp/SubscriptionManagement";
 import FileAnalysisHistory from "@/pages/erp/FileAnalysisHistory";
-import GitHubSettings from "@/pages/erp/GitHubSettings";
-import GitHubHistory from "@/pages/erp/GitHubHistory";
 import AdminManagementPage from "@/pages/erp/AdminManagement";
 import ManagerChat from "@/pages/erp/ManagerChat";
 import KnowledgeBlockLog from "@/pages/erp/KnowledgeBlockLog";
 import SettlementsSuppliers from "@/pages/erp/SettlementsSuppliers";
-import { Loader2, Github } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 interface NavChild {
   label: string;
@@ -126,8 +124,6 @@ const navItems: NavItem[] = [
       { label: "오류 로그", href: "/ai-dev-engine", icon: <AlertTriangle size={14} /> },
       { label: "관리 프로젝트", href: "/managed-projects", icon: <FolderOpen size={14} /> },
       { label: "파일 분석 이력", href: "/ai-engine/file-analysis", icon: <FileText size={14} /> },
-      { label: "GitHub 연동", href: "/ai-engine/github-settings", icon: <Github size={14} /> },
-      { label: "코드 히스토리", href: "/ai-engine/github-history", icon: <GitBranch size={14} /> },
       { label: "Gemini 어시스턴트", href: "/gemini", icon: <Sparkles size={14} /> },
       { label: "AI 로그", href: "/ai-logs", icon: <History size={14} /> },
       { label: "오케스트레이터", href: "/orchestrator", icon: <Zap size={14} /> },
@@ -328,8 +324,6 @@ function ERPContent() {
           <Route path="/ai-engine/features" component={FeatureCatalog} />
           <Route path="/ai-engine/model-routing" component={ModelRoutingSettings} />
           <Route path="/ai-engine/file-analysis" component={FileAnalysisHistory} />
-          <Route path="/ai-engine/github-settings" component={GitHubSettings} />
-          <Route path="/ai-engine/github-history" component={GitHubHistory} />
           <Route path="/partner-onboarding" component={PartnerOnboardingAdmin} />
           <Route path="/subscriptions" component={SubscriptionManagement} />
           <Route path="/golftalk-admin" component={GolfTalkAdmin} />

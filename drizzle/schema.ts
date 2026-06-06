@@ -1837,42 +1837,6 @@ export const partnerStaffPasswordReset = mysqlTable("partner_staff_password_rese
 export type PartnerStaffPasswordReset = typeof partnerStaffPasswordReset.$inferSelect;
 export type InsertPartnerStaffPasswordReset = typeof partnerStaffPasswordReset.$inferInsert;
 
-// ============================================================
-// GITHUB_COMMITS - GitHub 커밋 연동 (AI 엔진 Phase 2)
-// 개발 요청 완료 시 관련 GitHub 커밋을 연결하여 코드 히스토리 보관
-// ============================================================
-export const githubCommits = mysqlTable("github_commits", {
-  id: int("id").autoincrement().primaryKey(),
-  /** 연결된 개발 요청 ID (dev_requests 테이블 참조, nullable) */
-  devRequestId: int("devRequestId"),
-  /** GitHub 커밋 SHA */
-  commitSha: varchar("commitSha", { length: 40 }).notNull(),
-  /** 커밋 메시지 */
-  commitMessage: text("commitMessage").notNull(),
-  /** 커밋 작성자 */
-  authorName: varchar("authorName", { length: 100 }),
-  authorEmail: varchar("authorEmail", { length: 320 }),
-  /** 커밋 시각 (GitHub 기준) */
-  committedAt: timestamp("committedAt"),
-  /** 브랜치명 */
-  branch: varchar("branch", { length: 100 }).default("main"),
-  /** 변경된 파일 수 */
-  filesChanged: int("filesChanged").default(0),
-  /** 추가된 라인 수 */
-  additions: int("additions").default(0),
-  /** 삭제된 라인 수 */
-  deletions: int("deletions").default(0),
-  /** GitHub 커밋 URL */
-  commitUrl: varchar("commitUrl", { length: 500 }),
-  /** 변경된 파일 목록 (JSON) */
-  filesData: json("filesData"),
-  /** 연결 방식: auto(자동), manual(수동) */
-  linkType: mysqlEnum("linkType", ["auto", "manual"]).default("manual").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-export type GithubCommit = typeof githubCommits.$inferSelect;
-export type InsertGithubCommit = typeof githubCommits.$inferInsert;
-
 
 // ============================================================
 // ADMIN_ACCOUNTS - CRM 마스터 관리자 계정 관리

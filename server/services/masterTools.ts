@@ -21,7 +21,6 @@ import {
 } from "../../drizzle/schema";
 import { eq, gte, lte, and, sql, desc, count, sum, isNull, countDistinct } from "drizzle-orm";
 import { maskPhone, maskEmail } from "./rag";
-import { searchCode } from "../_core/github";
 
 // ─── Tool 정의 (OpenRouter Tool Calling 형식) ───────────────────
 
@@ -360,33 +359,6 @@ export const MASTER_TOOLS = [
       },
     },
   },
-  // ─── GitHub 코드 검색 도구 ────────────────────────────────────────────────────
-  {
-    type: "function",
-    function: {
-      name: "search_github_code",
-      description: "GitHub 저장소에서 코드를 검색합니다. 신규 개발 요청 시 유사한 기존 코드가 있는지 확인하거나, 특정 함수/컴포넌트의 구현 위치를 찾을 때 사용합니다. 중복 개발 방지에 활용하세요.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "검색어 (예: 'PackageCard', 'booking mutation', '예약 생성 함수')",
-          },
-          language: {
-            type: "string",
-            description: "코드 언어 필터 (예: 'TypeScript', 'tsx', 'ts')",
-          },
-          maxResults: {
-            type: "number",
-            description: "최대 반환 결과 수 (기본값: 5, 최대: 10)",
-          },
-        },
-        required: ["query"],
-        additionalProperties: false,
-      },
-    },
-  },
   // ─── 세션 상태 관리 도구 ────────────────────────────────────────────────────
   {
     type: "function",
@@ -474,8 +446,6 @@ export async function executeTool(toolName: string, args: Record<string, unknown
         return await setSessionState(db, args, start);
       case "get_session_state":
         return await getSessionState(db, args, start);
-      case "search_github_code":
-        return await searchGithubCode(args, start);
       default:
         return { tool: toolName, success: false, error: `알 수 없는 도구: ${toolName}`, queryTime: Date.now() - start };
     }
@@ -1297,63 +1267,3 @@ async function getSessionState(
   };
 }
 
-/**
- * GitHub 코드 검색 도구 실행 함수
- * 중복 개발 방지: 신규 요청 시 기존 코드 검색
- */
-async function searchGithubCode(args: Record<string, unknown>, start: number): Promise<ToolCallResult> {
-  const query = String(args.query || "");
-  if (!query) {
-    return { tool: "search_github_code", success: false, error: "검색어가 필요합니다", queryTime: Date.now() - start };
-  }
-  const language = args.language ? String(args.language) : undefined;
-  const maxResults = Math.min(Number(args.maxResults || 5), 10);
-
-  try {
-    const results = await searchCode(query, { language, perPage: maxResults });
-    if (!results || results.items.length === 0) {
-      return {
-        tool: "search_github_code",
-        success: true,
-        data: {
-          query,
-          totalCount: 0,
-          items: [],
-          message: `'${query}'에 해당하는 코드를 찾지 못했습니다. 새로 개발이 필요합니다.`,
-        },
-        queryTime: Date.now() - start,
-      };
-    }
-    return {
-      tool: "search_github_code",
-      success: true,
-      data: {
-        query,
-        totalCount: results.totalCount,
-        items: results.items.slice(0, maxResults).map((item) => ({
-          name: item.name,
-          path: item.path,
-          htmlUrl: item.htmlUrl,
-          repository: item.repository,
-          textMatches: item.textMatches?.slice(0, 2).map((m) => ({
-            fragment: m.fragment?.substring(0, 200),
-          })),
-        })),
-        message: `'${query}' 관련 코드 ${results.totalCount}개 발견. 기존 코드를 재사용하거나 참고하세요.`,
-      },
-      queryTime: Date.now() - start,
-    };
-  } catch (err) {
-    // GitHub 미연동 시 조용히 처리
-    const errMsg = err instanceof Error ? err.message : String(err);
-    if (errMsg.includes('GITHUB_TOKEN') || errMsg.includes('401') || errMsg.includes('403')) {
-      return {
-        tool: "search_github_code",
-        success: false,
-        error: "GitHub 연동이 설정되지 않았습니다. ERP → AI 엔진 → GitHub 연동 메뉴에서 설정해주세요.",
-        queryTime: Date.now() - start,
-      };
-    }
-    return { tool: "search_github_code", success: false, error: errMsg, queryTime: Date.now() - start };
-  }
-}

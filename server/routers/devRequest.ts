@@ -23,8 +23,6 @@ import {
 import { invokeLLM } from "../_core/llm";
 import { createAiNotification } from "./aiNotifications";
 import { publish } from "../services/realtimeEvents";
-import { githubCommits } from "../../drizzle/schema";
-import { listCommits, searchCode } from "../_core/github";
 
 // 자동 완료 키워드 기본값 (DB에 없으면 사용)
 const DEFAULT_COMPLETION_KEYWORDS = [
@@ -59,49 +57,6 @@ async function getCompletionKeywordsLocal(): Promise<string[]> {
     return JSON.parse(rows[0].settingValue) as string[];
   } catch {
     return DEFAULT_COMPLETION_KEYWORDS;
-  }
-}
-
-/**
- * 개발 완료 시 최근 GitHub 커밋을 자동으로 devRequest에 연결
- * - 최근 10개 커밋 중 이미 연결되지 않은 것을 연결
- * - 완료 처리와 비동기로 실행 (실패해도 완료 처리에 영향 없음)
- */
-async function autoLinkRecentCommits(
-  db: Awaited<ReturnType<typeof getDb>>,
-  devRequestId: number,
-  devRequestTitle: string
-): Promise<void> {
-  if (!db) return;
-  try {
-    // 최근 커밋 조회 (최대 5개)
-    const commits = await listCommits({ branch: 'main', perPage: 5 });
-    if (!commits || commits.length === 0) return;
-    // 이미 연결된 커밋 SHA 목록 조회
-    const { eq: eqOp } = await import('drizzle-orm');
-    const existing = await db
-      .select({ commitSha: githubCommits.commitSha })
-      .from(githubCommits)
-      .where(eqOp(githubCommits.devRequestId, devRequestId));
-    const existingShas = new Set(existing.map((r) => r.commitSha));
-    // 새 커밋 연결 (최신 1~3개, 아직 연결 안 된 것)
-    const toLink = commits.filter((c) => !existingShas.has(c.sha)).slice(0, 3);
-    for (const commit of toLink) {
-      await db.insert(githubCommits).values({
-        devRequestId,
-        commitSha: commit.sha,
-        commitMessage: commit.message.split('\n')[0].substring(0, 500),
-        commitUrl: commit.htmlUrl,
-        branch: 'main',
-        authorName: commit.author.name,
-        committedAt: new Date(commit.author.date),
-        linkType: 'auto',
-      }).onDuplicateKeyUpdate({ set: { linkType: 'auto' } });
-    }
-    console.log(`[devRequest] GitHub 커밋 ${toLink.length}개 자동 연결 완료 (devRequestId: ${devRequestId})`);
-  } catch (e) {
-    // GitHub 연동 미설정 시 조용히 실패
-    console.warn('[devRequest] GitHub 커밋 자동 연결 건너뜀:', (e as Error).message);
   }
 }
 
@@ -148,30 +103,7 @@ export const devRequestRouter = router({
 
       publish("dev_request_created", { id: inserted.id, title: input.title, priority: input.priority, status: "pending" });
 
-      // GitHub 유사 코드 자동 검색 (비동기, 실패해도 등록에 영향 없음)
-      let githubSuggestions: Array<{ name: string; path: string; url: string; repository: string }> = [];
-      try {
-        // 제목에서 핵심 키워드 추출 (첫 3단어)
-        const keywords = input.title
-          .replace(/[^가-힣a-zA-Z0-9\s]/g, ' ')
-          .split(/\s+/)
-          .filter(w => w.length > 1)
-          .slice(0, 3)
-          .join(' ');
-        if (keywords.length > 0) {
-          const results = await searchCode(keywords, { perPage: 5 });
-          githubSuggestions = results.items.slice(0, 5).map((item) => ({
-            name: item.name,
-            path: item.path,
-            url: item.htmlUrl,
-            repository: item.repository.fullName,
-          }));
-        }
-      } catch {
-        // GitHub 미연동 또는 검색 실패 시 조용히 무시
-      }
-
-      return { id: inserted.id, success: true, githubSuggestions };
+      return { id: inserted.id, success: true };
     }),
 
   /**
@@ -595,7 +527,7 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
         .set({ status: 'completed', updatedAt: new Date() })
         .where(and(eq(devRequests.id, input.id), eq(devRequests.status, 'in_progress')));
       const affected = (result as unknown as { affectedRows?: number })?.affectedRows ?? 0;
-      // 완료 시 AI 알림 자동 생성 + GitHub 커밋 자동 연결
+      // 완료 시 AI 알림 자동 생성
       if (affected > 0 && req) {
         const priorityMap: Record<string, 'critical' | 'high' | 'medium' | 'low'> = {
           critical: 'critical', high: 'high', medium: 'medium', low: 'low',
@@ -611,10 +543,6 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
           priority: priorityMap[req.priority ?? 'medium'] ?? 'medium',
           source: 'system',
         }).catch((e: unknown) => console.error('[devRequest] 알림 생성 실패:', e));
-        // GitHub 최근 커밋 자동 연결 (비동기, 실패해도 완료 처리에 영향 없음)
-        autoLinkRecentCommits(db, req.id, req.title).catch(
-          (e: unknown) => console.error('[devRequest] GitHub 커밋 자동 연결 실패:', e)
-        );
         // Manus WebDev 자동 게시 (비동기, 실패해도 완료 처리에 영향 없음)
         publishManusSite()
           .then((publishResult) => {
