@@ -1725,3 +1725,14 @@ Detected
 - [x] 예약 API RBAC - 본인 등록 예약 수정/삭제 허용 로직 (user 역할)
 - [x] AI 서비스 예약 접근 시 사용자 컨텍스트 검증 추가 (openrouterAgent.ts)
 - [x] RBAC 보안 테스트 작성 (210개 전체 통과)
+
+## 두골프 마스터 AI LLM 기능 개선 [2026-06-06]
+
+- [x] MasterCosts.tsx: `getCostSummary` 실제 응답 형식(`rows`, `totalCost`, `totalMessages`)에 맞게 UI 리팩터링
+- [x] MasterCosts.tsx: `(costData as any)` 패턴 완전 제거, 타입 안전성 확보
+- [x] MasterCosts.tsx: 어시스턴트별 비용 표시 - `rows` 배열 기반으로 변경 (tokensIn/tokensOut 분리 표시)
+- [x] docs/master-ai-report.md: 7.2 미완료 항목 → 완료 상태로 업데이트 (3개 항목 모두 완료)
+- [x] docs/master-ai-report.md: 8.1 현재 한계점 → 구현 완료 항목으로 업데이트
+- [x] docs/master-ai-report.md: 8.2 GitHub API 추천 항목 제거 → 실제 연동 현황 표로 교체
+- [x] docs/master-ai-report.md: 9.2 Phase 2 GitHub 연동 → 실제 완료된 기능으로 업데이트
+- [x] docs/master-ai-report.md: 10. 결론 업데이트 (현재 완료 상태 반영)
