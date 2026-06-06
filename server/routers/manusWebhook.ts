@@ -151,6 +151,33 @@ export function registerManusWebhookRoute(app: {
   console.log("[ManusWebhook] /api/manus/webhook 엔드포인트 등록 완료");
 }
 
+// ─── Manus API 웹훅 관리 헬퍼 ──────────────────────────────────────────────
+
+const MANUS_API_BASE = "https://api.manus.ai/v2";
+const DOGOLF_WEBHOOK_URL = "https://dogolf-tour-dkz3fsmp.manus.space/api/manus/webhook";
+
+function getManusApiKey(): string {
+  return process.env.MANUS_API_KEY ?? "";
+}
+
+/** Manus API에 등록된 웹훅 목록 조회 */
+async function fetchManusWebhooks(): Promise<Array<{
+  id: string;
+  url: string;
+  status: "active" | "inactive";
+  created_at: number;
+}>> {
+  const apiKey = getManusApiKey();
+  if (!apiKey) return [];
+  const res = await fetch(`${MANUS_API_BASE}/webhook.list`, {
+    headers: { "x-manus-api-key": apiKey },
+  });
+  if (!res.ok) return [];
+  const data = await res.json() as { ok: boolean; data?: unknown[] };
+  if (!data.ok || !Array.isArray(data.data)) return [];
+  return data.data as Array<{ id: string; url: string; status: "active" | "inactive"; created_at: number }>;
+}
+
 // ─── tRPC 라우터 ─────────────────────────────────────────────────────────────
 
 export const manusWebhookRouter = router({
@@ -236,5 +263,100 @@ export const manusWebhookRouter = router({
         true
       );
       return { success: true };
+    }),
+
+  /**
+   * Manus API에 등록된 웹훅 상태 조회
+   * - 두골프 ERP URL이 이미 등록되어 있는지 확인
+   */
+  getWebhookStatus: adminProcedure.query(async () => {
+    const apiKey = getManusApiKey();
+    if (!apiKey) {
+      return { registered: false, webhooks: [], apiKeyMissing: true };
+    }
+    const webhooks = await fetchManusWebhooks();
+    const dogolfWebhook = webhooks.find((w) => w.url === DOGOLF_WEBHOOK_URL);
+    return {
+      registered: !!dogolfWebhook,
+      active: dogolfWebhook?.status === "active",
+      webhookId: dogolfWebhook?.id ?? null,
+      webhookUrl: DOGOLF_WEBHOOK_URL,
+      webhooks: webhooks.map((w) => ({
+        id: w.id,
+        url: w.url,
+        status: w.status,
+        createdAt: new Date(w.created_at * 1000).toISOString(),
+      })),
+      apiKeyMissing: false,
+    };
+  }),
+
+  /**
+   * Manus API에 두골프 ERP 웹훅 등록
+   */
+  registerWebhook: adminProcedure.mutation(async () => {
+    const apiKey = getManusApiKey();
+    if (!apiKey) throw new Error("MANUS_API_KEY가 설정되지 않았습니다.");
+
+    // 이미 등록된 경우 중복 등록 방지
+    const existing = await fetchManusWebhooks();
+    const alreadyRegistered = existing.find((w) => w.url === DOGOLF_WEBHOOK_URL);
+    if (alreadyRegistered) {
+      return {
+        success: true,
+        message: "이미 등록된 웹훅입니다.",
+        webhookId: alreadyRegistered.id,
+        alreadyExisted: true,
+      };
+    }
+
+    const res = await fetch(`${MANUS_API_BASE}/webhook.create`, {
+      method: "POST",
+      headers: {
+        "x-manus-api-key": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url: DOGOLF_WEBHOOK_URL }),
+    });
+
+    const data = await res.json() as { ok: boolean; webhook?: { id: string }; error?: { message: string } };
+    if (!data.ok) {
+      throw new Error(data.error?.message ?? "웹훅 등록 실패");
+    }
+
+    console.log(`[ManusWebhook] Manus API 웹훅 등록 완료: ${data.webhook?.id}`);
+    return {
+      success: true,
+      message: "웹훅이 성공적으로 등록되었습니다.",
+      webhookId: data.webhook?.id,
+      alreadyExisted: false,
+    };
+  }),
+
+  /**
+   * Manus API에서 두골프 ERP 웹훅 해제
+   */
+  unregisterWebhook: adminProcedure
+    .input(z.object({ webhookId: z.string() }))
+    .mutation(async ({ input }) => {
+      const apiKey = getManusApiKey();
+      if (!apiKey) throw new Error("MANUS_API_KEY가 설정되지 않았습니다.");
+
+      const res = await fetch(`${MANUS_API_BASE}/webhook.delete`, {
+        method: "POST",
+        headers: {
+          "x-manus-api-key": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ webhook_id: input.webhookId }),
+      });
+
+      const data = await res.json() as { ok: boolean; error?: { message: string } };
+      if (!data.ok) {
+        throw new Error(data.error?.message ?? "웹훅 해제 실패");
+      }
+
+      console.log(`[ManusWebhook] Manus API 웹훅 해제 완료: ${input.webhookId}`);
+      return { success: true, message: "웹훅이 해제되었습니다." };
     }),
 });

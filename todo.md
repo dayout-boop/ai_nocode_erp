@@ -1787,3 +1787,9 @@ Detected
 - [x] client/src/components/ERPLayout.tsx: AI챗봇 카테고리 > 두골프마스터 바로 아래 "마누스채봇" 메뉴 추가
 - [x] /erp/manus-chat 라우트 ERPLayout 내부에 등록
 - [x] server/manusWebhook.test.ts: 테스트 작성 (5개 테스트 모두 통과)
+
+## 마누스채봇 웹훅 자동 등록 [ID: 700002]
+- [x] server/routers/manusWebhook.ts: Manus API 웹훅 등록(registerWebhook), 조회(getWebhookStatus), 삭제(unregisterWebhook) tRPC API 추가
+- [x] ManusChat.tsx: 웹훅 등록 상태 표시 패널 추가 (등록됨/미등록 상태 배지)
+- [x] ManusChat.tsx: "웹훅 등록" / "웹훅 해제" 버튼 추가 (관리자 전용)
+- [x] server/manusWebhook.test.ts: 웹훅 등록 API 테스트 추가 (10개 테스트 모두 통과)

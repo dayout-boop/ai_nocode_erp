@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Bot, RefreshCw, Wifi, WifiOff, Send, Info,
   CheckCircle2, Clock, AlertCircle, Zap,
+  Link2, Link2Off, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -211,6 +212,29 @@ export default function ManusChat() {
   // ─── 웹훅 URL ─────────────────────────────────────────────────────────────
   const webhookUrl = `${window.location.origin}/api/manus/webhook`;
 
+  // ─── Manus API 웹훅 등록 상태 ───────────────────────────────────────────────────────
+  const utils = trpc.useUtils();
+
+  const webhookStatusQuery = trpc.manusWebhook.getWebhookStatus.useQuery(undefined, {
+    refetchInterval: 60_000,
+  });
+
+  const registerMutation = trpc.manusWebhook.registerWebhook.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.message);
+      utils.manusWebhook.getWebhookStatus.invalidate();
+    },
+    onError: (err) => toast.error(`웹훅 등록 실패: ${err.message}`),
+  });
+
+  const unregisterMutation = trpc.manusWebhook.unregisterWebhook.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.message);
+      utils.manusWebhook.getWebhookStatus.invalidate();
+    },
+    onError: (err) => toast.error(`웹훅 해제 실패: ${err.message}`),
+  });
+
   return (
     <div className="flex flex-col h-full bg-slate-900 text-white">
       {/* ─── 헤더 ─── */}
@@ -278,25 +302,97 @@ export default function ManusChat() {
         </div>
       </div>
 
-      {/* ─── 웹훅 URL 안내 ─── */}
-      <div className="px-6 py-2 bg-slate-800/30 border-b border-slate-700/30">
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <AlertCircle size={12} className="text-yellow-400 shrink-0" />
-          <span>웹훅 URL:</span>
-          <code className="bg-slate-700 px-2 py-0.5 rounded text-slate-300 font-mono text-xs">
-            {webhookUrl}
-          </code>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-5 px-2 text-xs text-slate-400 hover:text-white"
-            onClick={() => {
-              navigator.clipboard.writeText(webhookUrl);
-              toast.success("웹훅 URL이 클립보드에 복사되었습니다.");
-            }}
-          >
-            복사
-          </Button>
+      {/* ─── Manus API 웹훅 등록 상태 패널 ─── */}
+      <div className="px-6 py-3 bg-slate-800/40 border-b border-slate-700/40">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          {/* 왼쪽: 등록 상태 배지 + URL */}
+          <div className="flex items-center gap-3 min-w-0">
+            {webhookStatusQuery.isLoading ? (
+              <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                <Loader2 size={12} className="animate-spin" />
+                <span>상태 확인 중...</span>
+              </div>
+            ) : webhookStatusQuery.data?.apiKeyMissing ? (
+              <div className="flex items-center gap-1.5">
+                <AlertCircle size={14} className="text-yellow-400" />
+                <span className="text-xs text-yellow-400">MANUS_API_KEY 미설정</span>
+              </div>
+            ) : webhookStatusQuery.data?.registered ? (
+              <div className="flex items-center gap-1.5">
+                <Link2 size={14} className="text-green-400" />
+                <Badge className="bg-green-500/20 text-green-400 border-green-500/30 border text-xs px-2 py-0.5">
+                  {webhookStatusQuery.data.active ? "등록됨 (활성)" : "등록됨 (비활성)"}
+                </Badge>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <Link2Off size={14} className="text-slate-400" />
+                <Badge className="bg-slate-600/40 text-slate-400 border-slate-500/30 border text-xs px-2 py-0.5">
+                  미등록
+                </Badge>
+              </div>
+            )}
+            <code className="bg-slate-700 px-2 py-0.5 rounded text-slate-300 font-mono text-xs truncate max-w-xs">
+              {webhookUrl}
+            </code>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 px-2 text-xs text-slate-400 hover:text-white shrink-0"
+              onClick={() => {
+                navigator.clipboard.writeText(webhookUrl);
+                toast.success("웹훅 URL 복사됨");
+              }}
+            >
+              복사
+            </Button>
+          </div>
+
+          {/* 오른쪽: 등록/해제 버튼 */}
+          <div className="flex items-center gap-2 shrink-0">
+            {!webhookStatusQuery.data?.registered ? (
+              <Button
+                size="sm"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-7 px-3"
+                onClick={() => registerMutation.mutate()}
+                disabled={registerMutation.isPending || webhookStatusQuery.data?.apiKeyMissing}
+              >
+                {registerMutation.isPending ? (
+                  <Loader2 size={12} className="animate-spin mr-1" />
+                ) : (
+                  <Link2 size={12} className="mr-1" />
+                )}
+                Manus API 등록
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-red-500/40 text-red-400 hover:bg-red-500/10 text-xs h-7 px-3"
+                onClick={() => {
+                  const id = webhookStatusQuery.data?.webhookId;
+                  if (id) unregisterMutation.mutate({ webhookId: id });
+                }}
+                disabled={unregisterMutation.isPending}
+              >
+                {unregisterMutation.isPending ? (
+                  <Loader2 size={12} className="animate-spin mr-1" />
+                ) : (
+                  <Link2Off size={12} className="mr-1" />
+                )}
+                등록 해제
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 text-slate-400 hover:text-white"
+              onClick={() => webhookStatusQuery.refetch()}
+              title="상태 새로고침"
+            >
+              <RefreshCw size={12} className={webhookStatusQuery.isFetching ? "animate-spin" : ""} />
+            </Button>
+          </div>
         </div>
       </div>
 

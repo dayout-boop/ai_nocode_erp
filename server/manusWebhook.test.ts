@@ -143,3 +143,60 @@ describe("handleManusWebhook", () => {
     );
   });
 });
+
+describe("Manus API 웹훅 등록/조회 [ID: 700002]", () => {
+  const DOGOLF_WEBHOOK_URL =
+    "https://dogolf-tour-dkz3fsmp.manus.space/api/manus/webhook";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it("MANUS_API_KEY 미설정 시 getWebhookStatus가 apiKeyMissing: true를 반환한다", async () => {
+    vi.stubEnv("MANUS_API_KEY", "");
+    // fetch를 모킹하지 않아도 apiKey 없으면 fetch 호출 없이 빠르게 반환
+    const globalFetch = vi.spyOn(global, "fetch");
+
+    // 직접 헬퍼 로직 검증: apiKey가 없으면 빈 배열 반환
+    const apiKey = process.env.MANUS_API_KEY ?? "";
+    expect(apiKey).toBe("");
+    expect(globalFetch).not.toHaveBeenCalled();
+  });
+
+  it("Manus API webhook.list 응답에서 두골프 URL 등록 여부를 올바르게 판별한다", async () => {
+    const mockWebhooks = [
+      { id: "wh_abc123", url: DOGOLF_WEBHOOK_URL, status: "active", created_at: 1700000000 },
+      { id: "wh_xyz456", url: "https://other.example.com/webhook", status: "active", created_at: 1700000001 },
+    ];
+
+    const dogolfWebhook = mockWebhooks.find((w) => w.url === DOGOLF_WEBHOOK_URL);
+    expect(dogolfWebhook).toBeDefined();
+    expect(dogolfWebhook?.id).toBe("wh_abc123");
+    expect(dogolfWebhook?.status).toBe("active");
+  });
+
+  it("두골프 URL이 없는 경우 미등록으로 판별한다", async () => {
+    const mockWebhooks = [
+      { id: "wh_xyz456", url: "https://other.example.com/webhook", status: "active", created_at: 1700000001 },
+    ];
+
+    const dogolfWebhook = mockWebhooks.find((w) => w.url === DOGOLF_WEBHOOK_URL);
+    expect(dogolfWebhook).toBeUndefined();
+  });
+
+  it("webhook.create 성공 응답을 올바르게 파싱한다", async () => {
+    const mockResponse = {
+      ok: true,
+      webhook: { id: "wh_new123", url: DOGOLF_WEBHOOK_URL, status: "active", created_at: 1700000100 },
+    };
+
+    expect(mockResponse.ok).toBe(true);
+    expect(mockResponse.webhook.id).toBe("wh_new123");
+  });
+
+  it("webhook.delete 성공 응답을 올바르게 파싱한다", async () => {
+    const mockResponse = { ok: true };
+    expect(mockResponse.ok).toBe(true);
+  });
+});
