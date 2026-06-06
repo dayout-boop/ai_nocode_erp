@@ -271,4 +271,55 @@ export const chatRouter = router({
 
       return { messages, sessionId: input.sessionId };
     }),
+
+  /**
+   * 세션 ID로 이전 대화 내용을 history 형식으로 로드 (이어가기용)
+   * 클라이언트에서 이전 세션 이어가기 시 호출
+   */
+  loadSessionHistory: adminProcedure
+    .input(
+      z.object({
+        sessionId: z.string().min(1).max(100),
+        limit: z.number().min(1).max(100).default(40),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const rows = await db
+        .select({
+          id: aiLogs.id,
+          role: aiLogs.role,
+          content: aiLogs.content,
+          modelUsed: aiLogs.modelUsed,
+          costUsd: aiLogs.costUsd,
+          createdAt: aiLogs.createdAt,
+        })
+        .from(aiLogs)
+        .where(
+          and(
+            eq(aiLogs.sessionId, input.sessionId),
+            eq(aiLogs.assistant, "master"),
+            ne(aiLogs.role, "system")
+          )
+        )
+        .orderBy(aiLogs.createdAt)
+        .limit(input.limit);
+
+      // history 형식으로 변환 (user/assistant만)
+      const history = rows
+        .filter((r) => r.role === "user" || r.role === "assistant")
+        .map((r) => ({
+          role: r.role as "user" | "assistant",
+          content: r.content ?? "",
+        }));
+
+      return {
+        sessionId: input.sessionId,
+        history,
+        messageCount: history.length,
+        messages: rows, // UI 표시용 전체 메시지
+      };
+    }),
 });

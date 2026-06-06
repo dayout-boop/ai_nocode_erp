@@ -547,10 +547,12 @@ function RightPanel({
   open,
   onClose,
   pipelineStatus,
+  onContinueSession,
 }: {
   open: boolean;
   onClose: () => void;
   pipelineStatus: { connected: boolean; taskId?: string; recentCount?: number };
+  onContinueSession?: (sessionId: string) => void;
 }) {
   // 개발 요청 목록 조회
   const { data: devRequestsData, isLoading: devLoading } = trpc.devRequest.list.useQuery(
@@ -821,7 +823,7 @@ function RightPanel({
           </TabsContent>
 
           {/* 대화이력 탭 (300012) */}
-          <ChatHistoryTab open={open} />
+          <ChatHistoryTab open={open} onContinueSession={onContinueSession} />
 
         </Tabs>
       </div>
@@ -830,7 +832,7 @@ function RightPanel({
 }
 
 // ─── 대화 이력 탭 컴포넌트 (300012) ────────────────────────────────────────────────────────────────────────────────
-function ChatHistoryTab({ open }: { open: boolean }) {
+function ChatHistoryTab({ open, onContinueSession }: { open: boolean; onContinueSession?: (sessionId: string) => void }) {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const LIMIT = 20;
@@ -922,9 +924,26 @@ function ChatHistoryTab({ open }: { open: boolean }) {
             )}
           </div>
           {/* 이어가기 버튼 */}
-          <div className="px-3 py-2 border-t shrink-0">
-            <p className="text-[10px] text-gray-400 text-center">이어가기: 아래 채팅창에서 세션 ID를 사용하세요</p>
-            <p className="text-[10px] text-indigo-500 text-center font-mono mt-0.5 truncate">{selectedSessionId}</p>
+          <div className="px-3 py-2 border-t shrink-0 space-y-1.5">
+            {onContinueSession ? (
+              <button
+                onClick={() => {
+                  if (selectedSessionId) {
+                    onContinueSession(selectedSessionId);
+                    setSelectedSessionId(null);
+                  }
+                }}
+                className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5"
+              >
+                <MessageSquare size={12} />
+                이 대화 이어가기
+              </button>
+            ) : (
+              <>
+                <p className="text-[10px] text-gray-400 text-center">이어가기: 아래 채팅창에서 세션 ID를 사용하세요</p>
+                <p className="text-[10px] text-indigo-500 text-center font-mono mt-0.5 truncate">{selectedSessionId}</p>
+              </>
+            )}
           </div>
         </div>
       ) : (
@@ -1034,7 +1053,8 @@ export default function MasterAI() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
-  const [sessionId] = useState(() => `master-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const [sessionId, setSessionId] = useState(() => `master-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const [isContinuingSession, setIsContinuingSession] = useState(false);
   const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
   const [sendingRequests, setSendingRequests] = useState<Set<string>>(new Set());
   const [sentRequestResults, setSentRequestResults] = useState<Map<string, { routingType: string; routingReason: string; manusTaskUrl?: string }>>(new Map());
@@ -1133,6 +1153,49 @@ export default function MasterAI() {
   // ─── 예약 작업 상태 ────────────────────────────────────────────────────
   const [showScheduledPanel, setShowScheduledPanel] = useState(false);
   const trpcUtils = trpc.useUtils();
+
+  // ─── 이전 세션 이어가기 핸들러 ─────────────────────────────────────────────
+  const handleContinueSession = async (targetSessionId: string) => {
+    if (isStreaming) return;
+    setIsContinuingSession(true);
+    setRightPanelOpen(false);
+    try {
+      const result = await trpcUtils.chat.loadSessionHistory.fetch({ sessionId: targetSessionId, limit: 40 });
+      if (!result || result.messages.length === 0) {
+        toast.error('이전 대화 내용을 불러올 수 없습니다.');
+        return;
+      }
+      setSessionId(targetSessionId);
+      const loadedMessages: Message[] = result.messages
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .map((m) => ({
+          id: `loaded-${m.id}`,
+          role: m.role as 'user' | 'assistant',
+          content: m.content ?? '',
+          timestamp: new Date(m.createdAt),
+          phase: 'done' as const,
+          streaming: false,
+        }));
+      setMessages(loadedMessages);
+      const continueNotice: Message = {
+        id: `continue-notice-${Date.now()}`,
+        role: 'assistant',
+        content: `⏸️ **이전 대화를 이어갑니다** (${result.messageCount}개 메시지 로드됨)
+
+이전 대화 내용을 바탕으로 질문하시면 이어서 답변드립니다.`,
+        timestamp: new Date(),
+        phase: 'done' as const,
+        streaming: false,
+      };
+      setMessages((prev) => [...prev, continueNotice]);
+      toast.success(`이전 대화 이어가기 완료 (${result.messageCount}개 메시지)`);
+    } catch (err) {
+      toast.error('세션 로드 실패: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setIsContinuingSession(false);
+    }
+  };
+
   const { data: scheduledTasksData, refetch: refetchScheduledTasks } = trpc.scheduledTasks.list.useQuery(
     { status: 'all', limit: 30 },
     { enabled: showScheduledPanel, staleTime: 15_000 }
@@ -2050,16 +2113,18 @@ export default function MasterAI() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={attachedFiles.length > 0
-                ? `첨부 파일 ${attachedFiles.length}개 · 메시지를 입력하세요... (Enter 전송)`
-                : "두골프 마스터에게 질문하세요... (Enter 전송, Shift+Enter 줄바꿈)"
+              placeholder={isContinuingSession
+                ? "이전 대화 로드 중..."
+                : attachedFiles.length > 0
+                ? `첸부 파일 ${attachedFiles.length}개 · 메시지를 입력하세요... (Enter 전송)`
+                : "두골프 마스터에게 질문하세요... (Enter 전송, Shift+Enter 줄바꿼)"
               }
               className="flex-1 min-h-[44px] max-h-40 resize-none text-sm border-gray-200 focus:border-indigo-400 rounded-xl"
-              disabled={isStreaming}
+              disabled={isStreaming || isContinuingSession}
             />
             <Button
               onClick={() => sendMessage(input)}
-              disabled={(!input.trim() && attachedFiles.length === 0) || isStreaming}
+              disabled={(!input.trim() && attachedFiles.length === 0) || isStreaming || isContinuingSession}
               className="bg-indigo-600 hover:bg-indigo-700 text-white h-[44px] px-4 rounded-xl shrink-0"
             >
               {isStreaming ? (
@@ -2081,6 +2146,7 @@ export default function MasterAI() {
         open={rightPanelOpen}
         onClose={() => setRightPanelOpen(false)}
         pipelineStatus={pipelineStatus}
+        onContinueSession={handleContinueSession}
       />
 
       {/* 패널 오버레이 (모바일) */}
