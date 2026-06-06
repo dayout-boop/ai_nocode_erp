@@ -11,6 +11,7 @@
  * 4. 스트리밍 최종 응답
  * 5. 개발 요청 자동 감지
  */
+import { randomUUID } from "crypto";
 import type { Express, Request, Response } from "express";
 import { sdk } from "./_core/sdk";
 import { validateAdminSession } from "./_core/adminAuth";
@@ -19,7 +20,7 @@ import { aiLogs } from "../drizzle/schema";
 import { orchestratorChatStream, orchestratorChat } from "./services/openrouter";
 import { classifyIntent, fetchPackageContext, fetchReservationContext, compressHistory } from "./services/rag";
 import { MASTER_SYSTEM_PROMPT } from "./services/prompts/master";
-import { MASTER_TOOLS, executeTool, APPROVAL_REQUIRED_TOOLS, type ToolCallResult } from "./services/masterTools";
+import { MASTER_TOOLS, executeTool, APPROVAL_REQUIRED_TOOLS, type ToolCallResult, type CallerContext } from "./services/masterTools";
 import { publish } from "./services/realtimeEvents";
 import { z } from "zod";
 
@@ -83,9 +84,13 @@ export function registerMasterStreamRoute(app: Express) {
       res.status(401).json({ error: "인증이 필요합니다." });
       return;
     }
-    
+
+    // transactionId: 클라이언트 헤더 재사용 또는 신규 생성
+    const transactionId =
+      (req.headers["x-transaction-id"] as string | undefined) || randomUUID();
+
     // user 객체 호환성을 위한 래퍼
-    const user = { id: userId };
+    const user = { id: userId, role: "admin" as const, transactionId };
 
     // 2. 입력 검증
     const parsed = inputSchema.safeParse(req.body);
@@ -95,11 +100,12 @@ export function registerMasterStreamRoute(app: Express) {
     }
     const input = parsed.data;
 
-    // 3. SSE 헤더 설정
+    // 3. SSE 헤더 설정 (transactionId 포함)
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Accel-Buffering", "no");
+    res.setHeader("X-Transaction-ID", transactionId);
     res.flushHeaders();
 
     const sendEvent = (event: string, data: unknown) => {
@@ -236,7 +242,13 @@ export function registerMasterStreamRoute(app: Express) {
               message: `외부 연동 도구 '${tc.function.name}'을 실행하려 합니다. 인수: ${JSON.stringify(toolArgs)}`,
             });
           }
-          const result = await executeTool(tc.function.name, toolArgs);
+          // callerContext 구성 (권한 검증 + 분산 추적)
+          const callerCtx: CallerContext = {
+            userId: user.id,
+            role: user.role,
+            transactionId: user.transactionId,
+          };
+          const result = await executeTool(tc.function.name, toolArgs, callerCtx);
           toolCallResults.push(result);
 
           sendEvent("tool_done", {

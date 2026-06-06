@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { useBookingsQuery } from "@/hooks/useBookingsQuery";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1394,28 +1395,38 @@ function EditDialog({ item, onClose, onSuccess }: EditDialogProps) {
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────────────
 export default function ReservationManagement() {
   const { user } = useAuth();
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | StatusType>("all");
-  const [paymentFilter, setPaymentFilter] = useState<"all" | PaymentStatusType>("all");
   const [showQuickCreate, setShowQuickCreate] = useState(false);
   const [editItem, setEditItem] = useState<any | null>(null);
-  const [sortBy, setSortBy] = useState<SortByType>("departureDate");
-  const [sortOrder, setSortOrder] = useState<SortOrderType>("desc");
-  const [warningOnly, setWarningOnly] = useState(false);
   // 견적서 실시간 미리보기 패널
   const [previewItem, setPreviewItem] = useState<{ id: number; reservationNo?: string; customerName?: string } | null>(null);
+
+  // useBookingsQuery 훅으로 필터/페이지네이션/정렬 상태 통합 관리
+  const {
+    data,
+    refetch,
+    filter,
+    pagination,
+    updateFilter,
+    setPage,
+  } = useBookingsQuery();
+
+  // 훅 내부 상태를 로컈 변수로 노출 (UI 호환성 유지)
+  const page = pagination.page;
+  const search = filter.search ?? "";
+  const statusFilter = (filter.status ?? "all") as "all" | StatusType;
+  const paymentFilter = (filter.paymentStatus ?? "all") as "all" | PaymentStatusType;
+  const sortBy = (filter.sortBy ?? "departureDate") as SortByType;
+  const sortOrder = (filter.sortOrder ?? "desc") as SortOrderType;
+  const warningOnly = filter.warningOnly ?? false;
 
   // 정렬 토글 함수
   function handleSort(col: SortByType) {
     if (sortBy === col) {
-      setSortOrder(o => o === "asc" ? "desc" : "asc");
+      updateFilter({ sortOrder: sortOrder === "asc" ? "desc" : "asc" });
     } else {
-      setSortBy(col);
-      setSortOrder("desc");
+      updateFilter({ sortBy: col, sortOrder: "desc" });
     }
-    setPage(1);
   }
 
   function SortIcon({ col }: { col: SortByType }) {
@@ -1425,10 +1436,6 @@ export default function ReservationManagement() {
       : <ArrowDown className="w-3 h-3 ml-0.5 text-green-600 inline" />;
   }
 
-  const { data, refetch } = trpc.reservations.list.useQuery({
-    page, pageSize: 20, search, status: statusFilter, paymentStatus: paymentFilter,
-    sortBy, sortOrder, warningOnly,
-  });
   const { data: summary } = trpc.reservations.summary.useQuery();
   const utils = trpc.useUtils();
 
@@ -1533,7 +1540,7 @@ export default function ReservationManagement() {
               <Card
                 key={card.label}
                 className={`cursor-pointer hover:shadow-md transition-shadow ${card.filter ? "hover:border-green-400" : ""}`}
-                onClick={() => card.filter && setStatusFilter(card.filter)}
+                onClick={() => card.filter && updateFilter({ status: card.filter })}
               >
                 <CardContent className="pt-4 pb-3">
                   <div className="flex items-start gap-2">
@@ -1585,14 +1592,14 @@ export default function ReservationManagement() {
                 placeholder="예약번호, 고객명, 상품명, 연락처 검색..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { setSearch(searchInput); setPage(1); } }}
+                onKeyDown={(e) => { if (e.key === "Enter") { updateFilter({ search: searchInput }); } }}
                 className="h-9"
               />
-              <Button variant="outline" size="sm" onClick={() => { setSearch(searchInput); setPage(1); }}>
+              <Button variant="outline" size="sm" onClick={() => { updateFilter({ search: searchInput }); }}>
                 <Search className="w-4 h-4" />
               </Button>
             </div>
-            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v as any); setPage(1); }}>
+            <Select value={statusFilter} onValueChange={(v) => { updateFilter({ status: v as any }); }}>
               <SelectTrigger className="w-28 h-9">
                 <SelectValue placeholder="상태" />
               </SelectTrigger>
@@ -1604,7 +1611,7 @@ export default function ReservationManagement() {
                 <SelectItem value="completed">완료</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={paymentFilter} onValueChange={(v) => { setPaymentFilter(v as any); setPage(1); }}>
+            <Select value={paymentFilter} onValueChange={(v) => { updateFilter({ paymentStatus: v as any }); }}>
               <SelectTrigger className="w-32 h-9">
                 <SelectValue placeholder="입금상태" />
               </SelectTrigger>
@@ -1640,7 +1647,7 @@ export default function ReservationManagement() {
                 </CardTitle>
                 {/* 경고 아이콘 버튼 */}
                 <button
-                  onClick={() => { setWarningOnly(w => !w); setPage(1); }}
+                  onClick={() => { updateFilter({ warningOnly: !warningOnly }); }}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                     warningOnly
                       ? "bg-red-500 text-white shadow-sm"
@@ -1830,11 +1837,11 @@ export default function ReservationManagement() {
   
               {totalPages > 1 && (
                 <div className="flex items-center justify-center gap-2 p-4">
-                  <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+                  <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
                   <span className="text-sm text-gray-600">{page} / {totalPages}</span>
-                  <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>
+                  <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}>
                     <ChevronRight className="w-4 h-4" />
                   </Button>
                 </div>

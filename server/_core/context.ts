@@ -1,13 +1,20 @@
+import { randomUUID } from "crypto";
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import type { User } from "../../drizzle/schema";
 import { sdk } from "./sdk";
 import { validateAdminSession } from "./adminAuth";
 
+/**
+ * tRPC 요청 컨텍스트
+ * - transactionId: 분산 추적용 요청 고유 ID (X-Transaction-ID 헤더 또는 자동 생성)
+ * - isMasterSession: 마스터 ERP 세션 여부
+ */
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
   res: CreateExpressContextOptions["res"];
   user: User | null;
-  isMasterSession?: boolean; // 마스터 세션 여부 표시
+  isMasterSession?: boolean;
+  transactionId: string;
 };
 
 export async function createContext(
@@ -16,11 +23,14 @@ export async function createContext(
   let user: User | null = null;
   let isMasterSession = false;
 
+  // transactionId: 클라이언트가 X-Transaction-ID 헤더를 보내면 재사용, 없으면 신규 생성
+  const transactionId =
+    (opts.req.headers["x-transaction-id"] as string | undefined) || randomUUID();
+
   // 1. 먼저 Manus OAuth 인증 시도
   try {
     user = await sdk.authenticateRequest(opts.req);
-  } catch (error) {
-    // Authentication is optional for public procedures.
+  } catch {
     user = null;
   }
 
@@ -49,7 +59,7 @@ export async function createContext(
           isMasterSession = true;
         }
       }
-    } catch (error) {
+    } catch {
       // 마스터 세션 확인 실패 시 무시
     }
   }
@@ -59,5 +69,6 @@ export async function createContext(
     res: opts.res,
     user,
     isMasterSession,
+    transactionId,
   };
 }

@@ -397,6 +397,31 @@ export const MASTER_TOOLS = [
 // 승인이 필요한 도구 목록
 export const APPROVAL_REQUIRED_TOOLS = ["web_search", "fetch_url"];
 
+/**
+ * admin 권한이 필요한 민감 도구 목록
+ * - 고객 개인정보, 정산 데이터, AI 비용/로그 등 민감 데이터 접근 도구
+ * - masterChat/masterStream은 이미 adminProcedure로 보호되어 있으나
+ *   callerContext를 통해 이중 검증하여 방어 깊이(Defense in Depth) 확보
+ */
+export const ADMIN_ONLY_TOOLS = [
+  "get_customer_info",
+  "get_settlement_summary",
+  "get_ai_cost_summary",
+  "get_ai_chat_logs",
+  "get_error_logs",
+  "schedule_task",
+];
+
+/**
+ * AI 도구 호출자 컨텍스트
+ * - 분산 추적 및 권한 검증에 사용
+ */
+export type CallerContext = {
+  userId: number;
+  role: "admin" | "user";
+  transactionId: string;
+};
+
 // ─── Tool 실행 함수 ─────────────────────────────────────────────
 
 export type ToolCallResult = {
@@ -407,8 +432,33 @@ export type ToolCallResult = {
   queryTime: number;
 };
 
-export async function executeTool(toolName: string, args: Record<string, unknown>): Promise<ToolCallResult> {
+/**
+ * Tool 실행 함수
+ * @param toolName 실행할 도구 이름
+ * @param args 도구 인수
+ * @param callerCtx 호출자 컨텍스트 (권한 검증 및 분산 추적용)
+ */
+export async function executeTool(
+  toolName: string,
+  args: Record<string, unknown>,
+  callerCtx?: CallerContext
+): Promise<ToolCallResult> {
   const start = Date.now();
+
+  // 민감 도구 권한 검증 (Defense in Depth)
+  // masterChat/masterStream은 이미 adminProcedure로 보호되어 있으나,
+  // callerCtx가 명시적으로 제공된 경우 이중 검증
+  if (callerCtx && ADMIN_ONLY_TOOLS.includes(toolName)) {
+    if (callerCtx.role !== "admin") {
+      return {
+        tool: toolName,
+        success: false,
+        error: `권한 부족: '${toolName}' 도구는 관리자만 사용할 수 있습니다. (transactionId: ${callerCtx.transactionId})`,
+        queryTime: Date.now() - start,
+      };
+    }
+  }
+
   const db = await getDb();
   if (!db) {
     return { tool: toolName, success: false, error: "DB 연결 실패", queryTime: Date.now() - start };

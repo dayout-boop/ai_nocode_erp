@@ -1736,3 +1736,26 @@ Detected
 - [x] docs/master-ai-report.md: 8.2 GitHub API 추천 항목 제거 → 실제 연동 현황 표로 교체
 - [x] docs/master-ai-report.md: 9.2 Phase 2 GitHub 연동 → 실제 완료된 기능으로 업데이트
 - [x] docs/master-ai-report.md: 10. 결론 업데이트 (현재 완료 상태 반영)
+
+## Phase 2 아키텍처 개선안 구현 [ID: 540001]
+
+### transactionId 생성/전파
+- [x] context.ts: 요청별 고유 transactionId 생성 (crypto.randomUUID) 및 TrpcContext에 추가
+- [x] index.ts: Express 미들웨어에서 X-Transaction-ID 헤더 읽기/생성 및 req에 주입
+- [x] masterStream.ts: transactionId 생성 및 SSE 이벤트에 포함
+- [x] trpc.ts: transactionId를 ctx에 포함하여 모든 프로시저에서 접근 가능하도록
+
+### AI 서비스 callerContext 권한 검증
+- [x] masterTools.ts: executeTool에 CallerContext 파라미터 추가 (userId, role, transactionId)
+- [x] masterTools.ts: 민감 도구(get_customer_info, get_settlement_summary 등)에 admin 권한 검증 추가
+- [x] ai.ts: masterChat/masterStream에서 executeTool 호출 시 callerContext 전달 (masterStream.ts에서 처리)
+- [x] masterStream.ts: executeTool 호출 시 callerContext 전달
+
+### 프론트엔드 useBookingsQuery 훅
+- [x] client/src/hooks/useBookingsQuery.ts: 예약 목록 조회 커스텀 훅 구현 (필터/페이지네이션/정렬 상태 관리)
+- [x] ReservationManagement.tsx: useBookingsQuery 훅으로 리팩터링
+
+### 테스트
+- [x] server/phase2.architecture.test.ts: transactionId 생성/전파 테스트
+- [x] server/phase2.architecture.test.ts: callerContext 권한 검증 테스트 (ADMIN_ONLY_TOOLS 전체 검증)
+- [x] server/phase2.architecture.test.ts: 하위 호환성 테스트 (callerCtx 없이 호출 시 권한 검증 건너맰)

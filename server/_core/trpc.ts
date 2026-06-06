@@ -8,7 +8,25 @@ const t = initTRPC.context<TrpcContext>().create({
 });
 
 export const router = t.router;
-export const publicProcedure = t.procedure;
+
+/**
+ * transactionId 응답 헤더 주입 미들웨어
+ * 모든 프로시저에서 X-Transaction-ID 헤더를 응답에 포함하여 분산 추적 지원
+ * 테스트 환경에서는 res.setHeader가 없을 수 있으므로 typeof 검사
+ */
+const withTransactionId = t.middleware(opts => {
+  const { ctx, next } = opts;
+  if (
+    ctx.res &&
+    !ctx.res.headersSent &&
+    typeof ctx.res.setHeader === "function"
+  ) {
+    ctx.res.setHeader("X-Transaction-ID", ctx.transactionId);
+  }
+  return next({ ctx });
+});
+
+export const publicProcedure = t.procedure.use(withTransactionId);
 
 const requireUser = t.middleware(async opts => {
   const { ctx, next } = opts;
