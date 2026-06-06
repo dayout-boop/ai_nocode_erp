@@ -280,13 +280,29 @@ export const chatRouter = router({
     .input(
       z.object({
         sessionId: z.string().min(1).max(100),
-        limit: z.number().min(1).max(100).default(40),
+        // limit을 500으로 확장 - 긴 대화도 전체 로드 가능
+        limit: z.number().min(1).max(500).default(500),
       })
     )
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
+      // 전체 메시지 수 먼저 파악
+      const totalRows = await db
+        .select({ id: aiLogs.id })
+        .from(aiLogs)
+        .where(
+          and(
+            eq(aiLogs.sessionId, input.sessionId),
+            eq(aiLogs.assistant, "master"),
+            ne(aiLogs.role, "system")
+          )
+        );
+      const totalCount = totalRows.length;
+
+      // limit이 전체보다 작으면 최신 메시지부터 역순으로 가져온 뒤 다시 시간순 정렬
+      // → 대화가 길어도 항상 최신 구간을 포함
       const rows = await db
         .select({
           id: aiLogs.id,
@@ -304,8 +320,11 @@ export const chatRouter = router({
             ne(aiLogs.role, "system")
           )
         )
-        .orderBy(aiLogs.createdAt)
+        .orderBy(desc(aiLogs.createdAt)) // 최신순으로 가져와서
         .limit(input.limit);
+
+      // 시간 오름차순으로 재정렬 (대화 흐름 복원)
+      rows.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
       // history 형식으로 변환 (user/assistant만)
       const history = rows
@@ -319,6 +338,7 @@ export const chatRouter = router({
         sessionId: input.sessionId,
         history,
         messageCount: history.length,
+        totalCount, // DB의 전체 메시지 수 (제한 없이)
         messages: rows, // UI 표시용 전체 메시지
       };
     }),

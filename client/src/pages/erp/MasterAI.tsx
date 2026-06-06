@@ -1050,6 +1050,9 @@ function AttachmentPreview({ files, onRemove }: { files: AttachedFile[]; onRemov
 
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 export default function MasterAI() {
+  // URL 파라미터에서 continueSession 추출 (대화이력 페이지에서 이어가기 클릭 시)
+  const continueSessionParam = new URLSearchParams(window.location.search).get('continueSession');
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -1096,6 +1099,19 @@ export default function MasterAI() {
       .catch(() => {});
   }, []);
 
+
+  // ─── URL 파라미터 continueSession 자동 로드 ────────────────────────────────────
+  useEffect(() => {
+    if (!continueSessionParam) return;
+    const timer = setTimeout(() => {
+      handleContinueSession(continueSessionParam);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("continueSession");
+      window.history.replaceState({}, "", url.toString());
+    }, 400);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 마운트 시 1회만 실행
   // ─── AI 능동적 알림 상태 ────────────────────────────────────────────────────
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [lastPollTime, setLastPollTime] = useState(() => new Date());
@@ -1160,7 +1176,8 @@ export default function MasterAI() {
     setIsContinuingSession(true);
     setRightPanelOpen(false);
     try {
-      const result = await trpcUtils.chat.loadSessionHistory.fetch({ sessionId: targetSessionId, limit: 40 });
+      // limit: 500으로 전체 대화 로드 (긴 대화도 최신 구간 포함)
+      const result = await trpcUtils.chat.loadSessionHistory.fetch({ sessionId: targetSessionId, limit: 500 });
       if (!result || result.messages.length === 0) {
         toast.error('이전 대화 내용을 불러올 수 없습니다.');
         return;
@@ -1177,10 +1194,17 @@ export default function MasterAI() {
           streaming: false,
         }));
       setMessages(loadedMessages);
+      const totalCount = (result as any).totalCount ?? result.messageCount;
+      const loadedCount = result.messageCount;
+      const isTruncated = totalCount > loadedCount;
       const continueNotice: Message = {
         id: `continue-notice-${Date.now()}`,
         role: 'assistant',
-        content: `⏸️ **이전 대화를 이어갑니다** (${result.messageCount}개 메시지 로드됨)
+        content: isTruncated
+          ? `⏸️ **이전 대화를 이어갑니다** (${loadedCount}/${totalCount}개 메시지 로드됨 — 최신 ${loadedCount}개)
+
+이전 대화 내용을 바탕으로 질문하시면 이어서 답변드립니다.`
+          : `⏸️ **이전 대화를 이어갑니다** (전체 ${loadedCount}개 메시지 완전 로드됨)
 
 이전 대화 내용을 바탕으로 질문하시면 이어서 답변드립니다.`,
         timestamp: new Date(),
@@ -1188,7 +1212,7 @@ export default function MasterAI() {
         streaming: false,
       };
       setMessages((prev) => [...prev, continueNotice]);
-      toast.success(`이전 대화 이어가기 완료 (${result.messageCount}개 메시지)`);
+      toast.success(`이전 대화 이어가기 완료 (전체 ${totalCount}개 중 ${loadedCount}개 로드)`);
     } catch (err) {
       toast.error('세션 로드 실패: ' + (err instanceof Error ? err.message : String(err)));
     } finally {

@@ -1759,3 +1759,9 @@ Detected
 - [x] server/phase2.architecture.test.ts: transactionId 생성/전파 테스트
 - [x] server/phase2.architecture.test.ts: callerContext 권한 검증 테스트 (ADMIN_ONLY_TOOLS 전체 검증)
 - [x] server/phase2.architecture.test.ts: 하위 호환성 테스트 (callerCtx 없이 호출 시 권한 검증 건너맰)
+
+## 두골프마스터 대화 이력 개선 [2026-06-06]
+
+- [x] 우측 슬라이드 "지난 대화 불러오기" - 최신 대화 전체 메시지 로드 (limit 40→500, 최신순 정렬 후 시간순 재정렬)
+- [x] 대화이력 페이지 - 각 세션에 "대화 이어가기" 아이콘 버튼 추가 (MessageSquarePlus 아이콘)
+- [x] "대화 이어가기" 클릭 시 두골프마스터 채팅창으로 이동 + URL 파라미터로 해당 세션 자동 로드

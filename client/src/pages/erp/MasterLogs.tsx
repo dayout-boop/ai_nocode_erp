@@ -3,11 +3,15 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Search, Bot, ChevronDown, ChevronUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, Bot, ChevronDown, ChevronUp, MessageSquarePlus } from "lucide-react";
+import { useLocation } from "wouter";
+import { toast } from "sonner";
 
 export default function MasterLogs() {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  const [, navigate] = useLocation();
 
   const { data: logsData, isLoading } = trpc.aiAssistant.getLogs.useQuery({
     assistant: "master",
@@ -36,6 +40,16 @@ export default function MasterLogs() {
         );
       });
   }, [logsData, searchQuery]);
+
+  /**
+   * 대화 이어가기 핸들러
+   * - sessionId를 URL 파라미터로 전달하여 MasterAI 페이지에서 자동 로드
+   */
+  const handleContinueSession = (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // 세션 펼치기 이벤트 차단
+    toast.info("두골프 마스터 채팅창으로 이동합니다...");
+    navigate(`/master-ai?continueSession=${encodeURIComponent(sessionId)}`);
+  };
 
   return (
       <div className="p-6 space-y-6">
@@ -90,7 +104,7 @@ export default function MasterLogs() {
                               {(firstUser?.content.length ?? 0) > 60 ? "..." : ""}
                             </span>
                           </div>
-                          <div className="flex items-center gap-3 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0">
                             <span className="text-xs text-gray-400">
                               {lastAt ? new Date(lastAt).toLocaleString("ko-KR") : ""}
                             </span>
@@ -98,35 +112,59 @@ export default function MasterLogs() {
                             {totalCost > 0 && (
                               <span className="text-xs text-green-600">${totalCost.toFixed(4)}</span>
                             )}
+                            {/* 대화 이어가기 아이콘 버튼 */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-purple-600 hover:bg-purple-50 hover:text-purple-700 shrink-0"
+                              onClick={(e) => handleContinueSession(sessionId, e)}
+                              title="이 대화 이어가기"
+                            >
+                              <MessageSquarePlus size={15} />
+                            </Button>
                             {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                           </div>
                         </div>
                       </button>
                       {isExpanded && (
-                        <div className="border-t bg-gray-50 p-4 space-y-3 max-h-96 overflow-y-auto">
-                          {messages.map((msg) => (
-                            <div
-                              key={msg.id}
-                              className={`rounded p-3 text-sm ${
-                                msg.role === "user"
-                                  ? "bg-white border ml-4"
-                                  : msg.role === "assistant"
-                                  ? "bg-purple-50 border border-purple-100 mr-4"
-                                  : "bg-yellow-50 border border-yellow-100 text-xs"
-                              }`}
+                        <div className="border-t bg-gray-50">
+                          {/* 이어가기 버튼 (펼쳐진 상태) */}
+                          <div className="px-4 pt-3 pb-1 flex justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs text-purple-700 border-purple-300 hover:bg-purple-50 gap-1.5"
+                              onClick={(e) => handleContinueSession(sessionId, e)}
                             >
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="font-medium text-xs text-gray-500">
-                                  {msg.role === "user" ? "관리자" : msg.role === "assistant" ? "마스터 🤖" : "시스템"}
-                                </span>
-                                <div className="flex items-center gap-2 text-xs text-gray-400">
-                                  {msg.modelUsed && <span>{msg.modelUsed.split("/").pop()}</span>}
-                                  {(msg.tokensIn ?? 0) > 0 && <span>{msg.tokensIn}↑ {msg.tokensOut}↓</span>}
+                              <MessageSquarePlus size={13} />
+                              이 대화 이어가기
+                            </Button>
+                          </div>
+                          <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
+                            {messages.map((msg) => (
+                              <div
+                                key={msg.id}
+                                className={`rounded p-3 text-sm ${
+                                  msg.role === "user"
+                                    ? "bg-white border ml-4"
+                                    : msg.role === "assistant"
+                                    ? "bg-purple-50 border border-purple-100 mr-4"
+                                    : "bg-yellow-50 border border-yellow-100 text-xs"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-medium text-xs text-gray-500">
+                                    {msg.role === "user" ? "관리자" : msg.role === "assistant" ? "마스터 🤖" : "시스템"}
+                                  </span>
+                                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                                    {msg.modelUsed && <span>{msg.modelUsed.split("/").pop()}</span>}
+                                    {(msg.tokensIn ?? 0) > 0 && <span>{msg.tokensIn}↑ {msg.tokensOut}↓</span>}
+                                  </div>
                                 </div>
+                                <p className="text-gray-800 whitespace-pre-wrap">{msg.content}</p>
                               </div>
-                              <p className="text-gray-800 whitespace-pre-wrap">{msg.content}</p>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
