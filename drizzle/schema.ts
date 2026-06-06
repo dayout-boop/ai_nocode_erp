@@ -1951,3 +1951,66 @@ export const knowledgeBlockRules = mysqlTable("knowledge_block_rules", {
 });
 export type KnowledgeBlockRule = typeof knowledgeBlockRules.$inferSelect;
 export type InsertKnowledgeBlockRule = typeof knowledgeBlockRules.$inferInsert;
+
+/**
+ * 이미지 아카이브 로그 테이블
+ * - 카카오워크 봇이 처리한 이미지 로그를 기록
+ * - Google Drive 파일 ID 및 링크 저장
+ * - 관리자가 직접 선택하여 Google Drive 원본 파일 삭제 가능
+ */
+export const imageArchiveLogs = mysqlTable("image_archive_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Google Drive 파일 ID */
+  driveFileId: varchar("driveFileId", { length: 200 }).notNull(),
+  /** 파일명 */
+  fileName: varchar("fileName", { length: 500 }).notNull(),
+  /** Google Drive 공유 링크 */
+  driveUrl: text("driveUrl").notNull(),
+  /** 파일 크기 (bytes) */
+  fileSize: int("fileSize"),
+  /** MIME 타입 */
+  mimeType: varchar("mimeType", { length: 100 }),
+  /** 출처 (kakaowork, manual, api 등) */
+  source: varchar("source", { length: 100 }).default("kakaowork").notNull(),
+  /** 출처 상세 (봇 이름, 채널명 등) */
+  sourceDetail: varchar("sourceDetail", { length: 300 }),
+  /** 처리 완료 시각 */
+  processedAt: timestamp("processedAt").defaultNow().notNull(),
+  /** 삭제 여부 */
+  isDeleted: boolean("isDeleted").default(false).notNull(),
+  /** Google Drive 삭제 완료 시각 */
+  deletedAt: timestamp("deletedAt"),
+  /** 삭제 처리한 관리자 */
+  deletedBy: varchar("deletedBy", { length: 100 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type ImageArchiveLog = typeof imageArchiveLogs.$inferSelect;
+export type InsertImageArchiveLog = typeof imageArchiveLogs.$inferInsert;
+
+/**
+ * Manus 웹훅 수신 로그 테이블 [ID: 700001]
+ * - Manus API에서 발송하는 웹훅 이벤트를 수신하여 저장
+ * - 개발 요청 완료, 진행 메시지 등 Manus 에이전트 활동 기록
+ */
+export const manusWebhookLogs = mysqlTable("manus_webhook_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Manus Task ID */
+  taskId: varchar("taskId", { length: 200 }),
+  /** 이벤트 유형 (task_stopped, message_added, task_created 등) */
+  eventType: varchar("eventType", { length: 100 }).notNull(),
+  /** 메시지 내용 (Manus 에이전트가 남긴 텍스트) */
+  content: text("content"),
+  /** 역할 (assistant, user, system) */
+  role: varchar("role", { length: 50 }).default("assistant"),
+  /** 연결된 개발 요청 ID (있는 경우) */
+  devRequestId: int("devRequestId"),
+  /** 원본 웹훅 페이로드 (JSON) */
+  rawPayload: text("rawPayload"),
+  /** 웹훅 서명 검증 통과 여부 */
+  isVerified: boolean("isVerified").default(false).notNull(),
+  /** 수신 시각 */
+  receivedAt: timestamp("receivedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type ManusWebhookLog = typeof manusWebhookLogs.$inferSelect;
+export type InsertManusWebhookLog = typeof manusWebhookLogs.$inferInsert;

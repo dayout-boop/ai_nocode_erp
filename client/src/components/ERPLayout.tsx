@@ -72,6 +72,7 @@ import FileAnalysisHistory from "@/pages/erp/FileAnalysisHistory";
 import AdminManagementPage from "@/pages/erp/AdminManagement";
 import ManagerChat from "@/pages/erp/ManagerChat";
 import KnowledgeBlockLog from "@/pages/erp/KnowledgeBlockLog";
+import ManusChat from "@/pages/erp/ManusChat";
 import SettlementsSuppliers from "@/pages/erp/SettlementsSuppliers";
 import { Loader2 } from "lucide-react";
 
@@ -97,6 +98,7 @@ const navItems: NavItem[] = [
     icon: <Bot size={18} />,
     children: [
       { label: "두골프 마스터 🤖", href: "/master-ai", icon: <MessageSquare size={14} /> },
+      { label: "마누스채봇 🔗", href: "/erp/manus-chat", icon: <MessageSquare size={14} /> },
       { label: "골프톡 관리", href: "/golftalk-admin", icon: <Settings2 size={14} /> },
       { label: "두골프 매니저 💼", href: "/manager-chat", icon: <MessageSquare size={14} /> },
       { label: "두골프 매니저 관리", href: "/manager-admin", icon: <UserCog size={14} /> },
@@ -332,6 +334,7 @@ function ERPContent() {
           <Route path="/settings" component={ERPSettings} />
           <Route path="/settings/system" component={SystemSettings} />
           <Route path="/knowledge-block" component={KnowledgeBlockLog} />
+          <Route path="/erp/manus-chat" component={ManusChat} />
           <Route path="/openrouter-agent" component={OpenRouterAgent} />
           <Route path="/dev-dashboard" component={DevDashboard} />
           <Route path="/managed-projects" component={ManagedProjects} />

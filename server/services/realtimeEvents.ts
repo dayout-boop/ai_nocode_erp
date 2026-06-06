@@ -22,7 +22,8 @@ export type RealtimeEventType =
   | "approval_resolved"      // 승인 요청 처리 완료
   | "heartbeat"             // 연결 유지용 핑
   | "migration_completed"   // 마이그레이션 완료
-  | "manus_published";       // Manus WebDev 자동 게시 완료
+  | "manus_published"         // Manus WebDev 자동 게시 완료
+  | "manus_webhook_received"; // Manus 웹훅 수신 (마누스채봇 실시간 표시)
 
 export interface RealtimeEvent {
   type: RealtimeEventType;

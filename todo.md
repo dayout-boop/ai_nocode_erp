@@ -1765,3 +1765,25 @@ Detected
 - [x] 우측 슬라이드 "지난 대화 불러오기" - 최신 대화 전체 메시지 로드 (limit 40→500, 최신순 정렬 후 시간순 재정렬)
 - [x] 대화이력 페이지 - 각 세션에 "대화 이어가기" 아이콘 버튼 추가 (MessageSquarePlus 아이콘)
 - [x] "대화 이어가기" 클릭 시 두골프마스터 채팅창으로 이동 + URL 파라미터로 해당 세션 자동 로드
+
+## 이미지 아카이브 관리 기능 개발 [ID: 600001]
+
+- [ ] drizzle/schema.ts: imageArchiveLogs 테이블 추가 (fileId, fileName, driveUrl, source, processedAt, deletedAt, deletedBy)
+- [ ] pnpm db:push 실행
+- [ ] server/services/googleDrive.ts: Google Drive API 서비스 (파일 삭제 기능)
+- [ ] server/routers/imageArchive.ts: tRPC 라우터 (list, deleteFiles, logImage)
+- [ ] server/routers.ts: imageArchive 라우터 등록
+- [ ] client/src/pages/erp/ImageArchive.tsx: 이미지 아카이브 관리 UI (기간/출처 필터, 체크박스 선택, 삭제 버튼)
+- [ ] client/src/components/ERPLayout.tsx: 사이드바에 "이미지 아카이브" 메뉴 추가
+- [ ] server/imageArchive.test.ts: 테스트 작성
+
+## 마누스채봇 구현 [ID: 700001]
+- [x] drizzle/schema.ts: manusWebhookLogs 테이블 추가 (taskId, eventType, content, rawPayload, receivedAt)
+- [x] pnpm db:push 실행
+- [x] server/routers/manusWebhook.ts: 웹훅 수신 엔드포인트 + tRPC 라우터 (getLogs, getStats, sendTest)
+- [x] server/_core/index.ts: /api/manus/webhook Express 라우트 등록
+- [x] 웹훅 수신 시 realtimeEvents SSE로 프론트엔드에 실시간 푸시
+- [x] client/src/pages/erp/ManusChat.tsx: 마누스채봇 페이지 (웹훅 메시지 채팅창 형태 표시, SSE 실시간 수신)
+- [x] client/src/components/ERPLayout.tsx: AI챗봇 카테고리 > 두골프마스터 바로 아래 "마누스채봇" 메뉴 추가
+- [x] /erp/manus-chat 라우트 ERPLayout 내부에 등록
+- [x] server/manusWebhook.test.ts: 테스트 작성 (5개 테스트 모두 통과)

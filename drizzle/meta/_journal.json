@@ -288,6 +288,13 @@
       "when": 1777680896238,
       "tag": "0040_handy_hiroim",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "5",
+      "when": 1780752506906,
+      "tag": "0041_ordinary_shinko_yamashiro",
+      "breakpoints": true
     }
   ]
 }

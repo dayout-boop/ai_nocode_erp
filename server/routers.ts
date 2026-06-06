@@ -6,6 +6,7 @@ import { adminAuthRouter } from "./routers/adminAuth";
 import { adminManagementRouter } from "./routers/adminManagement";
 import { erpApiKeysRouter } from "./routers/erpApiKeys";
 import { knowledgeBlockRouter } from "./routers/knowledgeBlock";
+import { manusWebhookRouter } from "./routers/manusWebhook";
 import { reservationInquiriesRouter, inquiryTemplatesRouter } from "./routers/reservationInquiries";
 import { reservationItinerariesRouter, customVariablesRouter } from "./routers/reservationItineraries";
 import { reservationAffiliateCostsRouter } from "./routers/reservationAffiliateCosts";
@@ -3400,5 +3401,6 @@ export const appRouter = router({
   adminManagement: adminManagementRouter,
   erpApiKeys: erpApiKeysRouter,
   knowledgeBlock: knowledgeBlockRouter,
+  manusWebhook: manusWebhookRouter,
 });
 export type AppRouter = typeof appRouter;

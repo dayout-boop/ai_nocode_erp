@@ -17,6 +17,7 @@ import { registerScheduledRoutes, registerPublicLandingRoutes } from "../schedul
 import { reportError } from "./errorWatcher.js";
 import { subscribe, startHeartbeat } from "../services/realtimeEvents";
 import { startManusSync } from "../services/manusSync";
+import { registerManusWebhookRoute } from "../routers/manusWebhook";
 import { sdk } from "./sdk";
 import { validateAdminSession } from "./adminAuth";
 
@@ -49,6 +50,8 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // Cookie parser - admin_session 쿠키 파싱
   app.use(cookieParser());
+  // Manus 웹훅 수신 엔드포인트 등록 (/api/manus/webhook) - JSON 파싱 후 등록
+  registerManusWebhookRoute(app);
   registerStorageProxy(app);
   registerOAuthRoutes(app);
   
