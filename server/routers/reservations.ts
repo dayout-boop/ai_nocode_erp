@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../_core/trpc";
+import { router, protectedProcedure, adminProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import {
   reservations,
@@ -22,8 +22,40 @@ function generateReservationNo(): string {
   return `OY-${ym}-${rand}`;
 }
 
+/**
+ * 예약 소유권 검증 헬퍼
+ * - admin: 모든 예약 접근 가능
+ * - user: managerName이 본인 이름/이메일과 일치하는 예약만 수정/삭제 가능
+ */
+async function assertReservationOwnership(
+  reservationId: number,
+  user: { name?: string | null; email?: string | null; role: string },
+  db: Awaited<ReturnType<typeof getDb>>
+) {
+  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+  if (user.role === "admin") return; // admin은 모든 예약 접근 가능
+
+  const [reservation] = await db
+    .select({ id: reservations.id, managerName: reservations.managerName })
+    .from(reservations)
+    .where(eq(reservations.id, reservationId));
+
+  if (!reservation) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "예약을 찾을 수 없습니다." });
+  }
+
+  const userIdentifier = user.name || user.email || "";
+  if (!userIdentifier || reservation.managerName !== userIdentifier) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "본인이 등록한 예약만 수정/삭제할 수 있습니다. 관리자에게 문의하세요.",
+    });
+  }
+}
+
 export const reservationsRouter = router({
   // ─── 예약 목록 조회 ───────────────────────────────────────────
+  // 로그인한 모든 사용자가 조회 가능 (ERP 내부 직원 전용)
   list: protectedProcedure
     .input(
       z.object({
@@ -113,6 +145,7 @@ export const reservationsRouter = router({
     }),
 
   // ─── 예약 단건 조회 ───────────────────────────────────────────
+  // 로그인한 모든 사용자가 조회 가능
   getById: protectedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
@@ -135,6 +168,7 @@ export const reservationsRouter = router({
     }),
 
   // ─── 예약 등록 ────────────────────────────────────────────────
+  // 로그인한 모든 사용자가 등록 가능 (담당자 자동 기입)
   create: protectedProcedure
     .input(
       z.object({
@@ -234,6 +268,7 @@ export const reservationsRouter = router({
     }),
 
   // ─── 예약 수정 ────────────────────────────────────────────────
+  // RBAC: admin은 모든 예약 수정 가능, user는 본인 등록 예약만 수정 가능
   update: protectedProcedure
     .input(
       z.object({
@@ -270,9 +305,13 @@ export const reservationsRouter = router({
         progressStatus: z.enum(["proceeding", "impossible", "confirmed", "waiting"]).optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // RBAC: 소유권 검증 (admin은 통과, user는 본인 예약만)
+      await assertReservationOwnership(input.id, ctx.user, db);
+
       const { id, departureDate, ...rest } = input;
       const updateData: Record<string, unknown> = { ...rest };
       if (departureDate) updateData.departureDate = new Date(departureDate);
@@ -281,7 +320,8 @@ export const reservationsRouter = router({
     }),
 
   // ─── 예약 삭제 ────────────────────────────────────────────────
-  delete: protectedProcedure
+  // RBAC: admin만 삭제 가능 (삭제는 더 엄격하게 관리)
+  delete: adminProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -291,6 +331,7 @@ export const reservationsRouter = router({
     }),
 
   // ─── 입금 내역 등록 ───────────────────────────────────────────
+  // RBAC: 로그인한 모든 사용자 가능 (입금 등록은 업무상 필요)
   addIncome: protectedProcedure
     .input(
       z.object({
@@ -334,6 +375,7 @@ export const reservationsRouter = router({
     }),
 
   // ─── 송금 내역 등록 ───────────────────────────────────────────
+  // RBAC: 로그인한 모든 사용자 가능
   addRemittance: protectedProcedure
     .input(
       z.object({
@@ -577,6 +619,7 @@ export const reservationsRouter = router({
       }).where(eq(prepaidRecords.id, input.id));
       return { success: true };
     }),
+
   // ─── 충전 내역 예약번호 매칭 업데이트 ────────────────────────
   matchCharge: protectedProcedure
     .input(z.object({
@@ -594,8 +637,10 @@ export const reservationsRouter = router({
       await db.update(chargeRecords).set({ ...updateData, matchStatus }).where(eq(chargeRecords.id, id));
       return { success: true };
     }),
+
   // ─── 예치금 삭제 ──────────────────────────────────────────────
-  deleteDeposit: protectedProcedure
+  // RBAC: admin만 삭제 가능
+  deleteDeposit: adminProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -603,8 +648,10 @@ export const reservationsRouter = router({
       await db.delete(depositRecords).where(eq(depositRecords.id, input.id));
       return { success: true };
     }),
+
   // ─── 충전 내역 삭제 ───────────────────────────────────────────
-  deleteCharge: protectedProcedure
+  // RBAC: admin만 삭제 가능
+  deleteCharge: adminProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -612,8 +659,10 @@ export const reservationsRouter = router({
       await db.delete(chargeRecords).where(eq(chargeRecords.id, input.id));
       return { success: true };
     }),
+
   // ─── 데파짓 삭제 ──────────────────────────────────────────────
-  deletePrepaid: protectedProcedure
+  // RBAC: admin만 삭제 가능
+  deletePrepaid: adminProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -621,8 +670,10 @@ export const reservationsRouter = router({
       await db.delete(prepaidRecords).where(eq(prepaidRecords.id, input.id));
       return { success: true };
     }),
+
   // ─── 전체 목록 조회 (엑셀 내보내기용, 최대 5000건) ────────────────
-  listAll: protectedProcedure
+  // RBAC: admin만 전체 내보내기 가능
+  listAll: adminProcedure
     .input(
       z.object({
         search: z.string().optional(),
@@ -696,27 +747,24 @@ export const reservationsRouter = router({
       db.select({ id: remittanceRecords.id }).from(remittanceRecords).where(eq(remittanceRecords.matchStatus, "unmatched")),
     ]);
 
-    const totalSales = allReservations.reduce((sum: number, r) => sum + (r.salePriceTotal || 0), 0);
-    const totalPaid = allReservations.reduce((sum: number, r) => sum + (r.paidAmount || 0), 0);
-    const monthSales = monthReservations.reduce((sum: number, r) => sum + (r.salePriceTotal || 0), 0);
-    const statusCounts = allReservations.reduce((acc: Record<string, number>, r) => {
-      acc[r.status] = (acc[r.status] || 0) + 1;
-      return acc;
-    }, {});
+    const totalCount = allReservations.length;
+    const confirmedCount = allReservations.filter((r) => r.status === "confirmed").length;
+    const pendingCount = allReservations.filter((r) => r.status === "pending").length;
+    const cancelledCount = allReservations.filter((r) => r.status === "cancelled").length;
+    const monthRevenue = monthReservations.reduce((sum, r) => sum + (r.salePriceTotal || 0), 0);
+    const totalRevenue = allReservations.reduce((sum, r) => sum + (r.salePriceTotal || 0), 0);
+    const unpaidCount = allReservations.filter((r) => r.paidAmount === 0 || r.paidAmount === null).length;
 
     return {
-      totalReservations: allReservations.length,
-      monthReservations: monthReservations.length,
-      totalSales,
-      totalPaid,
-      monthSales,
-      unpaidAmount: totalSales - totalPaid,
-      unmatchedIncome: unmatchedIncome.length,
-      unmatchedRemittance: unmatchedRemittance.length,
-      statusCounts,
+      totalCount,
+      confirmedCount,
+      pendingCount,
+      cancelledCount,
+      monthRevenue,
+      totalRevenue,
+      unpaidCount,
+      unmatchedIncomeCount: unmatchedIncome.length,
+      unmatchedRemittanceCount: unmatchedRemittance.length,
     };
   }),
 });
-
-// ─── 데파짓 사용금액 업데이트 ─────────────────────────────────
-// (파일 끝에 추가하지 않고 router 내부에 넣어야 하므로 별도 파일로 분리)

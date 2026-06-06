@@ -64,6 +64,17 @@ export const openrouterAgentRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const userId = String(ctx.user.id);
+      const userRole = ctx.user.role;
+
+      // RBAC: ERP 내부 직원(admin/user)만 AI 에이전트 사용 가능
+      // role이 없거나 알 수 없는 경우 차단
+      if (!userRole || !['admin', 'user'].includes(userRole)) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'ERP AI 에이전트는 내부 직원만 사용할 수 있습니다.',
+        });
+      }
+
       const agent = getOrCreateAgent(userId);
 
       // 모델 오버라이드

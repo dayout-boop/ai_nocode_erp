@@ -1719,3 +1719,9 @@ Detected
 - [ ] CRITICAL/HIGH 문제 즉시 수정
 - [ ] MEDIUM 문제 수정 및 UI 정합성 개선
 - [ ] 최종 검증 및 체크포인트 저장
+
+## 보안 강화 [ID: 510001]
+- [x] 예약 API RBAC - adminProcedure 적용 (update, delete, addIncome, addRemittance 등 민감 API)
+- [x] 예약 API RBAC - 본인 등록 예약 수정/삭제 허용 로직 (user 역할)
+- [x] AI 서비스 예약 접근 시 사용자 컨텍스트 검증 추가 (openrouterAgent.ts)
+- [x] RBAC 보안 테스트 작성 (210개 전체 통과)

@@ -43,3 +43,11 @@ export const adminProcedure = t.procedure.use(
     });
   }),
 );
+
+/**
+ * 예약 민감 작업용 RBAC 미들웨어
+ * - admin: 모든 예약에 대해 작업 가능
+ * - user: 본인이 등록한 예약(managerName 일치)만 수정/삭제 가능
+ * 실제 소유권 검증은 각 프로시저에서 ctx.user.role을 사용해 처리
+ */
+export const reservationWriteProcedure = t.procedure.use(requireUser);

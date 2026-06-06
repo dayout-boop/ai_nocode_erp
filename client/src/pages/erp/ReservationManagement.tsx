@@ -1492,7 +1492,7 @@ export default function ReservationManagement() {
   const dashboardCards = [
     {
       label: "대기 (신규접수)",
-      value: summary?.statusCounts?.pending ?? 0,
+      value: summary?.pendingCount ?? 0,
       unit: "건",
       icon: <Clock className="w-5 h-5 text-yellow-500" />,
       color: "text-yellow-600",
@@ -1500,7 +1500,7 @@ export default function ReservationManagement() {
     },
     {
       label: "확정 (미수금)",
-      value: summary?.unpaidAmount ?? 0,
+      value: summary?.unpaidCount ?? 0,
       unit: "원",
       icon: <DollarSign className="w-5 h-5 text-green-500" />,
       color: "text-green-600",
@@ -1508,7 +1508,7 @@ export default function ReservationManagement() {
     },
     {
       label: "완료 (미매칭입금)",
-      value: summary?.unmatchedIncome ?? 0,
+      value: summary?.unmatchedIncomeCount ?? 0,
       unit: "건",
       icon: <AlertCircle className="w-5 h-5 text-red-500" />,
       color: "text-red-600",
@@ -1516,7 +1516,7 @@ export default function ReservationManagement() {
     },
     {
       label: "이번달 매출",
-      value: summary?.monthSales ?? 0,
+      value: summary?.monthRevenue ?? 0,
       unit: "원",
       icon: <TrendingUp className="w-5 h-5 text-blue-500" />,
       color: "text-blue-600",
