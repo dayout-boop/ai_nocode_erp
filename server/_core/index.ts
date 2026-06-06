@@ -111,14 +111,37 @@ async function startServer() {
   // GET /api/realtime/events - 관리자 전용 SSE 스트림
   app.get("/api/realtime/events", async (req, res) => {
     try {
-      const user = await sdk.authenticateRequest(req);
-      if (!user || user.role !== "admin") {
+      let userId: number | null = null;
+
+      // 1. Manus OAuth 세션 인증 시도
+      try {
+        const user = await sdk.authenticateRequest(req);
+        if (user && user.role === "admin") {
+          userId = user.id;
+        }
+      } catch {
+        // Manus 세션 없음 - 다음 수단 시도
+      }
+
+      // 2. admin_session_id 쿠키 인증 (ERP 마스터 로그인)
+      if (!userId) {
+        const adminSessionId = req.cookies?.admin_session_id ?? req.cookies?.admin_session;
+        if (adminSessionId) {
+          const session = validateAdminSession(adminSessionId);
+          if (session) {
+            userId = session.adminId;
+          }
+        }
+      }
+
+      if (!userId) {
         res.status(401).json({ error: "관리자 인증이 필요합니다" });
         return;
       }
+
       // 구독자 ID: userId + 타임스탬프로 고유 식별
-      const subscriberId = `user-${user.id}-${Date.now()}`;
-      subscribe(subscriberId, user.id, res);
+      const subscriberId = `user-${userId}-${Date.now()}`;
+      subscribe(subscriberId, userId, res);
     } catch {
       res.status(500).json({ error: "SSE 연결 실패" });
     }
