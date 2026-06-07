@@ -86,13 +86,29 @@ router.get('/google', async (req, res) => {
 /**
  * GET /api/partner/auth/google/callback
  * 구글 OAuth 콜백 처리
+ * - authProxy(/api/v1/auth/oauth/google/callback)에서 nonce 검증 완료 후 위임
+ * - __nonce, __tenant_id, __return_url 파라미터로 검증 완료 여부 확인
  * 1. code → access_token 교환
  * 2. 사용자 정보 조회
  * 3. DB에서 파트너 조회 또는 신규 생성
  * 4. 파트너 세션 쿠키 발급
  */
 router.get('/google/callback', async (req, res) => {
-  const { code, state, error: oauthError } = req.query as Record<string, string>;
+  const {
+    code,
+    state,
+    error: oauthError,
+    __nonce,
+    __tenant_id,
+    __return_url,
+  } = req.query as Record<string, string>;
+
+  // authProxy를 통해 nonce 검증이 완료된 요청인지 확인
+  // __nonce 파라미터가 있으면 authProxy 경유 (이미 검증 완료)
+  // 없으면 직접 접근 — 구 방식 호환 (레거시)
+  const isProxyVerified = Boolean(__nonce);
+  const tenantIdFromProxy = __tenant_id ? parseInt(__tenant_id, 10) : null;
+  const returnUrlFromProxy = __return_url || null;
 
   // 구글 인증 거부
   if (oauthError) {
@@ -271,17 +287,22 @@ router.get('/google/callback', async (req, res) => {
       path: '/',
     });
 
-    // state에서 returnUrl 복원
+    // returnUrl 결정: authProxy 위임값 우선, 없으면 state에서 복원
     let returnUrl = '/partner/dashboard';
-    try {
-      if (state) {
-        const decoded = JSON.parse(Buffer.from(state, 'base64url').toString());
-        if (decoded.returnUrl && decoded.returnUrl.startsWith('/')) {
-          returnUrl = decoded.returnUrl;
+    if (returnUrlFromProxy && returnUrlFromProxy.startsWith('/')) {
+      returnUrl = returnUrlFromProxy;
+    } else {
+      try {
+        if (state) {
+          const decoded = JSON.parse(Buffer.from(state, 'base64url').toString());
+          if (decoded.returnUrl && decoded.returnUrl.startsWith('/')) {
+            returnUrl = decoded.returnUrl;
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
 
+    console.log(`[GoogleAuth] 로그인 성공 - 파트너 ${partner.id}, 테넌트 ${partner.tenantId}, proxyVerified: ${isProxyVerified}`);
     return res.redirect(returnUrl);
   } catch (err) {
     console.error('[GoogleAuth] 콜백 처리 오류:', err);
