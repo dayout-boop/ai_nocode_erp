@@ -1828,3 +1828,11 @@ Detected
 - [ ] 파트너 온보딩 자동화 (테넌트 생성 → 초기 설정 → 계정 발급 플로우)
 - [ ] 구독 관리 시스템 (플랜별 기능 제한: 상품 수, AI 호출 한도, 직원 계정 수)
 - [ ] 테넌트별 AI 사용량 모니터링 및 월간 한도 초과 알림
+
+## 분양 ERP Phase 1 완료 (2026-06-07)
+
+- [x] 주요 테이블 8개(packages, bookings, inquiries, settlements, notifications, crm_contacts, crm_activities, partner_onboarding)에 tenant_id 컬럼 추가 (DB 직접 실행)
+- [x] context.ts에 파트너 스태프 JWT 검증 + tenantId 자동 주입 구현
+- [x] trpc.ts에 partnerStaffProcedure / partnerManagerProcedure / partnerAnyProcedure 미들웨어 추가
+- [x] ERPPartnerLayout.tsx 신규 작성 (파트너 직원 전용 ERP 레이아웃, 제한된 메뉴)
+- [x] App.tsx에 /partner/staff/* 라우트 등록

@@ -69,3 +69,61 @@ export const adminProcedure = t.procedure.use(
  * 실제 소유권 검증은 각 프로시저에서 ctx.user.role을 사용해 처리
  */
 export const reservationWriteProcedure = t.procedure.use(requireUser);
+
+/**
+ * 파트너 스태프 전용 미들웨어
+ * - Authorization: Bearer <JWT> 헤더로 인증된 파트너 직원만 허용
+ * - ctx.partnerStaff: 직원 정보 (staffId, partnerId, tenantId, role)
+ * - ctx.tenantId: 해당 파트너사의 테넌트 ID (데이터 격리에 사용)
+ */
+const requirePartnerStaff = t.middleware(async opts => {
+  const { ctx, next } = opts;
+
+  if (!ctx.partnerStaff) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "파트너 직원 로그인이 필요합니다." });
+  }
+
+  return next({
+    ctx: {
+      ...ctx,
+      partnerStaff: ctx.partnerStaff,
+      tenantId: ctx.partnerStaff.tenantId,
+    },
+  });
+});
+
+export const partnerStaffProcedure = t.procedure.use(withTransactionId).use(requirePartnerStaff);
+
+/**
+ * 파트너 매니저 전용 미들웨어 (role === 'manager'만 허용)
+ */
+export const partnerManagerProcedure = t.procedure.use(withTransactionId).use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+    if (!ctx.partnerStaff || ctx.partnerStaff.role !== 'manager') {
+      throw new TRPCError({ code: "FORBIDDEN", message: "파트너 매니저 권한이 필요합니다." });
+    }
+    return next({
+      ctx: {
+        ...ctx,
+        partnerStaff: ctx.partnerStaff,
+        tenantId: ctx.partnerStaff.tenantId,
+      },
+    });
+  }),
+);
+
+/**
+ * 파트너 대표(Manus OAuth) 또는 파트너 직원(JWT) 모두 허용하는 미들웨어
+ * - 파트너 대표: ctx.user 존재 + 온보딩 승인 확인 필요 (각 라우터에서 처리)
+ * - 파트너 직원: ctx.partnerStaff 존재
+ */
+export const partnerAnyProcedure = t.procedure.use(withTransactionId).use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+    if (!ctx.user && !ctx.partnerStaff) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "파트너 로그인이 필요합니다." });
+    }
+    return next({ ctx });
+  }),
+);

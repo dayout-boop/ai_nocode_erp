@@ -15,6 +15,9 @@ import PackageDetail from './pages/PackageDetail';
 import ERPLayout from "./components/ERPLayout";
 import ERPLogin from "./pages/erp/ERPLogin";
 
+// Partner Staff ERP Layout (파트너 직원 전용)
+import ERPPartnerLayout from "./components/ERPPartnerLayout";
+
 // Other Pages
 import EstimateView from "./pages/EstimateView";
 import Terms from "./pages/Terms";
@@ -78,6 +81,8 @@ function Router() {
       <Route path={"/partner/my"} component={PartnerMyPage} />
       {/* 하위 담당자 로그인 */}
       <Route path={"/partner/staff/login"} component={PartnerStaffLogin} />
+      {/* 파트너 스태프 전용 ERP - ERPPartnerLayout이 내부 라우팅 처리 */}
+      <Route path={"/partner/staff"} nest component={ERPPartnerLayout} />
       {/* 비밀번호 재설정 */}
       <Route path={"/partner/reset-password"} component={PartnerResetPassword} />
       {/* 커스텀 OAuth 로그인 */}

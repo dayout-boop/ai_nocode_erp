@@ -66,6 +66,7 @@ export const packages = mysqlTable("packages", {
   itinerary: json("itinerary"),
   // 취소/환불 정책 (텍스트)
   cancellationPolicy: text("cancellationPolicy"),
+  tenantId: int("tenantId"),  // null = 두골프 본사, 1~N = 파트너사
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -161,6 +162,7 @@ export const bookings = mysqlTable("bookings", {
   customerMemo: text("customerMemo"),
   adminMemo: text("adminMemo"),
   cancelReason: text("cancelReason"),
+  tenantId: int("tenantId"),  // null = 두골프 본사, 1~N = 파트너사
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -201,6 +203,7 @@ export const settlements = mysqlTable("settlements", {
   paidDate: timestamp("paidDate"),
   status: mysqlEnum("status", ["pending", "paid", "overdue"]).default("pending"),
   memo: text("memo"),
+  tenantId: int("tenantId"),  // null = 두골프 본사, 1~N = 파트너사
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -223,6 +226,7 @@ export const inquiries = mysqlTable("inquiries", {
   status: mysqlEnum("status", ["new", "in_progress", "replied", "closed"]).default("new"),
   adminReply: text("adminReply"),
   repliedAt: timestamp("repliedAt"),
+  tenantId: int("tenantId"),  // null = 두골프 본사, 1~N = 파트너사
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -244,6 +248,7 @@ export const notices = mysqlTable("notices", {
   viewCount: int("viewCount").default(0),
   startDate: timestamp("startDate"),
   endDate: timestamp("endDate"),
+  tenantId: int("tenantId"),  // null = 두골프 본사, 1~N = 파트너사
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -262,6 +267,7 @@ export const banners = mysqlTable("banners", {
   linkUrl: varchar("linkUrl", { length: 500 }),
   isActive: boolean("isActive").default(true),
   sortOrder: int("sortOrder").default(0),
+  tenantId: int("tenantId"),  // null = 두골프 본사, 1~N = 파트너사
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -797,6 +803,7 @@ export const partners = mysqlTable("partners", {
   memo: text("memo"),
   /** 활성 상태 */
   isActive: boolean("isActive").default(true).notNull(),
+  tenantId: int("tenantId"),  // null = 두골프 본사, 1~N = 파트너사
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -959,6 +966,7 @@ export const reservations = mysqlTable("reservations", {
   managerPhone: varchar("managerPhone", { length: 30 }),
   /** 진행 상태: proceeding | impossible | confirmed | waiting */
   progressStatus: mysqlEnum("progressStatus", ["proceeding", "impossible", "confirmed", "waiting"]).default("proceeding"),
+  tenantId: int("tenantId"),  // null = 두골프 본사, 1~N = 파트너사
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
