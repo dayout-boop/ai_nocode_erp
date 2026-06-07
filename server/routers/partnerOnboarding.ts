@@ -12,10 +12,11 @@ import { TRPCError } from "@trpc/server";
 import { eq, desc } from "drizzle-orm";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { partnerOnboarding } from "../../drizzle/schema";
+import { partnerOnboarding, tenants } from "../../drizzle/schema";
 import { invokeLLM } from "../_core/llm";
 import { storagePut } from "../storage";
 import { onPartnerApproved } from "../services/sampleDataSeeder";
+import { SUBSCRIPTION_PLANS } from "../products";
 // 관리자 전용 프로시저
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "admin") {
@@ -147,16 +148,51 @@ export const partnerOnboardingRouter = router({
         })
         .where(eq(partnerOnboarding.id, input.id));
 
-      // 승인 시 샘플 데이터 자동 생성
+      // 승인 시 테넌트 자동 생성 + 샘플 데이터 자동 생성
       if (input.status === "approved" || input.status === "active") {
         const wasNotApproved = current?.status !== "approved" && current?.status !== "active";
         if (wasNotApproved && current) {
+          // 1) tenants 테이블에 자동 생성 (없는 경우만)
+          let tenantId: number | undefined;
+          try {
+            const plan = SUBSCRIPTION_PLANS.find(p => p.id === (current.subscriptionPlan ?? "starter"));
+            const aiCreditsDefault = plan?.aiCreditsPerMonth ?? 100;
+            // slug: 업체명 영문 변환 + onboardingId 조합
+            const slugBase = current.companyName
+              .replace(/[^a-zA-Z0-9가-힣]/g, "")
+              .toLowerCase()
+              .slice(0, 20) || "partner";
+            const slug = `${slugBase}-${input.id}`;
+            const trialExpires = new Date();
+            trialExpires.setDate(trialExpires.getDate() + 30); // 30일 무료 체험
+
+            const [insertResult] = await db.insert(tenants).values({
+              onboardingId: input.id,
+              slug,
+              companyName: current.companyName,
+              subscriptionPlan: (current.subscriptionPlan ?? "starter") as "starter" | "standard" | "premium",
+              billingCycle: (current.billingCycle ?? "monthly") as "monthly" | "yearly",
+              subscriptionStatus: "trial",
+              subscriptionExpiresAt: trialExpires,
+              isActive: true,
+              sampleCategory: (current.sampleCategory ?? "golf_tour_mixed") as "golf_tour_domestic" | "golf_tour_overseas" | "golf_tour_mixed",
+              sampleSeeded: false,
+              aiCreditsBalance: aiCreditsDefault,
+              aiCreditsMonthlyLimit: aiCreditsDefault,
+            });
+            tenantId = Number((insertResult as any).insertId);
+            console.log(`[Onboarding] 테넌트 자동 생성 완료: tenant_id=${tenantId}, slug=${slug}`);
+          } catch (tenantErr: any) {
+            // slug 중복 등으로 이미 생성된 경우 무시
+            console.warn(`[Onboarding] 테넌트 생성 스킵 (이미 존재할 수 있음):`, tenantErr?.message);
+          }
+
           const category = (current.sampleCategory ?? "golf_tour_mixed") as
             | "golf_tour_domestic"
             | "golf_tour_overseas"
             | "golf_tour_mixed";
-          // 비동기로 실행 (응답 블로킹 방지)
-          onPartnerApproved(input.id, category).catch(console.error);
+          // 2) 비동기로 샘플 데이터 생성 (응답 블로킹 방지)
+          onPartnerApproved(input.id, category, tenantId).catch(console.error);
         }
       }
 

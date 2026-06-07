@@ -15,7 +15,7 @@ import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { ENV } from "../_core/env";
 import { getDb } from "../db";
 import { SUBSCRIPTION_PLANS, getPlanById } from "../products";
-import { partnerOnboarding } from "../../drizzle/schema";
+import { partnerOnboarding, tenants } from "../../drizzle/schema";
 import { verifyPayment, cancelPayment } from "../services/portone";
 
 // 관리자 전용 프로시저
@@ -38,6 +38,112 @@ export const subscriptionsRouter = router({
   getPlans: publicProcedure.query(() => {
     return SUBSCRIPTION_PLANS;
   }),
+
+  /** 테넌트 구독 현황 조회 (관리자 - 업체 ID로 조회) */
+  getTenantStatus: adminProcedure
+    .input(z.object({ tenantId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getRawDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
+      const [tenant] = await db
+        .select()
+        .from(tenants)
+        .where(eq(tenants.id, input.tenantId))
+        .limit(1);
+      if (!tenant) throw new TRPCError({ code: "NOT_FOUND", message: "테넌트를 찾을 수 없습니다." });
+      const plan = getPlanById(tenant.subscriptionPlan ?? "starter");
+      return {
+        tenantId: tenant.id,
+        companyName: tenant.companyName,
+        slug: tenant.slug,
+        plan: plan ?? null,
+        subscriptionStatus: tenant.subscriptionStatus,
+        subscriptionExpiresAt: tenant.subscriptionExpiresAt,
+        billingCycle: tenant.billingCycle,
+        isActive: tenant.isActive,
+        aiCreditsBalance: tenant.aiCreditsBalance,
+        aiCreditsMonthlyLimit: tenant.aiCreditsMonthlyLimit,
+        aiCreditsUsedThisMonth: tenant.aiCreditsUsedThisMonth,
+        aiCreditsResetAt: tenant.aiCreditsResetAt,
+      };
+    }),
+
+  /** 전체 테넌트 목록 (관리자) */
+  listTenants: adminProcedure.query(async () => {
+    const db = await getRawDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
+    const rows = await db
+      .select()
+      .from(tenants)
+      .orderBy(desc(tenants.id));
+    return rows.map(t => ({
+      ...t,
+      plan: getPlanById(t.subscriptionPlan ?? "starter"),
+    }));
+  }),
+
+  /** 테넌트 구독 플랜 변경 (관리자) */
+  updateTenantPlan: adminProcedure
+    .input(z.object({
+      tenantId: z.number().int().positive(),
+      plan: z.enum(["starter", "standard", "premium"]),
+      billingCycle: z.enum(["monthly", "yearly"]).optional(),
+      subscriptionStatus: z.enum(["trial", "active", "suspended", "cancelled"]).optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getRawDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
+      const newPlan = getPlanById(input.plan);
+      if (!newPlan) throw new TRPCError({ code: "BAD_REQUEST", message: "유효하지 않은 플랜입니다." });
+      const updateData: Record<string, any> = {
+        subscriptionPlan: input.plan,
+        aiCreditsMonthlyLimit: newPlan.aiCreditsPerMonth,
+        updatedAt: new Date(),
+      };
+      if (input.billingCycle) updateData.billingCycle = input.billingCycle;
+      if (input.subscriptionStatus) updateData.subscriptionStatus = input.subscriptionStatus;
+      await db.update(tenants).set(updateData).where(eq(tenants.id, input.tenantId));
+      return { success: true, plan: newPlan.name };
+    }),
+
+  /** 월간 AI 크레딧 리셋 (관리자 수동 또는 스케줄러 호출) */
+  resetMonthlyAiCredits: adminProcedure
+    .input(z.object({ tenantId: z.number().int().positive().optional() }))
+    .mutation(async ({ input }) => {
+      const db = await getRawDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
+      const now = new Date();
+      if (input.tenantId) {
+        // 단일 테넌트 리셋
+        const [tenant] = await db.select().from(tenants).where(eq(tenants.id, input.tenantId)).limit(1);
+        if (!tenant) throw new TRPCError({ code: "NOT_FOUND", message: "테넌트를 찾을 수 없습니다." });
+        const plan = getPlanById(tenant.subscriptionPlan ?? "starter");
+        const newBalance = plan?.aiCreditsPerMonth ?? 100;
+        await db.update(tenants).set({
+          aiCreditsBalance: newBalance,
+          aiCreditsUsedThisMonth: 0,
+          aiCreditsResetAt: now,
+          updatedAt: now,
+        }).where(eq(tenants.id, input.tenantId));
+        return { success: true, reset: 1, newBalance };
+      } else {
+        // 전체 테넌트 일괄 리셋
+        const allTenants = await db.select().from(tenants).where(eq(tenants.isActive, true));
+        let resetCount = 0;
+        for (const t of allTenants) {
+          const plan = getPlanById(t.subscriptionPlan ?? "starter");
+          const newBalance = plan?.aiCreditsPerMonth ?? 100;
+          await db.update(tenants).set({
+            aiCreditsBalance: newBalance,
+            aiCreditsUsedThisMonth: 0,
+            aiCreditsResetAt: now,
+            updatedAt: now,
+          }).where(eq(tenants.id, t.id));
+          resetCount++;
+        }
+        return { success: true, reset: resetCount };
+      }
+    }),
 
   /**
    * 결제 사전 등록

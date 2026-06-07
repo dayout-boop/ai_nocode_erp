@@ -154,6 +154,26 @@ async function deductCredits(
     aiCostLogId,
     memo: memo ?? `AI 호출 ${creditCost} 크레딧 차감`,
   });
+
+  // 잔액 경고 알림 (비동기 - 실패해도 무시)
+  const remaining = updated?.aiCreditsBalance ?? 0;
+  if (remaining <= 5 && remaining > 0) {
+    // 잔액 5크레딧 이하 경고
+    import("../_core/notification").then(({ notifyOwner }) => {
+      notifyOwner({
+        title: `[두골프 AI] 업체 크레딧 부족 경고`,
+        content: `테넌트 ID ${tenantId}의 AI 크레딧 잔액이 ${remaining}크레딧으로 부족합니다. 충전이 필요합니다.`,
+      }).catch(() => {});
+    }).catch(() => {});
+  } else if (remaining === 0) {
+    // 잔액 소진 알림
+    import("../_core/notification").then(({ notifyOwner }) => {
+      notifyOwner({
+        title: `[두골프 AI] 업체 크레딧 소진`,
+        content: `테넌트 ID ${tenantId}의 AI 크레딧이 모두 소진되었습니다. 추가 AI 호출이 차단됩니다.`,
+      }).catch(() => {});
+    }).catch(() => {});
+  }
 }
 
 /**
