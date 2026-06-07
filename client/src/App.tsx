@@ -39,12 +39,9 @@ import PartnerLandingPage from "./pages/PartnerLanding/PartnerLandingApp";
 
 function Router() {
   // partner.dayoutgolf.com 접속 시 URL 유지하면서 파트너 랜딩페이지 렌더링
+  // wouter Switch/Route 없이 직접 렌더링 (/:rest* 패턴이 / 루트에 매칭 안 되는 문제 해결)
   if (typeof window !== 'undefined' && window.location.hostname === 'partner.dayoutgolf.com') {
-    return (
-      <Switch>
-        <Route path={"/:rest*"} component={PartnerLandingPage} />
-      </Switch>
-    );
+    return <PartnerLandingPage />;
   }
   // make sure to consider if you need authentication for certain routes
   return (
