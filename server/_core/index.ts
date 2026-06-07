@@ -94,18 +94,8 @@ async function startServer() {
   registerScheduledRoutes(app);
   registerPublicLandingRoutes(app);
 
-  // partner.dayoutgolf.com 접속 시 파트너 랜딩페이지로 리다이렉트
-  // DNS CNAME으로 인해 host가 변경될 수 있으므로 절대 URL로 리다이렉트
-  app.use((req, res, next) => {
-    const rawHost = (req.headers.host ?? '').split(':')[0];
-    const hostname = req.hostname || rawHost;
-    const isPartnerDomain = hostname === 'partner.dayoutgolf.com' || rawHost === 'partner.dayoutgolf.com';
-    if (isPartnerDomain && !req.path.startsWith('/partner-landing') && !req.path.startsWith('/api') && !req.path.startsWith('/manus-storage')) {
-      // 절대 URL로 리다이렉트 (DNS CNAME 우회)
-      return res.redirect(302, 'https://dogolf-tour-dkz3fsmp.manus.space/partner-landing');
-    }
-    next();
-  });
+  // partner.dayoutgolf.com 접속 시 URL 유지 - 클라이언트 라우터가 처리하므로 서버는 통과
+  // (App.tsx에서 hostname 감지 후 PartnerLandingPage 렌더링)
 
   // ─── 실시간 이벤트 SSE 엔드포인트 ─────────────────────────────────────────
   // GET /api/realtime/events - 관리자 전용 SSE 스트림

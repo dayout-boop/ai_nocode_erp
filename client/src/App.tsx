@@ -38,10 +38,13 @@ import Pricing from "./pages/Pricing";
 import PartnerLandingPage from "./pages/PartnerLanding/PartnerLandingApp";
 
 function Router() {
-  // partner.dayoutgolf.com 접속 시 파트너 랜딩페이지로 클라이언트 사이드 리다이렉트
+  // partner.dayoutgolf.com 접속 시 URL 유지하면서 파트너 랜딩페이지 렌더링
   if (typeof window !== 'undefined' && window.location.hostname === 'partner.dayoutgolf.com') {
-    window.location.replace('https://dogolf-tour-dkz3fsmp.manus.space/partner-landing');
-    return null;
+    return (
+      <Switch>
+        <Route path={"/:rest*"} component={PartnerLandingPage} />
+      </Switch>
+    );
   }
   // make sure to consider if you need authentication for certain routes
   return (

@@ -441,7 +441,7 @@ function IntegrationStatusTab() {
       key: "manus",
       status: integrationStatus?.manus ? "ok" : "missing",
       description: "Manus AI 에이전트 자동 실행 API - 두골프 마스터의 개발 요청 자동화에 사용됩니다.",
-      guideUrl: "https://manus.im",
+      guideUrl: "https://dayoutgolf.com/erp",
       guideSteps: [
         "Manus 계정 설정에서 API 키 발급",
         "MANUS_API_KEY로 Secrets에 등록",
@@ -694,7 +694,7 @@ function IntegrationStatusTab() {
                               결제 완료 알림을 받으려면 Stripe 대시보드에서 웹훅을 등록해야 합니다.
                             </p>
                             <div className="mt-1 bg-white rounded px-2 py-1 border border-blue-200 font-mono text-xs text-slate-700 break-all">
-                              https://dogolf-tour-dkz3fsmp.manus.space/api/stripe/webhook
+                              https://dayoutgolf.com/api/stripe/webhook
                             </div>
                             <a
                               href="https://dashboard.stripe.com/webhooks"

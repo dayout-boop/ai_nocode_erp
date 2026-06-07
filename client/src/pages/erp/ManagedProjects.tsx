@@ -895,7 +895,7 @@ export default function ManagedProjects() {
                 <Label htmlFor="manusDeployUrl" className="text-sm font-medium">배포 URL</Label>
                 <Input
                   id="manusDeployUrl"
-                  placeholder="예: https://dogolf-tour-dkz3fsmp.manus.space"
+                  placeholder="예: https://dayoutgolf.com"
                   value={form.manusDeployUrl}
                   onChange={(e) => setForm({ ...form, manusDeployUrl: e.target.value })}
                 />

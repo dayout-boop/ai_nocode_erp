@@ -246,7 +246,7 @@ async function formatDevRequestMessage(req: {
 
 **프로젝트명:** ${project.name}
 **Manus WebDev 경로:** ${project.manusWebdevPath ?? '/home/ubuntu/dogolf'}/
-**배포 URL:** ${project.manusDeployUrl ?? 'dogolf-tour-dkz3fsmp.manus.space'}
+**배포 URL:** ${project.manusDeployUrl ?? 'dayoutgolf.com'}
 **기술 스택:** ${project.techStack ?? 'React 19 + Tailwind 4 + Express 4 + tRPC 11 + MySQL (Drizzle ORM) + TypeScript'}
 
 **핵심 파일 위치:**
@@ -291,7 +291,7 @@ ${req.description}
 
 ---
 *두골프 AI 마스터가 자동 생성한 개발 요청입니다.*
-*프로젝트: dogolf-tour-dkz3fsmp.manus.space (www.dayoutgolf.com)*
+*프로젝트: www.dayoutgolf.com*
 
 ${contextBlock}`;
 }

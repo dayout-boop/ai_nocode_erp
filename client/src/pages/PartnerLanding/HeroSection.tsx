@@ -98,7 +98,7 @@ export default function HeroSection() {
             <ArrowRight size={20} />
           </a>
           <a
-            href="https://dogolf-tour-dkz3fsmp.manus.space"
+            href="https://dayoutgolf.com"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 px-8 py-4 rounded-xl font-bold text-white text-lg border transition-all duration-200"

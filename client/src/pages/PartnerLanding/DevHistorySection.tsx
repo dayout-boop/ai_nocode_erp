@@ -44,7 +44,7 @@ export default function DevHistorySection() {
     setError(null)
     try {
       const res = await fetch(
-        'https://dogolf-tour-dkz3fsmp.manus.space/api/public/dev-history?limit=12'
+        '/api/public/dev-history?limit=12'
       )
       if (!res.ok) throw new Error('API 응답 오류')
       const json = await res.json()

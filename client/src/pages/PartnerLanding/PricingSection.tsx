@@ -150,7 +150,7 @@ export default function PricingSection() {
 
               {/* CTA 버튼 */}
               <a
-                href="https://dogolf-tour-dkz3fsmp.manus.space/partner/chat"
+                href="https://partner.dayoutgolf.com/partner/chat"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block w-full text-center py-3 rounded-xl font-bold text-sm transition-all duration-200"

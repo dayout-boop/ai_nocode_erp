@@ -2,7 +2,7 @@ import { Zap } from 'lucide-react'
 
 export default function Footer() {
   const links = [
-    { label: '파트너 로그인', href: 'https://dogolf-tour-dkz3fsmp.manus.space/partner/chat' },
+    { label: '파트너 로그인', href: 'https://partner.dayoutgolf.com/partner/chat' },
     { label: '두골프 샘플', href: 'https://dayoutgolf.com' },
     { label: '개인정보처리방침', href: '#' },
     { label: '이용약관', href: '#' },

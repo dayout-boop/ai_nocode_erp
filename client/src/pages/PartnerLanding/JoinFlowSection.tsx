@@ -130,7 +130,7 @@ export default function JoinFlowSection() {
         {/* CTA */}
         <div className="text-center mt-16">
           <a
-            href="https://dogolf-tour-dkz3fsmp.manus.space/partner/chat"
+            href="https://partner.dayoutgolf.com/partner/chat"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-8 py-4 rounded-xl font-bold text-white text-lg transition-all duration-200 glow-green"

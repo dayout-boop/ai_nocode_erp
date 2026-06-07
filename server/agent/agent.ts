@@ -119,7 +119,7 @@ export class Agent extends EventEmitter<AgentEvents> {
       apiKey: config.apiKey,
       baseURL,
       defaultHeaders: {
-        'HTTP-Referer': 'https://dogolf-tour-dkz3fsmp.manus.space',
+        'HTTP-Referer': 'https://dayoutgolf.com',
         'X-Title': 'Dogolf ERP Agent',
       },
     });

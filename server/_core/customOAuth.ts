@@ -88,7 +88,7 @@ export async function getManusGoogleOAuthUrl(invitationCode: string): Promise<st
     // manus.im 앱 인증 페이지에서 Google OAuth URL 추출
     // 이 방법은 manus.im의 state 값을 자동으로 생성하므로 더 안전함
     const appId = 'dkz3FsMPRyyRyzyL9KrQXe';
-    const redirectUri = 'https://dogolf-tour-dkz3fsmp.manus.space/api/oauth/callback';
+    const redirectUri = 'https://dayoutgolf.com/api/oauth/callback';
     
     // manus.im의 app-auth 페이지 URL
     const manusAuthUrl = `https://manus.im/app-auth?appId=${appId}&redirectUri=${encodeURIComponent(redirectUri)}&type=signIn&code=${invitationCode}`;
@@ -110,7 +110,7 @@ export function getManusLoginUrlWithInvitation(
   skipPopup: boolean = true,
   appId: string,
   oauthPortalUrl: string,
-  redirectUri: string = 'https://dogolf-tour-dkz3fsmp.manus.space/api/oauth/callback'
+  redirectUri: string = 'https://dayoutgolf.com/api/oauth/callback'
 ): string {
   // state에 초대코드 + skipPopup 파라미터 포함
   const stateData = {

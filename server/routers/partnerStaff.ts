@@ -291,7 +291,7 @@ export const partnerStaffRouter = router({
       });
 
       // Slack으로 재설정 링크 발송 (이메일 서비스 없으므로 Slack 알림으로 대체)
-      const resetUrl = `https://dogolf-tour-dkz3fsmp.manus.space/partner/reset-password?token=${token}`;
+      const resetUrl = `https://dayoutgolf.com/partner/reset-password?token=${token}`;
       const slackWebhook = process.env.SLACK_WEBHOOK_URL;
       if (slackWebhook) {
         await fetch(slackWebhook, {

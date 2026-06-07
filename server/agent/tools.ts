@@ -129,7 +129,7 @@ export const erpGuideTool: AgentTool = {
     return {
       message: '두골프 ERP 주요 기능 목록',
       features: guide,
-      adminUrl: 'https://dogolf-tour-dkz3fsmp.manus.space/erp',
+      adminUrl: 'https://dayoutgolf.com/erp',
     };
   },
 };

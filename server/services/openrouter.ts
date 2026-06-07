@@ -206,7 +206,7 @@ async function callOpenRouterRaw(
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://dogolf-tour-dkz3fsmp.manus.space",
+          "HTTP-Referer": "https://dayoutgolf.com",
           "X-Title": "DOGOLF Master AI",
         },
         body: JSON.stringify(bodyObj),
@@ -384,7 +384,7 @@ export async function orchestratorChatStream(
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://dogolf-tour-dkz3fsmp.manus.space",
+          "HTTP-Referer": "https://dayoutgolf.com",
         "X-Title": "DOGOLF Master AI",
       },
       body: JSON.stringify({

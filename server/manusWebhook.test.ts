@@ -146,7 +146,7 @@ describe("handleManusWebhook", () => {
 
 describe("Manus API 웹훅 등록/조회 [ID: 700002]", () => {
   const DOGOLF_WEBHOOK_URL =
-    "https://dogolf-tour-dkz3fsmp.manus.space/api/manus/webhook";
+    "https://dayoutgolf.com/api/manus/webhook";
 
   beforeEach(() => {
     vi.clearAllMocks();

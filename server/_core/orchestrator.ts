@@ -271,7 +271,7 @@ async function callOpenRouter(
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://dogolf-tour-dkz3fsmp.manus.space",
+          "HTTP-Referer": "https://dayoutgolf.com",
           "X-Title": "DOGOLF ERP AI Orchestrator",
         },
         body: JSON.stringify({
@@ -310,7 +310,7 @@ async function callOpenRouter(
                 headers: {
                   Authorization: `Bearer ${apiKey}`,
                   "Content-Type": "application/json",
-                  "HTTP-Referer": "https://dogolf-tour-dkz3fsmp.manus.space",
+                  "HTTP-Referer": "https://dayoutgolf.com",
                   "X-Title": "DOGOLF ERP AI Orchestrator",
                 },
                 body: JSON.stringify({

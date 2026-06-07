@@ -5,7 +5,7 @@
  *
  * 웹훅 등록 방법:
  *   Manus API: POST /webhook.create
- *   url: https://dogolf-tour-dkz3fsmp.manus.space/api/manus/webhook
+ *   url: https://dayoutgolf.com/api/manus/webhook
  *   events: ["task_stopped", "message_added", "task_created"]
  */
 import { z } from "zod";
@@ -154,7 +154,7 @@ export function registerManusWebhookRoute(app: {
 // ─── Manus API 웹훅 관리 헬퍼 ──────────────────────────────────────────────
 
 const MANUS_API_BASE = "https://api.manus.ai/v2";
-const DOGOLF_WEBHOOK_URL = "https://dogolf-tour-dkz3fsmp.manus.space/api/manus/webhook";
+const DOGOLF_WEBHOOK_URL = "https://dayoutgolf.com/api/manus/webhook";
 
 function getManusApiKey(): string {
   return process.env.MANUS_API_KEY ?? "";

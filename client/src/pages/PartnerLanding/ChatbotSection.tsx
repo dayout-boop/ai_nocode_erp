@@ -15,7 +15,7 @@ const chatbots = [
       'AI 비용 최적화 및 성능 분석',
     ],
     color: 'oklch(0.74 0.17 162)',
-    link: 'https://dogolf-tour-dkz3fsmp.manus.space/admin/master-ai',
+    link: 'https://dayoutgolf.com/erp/master-ai',
   },
   {
     id: 'golftalk',
@@ -31,7 +31,7 @@ const chatbots = [
       '다국어 지원 (한/영/중/일)',
     ],
     color: 'oklch(0.85 0.15 85)',
-    link: 'https://dogolf-tour-dkz3fsmp.manus.space',
+    link: 'https://dayoutgolf.com',
   },
   {
     id: 'manager',
@@ -47,7 +47,7 @@ const chatbots = [
       '담당자 계정 자동 발급',
     ],
     color: 'oklch(0.74 0.17 162)',
-    link: 'https://dogolf-tour-dkz3fsmp.manus.space/partner/chat',
+    link: 'https://partner.dayoutgolf.com/partner/chat',
   },
 ]
 

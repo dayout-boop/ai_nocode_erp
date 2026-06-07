@@ -126,7 +126,7 @@ export default function SampleSiteSection() {
                     <ExternalLink size={14} />
                   </a>
                   <a
-                    href="https://dogolf-tour-dkz3fsmp.manus.space/partner/chat"
+                    href="https://partner.dayoutgolf.com/partner/chat"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200"

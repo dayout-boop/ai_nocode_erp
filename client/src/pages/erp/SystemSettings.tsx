@@ -179,7 +179,7 @@ function TaskCandidateDialog({
             <Input
               value={form.projectName}
               onChange={(e) => setForm((f) => ({ ...f, projectName: e.target.value }))}
-              placeholder="예: dogolf-tour-dkz3fsmp.manus.space"
+              placeholder="예: dayoutgolf.com"
             />
           </div>
 
