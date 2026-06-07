@@ -98,7 +98,7 @@ const navItems: NavItem[] = [
     icon: <Bot size={18} />,
     children: [
       { label: "두골프 마스터 🤖", href: "/master-ai", icon: <MessageSquare size={14} /> },
-      { label: "마누스채봇 🔗", href: "/erp/manus-chat", icon: <MessageSquare size={14} /> },
+      // { label: "마누스채봇 🔗", href: "/erp/manus-chat", icon: <MessageSquare size={14} /> }, // 후보(검토불필요) - 마스터/분양 레이어 설계 확정 후 재검토
       { label: "골프톡 관리", href: "/golftalk-admin", icon: <Settings2 size={14} /> },
       { label: "두골프 매니저 💼", href: "/manager-chat", icon: <MessageSquare size={14} /> },
       { label: "두골프 매니저 관리", href: "/manager-admin", icon: <UserCog size={14} /> },
