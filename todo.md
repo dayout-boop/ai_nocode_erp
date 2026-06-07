@@ -1806,3 +1806,25 @@ Detected
 - 비활성화 이유: 마스터/분양 레이어 분리 설계 확정 전까지 노출 보류
 - 재검토 조건: 분양 레이아웃 설계 완료 후 마스터 레이어 전용 기능으로 재배치 여부 결정
 - 현재 상태: ERPLayout.tsx 사이드바 메뉴 주석 처리 완료 (2026-06-07), 코드/DB/API 유지
+
+---
+
+## CRITICAL 개선 완료 (2026-06-07)
+
+- [x] AI 챗봇 + AI 마스터 + AI 엔진 관리 → "AI 관리" 단일 카테고리로 통합
+- [x] Dashboard.tsx 강화: KPI 8개(오늘/이번달/누적), 빠른 액션 버튼, 알림 배너, AreaChart 추가
+- [x] dashboard.stats API: todayBookings, monthRevenue, pendingBookings, totalPartners 필드 추가
+
+## 분양 아키텍처 개발 과제 (Phase 1 - 우선)
+
+- [ ] admin_accounts에 master role 분리 및 masterProcedure 미들웨어 구현
+- [ ] 주요 테이블(packages, bookings, inquiries, settlements, crm 등)에 tenant_id 컬럼 추가 + DB 마이그레이션
+- [ ] partnerProcedure 미들웨어 구현 (tenant_id 자동 주입, 데이터 격리)
+- [ ] 파트너사 전용 ERP 레이아웃(ERPPartnerLayout) 개발 - 제한된 메뉴만 노출
+- [ ] S3 경로 구조 테넌트별 분리 (/tenants/{tenant_id}/...)
+
+## 분양 아키텍처 개발 과제 (Phase 2 - 단기)
+
+- [ ] 파트너 온보딩 자동화 (테넌트 생성 → 초기 설정 → 계정 발급 플로우)
+- [ ] 구독 관리 시스템 (플랜별 기능 제한: 상품 수, AI 호출 한도, 직원 계정 수)
+- [ ] 테넌트별 AI 사용량 모니터링 및 월간 한도 초과 알림

@@ -25,7 +25,8 @@ import {
   payments, kakaoNotifications, packageVideos, automationLogs,
   reservations,
   aiLogs,
-  adminAccounts
+  adminAccounts,
+  partners,
 } from "../drizzle/schema";
 // AI 엔진 테이블은 별도 import로 처리됨 (아래 참조)
 import { eq, desc, and, gte, lte, like, sql, count, asc, isNotNull } from "drizzle-orm";
@@ -69,27 +70,40 @@ const dashboardRouter = router({
   stats: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const [totalBookings] = await db.select({ count: count() }).from(bookings);
     const [pendingBookings] = await db.select({ count: count() }).from(bookings).where(eq(bookings.status, "pending"));
     const [confirmedBookings] = await db.select({ count: count() }).from(bookings).where(eq(bookings.status, "confirmed"));
+    const [todayBookings] = await db.select({ count: count() }).from(bookings).where(gte(bookings.createdAt, todayStart));
     const [totalPackages] = await db.select({ count: count() }).from(packages);
     const [activePackages] = await db.select({ count: count() }).from(packages).where(eq(packages.status, "active"));
     const [newInquiries] = await db.select({ count: count() }).from(inquiries).where(eq(inquiries.status, "new"));
+    const [inProgressInquiries] = await db.select({ count: count() }).from(inquiries).where(eq(inquiries.status, "in_progress"));
     const [totalUsers] = await db.select({ count: count() }).from(users);
+    const [totalPartners] = await db.select({ count: count() }).from(partners);
     const revenueResult = await db.select({
       total: sql<string>`COALESCE(SUM(totalAmount), 0)`
     }).from(bookings).where(eq(bookings.paymentStatus, "paid"));
+    const monthRevenueResult = await db.select({
+      total: sql<string>`COALESCE(SUM(totalAmount), 0)`
+    }).from(bookings).where(and(eq(bookings.paymentStatus, "paid"), gte(bookings.createdAt, monthStart)));
     const recentBookings = await db.select().from(bookings).orderBy(desc(bookings.createdAt)).limit(5);
     const recentInquiries = await db.select().from(inquiries).orderBy(desc(inquiries.createdAt)).limit(5);
     return {
       totalBookings: totalBookings.count,
       pendingBookings: pendingBookings.count,
       confirmedBookings: confirmedBookings.count,
+      todayBookings: todayBookings.count,
       totalPackages: totalPackages.count,
       activePackages: activePackages.count,
       newInquiries: newInquiries.count,
+      inProgressInquiries: inProgressInquiries.count,
       totalUsers: totalUsers.count,
+      totalPartners: totalPartners.count,
       totalRevenue: Number(revenueResult[0]?.total || 0),
+      monthRevenue: Number(monthRevenueResult[0]?.total || 0),
       recentBookings,
       recentInquiries,
     };
