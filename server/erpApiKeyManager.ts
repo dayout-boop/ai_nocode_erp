@@ -114,9 +114,8 @@ export async function getApiKey(serviceKey: string): Promise<string> {
     n8n: ENV.n8nWebhookUrl,
     manus: ENV.manusApiKey,
     pixabay: ENV.pixabayApiKey,
-    // 구글 OAuth (파트너 로그인용) — DB 우선, 환경변수 fallback
-    google_oauth_client_id: process.env.GOOGLE_CLIENT_ID || '',
-    google_oauth_client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
+    // ※ Google OAuth Client ID/Secret은 Google Cloud Secret Manager에서 읽음
+    //   (googleSecretManager.ts → getGoogleOAuthCredentials 함수 사용)
   };
 
   return envMap[serviceKey] || '';

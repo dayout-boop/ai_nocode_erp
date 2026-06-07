@@ -30,10 +30,11 @@ interface ServiceStatus {
 }
 
 // 지원하는 API 서비스 목록
+// ※ Google OAuth Client ID/Secret은 Google Cloud Secret Manager의
+//   'partner_dayoutgolf' 시크릿에서 자동으로 읽어옴 (별도 입력 불필요)
 const API_SERVICES = [
-  // ── 파트너 가입 인증 (구글 OAuth) ──────────────────────────────────────────
-  { key: "google_oauth_client_id", name: "Google OAuth Client ID", description: "파트너 구글 로그인용 클라이언트 ID (Google Cloud Console에서 발급)", category: "인증" },
-  { key: "google_oauth_client_secret", name: "Google OAuth Client Secret", description: "파트너 구글 로그인용 클라이언트 보안 비밀번호 (Google Cloud Console에서 발급)", category: "인증" },
+  // ── 인증 ──────────────────────────────────────────────────────────────────────
+  { key: "google_oauth_secret_manager", name: "Google OAuth (Secret Manager)", description: "partner_dayoutgolf 시크릿에서 Client ID/Secret 자동 로드 — 별도 입력 불필요", category: "인증", readOnly: true },
   // ── AI ──────────────────────────────────────────────────────────────────────
   { key: "openrouter", name: "OpenRouter", description: "AI 모델 라우팅 (GPT-4, Claude, Gemini 등)", category: "AI" },
   { key: "gemini", name: "Google Gemini", description: "Google Gemini AI API", category: "AI" },
@@ -222,6 +223,7 @@ function ApiKeyManagementTab() {
                 onCancelEdit={() => { setEditingKey(null); setEditValue(""); }}
                 isSaving={upsertMutation.isPending}
                 isDeleting={deleteMutation.isPending}
+                readOnly={(svc as any).readOnly}
               />
             </div>
           ))}
@@ -267,7 +269,7 @@ function ApiKeyRow({
   serviceKey, serviceName, description, category, dbKey,
   editingKey, editValue, showValue,
   onEdit, onSave, onDelete, onToggleShow, onEditValueChange, onCancelEdit,
-  isSaving, isDeleting,
+  isSaving, isDeleting, readOnly,
 }: {
   serviceKey: string;
   serviceName: string;
@@ -285,9 +287,28 @@ function ApiKeyRow({
   onCancelEdit: () => void;
   isSaving: boolean;
   isDeleting: boolean;
+  readOnly?: boolean;
 }) {
   const isEditing = editingKey === serviceKey;
   const hasKey = dbKey?.hasKey || false;
+
+  // readOnly: Secret Manager 자동 로드 항목 — 편집/삭제 버튼 숨김
+  if (readOnly) {
+    return (
+      <div className="flex items-start gap-3 py-1">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="font-medium text-slate-800 text-sm">{serviceName}</span>
+            <Badge className="text-xs bg-blue-100 text-blue-700 border-blue-200">
+              <CheckCircle2 size={10} className="mr-1" />자동 로드
+            </Badge>
+            <Badge variant="outline" className="text-xs text-slate-400">{category}</Badge>
+          </div>
+          <p className="text-xs text-slate-400">{description}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-start gap-3 py-1">

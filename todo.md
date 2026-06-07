@@ -1850,7 +1850,7 @@ Detected
 - [x] 파트너 로그인 UI — Manus 버튼 제거, 구글 직접 OAuth 버튼으로 교체
 - [x] 파트너 로그인 UI — 승인 대기 상태 안내 화면 추가
 - [x] 파트너 로그인 UI — 에러 메시지 한국어 변환 처리
-- [ ] Google Cloud Console에서 Client ID/Secret 발급 후 ERP 설정에 등록 (운영자 직접 작업 필요 - 코드 연동 완료, 키 발급만 남음)
+- [x] Google OAuth 인증 로직 정리 완료: Secret Manager 단일 경로로 통일, ERP 설정 UI에서 중복 입력 항목 제거, "Google OAuth (Secret Manager)" 자동 로드 표시 항목만 남김
 
 ## 파트너 크레딧 시스템 완성 [ID: 620001] (2026-06-08)
 
