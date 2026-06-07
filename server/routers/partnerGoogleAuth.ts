@@ -1,11 +1,11 @@
 /**
  * 파트너 구글 OAuth 인증 라우터
- * - DB 우선 / 환경변수 fallback 방식으로 구글 Client ID/Secret 조회
+ * - Google Secret Manager의 'partner_dayoutgolf' 시크릿에서 Client ID/Secret 읽기
+ * - 시크릿 형식: "클라이언트ID값,클라이언트비밀번호값" (쉼표 구분, 값 하나)
  * - Manus 종속 없이 독립적으로 동작
- * - 파트너 대표 계정 구글 로그인/가입 처리
  */
 import express from 'express';
-import { getApiKey } from '../erpApiKeyManager';
+import { getGoogleOAuthCredentials } from '../_core/googleSecretManager';
 import { getDb } from '../db';
 import { partners, partnerOnboarding } from '../../drizzle/schema';
 import { eq, or } from 'drizzle-orm';
@@ -38,18 +38,13 @@ async function verifyPartnerJwt(token: string): Promise<Record<string, unknown> 
 
 const router = express.Router();
 
-/** 구글 OAuth Client ID 조회 (DB 우선 → 환경변수 fallback) */
-async function getGoogleClientId(): Promise<string> {
-  const dbKey = await getApiKey('google_oauth_client_id');
-  if (dbKey) return dbKey;
-  return process.env.GOOGLE_CLIENT_ID || '';
-}
-
-/** 구글 OAuth Client Secret 조회 (DB 우선 → 환경변수 fallback) */
-async function getGoogleClientSecret(): Promise<string> {
-  const dbKey = await getApiKey('google_oauth_client_secret');
-  if (dbKey) return dbKey;
-  return process.env.GOOGLE_CLIENT_SECRET || '';
+/**
+ * Google Secret Manager 'partner_dayoutgolf' 시크릿에서
+ * clientId, clientSecret을 읽어 반환
+ * 형식: "클라이언트ID값,클라이언트비밀번호값"
+ */
+async function getGoogleCredentials(): Promise<{ clientId: string; clientSecret: string }> {
+  return getGoogleOAuthCredentials();
 }
 
 /**
@@ -58,10 +53,10 @@ async function getGoogleClientSecret(): Promise<string> {
  */
 router.get('/google', async (req, res) => {
   try {
-    const clientId = await getGoogleClientId();
+    const { clientId } = await getGoogleCredentials();
     if (!clientId) {
       return res.status(503).json({
-        error: 'Google OAuth가 설정되지 않았습니다. ERP 설정에서 Google OAuth Client ID를 등록해주세요.',
+        error: 'Google OAuth가 설정되지 않았습니다. Google Secret Manager의 partner_dayoutgolf 시크릿을 확인해주세요.',
       });
     }
 
@@ -110,8 +105,7 @@ router.get('/google/callback', async (req, res) => {
   }
 
   try {
-    const clientId = await getGoogleClientId();
-    const clientSecret = await getGoogleClientSecret();
+    const { clientId, clientSecret } = await getGoogleCredentials();
 
     if (!clientId || !clientSecret) {
       return res.redirect('/partner/login?error=not_configured');
