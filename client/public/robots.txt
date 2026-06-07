@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://dayoutgolf.com/sitemap.xml
+Sitemap: https://partner.dayoutgolf.com/sitemap.xml
