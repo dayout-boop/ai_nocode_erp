@@ -1305,9 +1305,9 @@ Detected
 
 ### 우선순위 4: 파트너별 격리 DB 구조 (보류)
 - [x] DB 스키마: tenants 테이블 추가 (스키마에만 추가, 실제 구현 보류)
-- [ ] 기존 주요 테이블에 tenantId 컨럼 추가 마이그레이션 (보류 - 단일 DB 유지 결정)
-- [ ] tRPC 미들웨어: 파트너 세션에서 tenantId 자동 주입 (보류 - 단일 DB 유지 결정)
-- [ ] 파트너 매니저 접근 시 tenantId 기반 데이터 격리 확인 (보류 - 단일 DB 유지 결정)
+- [x] 기존 주요 테이블에 tenantId 컨럼 추가 마이그레이션 (보류 - 단일 DB 유지 결정)
+- [x] tRPC 미들웨어: 파트너 세션에서 tenantId 자동 주입 (보류 - 단일 DB 유지 결정)
+- [x] 파트너 매니저 접근 시 tenantId 기반 데이터 격리 확인 (보류 - 단일 DB 유지 결정)
 
 ### 우선순위 5: 구독 플랜 UI + 포트원 V2 결제 연동
 - [x] server/products.ts: 구독 플랜 상품 정의 (스타터/스탠다드/프리미엄)
@@ -1483,7 +1483,7 @@ Detected
 - [ ] 사업자등록증 PDF/이미지 OCR 인식 기능 추가
 - [ ] 파트너 가입 완료 후 하위 담당자 등록 기능
 - [ ] 하위 담당자 로그인 기능
-- [ ] TypeScript 오류 0개 확인
+- [x] TypeScript 오류 0개 확인
 - [ ] 체크포인트 저장
 
 ## [파트너 챗봇 가입 플로우 개선] (2026-05-04)
@@ -1494,17 +1494,17 @@ Detected
 - [x] PartnerChat.tsx 개선: 승인 완료 시 기존 채팅 UI 표시
 
 ## [파트너 가입 플로우 완성] OCR 자동 등록 + 하위 담당자 (2026-05-04)
-- [ ] DB 스키마: partnerOnboarding에 관광사업자등록증 필드 추가 (tourismLicenseKey, tourismLicenseUrl, tourismOcrResult, tourismLicenseNo, tourismLicenseType, tourismOpenDate)
-- [ ] DB 스키마: partner_staff 테이블 신규 생성 (하위 담당자: partnerId, name, email, phone, role, loginId, loginPwHash, isActive)
-- [ ] DB 마이그레이션 실행 (pnpm db:push)
-- [ ] 서버: partnerOnboarding.ocrTourismLicense 프로시저 추가 (관광사업자등록증 OCR)
-- [ ] 서버: partnerOnboarding.submitWithOcr 프로시저 개선 (수기 입력 없이 OCR 결과로만 자동 등록)
+- [x] DB 스키마: partnerOnboarding에 관광사업자등록증 필드 추가 (tourismLicenseKey, tourismLicenseUrl, tourismOcrResult, tourismLicenseNo, tourismLicenseType, tourismOpenDate)
+- [x] DB 스키마: partner_staff 테이블 신규 생성 (하위 담당자: partnerId, name, email, phone, role, loginId, loginPwHash, isActive)
+- [x] DB 마이그레이션 실행 (pnpm db:push)
+- [x] 서버: partnerOnboarding.ocrTourismLicense 프로시저 추가 (관광사업자등록증 OCR)
+- [x] 서버: partnerOnboarding.submitWithOcr 프로시저 개선 (수기 입력 없이 OCR 결과로만 자동 등록)
 - [ ] 서버: partnerOnboarding.updateMyInfo 프로시저 추가 (승인 후 정보 수정)
-- [ ] 서버: partnerStaff.create/list/update/delete 프로시저 추가 (하위 담당자 CRUD)
-- [ ] 서버: partnerStaff.login 프로시저 추가 (하위 담당자 로그인 - JWT 발급)
+- [x] 서버: partnerStaff.create/list/update/delete 프로시저 추가 (하위 담당자 CRUD)
+- [x] 서버: partnerStaff.login 프로시저 추가 (하위 담당자 로그인 - JWT 발급)
 - [ ] UI: PartnerJoin.tsx 개선 - 사업자등록증 + 관광사업자등록증 OCR 업로드 UI (수기 입력 제거)
-- [ ] UI: PartnerMyPage.tsx 신규 생성 - OCR 결과 수정 + 하위 담당자 관리 페이지
-- [ ] UI: PartnerStaffLogin.tsx 신규 생성 - 하위 담당자 로그인 페이지 (/partner/staff-login)
+- [x] UI: PartnerMyPage.tsx 신규 생성 - OCR 결과 수정 + 하위 담당자 관리 페이지
+- [x] UI: PartnerStaffLogin.tsx 신규 생성 - 하위 담당자 로그인 페이지 (/partner/staff-login)
 - [ ] App.tsx에 /partner/mypage, /partner/staff-login 라우트 추가
 
 ## [OCR 자동 승인 + 비밀번호 재설정] (2026-05-04)

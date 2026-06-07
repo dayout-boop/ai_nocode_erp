@@ -285,6 +285,7 @@ function ERPContent() {
           <Route path="/" component={ERPDashboard} />
           <Route path="/dashboard" component={ERPDashboard} />
           <Route path="/packages" component={ERPPackages} />
+          <Route path="/packages/new" component={() => { window.location.replace('/erp/packages'); return null; }} />
           <Route path="/packages/:id" component={ERPPackageDetail} />
           <Route path="/bookings" component={ERPBookings} />
           <Route path="/inquiries" component={ERPInquiries} />
