@@ -31,13 +31,19 @@ interface ServiceStatus {
 
 // 지원하는 API 서비스 목록
 const API_SERVICES = [
+  // ── 파트너 가입 인증 (구글 OAuth) ──────────────────────────────────────────
+  { key: "google_oauth_client_id", name: "Google OAuth Client ID", description: "파트너 구글 로그인용 클라이언트 ID (Google Cloud Console에서 발급)", category: "인증" },
+  { key: "google_oauth_client_secret", name: "Google OAuth Client Secret", description: "파트너 구글 로그인용 클라이언트 보안 비밀번호 (Google Cloud Console에서 발급)", category: "인증" },
+  // ── AI ──────────────────────────────────────────────────────────────────────
   { key: "openrouter", name: "OpenRouter", description: "AI 모델 라우팅 (GPT-4, Claude, Gemini 등)", category: "AI" },
   { key: "gemini", name: "Google Gemini", description: "Google Gemini AI API", category: "AI" },
+  { key: "manus", name: "Manus API", description: "Manus AI 에이전트 API", category: "AI" },
+  // ── 알림 ────────────────────────────────────────────────────────────────────
   { key: "kakao", name: "카카오 알림톡", description: "카카오 비즈니스 알림톡 API", category: "알림" },
   { key: "slack", name: "Slack", description: "Slack 웹훅 알림", category: "알림" },
+  // ── 미디어/자동화 ────────────────────────────────────────────────────────────
   { key: "runway", name: "Runway ML", description: "AI 영상 생성 API", category: "미디어" },
   { key: "n8n", name: "n8n", description: "워크플로우 자동화", category: "자동화" },
-  { key: "manus", name: "Manus API", description: "Manus AI 에이전트 API", category: "AI" },
   { key: "pixabay", name: "Pixabay", description: "이미지 검색 API", category: "미디어" },
 ];
 

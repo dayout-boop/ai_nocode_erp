@@ -799,6 +799,16 @@ export const partners = mysqlTable("partners", {
   loginId: varchar("loginId", { length: 100 }),
   /** 파트너 로그인 PW (bcrypt 해시) */
   loginPwHash: varchar("loginPwHash", { length: 255 }),
+  /** 구글 OAuth 고유 ID (sub) */
+  googleId: varchar("googleId", { length: 200 }),
+  /** 구글 이메일 */
+  googleEmail: varchar("googleEmail", { length: 320 }),
+  /** 구글 프로필 이름 */
+  googleName: varchar("googleName", { length: 200 }),
+  /** 구글 프로필 사진 URL */
+  googlePicture: varchar("googlePicture", { length: 500 }),
+  /** 마지막 구글 로그인 시각 */
+  lastGoogleLoginAt: timestamp("lastGoogleLoginAt"),
   /** 메모 */
   memo: text("memo"),
   /** 활성 상태 */

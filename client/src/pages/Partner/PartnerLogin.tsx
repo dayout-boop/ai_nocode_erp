@@ -1,13 +1,12 @@
 /**
- * 투어커뮤니케이션 파트너 커스텀 로그인 페이지
- * - Manus/Meta 브랜드 완전 차단
- * - "10초 간편 가입 / 로그인" 버튼
- * - 보안 안심 메시지
- * - 모바일 최적화
+ * 투어커뮤니케이션 파트너 로그인 페이지
+ * - 구글 OAuth 직접 연동 (Manus 종속 없음)
+ * - /api/partner/auth/google 엔드포인트로 직접 리다이렉트
+ * - 승인 대기 상태 안내 포함
  */
 
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { getLoginUrl } from "@/const";
 import {
   Shield,
   Lock,
@@ -19,6 +18,8 @@ import {
   Users,
   BarChart3,
   Bot,
+  Clock,
+  Mail,
 } from "lucide-react";
 
 // 구글 로고 SVG
@@ -77,9 +78,99 @@ const SECURITY_BADGES = [
   { icon: <EyeOff size={14} />, label: "비밀번호 저장 없음" },
 ];
 
+// URL 파라미터 파싱
+function useUrlParams() {
+  const [params, setParams] = useState<{ status?: string; error?: string; email?: string }>({});
+  useEffect(() => {
+    const search = new URLSearchParams(window.location.search);
+    setParams({
+      status: search.get('status') || undefined,
+      error: search.get('error') || undefined,
+      email: search.get('email') || undefined,
+    });
+  }, []);
+  return params;
+}
+
+// 에러 메시지 변환
+function getErrorMessage(error?: string): string | null {
+  if (!error) return null;
+  const messages: Record<string, string> = {
+    cancelled: '구글 로그인을 취소했습니다. 다시 시도해주세요.',
+    no_code: '인증 코드를 받지 못했습니다. 다시 시도해주세요.',
+    not_configured: '구글 OAuth가 설정되지 않았습니다. 관리자에게 문의해주세요.',
+    token_exchange_failed: '구글 인증 처리 중 오류가 발생했습니다. 다시 시도해주세요.',
+    token_error: '구글 토큰 오류가 발생했습니다. 다시 시도해주세요.',
+    userinfo_failed: '구글 사용자 정보를 가져오지 못했습니다. 다시 시도해주세요.',
+    invalid_userinfo: '구글 계정 정보가 올바르지 않습니다.',
+    email_not_verified: '구글 이메일 인증이 완료되지 않은 계정입니다.',
+    db_error: '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+    internal_error: '서버 내부 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+  };
+  return messages[error] || '로그인 중 오류가 발생했습니다. 다시 시도해주세요.';
+}
+
 export default function PartnerLogin() {
-  // 커스텀 OAuth 로그인 페이지로 이동
-  const loginUrl = '/partner/custom-login';
+  const { status, error, email } = useUrlParams();
+  const [isLoading, setIsLoading] = useState(false);
+
+  // 구글 OAuth 직접 로그인 — /api/partner/auth/google 으로 리다이렉트
+  const handleGoogleLogin = () => {
+    setIsLoading(true);
+    const returnUrl = encodeURIComponent('/partner/dashboard');
+    window.location.href = `/api/partner/auth/google?returnUrl=${returnUrl}`;
+  };
+
+  // 승인 대기 상태 화면
+  if (status === 'pending_approval') {
+    return (
+      <div className="min-h-screen bg-[#0a0f1a] flex flex-col">
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl" />
+          <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-amber-600/8 rounded-full blur-3xl" />
+        </div>
+
+        <header className="relative z-10 flex items-center justify-between px-6 py-4 border-b border-white/5">
+          <Link href="/partner-landing">
+            <div className="flex items-center gap-2.5 cursor-pointer">
+              <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">TC</span>
+              </div>
+              <span className="text-white font-semibold text-sm">투어커뮤니케이션</span>
+            </div>
+          </Link>
+        </header>
+
+        <main className="relative z-10 flex-1 flex items-center justify-center px-4 py-8">
+          <div className="w-full max-w-md text-center">
+            <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Clock size={32} className="text-amber-400" />
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-3">가입 신청 완료</h1>
+            <p className="text-white/60 text-sm leading-relaxed mb-6">
+              가입 신청이 접수되었습니다.<br />
+              관리자 검토 후 <strong className="text-amber-400">1~2 영업일 내</strong>에 승인됩니다.
+            </p>
+            {email && (
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-6">
+                <div className="flex items-center gap-2 justify-center text-white/60 text-sm">
+                  <Mail size={14} />
+                  <span>{email}</span>
+                </div>
+                <p className="text-white/40 text-xs mt-2">승인 완료 시 위 이메일로 안내드립니다.</p>
+              </div>
+            )}
+            <button
+              onClick={handleGoogleLogin}
+              className="w-full flex items-center justify-center gap-3 bg-white/10 hover:bg-white/15 text-white font-medium py-3 px-6 rounded-xl transition-all duration-200 border border-white/10"
+            >
+              <span className="text-sm">다른 계정으로 로그인</span>
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0f1a] flex flex-col">
@@ -126,19 +217,36 @@ export default function PartnerLogin() {
             </p>
           </div>
 
+          {/* 오류 메시지 */}
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-4">
+              <p className="text-red-300 text-sm text-center">{getErrorMessage(error)}</p>
+            </div>
+          )}
+
           {/* 로그인 카드 */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 sm:p-8 backdrop-blur-sm mb-4">
-            {/* 10초 간편 가입/로그인 버튼 */}
-            <a href={loginUrl} className="block mb-6">
-              <button className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-800 font-semibold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl active:scale-[0.98] group">
+            {/* 구글 로그인 버튼 */}
+            <button
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+              className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 disabled:bg-gray-100 text-gray-800 font-semibold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed group mb-6"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+              ) : (
                 <GoogleIcon />
-                <span className="text-base">10초 간편 가입 / 로그인</span>
+              )}
+              <span className="text-base">
+                {isLoading ? '구글 로그인 중...' : '10초 간편 가입 / 로그인'}
+              </span>
+              {!isLoading && (
                 <ArrowRight
                   size={16}
                   className="text-gray-400 group-hover:translate-x-0.5 transition-transform"
                 />
-              </button>
-            </a>
+              )}
+            </button>
 
             {/* 구분선 */}
             <div className="flex items-center gap-3 mb-6">
@@ -179,7 +287,7 @@ export default function PartnerLogin() {
               ))}
             </div>
             <p className="text-white/35 text-xs mt-3 leading-relaxed">
-              투어커뮤니케이션은 구글 OAuth를 통해 인증만 처리하며,
+              구글 OAuth를 통해 인증만 처리하며,
               개인정보를 직접 수집하거나 저장하지 않습니다.
             </p>
           </div>

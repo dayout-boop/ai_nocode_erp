@@ -18,6 +18,7 @@ import { reportError } from "./errorWatcher.js";
 import { subscribe, startHeartbeat } from "../services/realtimeEvents";
 import { startManusSync } from "../services/manusSync";
 import { registerManusWebhookRoute } from "../routers/manusWebhook";
+import partnerGoogleAuthRouter from "../routers/partnerGoogleAuth";
 import { sdk } from "./sdk";
 import { validateAdminSession } from "./adminAuth";
 
@@ -93,6 +94,9 @@ async function startServer() {
   registerUploadRoutes(app);
   registerScheduledRoutes(app);
   registerPublicLandingRoutes(app);
+
+  // 파트너 구글 OAuth 인증 (Manus 종속 없는 독립 인증)
+  app.use('/api/partner/auth', partnerGoogleAuthRouter);
 
   // partner.dayoutgolf.com 접속 시 URL 유지 - 클라이언트 라우터가 처리하므로 서버는 통과
   // (App.tsx에서 hostname 감지 후 PartnerLandingPage 렌더링)

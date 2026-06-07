@@ -1836,3 +1836,18 @@ Detected
 - [x] trpc.ts에 partnerStaffProcedure / partnerManagerProcedure / partnerAnyProcedure 미들웨어 추가
 - [x] ERPPartnerLayout.tsx 신규 작성 (파트너 직원 전용 ERP 레이아웃, 제한된 메뉴)
 - [x] App.tsx에 /partner/staff/* 라우트 등록
+
+## 구글 OAuth 직접 연동 (Manus 종속 제거)
+- [x] manus.space URL 전체 제거 — dayoutgolf.com으로 통일 (17개 파일)
+- [x] partner.dayoutgolf.com 리다이렉트 → URL 유지 방식으로 수정
+- [x] ERPSettings API 키 관리에 Google OAuth Client ID/Secret 항목 추가
+- [x] erpApiKeyManager.ts에 google_oauth_client_id/secret 환경변수 fallback 추가
+- [x] partners 테이블에 구글 OAuth 컬럼 추가 (googleId, googleEmail, googleName, googlePicture, lastGoogleLoginAt)
+- [x] 서버: /api/partner/auth/google 엔드포인트 구현 (DB 우선 / 환경변수 fallback)
+- [x] 서버: /api/partner/auth/google/callback 콜백 처리 (토큰 교환 → 사용자 정보 → 세션 발급)
+- [x] 서버: 신규 가입 시 partnerOnboarding 자동 등록 + 관리자 알림 발송
+- [x] 서버: 기존 파트너 구글 정보 업데이트 + 로그인 시각 갱신
+- [x] 파트너 로그인 UI — Manus 버튼 제거, 구글 직접 OAuth 버튼으로 교체
+- [x] 파트너 로그인 UI — 승인 대기 상태 안내 화면 추가
+- [x] 파트너 로그인 UI — 에러 메시지 한국어 변환 처리
+- [ ] Google Cloud Console에서 Client ID/Secret 발급 후 ERP 설정에 등록 (운영자 작업)
