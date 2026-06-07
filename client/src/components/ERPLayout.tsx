@@ -24,6 +24,8 @@ import {
   Settings,
   Cpu,
   Shield,
+  // 이미지 아카이브
+  Archive,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -73,6 +75,7 @@ import KnowledgeBlockLog from "@/pages/erp/KnowledgeBlockLog";
 import ManusChat from "@/pages/erp/ManusChat";
 import SettlementsSuppliers from "@/pages/erp/SettlementsSuppliers";
 import TenantAiConsole from "@/pages/erp/TenantAiConsole";
+import ImageArchive from "@/pages/erp/ImageArchive";
 import { Loader2 } from "lucide-react";
 
 interface NavChild {
@@ -187,6 +190,7 @@ const navItems: NavItem[] = [
       { label: "ERP 설정", href: "/settings", icon: <Settings size={14} /> },
       { label: "시스템 설정", href: "/settings/system", icon: <Cpu size={14} /> },
       { label: "지식 차단 관리", href: "/knowledge-block", icon: <Shield size={14} /> },
+      { label: "이미지 아카이브", href: "/image-archive", icon: <Archive size={14} /> },
     ],
   },
 ];
@@ -329,6 +333,7 @@ function ERPContent() {
           <Route path="/dev-dashboard" component={DevDashboard} />
           <Route path="/managed-projects" component={ManagedProjects} />
           <Route path="/tenant-ai-console" component={TenantAiConsole} />
+          <Route path="/image-archive" component={ImageArchive} />
           <Route component={ERPDashboard} />
         </Switch>
       </Suspense>

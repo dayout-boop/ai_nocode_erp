@@ -3358,6 +3358,7 @@ import { aiNotificationsRouter } from "./routers/aiNotifications";
 import { scheduledTasksRouter } from "./routers/scheduledTasks";
 import { agentApprovalsRouter } from "./routers/agentApprovals";
 import { tenantAiRouter } from "./routers/tenantAi";
+import { imageArchiveRouter } from "./routers/imageArchive";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -3418,5 +3419,6 @@ export const appRouter = router({
   knowledgeBlock: knowledgeBlockRouter,
   manusWebhook: manusWebhookRouter,
   tenantAi: tenantAiRouter,
+  imageArchive: imageArchiveRouter,
 });
 export type AppRouter = typeof appRouter;

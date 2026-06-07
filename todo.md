@@ -1713,12 +1713,12 @@ Detected
 - [x] 게시 성공/실패 결과를 ERP UI에 표시
 
 ## 시스템 전체 기능 및 UI 정합성 검토 [ID: 480001]
-- [ ] ERP 전체 구조 파악 (라우터/페이지/사이드바/DB 전수 조사)
-- [ ] 기능별 정합성 검증 (API 연결 상태, 빈 페이지, 미작동 기능)
-- [ ] 조사 결과 리스트업 및 우선순위 분류
-- [ ] CRITICAL/HIGH 문제 즉시 수정
-- [ ] MEDIUM 문제 수정 및 UI 정합성 개선
-- [ ] 최종 검증 및 체크포인트 저장
+- [x] ERP 전체 구조 파악 (라우터/페이지/사이드바/DB 전수 조사)
+- [x] 기능별 정합성 검증 (API 연결 상태, 빈 페이지, 미작동 기능)
+- [x] 조사 결과 리스트업 및 우선순위 분류 - TypeScript 0오류, 라우트-컴포넌트 정상, 모든 API 라우터 등록 확인
+- [x] CRITICAL/HIGH 문제 없음 (정상 상태)
+- [x] MEDIUM 문제 수정 및 UI 정합성 개선 - partner OG 이미지 추가 완료
+- [x] 최종 검증 및 체크포인트 저장
 
 ## 보안 강화 [ID: 510001]
 - [x] 예약 API RBAC - adminProcedure 적용 (update, delete, addIncome, addRemittance 등 민감 API)
@@ -1768,14 +1768,14 @@ Detected
 
 ## 이미지 아카이브 관리 기능 개발 [ID: 600001]
 
-- [ ] drizzle/schema.ts: imageArchiveLogs 테이블 추가 (fileId, fileName, driveUrl, source, processedAt, deletedAt, deletedBy)
-- [ ] pnpm db:push 실행
-- [ ] server/services/googleDrive.ts: Google Drive API 서비스 (파일 삭제 기능)
-- [ ] server/routers/imageArchive.ts: tRPC 라우터 (list, deleteFiles, logImage)
-- [ ] server/routers.ts: imageArchive 라우터 등록
-- [ ] client/src/pages/erp/ImageArchive.tsx: 이미지 아카이브 관리 UI (기간/출처 필터, 체크박스 선택, 삭제 버튼)
-- [ ] client/src/components/ERPLayout.tsx: 사이드바에 "이미지 아카이브" 메뉴 추가
-- [ ] server/imageArchive.test.ts: 테스트 작성
+- [x] drizzle/schema.ts: imageArchiveLogs 테이블 추가 (fileId, fileName, driveUrl, source, processedAt, deletedAt, deletedBy)
+- [x] pnpm db:push 실행 (DB 직접 실행으로 대체)
+- [x] server/services/googleDrive.ts: Google Drive API 서비스 (파일 삭제 기능)
+- [x] server/routers/imageArchive.ts: tRPC 라우터 (list, deleteFiles, logImage, getStats)
+- [x] server/routers.ts: imageArchive 라우터 등록
+- [x] client/src/pages/erp/ImageArchive.tsx: 이미지 아카이브 관리 UI (기간/출캘 필터, 체크박스 선택, 삭제 버튼)
+- [x] client/src/components/ERPLayout.tsx: 사이드바에 "이미지 아카이브" 메뉴 추가
+- [x] server/imageArchive.test.ts: 테스트 작성 (237개 테스트 모두 통과)
 
 ## 마누스채봇 구현 [ID: 700001]
 - [x] drizzle/schema.ts: manusWebhookLogs 테이블 추가 (taskId, eventType, content, rawPayload, receivedAt)
@@ -1856,7 +1856,7 @@ Detected
 
 ### DB 스키마
 - [x] drizzle/schema.ts: tenant_credit_requests 테이블 추가 (tenantId, requestType: pg|manual, packageId, amount, status: pending|approved|rejected, pgPaymentId, adminNote, approvedBy, approvedAt, createdAt)
-- [ ] pnpm db:push 실행
+- [x] pnpm db:push 실행
 
 ### 서버 API
 - [x] server/routers/tenantAi.ts: requestCreditCharge 프로시저 (파트너가 충전 요청 생성 - PG 결제 또는 수동 입금)

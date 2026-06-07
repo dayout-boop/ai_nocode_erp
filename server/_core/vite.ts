@@ -73,10 +73,15 @@ function injectPartnerSeoMeta(html: string): string {
     <meta property="og:description" content="자율수행 AI 파트너 '투어커뮤니케이션 매니저'가 24시간 고객 상담, 예약 관리, 상품 생성을 자동으로 처리합니다." />
     <meta property="og:site_name" content="투어커뮤니케이션 파트너 센터" />
     <meta property="og:locale" content="ko_KR" />
+    <meta property="og:image" content="https://d2xsxph8kpxj0f.cloudfront.net/310519663582724021/dkz3FsMPRyyRyzyL9KrQXe/partner-og-image-UDd9ZEtH9CK7ZBJ69wceon.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="투어커뮤니케이션 - AI가 운영하는 여행사 ERP" />
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="파트너 센터 - AI가 운영하는 여행사 ERP" />
-    <meta name="twitter:description" content="자율수행 AI 파트너 '투어커뮤니케이션 매니저'가 24시간 고객 상담, 예약 관리, 상품 생성을 자동으로 처리합니다." />`;
+    <meta name="twitter:description" content="자율수행 AI 파트너 '투어커뮤니케이션 매니저'가 24시간 고객 상담, 예약 관리, 상품 생성을 자동으로 처리합니다." />
+    <meta name="twitter:image" content="https://d2xsxph8kpxj0f.cloudfront.net/310519663582724021/dkz3FsMPRyyRyzyL9KrQXe/partner-og-image-UDd9ZEtH9CK7ZBJ69wceon.png" />`;
 
   // 기존 title/description 제거 후 파트너 전용 메타태그로 교체
   return html
