@@ -309,6 +309,20 @@
       "when": 1780844399115,
       "tag": "0043_quick_jackpot",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "5",
+      "when": 1780852431372,
+      "tag": "0044_graceful_shotgun",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1749340000000,
+      "tag": "0044_graceful_shotgun",
+      "breakpoints": true
     }
   ]
 }

@@ -2162,3 +2162,43 @@ export const tenantApiDevRequests = mysqlTable("tenant_api_dev_requests", {
 });
 export type TenantApiDevRequest = typeof tenantApiDevRequests.$inferSelect;
 export type InsertTenantApiDevRequest = typeof tenantApiDevRequests.$inferInsert;
+
+// ============================================================
+// TENANT_CREDIT_REQUESTS - 테넌트 크레딧 충전 요청
+// ============================================================
+/**
+ * 분양 업체의 크레딧 충전 요청 테이블
+ * - requestType: pg=PG결제(추후 연동), manual=수동입금(오너 확인 후 부여)
+ * - status: pending=대기, approved=승인(크레딧 부여됨), rejected=거부
+ */
+export const tenantCreditRequests = mysqlTable("tenant_credit_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 요청 테넌트 ID */
+  tenantId: int("tenantId").notNull(),
+  /** 요청 유형: pg=PG결제, manual=수동입금 */
+  requestType: mysqlEnum("requestType", ["pg", "manual"]).default("manual").notNull(),
+  /** 충전 패키지 ID (50/100/200 크레딧) */
+  packageId: varchar("packageId", { length: 50 }).notNull(),
+  /** 충전 크레딧 수 */
+  credits: int("credits").notNull(),
+  /** 결제 금액 (원화) */
+  amountKrw: int("amountKrw").notNull(),
+  /** 요청 상태 */
+  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending").notNull(),
+  /** PG 결제 ID (pg 타입 시) */
+  pgPaymentId: varchar("pgPaymentId", { length: 200 }),
+  /** 입금자명 (manual 타입 시 파트너가 입력) */
+  depositorName: varchar("depositorName", { length: 100 }),
+  /** 입금 메모 (파트너가 입력) */
+  depositMemo: text("depositMemo"),
+  /** 관리자 처리 메모 (승인/거부 사유) */
+  adminNote: text("adminNote"),
+  /** 승인한 관리자 ID */
+  approvedBy: int("approvedBy"),
+  /** 승인/거부 처리 시각 */
+  processedAt: timestamp("processedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type TenantCreditRequest = typeof tenantCreditRequests.$inferSelect;
+export type InsertTenantCreditRequest = typeof tenantCreditRequests.$inferInsert;

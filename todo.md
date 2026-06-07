@@ -1817,17 +1817,17 @@ Detected
 
 ## 분양 아키텍처 개발 과제 (Phase 1 - 우선)
 
-- [ ] admin_accounts에 master role 분리 및 masterProcedure 미들웨어 구현
-- [ ] 주요 테이블(packages, bookings, inquiries, settlements, crm 등)에 tenant_id 컬럼 추가 + DB 마이그레이션
-- [ ] partnerProcedure 미들웨어 구현 (tenant_id 자동 주입, 데이터 격리)
-- [ ] 파트너사 전용 ERP 레이아웃(ERPPartnerLayout) 개발 - 제한된 메뉴만 노출
-- [ ] S3 경로 구조 테넌트별 분리 (/tenants/{tenant_id}/...)
+- [x] admin_accounts에 master role 분리 및 masterProcedure 미들웨어 구현
+- [x] 주요 테이블(packages, bookings, inquiries, settlements, crm 등)에 tenant_id 컬럼 추가 + DB 마이그레이션
+- [x] partnerProcedure 미들웨어 구현 (tenant_id 자동 주입, 데이터 격리)
+- [x] 파트너사 전용 ERP 레이아웃(ERPPartnerLayout) 개발 - 제한된 메뉴만 노출
+- [ ] S3 경로 구조 테넌트별 분리 (/tenants/{tenant_id}/...) ← 분양 실제 운영 시 구현 예정
 
 ## 분양 아키텍처 개발 과제 (Phase 2 - 단기)
 
-- [ ] 파트너 온보딩 자동화 (테넌트 생성 → 초기 설정 → 계정 발급 플로우)
-- [ ] 구독 관리 시스템 (플랜별 기능 제한: 상품 수, AI 호출 한도, 직원 계정 수)
-- [ ] 테넌트별 AI 사용량 모니터링 및 월간 한도 초과 알림
+- [x] 파트너 온보딩 자동화 (테넌트 생성 → 초기 설정 → 계정 발급 플로우)
+- [x] 구독 관리 시스템 (플랜별 기능 제한: 상품 수, AI 호출 한도, 직원 계정 수)
+- [x] 테넌트별 AI 사용량 모니터링 및 월간 한도 초과 알림
 
 ## 분양 ERP Phase 1 완료 (2026-06-07)
 
@@ -1851,3 +1851,32 @@ Detected
 - [x] 파트너 로그인 UI — 승인 대기 상태 안내 화면 추가
 - [x] 파트너 로그인 UI — 에러 메시지 한국어 변환 처리
 - [ ] Google Cloud Console에서 Client ID/Secret 발급 후 ERP 설정에 등록 (운영자 작업)
+
+## 파트너 크레딧 시스템 완성 [ID: 620001] (2026-06-08)
+
+### DB 스키마
+- [x] drizzle/schema.ts: tenant_credit_requests 테이블 추가 (tenantId, requestType: pg|manual, packageId, amount, status: pending|approved|rejected, pgPaymentId, adminNote, approvedBy, approvedAt, createdAt)
+- [ ] pnpm db:push 실행
+
+### 서버 API
+- [x] server/routers/tenantAi.ts: requestCreditCharge 프로시저 (파트너가 충전 요청 생성 - PG 결제 또는 수동 입금)
+- [x] server/routers/tenantAi.ts: getCreditRequests 프로시저 (파트너 본인 요청 목록 조회)
+- [x] server/routers/tenantAi.ts: approveCreditRequest 프로시저 (관리자: 입금 확인 후 크레딧 부여 + 승인)
+- [x] server/routers/tenantAi.ts: rejectCreditRequest 프로시저 (관리자: 거부 + 사유 입력)
+- [x] server/routers/tenantAi.ts: getCreditRequestsAll 프로시저 (관리자: 전체 요청 목록)
+- [x] server/routers/tenantAi.ts: getCreditStats 프로시저 (전월 대비 사용량 비교)
+
+### 파트너 ERP UI
+- [x] ERPPartnerLayout.tsx: 상단 헤더에 크레딧 잔액 표시 (잔여 크레딧 + 막대 게이지)
+- [x] client/src/pages/partner/CreditCharge.tsx: 크레딧 충전 요청 페이지 (패키지 선택 + PG결제 버튼(미연결) + 수동입금 안내)
+- [x] ERPPartnerLayout.tsx: 사이드바에 "크레딧 충전" 메뉴 추가 (/partner/staff/credit)
+- [x] App.tsx: /partner/staff/credit 라우트 등록
+
+### 관리자 ERP UI
+- [x] TenantAiConsole.tsx: "충전 요청 관리" 탭 추가 (pending 요청 목록 + 승인/거부 버튼)
+- [x] TenantAiConsole.tsx: 전월 대비 크레딧 사용량 비교 표시 (▲▼)
+- [x] TenantAiConsole.tsx: 관리자 직접 크레딧 수동 부여 UI 개선 (사유 입력 필드 추가)
+
+### 완료 조건
+- [x] TypeScript 오류 0개 확인
+- [x] 체크포인트 저장

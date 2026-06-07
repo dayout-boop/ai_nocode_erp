@@ -60,6 +60,13 @@ export default function TenantAiConsole() {
   const [approvalStatus, setApprovalStatus] = useState<string>("approved");
   const [approvalMemo, setApprovalMemo] = useState("");
 
+  // 충전 요청 관련 상태
+  const [creditRequestDialog, setCreditRequestDialog] = useState<{
+    id: number; tenantId: number; companyName: string; credits: number; amountKrw: number; depositorName: string; depositMemo?: string;
+  } | null>(null);
+  const [creditRequestNote, setCreditRequestNote] = useState("");
+  const [creditRequestAction, setCreditRequestAction] = useState<"approved" | "rejected">("approved");
+
   // 전체 업체 크레딧 현황
   const { data: allTenantsCredit, refetch: refetchAll } = trpc.tenantAi.getAllTenantsCredit.useQuery();
 
@@ -129,8 +136,54 @@ export default function TenantAiConsole() {
     });
   };
 
+  // 충전 요청 목록 (관리자 - 전체)
+  const { data: creditRequests, refetch: refetchCreditRequests } = trpc.tenantAi.getAllCreditRequests.useQuery({
+    status: "all",
+    limit: 50,
+    offset: 0,
+  });
+
+  // 충전 요청 승인 뮤테이션
+  const approveCreditRequestMutation = trpc.tenantAi.approveCreditRequest.useMutation({
+    onSuccess: () => {
+      toast.success("크레딧 충전 승인 완료! 크레딧이 지급되었습니다.");
+      setCreditRequestDialog(null);
+      setCreditRequestNote("");
+      refetchCreditRequests();
+      refetchAll();
+    },
+    onError: (err: { message: string }) => toast.error(`처리 실패: ${err.message}`),
+  });
+
+  // 충전 요청 거부 뮤테이션
+  const rejectCreditRequestMutation = trpc.tenantAi.rejectCreditRequest.useMutation({
+    onSuccess: () => {
+      toast.success("충전 요청이 거부되었습니다.");
+      setCreditRequestDialog(null);
+      setCreditRequestNote("");
+      refetchCreditRequests();
+    },
+    onError: (err: { message: string }) => toast.error(`처리 실패: ${err.message}`),
+  });
+
+  const handleProcessCreditRequest = () => {
+    if (!creditRequestDialog) return;
+    if (creditRequestAction === "approved") {
+      approveCreditRequestMutation.mutate({
+        requestId: creditRequestDialog.id,
+        adminNote: creditRequestNote || undefined,
+      });
+    } else {
+      rejectCreditRequestMutation.mutate({
+        requestId: creditRequestDialog.id,
+        adminNote: creditRequestNote || "입금 미확인으로 거부",
+      });
+    }
+  };
+
   // 대기 중인 개발 요청 수
-  const pendingCount = devRequests?.filter((r) => r.approvalStatus === "pending").length ?? 0;
+  const pendingCount = devRequests?.filter((r: { approvalStatus: string }) => r.approvalStatus === "pending").length ?? 0;
+  const pendingCreditCount = creditRequests?.filter((r: { status: string }) => r.status === "pending").length ?? 0;
 
   return (
     <div className="p-6 space-y-6">
@@ -154,6 +207,12 @@ export default function TenantAiConsole() {
             개발 요청
             {pendingCount > 0 && (
               <Badge className="ml-2 bg-red-500 text-white text-xs px-1.5 py-0.5">{pendingCount}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="creditRequests">
+            충전 요청
+            {pendingCreditCount > 0 && (
+              <Badge className="ml-2 bg-orange-500 text-white text-xs px-1.5 py-0.5">{pendingCreditCount}</Badge>
             )}
           </TabsTrigger>
         </TabsList>
@@ -457,7 +516,159 @@ export default function TenantAiConsole() {
             </div>
           )}
         </TabsContent>
+        {/* ─── 충전 요청 탭 ─── */}
+        <TabsContent value="creditRequests" className="space-y-4 mt-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-gray-500">파트너사에서 요청한 크레딧 충전 요청 목록입니다. 입금 확인 후 승인하면 자동으로 크레딧이 지급됩니다.</p>
+            <Button variant="outline" size="sm" onClick={() => refetchCreditRequests()}>
+              <RefreshCw className="w-3 h-3 mr-1" /> 새로고침
+            </Button>
+          </div>
+          {!creditRequests || creditRequests.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <CreditCard className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p>충전 요청이 없습니다.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {creditRequests.map((req: { id: number; tenantId: number; companyName: string | null; credits: number; amountKrw: number | null; depositorName: string | null; depositMemo: string | null; adminNote: string | null; status: string; requestType: string; processedAt: Date | null; createdAt: Date; }) => (
+                <Card key={req.id} className={`hover:shadow-sm transition-shadow ${
+                  req.status === "pending" ? "border-orange-200 bg-orange-50/30" : ""
+                }`}>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="font-semibold text-gray-900 text-sm">{req.companyName}</span>
+                          <Badge className={`text-xs ${
+                            req.status === "pending" ? "bg-yellow-100 text-yellow-700" :
+                            req.status === "approved" ? "bg-green-100 text-green-700" :
+                            "bg-red-100 text-red-700"
+                          }`}>
+                            {req.status === "pending" ? "검토 중" : req.status === "approved" ? "승인됨" : "거부됨"}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">{req.requestType === "manual" ? "수동입금" : "PG결제"}</Badge>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className="font-bold text-green-700">{req.credits} 크레딧</span>
+                          <span className="text-gray-600">{(req.amountKrw ?? 0).toLocaleString()}원</span>
+                          {req.depositorName && (
+                            <span className="text-gray-500">입금자: <span className="font-medium">{req.depositorName}</span></span>
+                          )}
+                        </div>
+                        {req.depositMemo && (
+                          <p className="text-xs text-gray-400 mt-1">메모: {req.depositMemo}</p>
+                        )}
+                        {req.adminNote && (
+                          <p className="text-xs text-blue-600 mt-1">관리자 메모: {req.adminNote}</p>
+                        )}
+                        <div className="text-xs text-gray-400 mt-1">
+                          {new Date(req.createdAt).toLocaleString("ko-KR")}
+                          {req.processedAt && ` · 처리: ${new Date(req.processedAt).toLocaleString("ko-KR")}`}
+                        </div>
+                      </div>
+                      {req.status === "pending" && (
+                        <Button
+                          size="sm"
+                          className="shrink-0 h-8 text-xs bg-orange-500 hover:bg-orange-600 text-white"
+                          onClick={() => {
+                            setCreditRequestDialog({
+                              id: req.id,
+                              tenantId: req.tenantId,
+                              companyName: req.companyName ?? "",
+                              credits: req.credits,
+                              amountKrw: req.amountKrw ?? 0,
+                              depositorName: req.depositorName ?? "",
+                              depositMemo: req.depositMemo ?? undefined,
+                            });
+                            setCreditRequestAction("approved");
+                            setCreditRequestNote("");
+                          }}
+                        >
+                          입금 확인 <ChevronRight className="w-3 h-3 ml-1" />
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
+
+      {/* ─── 충전 요청 처리 다이얼로그 ─── */}
+      <Dialog open={!!creditRequestDialog} onOpenChange={(open) => !open && setCreditRequestDialog(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-orange-500" /> 충전 요청 처리
+            </DialogTitle>
+          </DialogHeader>
+          {creditRequestDialog && (
+            <div className="space-y-4 py-2">
+              <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                <p className="text-sm font-semibold text-gray-800">{creditRequestDialog.companyName}</p>
+                <div className="flex items-center gap-3 mt-1">
+                  <span className="text-lg font-bold text-green-700">{creditRequestDialog.credits} 크레딧</span>
+                  <span className="text-sm text-gray-600">{creditRequestDialog.amountKrw.toLocaleString()}원</span>
+                </div>
+                {creditRequestDialog.depositorName && (
+                  <p className="text-xs text-gray-500 mt-1">입금자: {creditRequestDialog.depositorName}</p>
+                )}
+                {creditRequestDialog.depositMemo && (
+                  <p className="text-xs text-gray-400 mt-0.5">메모: {creditRequestDialog.depositMemo}</p>
+                )}
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">처리 결과</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setCreditRequestAction("approved")}
+                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                      creditRequestAction === "approved"
+                        ? "border-green-500 bg-green-50 text-green-700"
+                        : "border-gray-200 text-gray-600 hover:border-gray-300"
+                    }`}
+                  >
+                    ✅ 입금 확인 · 승인
+                  </button>
+                  <button
+                    onClick={() => setCreditRequestAction("rejected")}
+                    className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                      creditRequestAction === "rejected"
+                        ? "border-red-500 bg-red-50 text-red-700"
+                        : "border-gray-200 text-gray-600 hover:border-gray-300"
+                    }`}
+                  >
+                    ❌ 입금 미확인 · 거부
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">관리자 메모 (선택)</label>
+                <Textarea
+                  placeholder="파트너사에게 전달할 메모 (예: 입금 확인됨, 거부 사유 등)"
+                  value={creditRequestNote}
+                  onChange={(e) => setCreditRequestNote(e.target.value)}
+                  className="resize-none"
+                  rows={2}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreditRequestDialog(null)}>취소</Button>
+            <Button
+              onClick={handleProcessCreditRequest}
+              disabled={approveCreditRequestMutation.isPending || rejectCreditRequestMutation.isPending}
+              className={creditRequestAction === "approved" ? "bg-green-600 hover:bg-green-700 text-white" : "bg-red-600 hover:bg-red-700 text-white"}
+            >
+              {(approveCreditRequestMutation.isPending || rejectCreditRequestMutation.isPending) ? "처리 중..." : creditRequestAction === "approved" ? "승인 · 크레딧 지급" : "거부"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ─── 크레딧 충전 다이얼로그 ─── */}
       <Dialog open={chargeDialog} onOpenChange={setChargeDialog}>

@@ -8,13 +8,14 @@
  */
 
 import { z } from "zod";
-import { router, protectedProcedure, adminProcedure } from "../_core/trpc";
+import { router, protectedProcedure, adminProcedure, partnerManagerProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import {
   tenants,
   tenantAiCredits,
   tenantApiConnections,
   tenantApiDevRequests,
+  tenantCreditRequests,
   aiCostLogs,
 } from "../../drizzle/schema";
 import { eq, desc, and, sql, gte } from "drizzle-orm";
@@ -281,6 +282,281 @@ export const tenantAiRouter = router({
         .offset(input.offset);
 
       return rows;
+    }),
+
+  // ─── 크레딧 충전 요청 생성 (파트너 매니저) ──────────────────────
+  requestCreditCharge: partnerManagerProcedure
+    .input(
+      z.object({
+        requestType: z.enum(["pg", "manual"]).default("manual"),
+        packageId: z.string(),
+        depositorName: z.string().optional(),
+        depositMemo: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const tenantId = ctx.tenantId;
+      if (!tenantId) throw new TRPCError({ code: "UNAUTHORIZED", message: "테넌트 정보를 찾을 수 없습니다." });
+
+      // 패키지 유효성 확인
+      const pkg = CREDIT_PACKAGES.find((p) => p.credits.toString() === input.packageId);
+      if (!pkg) throw new TRPCError({ code: "BAD_REQUEST", message: "유효하지 않은 충전 패키지입니다." });
+
+      // 이미 대기 중인 요청이 있는지 확인
+      const [existing] = await db
+        .select({ id: tenantCreditRequests.id })
+        .from(tenantCreditRequests)
+        .where(
+          and(
+            eq(tenantCreditRequests.tenantId, tenantId),
+            eq(tenantCreditRequests.status, "pending")
+          )
+        )
+        .limit(1);
+
+      if (existing) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "이미 처리 대기 중인 충전 요청이 있습니다. 승인 후 새 요청을 생성해주세요.",
+        });
+      }
+
+      const [result] = await db.insert(tenantCreditRequests).values({
+        tenantId,
+        requestType: input.requestType,
+        packageId: input.packageId,
+        credits: pkg.credits,
+        amountKrw: pkg.priceKrw,
+        status: "pending",
+        depositorName: input.depositorName,
+        depositMemo: input.depositMemo,
+      });
+
+      const insertId = (result as { insertId: number }).insertId;
+
+      // 오너에게 알림
+      await notifyOwner({
+        title: `[두골프 ERP] 크레딧 충전 요청 (${pkg.label})`,
+        content: `테넌트 ID ${tenantId}에서 크레딧 충전을 요청했습니다.\n\n패키지: ${pkg.label}\n금액: ${pkg.priceKrw.toLocaleString()}원\n유형: ${input.requestType === "manual" ? "수동 입금" : "PG 결제"}\n입금자명: ${input.depositorName ?? "-"}\n메모: ${input.depositMemo ?? "-"}\n\nERP > 분양 AI 콘솔에서 확인 후 승인해주세요.`,
+      }).catch(console.error);
+
+      return { success: true, requestId: insertId };
+    }),
+
+  // ─── 크레딧 충전 요청 목록 조회 (파트너 매니저 본인) ──────────────
+  getMyCreditRequests: partnerManagerProcedure
+    .input(
+      z.object({
+        limit: z.number().default(20),
+        offset: z.number().default(0),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const tenantId = ctx.tenantId;
+      if (!tenantId) throw new TRPCError({ code: "UNAUTHORIZED" });
+
+      const rows = await db
+        .select()
+        .from(tenantCreditRequests)
+        .where(eq(tenantCreditRequests.tenantId, tenantId))
+        .orderBy(desc(tenantCreditRequests.createdAt))
+        .limit(input.limit)
+        .offset(input.offset);
+
+      return rows;
+    }),
+
+  // ─── 파트너 크레딧 잔액 조회 (파트너 매니저) ──────────────────────
+  getMyCredit: partnerManagerProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+    const tenantId = ctx.tenantId;
+    if (!tenantId) throw new TRPCError({ code: "UNAUTHORIZED" });
+
+    const [tenant] = await db
+      .select({
+        aiCreditsBalance: tenants.aiCreditsBalance,
+        aiCreditsMonthlyLimit: tenants.aiCreditsMonthlyLimit,
+        aiCreditsUsedThisMonth: tenants.aiCreditsUsedThisMonth,
+        subscriptionPlan: tenants.subscriptionPlan,
+      })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .limit(1);
+
+    if (!tenant) throw new TRPCError({ code: "NOT_FOUND" });
+
+    // 전월 사용량 (지난달 1일~말일 기간의 deduct 합계)
+    const now = new Date();
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+    const [lastMonthRow] = await db
+      .select({ total: sql<number>`COALESCE(SUM(ABS(${tenantAiCredits.amount})), 0)` })
+      .from(tenantAiCredits)
+      .where(
+        and(
+          eq(tenantAiCredits.tenantId, tenantId),
+          eq(tenantAiCredits.type, "deduct"),
+          gte(tenantAiCredits.createdAt, lastMonthStart),
+          sql`${tenantAiCredits.createdAt} <= ${lastMonthEnd}`
+        )
+      );
+
+    const lastMonthUsed = lastMonthRow?.total ?? 0;
+    const thisMonthUsed = tenant.aiCreditsUsedThisMonth;
+    const diff = thisMonthUsed - lastMonthUsed;
+    const planLimit = PLAN_CREDIT_LIMITS[tenant.subscriptionPlan] ?? 10;
+    const usagePercent = planLimit > 0 ? Math.round((thisMonthUsed / planLimit) * 100) : 0;
+
+    return {
+      ...tenant,
+      planLimit,
+      usagePercent,
+      lastMonthUsed,
+      thisMonthUsed,
+      monthDiff: diff,
+      creditPackages: CREDIT_PACKAGES,
+    };
+  }),
+
+  // ─── 크레딧 충전 요청 전체 목록 (관리자) ──────────────────────────
+  getAllCreditRequests: adminProcedure
+    .input(
+      z.object({
+        status: z.enum(["pending", "approved", "rejected", "all"]).default("pending"),
+        limit: z.number().default(50),
+        offset: z.number().default(0),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const conditions = [];
+      if (input.status !== "all") {
+        conditions.push(eq(tenantCreditRequests.status, input.status));
+      }
+
+      const rows = await db
+        .select({
+          id: tenantCreditRequests.id,
+          tenantId: tenantCreditRequests.tenantId,
+          requestType: tenantCreditRequests.requestType,
+          packageId: tenantCreditRequests.packageId,
+          credits: tenantCreditRequests.credits,
+          amountKrw: tenantCreditRequests.amountKrw,
+          status: tenantCreditRequests.status,
+          depositorName: tenantCreditRequests.depositorName,
+          depositMemo: tenantCreditRequests.depositMemo,
+          adminNote: tenantCreditRequests.adminNote,
+          processedAt: tenantCreditRequests.processedAt,
+          createdAt: tenantCreditRequests.createdAt,
+          companyName: tenants.companyName,
+        })
+        .from(tenantCreditRequests)
+        .leftJoin(tenants, eq(tenantCreditRequests.tenantId, tenants.id))
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(tenantCreditRequests.createdAt))
+        .limit(input.limit)
+        .offset(input.offset);
+
+      return rows;
+    }),
+
+  // ─── 크레딧 충전 요청 승인 (관리자 - 입금 확인 후 크레딧 부여) ────
+  approveCreditRequest: adminProcedure
+    .input(
+      z.object({
+        requestId: z.number(),
+        adminNote: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const [req] = await db
+        .select()
+        .from(tenantCreditRequests)
+        .where(eq(tenantCreditRequests.id, input.requestId))
+        .limit(1);
+
+      if (!req) throw new TRPCError({ code: "NOT_FOUND", message: "요청을 찾을 수 없습니다." });
+      if (req.status !== "pending") {
+        throw new TRPCError({ code: "CONFLICT", message: "이미 처리된 요청입니다." });
+      }
+
+      // 크레딧 부여
+      await chargeCredits(
+        req.tenantId,
+        req.credits,
+        req.amountKrw,
+        ctx.user.id,
+        `충전 요청 승인 (요청ID: ${req.id}, 입금자: ${req.depositorName ?? "-"})${input.adminNote ? " / " + input.adminNote : ""}`
+      );
+
+      // 요청 상태 업데이트
+      await db
+        .update(tenantCreditRequests)
+        .set({
+          status: "approved",
+          adminNote: input.adminNote,
+          approvedBy: ctx.user.id,
+          processedAt: new Date(),
+        })
+        .where(eq(tenantCreditRequests.id, input.requestId));
+
+      // 파트너에게 알림
+      await notifyOwner({
+        title: `[두골프 ERP] 크레딧 충전 승인 완료`,
+        content: `테넌트 ID ${req.tenantId}의 크레딧 충전 요청이 승인되었습니다.\n${req.credits} 크레딧이 지급되었습니다.`,
+      }).catch(console.error);
+
+      return { success: true };
+    }),
+
+  // ─── 크레딧 충전 요청 거부 (관리자) ──────────────────────────────
+  rejectCreditRequest: adminProcedure
+    .input(
+      z.object({
+        requestId: z.number(),
+        adminNote: z.string().min(1, "거부 사유를 입력해주세요."),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const [req] = await db
+        .select()
+        .from(tenantCreditRequests)
+        .where(eq(tenantCreditRequests.id, input.requestId))
+        .limit(1);
+
+      if (!req) throw new TRPCError({ code: "NOT_FOUND" });
+      if (req.status !== "pending") {
+        throw new TRPCError({ code: "CONFLICT", message: "이미 처리된 요청입니다." });
+      }
+
+      await db
+        .update(tenantCreditRequests)
+        .set({
+          status: "rejected",
+          adminNote: input.adminNote,
+          approvedBy: ctx.user.id,
+          processedAt: new Date(),
+        })
+        .where(eq(tenantCreditRequests.id, input.requestId));
+
+      return { success: true };
     }),
 
   // ─── 외부 API 개발 요청 승인/거부 (마스터) ──────────────────────

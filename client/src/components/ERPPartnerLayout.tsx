@@ -18,7 +18,12 @@ import {
   ChevronDown,
   ChevronRight,
   Building2,
+  Zap,
 } from "lucide-react";
+import { useMemo } from "react";
+import { partnerTrpc, createPartnerTrpcClient, createPartnerQueryClient } from "@/lib/partnerTrpc";
+import { QueryClientProvider } from "@tanstack/react-query";
+import PartnerCreditPage from "@/pages/Partner/PartnerCreditPage";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -86,6 +91,13 @@ const navItems = [
     roles: ["manager", "staff"] as const,
   },
   {
+    id: "credit",
+    label: "AI 크레딧",
+    icon: Zap,
+    href: "/partner/staff/credit",
+    roles: ["manager"] as const,
+  },
+  {
     id: "mypage",
     label: "내 정보",
     icon: User,
@@ -114,7 +126,7 @@ function Sidebar({
   };
 
   const visibleItems = navItems.filter((item) =>
-    item.roles.includes(staff.role)
+    (item.roles as unknown as string[]).includes(staff.role)
   );
 
   return (
@@ -211,6 +223,9 @@ function Sidebar({
             );
           })}
         </nav>
+
+        {/* 크레딧 잔액 (매니저만) */}
+        {staff.role === "manager" && <CreditBalanceBadge />}
 
         {/* 하단 로그아웃 */}
         <div className="px-2 py-3 border-t border-white/10">
@@ -360,6 +375,38 @@ function PartnerStaffMyPage({ staff }: { staff: PartnerStaffInfo }) {
   );
 }
 
+// ─── 크레딧 잔액 배지 (사이드바 하단) ──────────────────────────
+function CreditBalanceBadge() {
+  const queryClient = useMemo(() => createPartnerQueryClient(), []);
+  const trpcClient = useMemo(() => createPartnerTrpcClient(), []);
+
+  return (
+    <partnerTrpc.Provider client={trpcClient} queryClient={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <CreditBadgeInner />
+      </QueryClientProvider>
+    </partnerTrpc.Provider>
+  );
+}
+
+function CreditBadgeInner() {
+  const { data } = partnerTrpc.tenantAi.getMyCredit.useQuery(undefined, {
+    staleTime: 60_000,
+  });
+  if (!data) return null;
+  return (
+    <div className="mx-2 mb-2 px-3 py-2 bg-green-900/30 rounded-lg border border-green-700/30">
+      <div className="flex items-center gap-1.5">
+        <Zap size={12} className="text-green-400" />
+        <span className="text-xs text-green-300 font-medium">잔여 크레딧</span>
+      </div>
+      <p className="text-lg font-bold text-green-300 mt-0.5">
+        {(data.aiCreditsBalance ?? 0).toLocaleString()}
+      </p>
+    </div>
+  );
+}
+
 // ─── 메인 레이아웃 ─────────────────────────────────────────
 export default function ERPPartnerLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -433,6 +480,7 @@ export default function ERPPartnerLayout() {
             <Route path="/partner/staff/bookings" component={() => <ComingSoon title="예약 관리" />} />
             <Route path="/partner/staff/inquiries" component={() => <ComingSoon title="문의 관리" />} />
             <Route path="/partner/staff/ai" component={() => <ComingSoon title="AI 매니저" />} />
+            <Route path="/partner/staff/credit" component={() => <PartnerCreditPage />} />
             <Route path="/partner/staff/my" component={() => <PartnerStaffMyPage staff={staff} />} />
           </Switch>
         </main>
