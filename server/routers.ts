@@ -3357,6 +3357,7 @@ import { fileAnalysisRouter } from "./routers/fileAnalysis";
 import { aiNotificationsRouter } from "./routers/aiNotifications";
 import { scheduledTasksRouter } from "./routers/scheduledTasks";
 import { agentApprovalsRouter } from "./routers/agentApprovals";
+import { tenantAiRouter } from "./routers/tenantAi";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -3416,5 +3417,6 @@ export const appRouter = router({
   erpApiKeys: erpApiKeysRouter,
   knowledgeBlock: knowledgeBlockRouter,
   manusWebhook: manusWebhookRouter,
+  tenantAi: tenantAiRouter,
 });
 export type AppRouter = typeof appRouter;

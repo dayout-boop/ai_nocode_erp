@@ -72,6 +72,7 @@ import ManagerChat from "@/pages/erp/ManagerChat";
 import KnowledgeBlockLog from "@/pages/erp/KnowledgeBlockLog";
 import ManusChat from "@/pages/erp/ManusChat";
 import SettlementsSuppliers from "@/pages/erp/SettlementsSuppliers";
+import TenantAiConsole from "@/pages/erp/TenantAiConsole";
 import { Loader2 } from "lucide-react";
 
 interface NavChild {
@@ -115,6 +116,7 @@ const navItems: NavItem[] = [
       { label: "Gemini 어시스턴트", href: "/gemini", icon: <Sparkles size={14} /> },
       { label: "AI 로그", href: "/ai-logs", icon: <History size={14} /> },
       { label: "오케스트레이터", href: "/orchestrator", icon: <Zap size={14} /> },
+      { label: "분양 AI 콘솔 🏢", href: "/tenant-ai-console", icon: <Shield size={14} /> },
       // { label: "마누스채봇 🔗", href: "/erp/manus-chat", icon: <MessageSquare size={14} /> }, // 후보(검토불필요)
     ],
   },
@@ -325,6 +327,7 @@ function ERPContent() {
           <Route path="/openrouter-agent" component={OpenRouterAgent} />
           <Route path="/dev-dashboard" component={DevDashboard} />
           <Route path="/managed-projects" component={ManagedProjects} />
+          <Route path="/tenant-ai-console" component={TenantAiConsole} />
           <Route component={ERPDashboard} />
         </Switch>
       </Suspense>

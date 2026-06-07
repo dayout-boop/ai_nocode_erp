@@ -541,6 +541,8 @@ export const aiCostLogs = mysqlTable("ai_cost_logs", {
   promptPreview: varchar("promptPreview", { length: 200 }),
   /** 어시스턴트 채널 구분 (master/golftalk/manager) */
   assistant: varchar("assistant", { length: 20 }).default("master"),
+  /** 분양 테넌트 ID (두골프 자체 사용 시 null) */
+  tenantId: int("tenantId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type AiCostLog = typeof aiCostLogs.$inferSelect;
@@ -730,6 +732,8 @@ export const aiLogs = mysqlTable("ai_logs", {
   costUsd: decimal("costUsd", { precision: 10, scale: 6 }).default("0"),
   /** Google Search Grounding 적용 여부 */
   grounded: boolean("grounded").default(false),
+  /** 분양 테넌트 ID (두골프 자체 사용 시 null) */
+  tenantId: int("tenantId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type AiLog = typeof aiLogs.$inferSelect;
@@ -1500,6 +1504,8 @@ export const aiRoutingLogs = mysqlTable("ai_routing_logs", {
   errorMessage: text("errorMessage"),
   /** 어시스턴트 유형 (master, golftalk, manager) */
   assistantType: varchar("assistantType", { length: 50 }),
+  /** 분양 테넌트 ID (두골프 자체 사용 시 null) */
+  tenantId: int("tenantId"),
   createdAt: timestamp("createdAt").defaultNow(),
 });
 export type AiRoutingLog = typeof aiRoutingLogs.$inferSelect;
@@ -1618,6 +1624,18 @@ export const tenants = mysqlTable("tenants", {
   sampleCategory: mysqlEnum("sampleCategory", ["golf_tour_domestic", "golf_tour_overseas", "golf_tour_mixed"]).default("golf_tour_mixed"),
   /** 샘플 데이터 시드 완료 여부 */
   sampleSeeded: boolean("sampleSeeded").default(false).notNull(),
+  /** AI 크레딧 잔액 (1 크레딧 = 10,000 토큰 묶음) */
+  aiCreditsBalance: int("aiCreditsBalance").default(10).notNull(),
+  /** 월간 AI 크레딧 한도 (플랜별 기본값: starter=10, standard=50, premium=200) */
+  aiCreditsMonthlyLimit: int("aiCreditsMonthlyLimit").default(10).notNull(),
+  /** 이번 달 사용한 크레딧 */
+  aiCreditsUsedThisMonth: int("aiCreditsUsedThisMonth").default(0).notNull(),
+  /** 크레딧 월 초기화 기준 시각 */
+  aiCreditsResetAt: timestamp("aiCreditsResetAt"),
+  /** 업체 자체 OpenRouter API 키 (암호화 저장) */
+  customOpenrouterKeyEncrypted: text("customOpenrouterKeyEncrypted"),
+  /** 업체 자체 Gemini API 키 (암호화 저장) */
+  customGeminiKeyEncrypted: text("customGeminiKeyEncrypted"),
   /** 메모 */
   memo: text("memo"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -2014,3 +2032,115 @@ export const manusWebhookLogs = mysqlTable("manus_webhook_logs", {
 });
 export type ManusWebhookLog = typeof manusWebhookLogs.$inferSelect;
 export type InsertManusWebhookLog = typeof manusWebhookLogs.$inferInsert;
+
+// ============================================================
+// TENANT_AI_CREDITS - 테넌트 AI 크레딧 충전 이력
+// ============================================================
+/**
+ * 분양 업체의 AI 크레딧 충전/차감 이력 테이블
+ * - 충전: 두골프 관리자가 수동 지급 또는 결제 완료 시 자동 지급
+ * - 차감: AI 호출 시 creditGateway 미들웨어가 자동 차감
+ */
+export const tenantAiCredits = mysqlTable("tenant_ai_credits", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 테넌트 ID */
+  tenantId: int("tenantId").notNull(),
+  /** 변동 유형: charge=충전, deduct=차감, refund=환불, monthly_reset=월초기화 */
+  type: mysqlEnum("type", ["charge", "deduct", "refund", "monthly_reset"]).notNull(),
+  /** 변동 크레딧 수 (양수=충전, 음수=차감) */
+  amount: int("amount").notNull(),
+  /** 변동 후 잔액 */
+  balanceAfter: int("balanceAfter").notNull(),
+  /** 충전 금액 (원화, 충전 시에만) */
+  paidAmountKrw: int("paidAmountKrw"),
+  /** 관련 AI 호출 로그 ID (차감 시) */
+  aiCostLogId: int("aiCostLogId"),
+  /** 메모 (관리자 수동 지급 사유 등) */
+  memo: text("memo"),
+  /** 처리한 관리자 ID */
+  processedBy: int("processedBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type TenantAiCredit = typeof tenantAiCredits.$inferSelect;
+export type InsertTenantAiCredit = typeof tenantAiCredits.$inferInsert;
+
+// ============================================================
+// TENANT_API_CONNECTIONS - 테넌트 외부 API 연결 관리
+// ============================================================
+/**
+ * 분양 업체가 연결한 외부 API 정보
+ * - API 키는 암호화하여 저장
+ * - 두골프 매니저 AI가 연결된 API를 분석하여 개발 요청 생성
+ */
+export const tenantApiConnections = mysqlTable("tenant_api_connections", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 테넌트 ID */
+  tenantId: int("tenantId").notNull(),
+  /** API 서비스명 (예: kakao, naver, google, portone, custom) */
+  serviceName: varchar("serviceName", { length: 100 }).notNull(),
+  /** API 서비스 표시명 */
+  serviceLabel: varchar("serviceLabel", { length: 200 }),
+  /** API 키 (암호화 저장) */
+  apiKeyEncrypted: text("apiKeyEncrypted"),
+  /** API 시크릿 (암호화 저장) */
+  apiSecretEncrypted: text("apiSecretEncrypted"),
+  /** 추가 설정 JSON (엔드포인트, 버전 등) */
+  configJson: text("configJson"),
+  /** 연결 상태 */
+  status: mysqlEnum("status", ["active", "error", "pending", "disabled"]).default("pending").notNull(),
+  /** 마지막 연결 테스트 시각 */
+  lastTestedAt: timestamp("lastTestedAt"),
+  /** 마지막 오류 메시지 */
+  lastError: text("lastError"),
+  /** 두골프 매니저 AI 분석 메모 */
+  aiAnalysisMemo: text("aiAnalysisMemo"),
+  /** 활성 여부 */
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type TenantApiConnection = typeof tenantApiConnections.$inferSelect;
+export type InsertTenantApiConnection = typeof tenantApiConnections.$inferInsert;
+
+// ============================================================
+// TENANT_API_DEV_REQUESTS - 테넌트 외부 API 개발 승인 요청
+// ============================================================
+/**
+ * 분양 업체의 외부 API 연결 기반 개발 요청 관리
+ * 플로우: 업체 API 연결 → 두골프 매니저 AI 분석 → 가능성 분류 → 마스터 승인 → 개발 진행 → 업체 안내
+ */
+export const tenantApiDevRequests = mysqlTable("tenant_api_dev_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 요청 업체 테넌트 ID */
+  tenantId: int("tenantId").notNull(),
+  /** 연결된 외부 API 연결 ID */
+  apiConnectionId: int("apiConnectionId"),
+  /** 요청 제목 */
+  title: varchar("title", { length: 300 }).notNull(),
+  /** 업체 요청 내용 */
+  requestContent: text("requestContent").notNull(),
+  /** 두골프 매니저 AI 분석 결과 */
+  aiAnalysis: text("aiAnalysis"),
+  /** 개발 가능성 분류: possible=가능, conditional=조건부가능, impossible=불가, global=전체업체개선 */
+  feasibility: mysqlEnum("feasibility", ["possible", "conditional", "impossible", "global"]).default("possible"),
+  /** 전체 업체 공통 개선 여부 (global인 경우 true) */
+  isGlobalImprovement: boolean("isGlobalImprovement").default(false).notNull(),
+  /** 마스터 승인 상태 */
+  approvalStatus: mysqlEnum("approvalStatus", ["pending", "approved", "rejected", "in_progress", "completed"]).default("pending").notNull(),
+  /** 마스터 승인/거부 메모 */
+  approvalMemo: text("approvalMemo"),
+  /** 승인한 관리자 ID */
+  approvedBy: int("approvedBy"),
+  /** 승인 시각 */
+  approvedAt: timestamp("approvedAt"),
+  /** 개발 완료 시각 */
+  completedAt: timestamp("completedAt"),
+  /** 업체 안내 발송 여부 */
+  notifiedTenant: boolean("notifiedTenant").default(false).notNull(),
+  /** 업체 안내 발송 시각 */
+  notifiedAt: timestamp("notifiedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type TenantApiDevRequest = typeof tenantApiDevRequests.$inferSelect;
+export type InsertTenantApiDevRequest = typeof tenantApiDevRequests.$inferInsert;

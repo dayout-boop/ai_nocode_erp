@@ -67,6 +67,8 @@ export interface ChatOptions {
   assistant: "master" | "golftalk" | "manager";
   sessionId: string;
   userId?: number;
+  /** 분양 테넌트 ID (두골프 자체 사용 시 undefined) */
+  tenantId?: number;
   systemPrompt?: string;
   stream?: boolean;
   maxTokens?: number;
