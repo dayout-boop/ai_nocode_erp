@@ -5,7 +5,7 @@
  * - master 역할 계정만 키 수정 가능
  * - 키는 AES-256으로 암호화하여 DB 저장
  */
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'crypto';
 import { ENV } from './_core/env';
 import { getDb } from './db';
 import { erpApiSettings } from '../drizzle/schema';
@@ -14,8 +14,7 @@ import { eq } from 'drizzle-orm';
 // 암호화 키: JWT_SECRET 기반으로 32바이트 생성
 function getEncryptionKey(): Buffer {
   const secret = ENV.cookieSecret || 'dogolf-erp-default-key-2024';
-  // SHA-256으로 32바이트 키 생성
-  const { createHash } = require('crypto');
+  // SHA-256으로 32바이트 키 생성 (정적 import 사용 — dynamic require 금지)
   return createHash('sha256').update(secret).digest();
 }
 
