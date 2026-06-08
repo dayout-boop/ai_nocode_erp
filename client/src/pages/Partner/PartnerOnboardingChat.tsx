@@ -1,9 +1,13 @@
 /**
- * 파트너 AI 온보딩 채팅 페이지
+ * 파트너 AI 온보딩 채팅 페이지 (전면 재구현 2026-06-08)
  * - 구글 로그인 후 신규 파트너 전용
  * - PC: 좌측 수기 입력 패널 + 우측 두골프 매니저 AI 채팅
  * - 모바일: AI 채팅 메인 + 하단 수기 입력 토글 패널
  * - AI 대화로 수집한 정보가 수기 입력 필드에 실시간 자동 채움
+ * - Step 완료 감지 → 좌측 패널 자동 전환
+ * - 링크 버블 렌더링 (파트너 로그인 URL 등)
+ * - 가입 완료 후 채팅 메시지 + 자동 이동
+ * - 스킵 시 AI 가이드 안내
  */
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation, useSearch } from "wouter";
@@ -31,6 +35,7 @@ import {
   Pencil,
   X,
   Save,
+  ExternalLink,
 } from "lucide-react";
 import * as PortOne from "@portone/browser-sdk/v2";
 
@@ -62,6 +67,8 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  /** 채팅 버블 내 클릭 가능 링크 목록 */
+  links?: { label: string; href: string }[];
 }
 
 // ─── 플랜 정의 ───────────────────────────────────────────────────────────────
@@ -179,7 +186,6 @@ function LicenseUploadCard({
   };
 
   const saveEdit = () => {
-    // 기존 ocrData에 편집된 값 병합
     const merged = { ...(ocrData ?? {}), ...editForm };
     onOcrEdit(merged);
     setIsEditing(false);
@@ -273,7 +279,7 @@ function LicenseUploadCard({
               <div className="flex items-center gap-1.5 mb-2">
                 <ShieldCheck size={13} className="text-blue-600 shrink-0" />
                 <p className="text-[11px] text-blue-700">
-                  OCR 인식이 부정확한 경우 직접 수정하세요. 수정 후 저장하면 반영됩니다.
+                  OCR 인식이 부정확한 경우 직접 수정하세요.
                 </p>
               </div>
               <div className="space-y-2">
@@ -341,6 +347,43 @@ function LicenseUploadCard({
   );
 }
 
+// ─── 텍스트 내 URL을 클릭 가능한 링크로 변환 ─────────────────────────────────
+function renderMessageContent(content: string) {
+  // URL 패턴 감지
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = content.split(urlRegex);
+  return parts.map((part, i) => {
+    if (urlRegex.test(part)) {
+      // URL 재설정 (split 후 lastIndex 초기화 필요)
+      urlRegex.lastIndex = 0;
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline text-blue-600 hover:text-blue-800 break-all inline-flex items-center gap-0.5"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+          <ExternalLink size={10} className="shrink-0" />
+        </a>
+      );
+    }
+    // **bold** 처리
+    const boldParts = part.split(/\*\*(.*?)\*\*/g);
+    return boldParts.map((bp, j) =>
+      j % 2 === 1 ? (
+        <strong key={`${i}-${j}`} className="font-semibold">
+          {bp}
+        </strong>
+      ) : (
+        <span key={`${i}-${j}`}>{bp}</span>
+      )
+    );
+  });
+}
+
 // ─── 채팅 메시지 버블 ─────────────────────────────────────────────────────────
 function ChatBubble({ msg }: { msg: ChatMessage }) {
   const isUser = msg.role === "user";
@@ -351,14 +394,39 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
           <Bot size={14} className="text-white" />
         </div>
       )}
-      <div
-        className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${
-          isUser
-            ? "bg-green-600 text-white rounded-tr-sm"
-            : "bg-white border border-gray-200 text-gray-800 rounded-tl-sm shadow-sm"
-        }`}
-      >
-        {msg.content}
+      <div className="flex flex-col gap-1 max-w-[85%]">
+        <div
+          className={`rounded-2xl px-3 py-2 text-sm leading-relaxed ${
+            isUser
+              ? "bg-green-600 text-white rounded-tr-sm"
+              : "bg-white border border-gray-200 text-gray-800 rounded-tl-sm shadow-sm"
+          }`}
+        >
+          {isUser ? (
+            <span className="whitespace-pre-wrap">{msg.content}</span>
+          ) : (
+            <span className="whitespace-pre-wrap">
+              {renderMessageContent(msg.content)}
+            </span>
+          )}
+        </div>
+        {/* 링크 버블 (별도 카드) */}
+        {msg.links && msg.links.length > 0 && (
+          <div className="flex flex-col gap-1">
+            {msg.links.map((link, i) => (
+              <a
+                key={i}
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 bg-green-50 border border-green-300 rounded-xl px-3 py-2 text-xs text-green-800 font-semibold hover:bg-green-100 transition-colors"
+              >
+                <ExternalLink size={12} className="shrink-0 text-green-600" />
+                {link.label}
+              </a>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -422,7 +490,7 @@ export default function PartnerOnboardingChat() {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [onboardingId, setOnboardingId] = useState<number | null>(null);
 
-  // 채팅창 파일 업로드 ref
+  // 채팅창 파일 업로드 ref (Step 2 전용)
   const chatBizFileRef = useRef<HTMLInputElement>(null);
   const chatTourFileRef = useRef<HTMLInputElement>(null);
 
@@ -449,13 +517,13 @@ export default function PartnerOnboardingChat() {
     if (!d.hasApplication || !d.data) return;
 
     // 이미 승인/활성 파트너면 대시보드로
-    if (d.status === 'approved' || d.status === 'active') {
-      navigate('/partner/dashboard');
+    if (d.status === "approved" || d.status === "active") {
+      navigate("/partner/dashboard");
       return;
     }
 
     // pending/reviewing 상태면 기존 데이터 복원
-    if (d.status === 'pending' || d.status === 'reviewing') {
+    if (d.status === "pending" || d.status === "reviewing") {
       const saved = d.data;
       setOnboardingId(saved.id);
       setForm((prev) => ({
@@ -464,45 +532,48 @@ export default function PartnerOnboardingChat() {
         contactEmail: saved.contactEmail || prev.contactEmail,
         contactPhone: (saved.contactPhone as string) || prev.contactPhone,
         companyName: (saved.companyName as string) || prev.companyName,
-        subscriptionPlan: (saved.subscriptionPlan as 'starter' | 'standard' | 'premium') || prev.subscriptionPlan,
-        sampleCategory: (saved.sampleCategory as 'golf_tour_domestic' | 'golf_tour_overseas' | 'golf_tour_mixed') || prev.sampleCategory,
+        subscriptionPlan:
+          (saved.subscriptionPlan as "starter" | "standard" | "premium") ||
+          prev.subscriptionPlan,
+        sampleCategory:
+          (saved.sampleCategory as
+            | "golf_tour_domestic"
+            | "golf_tour_overseas"
+            | "golf_tour_mixed") || prev.sampleCategory,
       }));
 
-      // 등록증 URL이 있으면 Step 2 또는 3으로 복원
       if (saved.businessLicenseUrl) {
         setBizLicense((prev) => ({
           ...prev,
           url: saved.businessLicenseUrl as string,
-          ocrResult: (saved.ocrResult as string) || '',
-          ocrRawText: (saved.ocrResult as string) || '',
+          ocrResult: (saved.ocrResult as string) || "",
+          ocrRawText: (saved.ocrResult as string) || "",
         }));
       }
       if (saved.tourismLicenseUrl) {
         setTourLicense((prev) => ({
           ...prev,
           url: saved.tourismLicenseUrl as string,
-          ocrResult: (saved.tourismOcrResult as string) || '',
-          ocrRawText: (saved.tourismOcrResult as string) || '',
+          ocrResult: (saved.tourismOcrResult as string) || "",
+          ocrRawText: (saved.tourismOcrResult as string) || "",
         }));
       }
 
-      // 단계 복원
       if (saved.businessLicenseUrl || saved.tourismLicenseUrl) {
         setStep(2);
       }
 
-      // 복원 안내 메시지
       setChatMessages((prev) => [
         ...prev,
         {
-          id: 'restore-msg',
-          role: 'assistant' as const,
-          content: `이전에 진행하시던 가입 절차가 있습니다. 이어서 진행해 드릴게요! 😊\n\n현재 저장된 정보:\n• 담당자: ${saved.contactName || '미입력'}\n• 이메일: ${saved.contactEmail}\n• 업체명: ${(saved.companyName as string) || '미입력'}\n${saved.businessLicenseUrl ? '• 사업자등록증: 업로드 완료 ✅' : ''}\n${saved.tourismLicenseUrl ? '• 관광사업자등록증: 업로드 완료 ✅' : ''}\n\n계속 진행하시겠어요?`,
+          id: "restore-msg",
+          role: "assistant" as const,
+          content: `이전에 진행하시던 가입 절차가 있습니다. 이어서 진행해 드릴게요! 😊\n\n현재 저장된 정보:\n• 담당자: ${saved.contactName || "미입력"}\n• 이메일: ${saved.contactEmail}\n• 업체명: ${(saved.companyName as string) || "미입력"}\n${saved.businessLicenseUrl ? "• 사업자등록증: 업로드 완료 ✅" : ""}\n${saved.tourismLicenseUrl ? "• 관광사업자등록증: 업로드 완료 ✅" : ""}\n\n계속 진행하시겠어요?`,
           timestamp: new Date(),
         },
       ]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusQuery.data]);
 
   // ─── tRPC mutations ────────────────────────────────────────────────────────
@@ -513,12 +584,36 @@ export default function PartnerOnboardingChat() {
   const submitWithBothOcrMutation = trpc.partnerOnboarding.submitWithBothOcr.useMutation({
     onSuccess: (data) => {
       setOnboardingId(data.id);
+      setStep(4);
       if (data.autoApproved) {
-        setStep(4);
+        // 가입 완료 채팅 메시지 (자동 승인)
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            id: `complete-auto-${Date.now()}`,
+            role: "assistant" as const,
+            content:
+              "🎉 축하드립니다! 두 등록증이 모두 확인되어 **즉시 자동 승인**되었습니다!\n\n파트너 대시보드에서 바로 서비스를 이용하실 수 있어요. 아래 버튼을 클릭해 이동하세요!",
+            timestamp: new Date(),
+            links: [{ label: "파트너 대시보드로 이동", href: "/partner/dashboard" }],
+          },
+        ]);
         toast.success("자동 승인 완료! ERP를 바로 이용하실 수 있습니다.");
-        setTimeout(() => navigate("/partner/dashboard"), 2500);
+        setTimeout(() => navigate("/partner/dashboard"), 3000);
       } else {
-        setStep(4);
+        // 가입 완료 채팅 메시지 (검토 대기)
+        const loginUrl = `${window.location.origin}/partner/login`;
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            id: `complete-review-${Date.now()}`,
+            role: "assistant" as const,
+            content:
+              "✅ 가입 신청이 완료되었습니다!\n\n관리자 검토 후 **1~2 영업일 내**에 승인 이메일이 발송됩니다. 승인 완료 후 아래 링크로 로그인하세요!",
+            timestamp: new Date(),
+            links: [{ label: "파트너 로그인 페이지", href: loginUrl }],
+          },
+        ]);
         toast.success("가입 신청이 완료되었습니다. 검토 후 승인됩니다.");
       }
     },
@@ -532,6 +627,18 @@ export default function PartnerOnboardingChat() {
       setOnboardingId(data.id);
       if (form.subscriptionPlan === "starter") {
         setStep(4);
+        const loginUrl = `${window.location.origin}/partner/login`;
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            id: `complete-starter-${Date.now()}`,
+            role: "assistant" as const,
+            content:
+              "✅ 스타터 플랜으로 가입 신청이 완료되었습니다!\n\n관리자 검토 후 **1~2 영업일 내**에 승인됩니다. 승인 완료 후 아래 링크로 로그인하세요!",
+            timestamp: new Date(),
+            links: [{ label: "파트너 로그인 페이지", href: loginUrl }],
+          },
+        ]);
         toast.success("가입 신청이 완료되었습니다.");
       }
     },
@@ -546,6 +653,18 @@ export default function PartnerOnboardingChat() {
     onSuccess: () => {
       setStep(4);
       setPaymentLoading(false);
+      const loginUrl = `${window.location.origin}/partner/login`;
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: `complete-paid-${Date.now()}`,
+          role: "assistant" as const,
+          content:
+            "🎉 결제가 완료되었습니다! 파트너 가입이 확정되었어요.\n\n아래 링크로 파트너 로그인 후 서비스를 이용하세요!",
+          timestamp: new Date(),
+          links: [{ label: "파트너 로그인 페이지", href: loginUrl }],
+        },
+      ]);
       toast.success("결제가 완료되었습니다!");
     },
     onError: (err) => {
@@ -604,11 +723,51 @@ export default function PartnerOnboardingChat() {
         }
       }
 
-      // 다음 단계 이동
+      // ─── 단계 전환 로직 (강화) ────────────────────────────────────────────
+      // 1) AI가 명시적으로 stepComplete + nextStep 반환한 경우
       if (result.stepComplete && result.nextStep && (result.nextStep as number) > step) {
+        const targetStep = result.nextStep as Step;
         setTimeout(() => {
-          setStep(result.nextStep as Step);
+          setStep(targetStep);
+          // 단계 전환 안내 메시지 (AI 응답 이후에 추가)
+          const stepLabels: Record<number, string> = {
+            2: "Step 2: 등록증 업로드",
+            3: "Step 3: 플랜 선택",
+            4: "Step 4: 완료",
+          };
+          if (stepLabels[targetStep]) {
+            setChatMessages((prev) => [
+              ...prev,
+              {
+                id: `step-advance-${Date.now()}`,
+                role: "assistant" as const,
+                content: `좌측 패널이 **${stepLabels[targetStep]}** 단계로 이동했습니다. 계속 진행해 주세요! 👉`,
+                timestamp: new Date(),
+              },
+            ]);
+          }
         }, 800);
+      }
+
+      // 2) 사용자가 "스킵" 또는 "건너뛰기" 등을 입력한 경우 → 가이드 안내
+      const skipKeywords = ["스킵", "건너뛰", "나중에", "패스", "skip", "pass", "다음으로"];
+      const isSkipRequest = skipKeywords.some((kw) =>
+        text.toLowerCase().includes(kw)
+      );
+      if (isSkipRequest && step === 2) {
+        // Step 2 스킵 시 안내
+        setTimeout(() => {
+          setChatMessages((prev) => [
+            ...prev,
+            {
+              id: `skip-guide-${Date.now()}`,
+              role: "assistant" as const,
+              content:
+                "📋 등록증 업로드를 나중에 하실 수 있습니다!\n\n단, **두 등록증 모두 업로드 시 즉시 자동 승인**되며, 미업로드 시 담당자 검토(1~2 영업일)가 필요합니다.\n\n좌측 패널의 **'다음 단계'** 버튼을 눌러 플랜 선택으로 넘어가세요.",
+              timestamp: new Date(),
+            },
+          ]);
+        }, 1200);
       }
 
       const assistantMsg: ChatMessage = {
@@ -645,7 +804,6 @@ export default function PartnerOnboardingChat() {
     const setter = type === "biz" ? setBizLicense : setTourLicense;
     setter((prev) => ({ ...prev, uploading: true }));
     try {
-      // 1. 파일 업로드 (공통 업로드 엔드포인트)
       const formData = new FormData();
       formData.append("file", file);
       formData.append("prefix", "partner-onboarding");
@@ -662,7 +820,7 @@ export default function PartnerOnboardingChat() {
         ocrLoading: file.type.startsWith("image/"),
       }));
 
-      // 2. OCR 처리 (이미지 파일만)
+      // OCR 처리 (이미지 파일만)
       if (file.type.startsWith("image/")) {
         try {
           let ocrStr = "";
@@ -684,24 +842,25 @@ export default function PartnerOnboardingChat() {
           // 채팅창에 OCR 결과 표시
           if (ocrParsed) {
             const typeName = type === "biz" ? "사업자등록증" : "관광사업자등록증";
-            const fields = type === "biz"
-              ? [
-                  { label: "업체명", key: "companyName" },
-                  { label: "사업자번호", key: "businessNumber" },
-                  { label: "대표자", key: "ceoName" },
-                  { label: "업태", key: "businessType" },
-                  { label: "종목", key: "businessItem" },
-                  { label: "주소", key: "address" },
-                  { label: "개업일", key: "openDate" },
-                ]
-              : [
-                  { label: "등록번호", key: "licenseNo" },
-                  { label: "사업 종류", key: "licenseType" },
-                  { label: "업체명", key: "companyName" },
-                  { label: "대표자", key: "ceoName" },
-                  { label: "주소", key: "address" },
-                  { label: "등록일", key: "openDate" },
-                ];
+            const fields =
+              type === "biz"
+                ? [
+                    { label: "업체명", key: "companyName" },
+                    { label: "사업자번호", key: "businessNumber" },
+                    { label: "대표자", key: "ceoName" },
+                    { label: "업태", key: "businessType" },
+                    { label: "종목", key: "businessItem" },
+                    { label: "주소", key: "address" },
+                    { label: "개업일", key: "openDate" },
+                  ]
+                : [
+                    { label: "등록번호", key: "licenseNo" },
+                    { label: "사업 종류", key: "licenseType" },
+                    { label: "업체명", key: "companyName" },
+                    { label: "대표자", key: "ceoName" },
+                    { label: "주소", key: "address" },
+                    { label: "등록일", key: "openDate" },
+                  ];
             const summary = fields
               .filter((f) => ocrParsed![f.key])
               .map((f) => `• ${f.label}: ${ocrParsed![f.key]}`)
@@ -709,10 +868,27 @@ export default function PartnerOnboardingChat() {
             const confirmMsg: ChatMessage = {
               id: `ocr-${Date.now()}`,
               role: "assistant",
-              content: `${typeName} OCR 분석이 완료되었습니다! 📋\n\n**추출된 정보:**\n${summary || '인식된 정보 없음'}\n\n정보가 맞나요? 다르면 좌측 패널에서 "수정" 버튼으로 직접 수정할 수 있습니다.`,
+              content: `${typeName} OCR 분석이 완료되었습니다! 📋\n\n**추출된 정보:**\n${summary || "인식된 정보 없음"}\n\n정보가 맞나요? 다르면 좌측 패널에서 "수정" 버튼으로 직접 수정할 수 있습니다.`,
               timestamp: new Date(),
             };
             setChatMessages((prev) => [...prev, confirmMsg]);
+
+            // 두 등록증 모두 업로드 완료 시 안내
+            const otherUploaded = type === "biz" ? !!tourLicense.url : !!bizLicense.url;
+            if (otherUploaded) {
+              setTimeout(() => {
+                setChatMessages((prev) => [
+                  ...prev,
+                  {
+                    id: `both-done-${Date.now()}`,
+                    role: "assistant" as const,
+                    content:
+                      "🎉 두 등록증이 모두 업로드되었습니다!\n\n좌측 패널의 **'즉시 자동 승인'** 버튼을 클릭하면 바로 파트너 계정이 활성화됩니다!",
+                    timestamp: new Date(),
+                  },
+                ]);
+              }, 800);
+            }
           }
         } catch {
           setter((prev) => ({ ...prev, ocrLoading: false }));
@@ -730,10 +906,29 @@ export default function PartnerOnboardingChat() {
     const hasTour = !!tourLicense.url;
     if (!hasBiz && !hasTour) {
       toast.error("최소 하나의 등록증을 업로드해주세요.");
+      // 스킵 시도 시 AI 가이드
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: `upload-required-${Date.now()}`,
+          role: "assistant" as const,
+          content:
+            "📎 등록증을 최소 하나 이상 업로드해야 다음 단계로 진행할 수 있습니다.\n\n채팅창 하단의 **사업자등록증** 또는 **관광사업자등록증** 버튼을 눌러 파일을 업로드해 주세요!",
+          timestamp: new Date(),
+        },
+      ]);
       return;
     }
     if (hasBiz && hasTour) {
-      // 두 등록증 모두 있으면 자동 승인 시도
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: `step2-auto-${Date.now()}`,
+          role: "assistant" as const,
+          content: "두 등록증이 모두 업로드되었습니다! 🎉 자동 승인을 진행하겠습니다...",
+          timestamp: new Date(),
+        },
+      ]);
       submitWithBothOcrMutation.mutate({
         contactName: form.contactName,
         contactEmail: form.contactEmail,
@@ -751,13 +946,21 @@ export default function PartnerOnboardingChat() {
         billingCycle: "monthly",
       });
     } else {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: `step2-done-${Date.now()}`,
+          role: "assistant" as const,
+          content: `등록증 업로드 완료! 📎 이제 **Step 3: 플랜 선택** 단계입니다.\n원하시는 구독 플랜을 선택해 주세요. 스타터 플랜은 무료로 시작할 수 있어요!`,
+          timestamp: new Date(),
+        },
+      ]);
       setStep(3);
     }
   };
 
   // ─── Step 3 결제 처리 ─────────────────────────────────────────────────────
   const handlePayment = async () => {
-    // onboardingId가 없으면 먼저 submit
     if (!onboardingId) {
       submitMutation.mutate({
         companyName: form.companyName || form.contactName,
@@ -768,16 +971,23 @@ export default function PartnerOnboardingChat() {
         subscriptionPlan: form.subscriptionPlan,
         billingCycle: form.billingCycle,
       });
-      // submit onSuccess에서 starter면 step 4로 이동
       if (form.subscriptionPlan !== "starter") {
-        // submit 완료 후 결제 진행 필요 - onboardingId 설정 후 재시도 안내
         toast.info("신청 정보가 저장되었습니다. 잠시 후 결제 버튼을 다시 눌러주세요.");
       }
       return;
     }
 
     if (form.subscriptionPlan === "starter") {
-      setStep(4);
+      // 스타터: 바로 submit 후 Step 4
+      submitMutation.mutate({
+        companyName: form.companyName || form.contactName,
+        contactName: form.contactName,
+        contactEmail: form.contactEmail,
+        contactPhone: form.contactPhone || undefined,
+        sampleCategory: form.sampleCategory,
+        subscriptionPlan: "starter",
+        billingCycle: form.billingCycle,
+      });
       return;
     }
 
@@ -802,7 +1012,6 @@ export default function PartnerOnboardingChat() {
         throw new Error("결제 정보 생성에 실패했습니다.");
       }
 
-      // PortOne 결제 요청
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const response = await (PortOne as any).requestPayment({
         storeId: prepared.storeId,
@@ -894,7 +1103,9 @@ export default function PartnerOnboardingChat() {
               <Label className="text-xs font-semibold text-gray-700 mb-1 block">
                 이메일 <span className="text-red-500">*</span>
                 {googleEmail && (
-                  <span className="ml-1.5 text-[10px] text-green-600 font-normal bg-green-50 px-1.5 py-0.5 rounded-full">구글 인증됨</span>
+                  <span className="ml-1.5 text-[10px] text-green-600 font-normal bg-green-50 px-1.5 py-0.5 rounded-full">
+                    구글 인증됨
+                  </span>
                 )}
               </Label>
               <Input
@@ -903,7 +1114,9 @@ export default function PartnerOnboardingChat() {
                 value={form.contactEmail}
                 readOnly={!!googleEmail}
                 onChange={(e) => !googleEmail && updateForm({ contactEmail: e.target.value })}
-                className={`text-sm ${googleEmail ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
+                className={`text-sm ${
+                  googleEmail ? "bg-gray-50 text-gray-500 cursor-not-allowed" : ""
+                }`}
               />
             </div>
             <div>
@@ -930,13 +1143,12 @@ export default function PartnerOnboardingChat() {
             disabled={!step1Valid}
             onClick={() => {
               setStep(2);
-              // AI에게 단계 전환 알림
               setChatMessages((prev) => [
                 ...prev,
                 {
                   id: `step1-done-${Date.now()}`,
-                  role: 'assistant' as const,
-                  content: `담당자 정보가 저장되었습니다! 😊\n• 이름: ${form.contactName}\n• 이메일: ${form.contactEmail}${form.contactPhone ? `\n• 전화: ${form.contactPhone}` : ''}${form.companyName ? `\n• 업체명: ${form.companyName}` : ''}\n\n이제 **Step 2: 등록증 업로드** 단계입니다.\n사업자등록증과 관광사업자등록증을 업로드해 주세요. 아래 버튼을 클릭하면 파일을 선택할 수 있어요!`,
+                  role: "assistant" as const,
+                  content: `담당자 정보가 저장되었습니다! 😊\n• 이름: ${form.contactName}\n• 이메일: ${form.contactEmail}${form.contactPhone ? `\n• 전화: ${form.contactPhone}` : ""}${form.companyName ? `\n• 업체명: ${form.companyName}` : ""}\n\n이제 **Step 2: 등록증 업로드** 단계입니다.\n채팅창 하단의 📎 버튼으로 사업자등록증과 관광사업자등록증을 업로드해 주세요!`,
                   timestamp: new Date(),
                 },
               ]);
@@ -1057,37 +1269,32 @@ export default function PartnerOnboardingChat() {
               size="sm"
               className="flex-1 bg-green-600 hover:bg-green-700"
               disabled={(!hasBizLicense && !hasTourLicense) || isAnyLoading || isProcessing}
-              onClick={() => {
-                if (hasBothLicenses) {
-                  // 자동 승인 시도 전 AI 알림
-                  setChatMessages((prev) => [
-                    ...prev,
-                    {
-                      id: `step2-auto-${Date.now()}`,
-                      role: 'assistant' as const,
-                      content: '두 등록증이 모두 업로드되었습니다! 🎉 자동 승인을 진행하겠습니다...',
-                      timestamp: new Date(),
-                    },
-                  ]);
-                } else {
-                  setChatMessages((prev) => [
-                    ...prev,
-                    {
-                      id: `step2-done-${Date.now()}`,
-                      role: 'assistant' as const,
-                      content: `등록증 업로드 완료! 📎 이제 **Step 3: 플랜 선택** 단계입니다.\n원하시는 구독 플랜을 선택해 주세요. 스타터 플랜은 무료로 시작할 수 있어요!`,
-                      timestamp: new Date(),
-                    },
-                  ]);
-                }
-                handleStep2Next();
-              }}
+              onClick={handleStep2Next}
             >
               {isProcessing ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
               {hasBothLicenses ? "즉시 자동 승인" : "다음 단계"}
               <ChevronRight size={14} className="ml-1" />
             </Button>
           </div>
+          {/* 스킵 안내 링크 */}
+          <button
+            type="button"
+            className="w-full text-[11px] text-gray-400 hover:text-gray-600 text-center underline"
+            onClick={() => {
+              setChatMessages((prev) => [
+                ...prev,
+                {
+                  id: `skip-step2-${Date.now()}`,
+                  role: "assistant" as const,
+                  content:
+                    "📋 등록증 업로드를 나중에 하실 수 있습니다!\n\n단, **두 등록증 모두 업로드 시 즉시 자동 승인**되며, 미업로드 시 담당자 검토(1~2 영업일)가 필요합니다.\n\n최소 하나의 등록증을 업로드하면 플랜 선택 단계로 넘어갈 수 있어요.",
+                  timestamp: new Date(),
+                },
+              ]);
+            }}
+          >
+            등록증 업로드 없이 진행하려면?
+          </button>
         </div>
       )}
 
@@ -1164,7 +1371,7 @@ export default function PartnerOnboardingChat() {
           {submitWithBothOcrMutation.data?.autoApproved ? (
             <Button
               className="bg-green-600 hover:bg-green-700"
-              onClick={() => window.location.href = '/partner/dashboard'}
+              onClick={() => (window.location.href = "/partner/dashboard")}
             >
               파트너 대시보드로 이동
             </Button>
@@ -1173,11 +1380,13 @@ export default function PartnerOnboardingChat() {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => window.location.href = '/partner/login'}
+                onClick={() => (window.location.href = "/partner/login")}
               >
                 파트너 로그인 페이지로
               </Button>
-              <p className="text-xs text-gray-400">승인 완료 후 로그인하시면 대시보드를 이용할 수 있습니다</p>
+              <p className="text-xs text-gray-400">
+                승인 완료 후 로그인하시면 대시보드를 이용할 수 있습니다
+              </p>
             </div>
           )}
         </div>
@@ -1202,6 +1411,13 @@ export default function PartnerOnboardingChat() {
           </div>
           <Badge variant="secondary" className="ml-auto text-[10px]">
             AI 온보딩
+          </Badge>
+          {/* 현재 단계 표시 */}
+          <Badge
+            variant="outline"
+            className="text-[10px] border-green-400 text-green-700"
+          >
+            Step {step}/4
           </Badge>
         </div>
       </div>
@@ -1254,46 +1470,46 @@ export default function PartnerOnboardingChat() {
 
       {/* 입력창 */}
       <div className="bg-white border-t px-3 py-2 shrink-0">
-        {/* Step 2에서 파일 업로드 단축 버튼 */}
+        {/* Step 2에서 파일 업로드 단축 버튼 (채팅창 하단) */}
         {step === 2 && (
           <div className="flex gap-2 mb-2">
             <button
               type="button"
-              className={`flex-1 flex items-center gap-1.5 justify-center text-xs px-3 py-1.5 rounded-lg border transition-all ${
+              className={`flex-1 flex items-center gap-1.5 justify-center text-xs px-3 py-2 rounded-lg border transition-all font-medium ${
                 bizLicense.url
-                  ? 'border-green-400 bg-green-50 text-green-700'
-                  : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-green-400 hover:bg-green-50'
+                  ? "border-green-400 bg-green-50 text-green-700"
+                  : "border-gray-300 bg-gray-50 text-gray-700 hover:border-green-400 hover:bg-green-50 hover:text-green-700"
               }`}
               onClick={() => chatBizFileRef.current?.click()}
               disabled={bizLicense.uploading || bizLicense.ocrLoading}
             >
               {bizLicense.uploading || bizLicense.ocrLoading ? (
-                <Loader2 size={12} className="animate-spin" />
+                <Loader2 size={13} className="animate-spin" />
               ) : bizLicense.url ? (
-                <CheckCircle2 size={12} />
+                <CheckCircle2 size={13} className="text-green-600" />
               ) : (
-                <Upload size={12} />
+                <Upload size={13} />
               )}
-              사업자등록증
+              📄 사업자등록증
             </button>
             <button
               type="button"
-              className={`flex-1 flex items-center gap-1.5 justify-center text-xs px-3 py-1.5 rounded-lg border transition-all ${
+              className={`flex-1 flex items-center gap-1.5 justify-center text-xs px-3 py-2 rounded-lg border transition-all font-medium ${
                 tourLicense.url
-                  ? 'border-blue-400 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-blue-400 hover:bg-blue-50'
+                  ? "border-blue-400 bg-blue-50 text-blue-700"
+                  : "border-gray-300 bg-gray-50 text-gray-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700"
               }`}
               onClick={() => chatTourFileRef.current?.click()}
               disabled={tourLicense.uploading || tourLicense.ocrLoading}
             >
               {tourLicense.uploading || tourLicense.ocrLoading ? (
-                <Loader2 size={12} className="animate-spin" />
+                <Loader2 size={13} className="animate-spin" />
               ) : tourLicense.url ? (
-                <CheckCircle2 size={12} />
+                <CheckCircle2 size={13} className="text-blue-600" />
               ) : (
-                <Upload size={12} />
+                <Upload size={13} />
               )}
-              관광사업자등록증
+              🏌️ 관광사업자등록증
             </button>
             {/* 파일 입력 숨김 */}
             <input
@@ -1301,14 +1517,20 @@ export default function PartnerOnboardingChat() {
               type="file"
               accept="image/*,.pdf"
               className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLicenseUpload(f, 'biz'); }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleLicenseUpload(f, "biz");
+              }}
             />
             <input
               ref={chatTourFileRef}
               type="file"
               accept="image/*,.pdf"
               className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLicenseUpload(f, 'tour'); }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleLicenseUpload(f, "tour");
+              }}
             />
           </div>
         )}
@@ -1316,7 +1538,11 @@ export default function PartnerOnboardingChat() {
           <textarea
             ref={chatInputRef}
             className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 max-h-24 min-h-[40px]"
-            placeholder="메시지를 입력하세요..."
+            placeholder={
+              step === 2
+                ? "등록증 업로드 후 '다음 단계' 버튼을 눌러주세요..."
+                : "메시지를 입력하세요..."
+            }
             rows={1}
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
