@@ -1889,3 +1889,9 @@ Detected
 - [x] 파트너별 크레딧 이력 상세 조회 — 충전/차감/만료 전체 트랜잭션 로그
 - [x] 크레딧 잔액 0 이하 파트너 경고 표시 (빨간 배지)
 - [x] 관리자 ERP 사이드바에 "크레딧 관리" 메뉴 추가 (/erp/credit-management)
+
+## 관리자 계정 이메일 수정 기능
+
+- [x] AdminManagement.tsx에 계정 정보 수정 다이얼로그 추가 (이름/이메일/전화번호)
+- [x] 마스터 계정 이메일 dayout@dayoutgolf.com으로 DB 업데이트
+- [x] 구글 로그인 콜백에서 adminAccounts.email 일치 시 ERP 대시보드로 분기 처리

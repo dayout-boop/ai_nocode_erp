@@ -7,7 +7,7 @@
 import express from 'express';
 import { getGoogleOAuthCredentials } from '../_core/googleSecretManager';
 import { getDb } from '../db';
-import { partners, partnerOnboarding } from '../../drizzle/schema';
+import { partners, partnerOnboarding, adminAccounts } from '../../drizzle/schema';
 import { eq, or } from 'drizzle-orm';
 import { SignJWT, jwtVerify } from 'jose';
 import { ENV } from '../_core/env';
@@ -189,6 +189,20 @@ router.get('/google/callback', async (req, res) => {
     const db = await getDb();
     if (!db) {
       return res.redirect('/partner/login?error=db_error');
+    }
+
+    // 2-1. 마스터/관리자 계정 확인 — adminAccounts.email과 일치하면 ERP로 바로 이동
+    const matchingAdmins = await db
+      .select()
+      .from(adminAccounts)
+      .where(eq(adminAccounts.email, googleUser.email))
+      .limit(1);
+    if (matchingAdmins.length > 0 && matchingAdmins[0].isActive) {
+      const adminAccount = matchingAdmins[0];
+      console.log(`[GoogleAuth] 관리자 계정 감지 - ${adminAccount.role}: ${googleUser.email} → ERP 대시보드로 이동`);
+      // 관리자 세션 쿠키는 별도 ERP 로그인 시스템에서 발급하므로
+      // 여기서는 ERP 로그인 페이지로 리다이렉트하여 이미 등록된 계정임을 알림
+      return res.redirect(`/erp/login?google_admin=1&email=${encodeURIComponent(googleUser.email)}&name=${encodeURIComponent(googleUser.name)}`);
     }
 
     // 3. DB에서 파트너 조회 (googleId 또는 이메일로)

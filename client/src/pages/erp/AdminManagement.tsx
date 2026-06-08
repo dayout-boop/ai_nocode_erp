@@ -10,13 +10,15 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { trpc } from '@/lib/trpc';
-import { Plus, Trash2, Lock, Eye, EyeOff, Shield, ShieldAlert, UserCheck, UserX, Info } from 'lucide-react';
+import { Plus, Trash2, Lock, Eye, EyeOff, Shield, ShieldAlert, UserCheck, UserX, Info, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function AdminManagement() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedAdminId, setSelectedAdminId] = useState<number | null>(null);
+  const [selectedAdmin, setSelectedAdmin] = useState<any>(null);
 
   // 내 계정 정보 조회 (현재 로그인한 세션)
   const { data: myInfo } = trpc.adminManagement.getMyInfo.useQuery();
@@ -57,6 +59,19 @@ export default function AdminManagement() {
     },
     onError: (err: any) => {
       toast.error(err.message || '삭제 실패');
+    },
+  });
+
+  // 계정 정보 수정 (master 전용)
+  const updateMutation = trpc.adminManagement.update.useMutation({
+    onSuccess: () => {
+      toast.success('계정 정보가 수정되었습니다');
+      setShowEditDialog(false);
+      setSelectedAdmin(null);
+      refetch();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || '수정 실패');
     },
   });
 
@@ -246,6 +261,22 @@ export default function AdminManagement() {
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex gap-1">
+                            {/* 계정 정보 수정: master 전용 */}
+                            {isMaster && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setSelectedAdmin(admin);
+                                  setShowEditDialog(true);
+                                }}
+                                className="text-emerald-400 hover:text-emerald-300 h-7 w-7 p-0"
+                                title="계정 정보 수정 (이름/이메일)"
+                              >
+                                <Pencil size={14} />
+                              </Button>
+                            )}
+
                             {/* 비밀번호 변경: master는 모두, 일반은 자기만 */}
                             {(isMaster || isMe) && (
                               <Button
@@ -313,6 +344,19 @@ export default function AdminManagement() {
           onClose={() => setShowCreateDialog(false)}
           onSubmit={(data) => createMutation.mutate(data)}
           isLoading={createMutation.isPending}
+        />
+      )}
+
+      {/* 계정 정보 수정 다이얼로그 */}
+      {showEditDialog && selectedAdmin && (
+        <EditAdminDialog
+          admin={selectedAdmin}
+          onClose={() => {
+            setShowEditDialog(false);
+            setSelectedAdmin(null);
+          }}
+          onSubmit={(data) => updateMutation.mutate({ id: selectedAdmin.id, ...data })}
+          isLoading={updateMutation.isPending}
         />
       )}
 
@@ -634,6 +678,113 @@ function ChangePasswordDialog({
                 disabled={isLoading || (!!confirmPassword && newPassword !== confirmPassword)}
               >
                 {isLoading ? '변경 중...' : '비밀번호 변경'}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── 계정 정보 수정 다이얼로그 ───────────────────────────────────────────────
+function EditAdminDialog({
+  admin,
+  onClose,
+  onSubmit,
+  isLoading,
+}: {
+  admin: any;
+  onClose: () => void;
+  onSubmit: (data: { name?: string; email?: string; phone?: string }) => void;
+  isLoading: boolean;
+}) {
+  const [formData, setFormData] = useState({
+    name: admin.name || '',
+    email: admin.email || '',
+    phone: admin.phone || '',
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim()) {
+      toast.error('이름은 필수 입력 항목입니다');
+      return;
+    }
+    onSubmit({
+      name: formData.name,
+      email: formData.email || undefined,
+      phone: formData.phone || undefined,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+      <Card className="bg-slate-800 border-slate-700 w-full max-w-md mx-4">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <Pencil size={18} className="text-emerald-400" />
+            계정 정보 수정
+          </CardTitle>
+          <CardDescription>
+            <span className="font-mono text-slate-300">{admin.username}</span> 계정의 이름과 이메일을 수정합니다
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="text-sm text-slate-300 mb-1 block">이름 <span className="text-red-400">*</span></label>
+              <Input
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="관리자 이름"
+                className="bg-slate-700 border-slate-600 text-white"
+                disabled={isLoading}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm text-slate-300 mb-1 block">
+                이메일
+                <span className="text-xs text-slate-400 ml-2">(구글 로그인 연동에 사용됩니다)</span>
+              </label>
+              <Input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="구글 계정 이메일 입력"
+                className="bg-slate-700 border-slate-600 text-white"
+                disabled={isLoading}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm text-slate-300 mb-1 block">전화번호</label>
+              <Input
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="전화번호 (선택)"
+                className="bg-slate-700 border-slate-600 text-white"
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                type="button"
+                onClick={onClose}
+                variant="outline"
+                className="flex-1 border-slate-600 text-slate-300"
+                disabled={isLoading}
+              >
+                취소
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isLoading}
+              >
+                {isLoading ? '수정 중...' : '저장'}
               </Button>
             </div>
           </form>
