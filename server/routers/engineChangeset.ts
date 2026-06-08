@@ -12,7 +12,7 @@
  */
 import express, { type Request, type Response } from "express";
 import { z } from "zod";
-import { ENV } from "../_core/env";
+import { getApiKey } from "../erpApiKeyManager";
 import { runPipeline } from "../services/orchestrator";
 import type { AgentContext, AgentRole } from "../services/agentEngine";
 
@@ -42,12 +42,13 @@ const changesetSchema = z.object({
 });
 
 router.post("/engine/git/changeset", async (req: Request, res: Response) => {
-  // 인증: 엔진 API 키 미설정 시 비활성
-  if (!ENV.engineApiKey) {
-    return res.status(503).json({ success: false, reason: "Changeset 엔진 비활성 (ENGINE_API_KEY 미설정)" });
+  // DB 우선 조회 → ENV 폴백 (ERP 설정 페이지에서 등록한 키 자동 반영)
+  const engineKey = await getApiKey("engine_api_key");
+  if (!engineKey) {
+    return res.status(503).json({ success: false, reason: "Changeset 엔진 비활성 (ERP 설정 > v3 엔진 > Engine API Key 등록 필요)" });
   }
   const apiKey = req.headers["x-engine-api-key"];
-  if (apiKey !== ENV.engineApiKey) {
+  if (apiKey !== engineKey) {
     return res.status(401).json({ success: false, reason: "비인가 호출" });
   }
 

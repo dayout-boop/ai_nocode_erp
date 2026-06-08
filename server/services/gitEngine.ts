@@ -13,6 +13,7 @@
  *  - 충돌(409) 시 자동/강제 병합 영구 금지 → 마스터 수동 처리 영역으로 토스.
  */
 import { ENV } from "../_core/env";
+import { getApiKey } from "../erpApiKeyManager";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -43,12 +44,14 @@ export interface CommitResult {
   treeSha: string;
 }
 
-function ghHeaders(): Record<string, string> {
-  if (!ENV.githubToken) {
-    throw new Error("[GitEngine] GITHUB_TOKEN 미설정 — Git 엔진 비활성");
+async function ghHeaders(): Promise<Record<string, string>> {
+  // DB 우선 조회 → ENV 폴백 (ERP 설정 페이지에서 등록한 키 자동 반영)
+  const token = await getApiKey("github_token");
+  if (!token) {
+    throw new Error("[GitEngine] GITHUB_TOKEN 미설정 — Git 엔진 비활성 (ERP 설정 > v3 엔진 > GitHub Token 등록 필요)");
   }
   return {
-    Authorization: `Bearer ${ENV.githubToken}`,
+    Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
     "Content-Type": "application/json",
@@ -65,7 +68,8 @@ function repoBase(): string {
 }
 
 async function ghFetch(url: string, init?: RequestInit): Promise<Response> {
-  return fetch(url, { ...init, headers: { ...ghHeaders(), ...(init?.headers ?? {}) } });
+  const hdrs = await ghHeaders();
+  return fetch(url, { ...init, headers: { ...hdrs, ...(init?.headers ?? {}) } });
 }
 
 async function ghJson<T = any>(url: string, init?: RequestInit): Promise<T> {

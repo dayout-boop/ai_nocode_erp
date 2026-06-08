@@ -10,7 +10,7 @@
  * 무단 호출은 시크릿 토큰으로 차단. 토큰 미설정 시 안전을 위해 비활성(503).
  */
 import type { Request, Response } from "express";
-import { ENV } from "../_core/env";
+import { getApiKey } from "../erpApiKeyManager";
 import { runDueAudits } from "../services/orchestrator";
 
 export function registerScheduledRunDueRoute(app: {
@@ -19,11 +19,12 @@ export function registerScheduledRunDueRoute(app: {
   app.post("/api/scheduled/run-due", async (req: Request, res: Response) => {
     const token = req.headers["x-due-heartbeat-token"];
 
-    // 토큰 미설정 환경: 무단 자동스캔 방지 위해 비활성
-    if (!ENV.heartbeatSecretKey) {
-      return res.status(503).json({ success: false, reason: "Heartbeat 비활성 (HEARTBEAT_SECRET_KEY 미설정)" });
+    // DB 우선 조회 → ENV 폴백 (ERP 설정 페이지에서 등록한 키 자동 반영)
+    const secretKey = await getApiKey("heartbeat_secret_key");
+    if (!secretKey) {
+      return res.status(503).json({ success: false, reason: "Heartbeat 비활성 (ERP 설정 > v3 엔진 > Heartbeat Secret Key 등록 필요)" });
     }
-    if (token !== ENV.heartbeatSecretKey) {
+    if (token !== secretKey) {
       return res.status(401).json({ success: false, reason: "비인가 호출" });
     }
 

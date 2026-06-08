@@ -2018,3 +2018,10 @@ Detected
 - [x] DB 완전이전 덤프 스크립트 (scripts/export-db-dump.mjs)
 - [x] 서버 완전이전 가이드 문서 (docs/MIGRATION_SELF_HOSTING.md)
 - [x] vitest 신규 22종 (changesetSecurity 13 + vendorNeutral 9), 전체 회귀 통과
+
+## [v3 엔진 키 ERP 등록 UI]
+- [x] ERP 설정 페이지에 GitHub Token / Heartbeat Secret Key / Engine API Key / Anthropic API Key 등록 항목 추가 (v3 엔진 카테고리)
+- [x] erpApiKeyManager envMap에 v3 엔진 4개 키 폴백 추가
+- [x] gitEngine ghHeaders → getApiKey("github_token") DB 우선 동적 조회
+- [x] scheduledRunDue → getApiKey("heartbeat_secret_key") DB 우선 동적 조회
+- [x] engineChangeset → getApiKey("engine_api_key") DB 우선 동적 조회

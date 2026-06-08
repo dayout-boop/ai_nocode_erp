@@ -113,8 +113,13 @@ export async function getApiKey(serviceKey: string): Promise<string> {
     n8n: ENV.n8nWebhookUrl,
     manus: ENV.manusApiKey,
     pixabay: ENV.pixabayApiKey,
-    // ※ Google OAuth Client ID/Secret은 Google Cloud Secret Manager에서 읽음
+    // ♥ Google OAuth Client ID/Secret은 Google Cloud Secret Manager에서 읽음
     //   (googleSecretManager.ts → getGoogleOAuthCredentials 함수 사용)
+    // ♥ v3 엔진 키 (DB 우선, ENV 폴백)
+    github_token: ENV.githubToken ?? '',
+    heartbeat_secret_key: ENV.heartbeatSecretKey ?? '',
+    engine_api_key: ENV.engineApiKey ?? '',
+    anthropic_api_key: ENV.anthropicApiKey ?? '',
   };
 
   return envMap[serviceKey] || '';

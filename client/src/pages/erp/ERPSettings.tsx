@@ -46,6 +46,11 @@ const API_SERVICES = [
   { key: "runway", name: "Runway ML", description: "AI 영상 생성 API", category: "미디어" },
   { key: "n8n", name: "n8n", description: "워크플로우 자동화", category: "자동화" },
   { key: "pixabay", name: "Pixabay", description: "이미지 검색 API", category: "미디어" },
+  // ── v3 엔진 (Git·Heartbeat·Changeset) ─────────────────────────────────────
+  { key: "github_token", name: "GitHub Token (Git 엔진)", description: "서버 내장 Git 엔진용 Fine-grained PAT. Contents: Write 권한 필요. 미설정 시 커밋 없이 DB 메타만 기록(안전모드).", category: "v3 엔진" },
+  { key: "heartbeat_secret_key", name: "Heartbeat Secret Key", description: "POST /api/scheduled/run-due 무단호출 차단 토큰. 설정 후 crontab 한 줄로 자립 오딧 가동.", category: "v3 엔진" },
+  { key: "engine_api_key", name: "Engine API Key (Changeset)", description: "POST /api/v1/engine/git/changeset 수신 인증 키. 외부 에이전트가 변경조각을 토스할 때 사용.", category: "v3 엔진" },
+  { key: "anthropic_api_key", name: "Anthropic API Key (탈벤더)", description: "AI_VEND_NEUTRAL_MODE=true + TARGET_LLM_PROVIDER=ANTHROPIC 시 마누스 게이트웨이 대신 직결 사용.", category: "v3 엔진" },
 ];
 
 // ─── API 키 관리 탭 ────────────────────────────────────────────────────────────
