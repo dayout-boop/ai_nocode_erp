@@ -48,6 +48,8 @@ export const ENV = {
   githubRepoName: process.env.GITHUB_REPO_NAME ?? "",
   // ── Heartbeat 자립형 트리거 시크릿 (무단 호출 차단) ──
   heartbeatSecretKey: process.env.HEARTBEAT_SECRET_KEY ?? "",
+  // ── Changeset 수신 엔진 API 키 (외부 에이전트 변경조각 토스 인증) ──
+  engineApiKey: process.env.ENGINE_API_KEY ?? "",
   // ── 탈마누스(벤더 중립) 스위치 ──
   aiVendNeutralMode: process.env.AI_VEND_NEUTRAL_MODE ?? "",
   targetLlmProvider: process.env.TARGET_LLM_PROVIDER ?? "",

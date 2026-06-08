@@ -19,6 +19,7 @@ import { subscribe, startHeartbeat } from "../services/realtimeEvents";
 import { startManusSync } from "../services/manusSync";
 import { registerManusWebhookRoute } from "../routers/manusWebhook";
 import { registerScheduledRunDueRoute } from "../routers/scheduledRunDue";
+import engineChangesetRouter from "../routers/engineChangeset";
 import partnerGoogleAuthRouter from "../routers/partnerGoogleAuth";
 import authProxyRouter from "../routers/authProxy";
 import { sdk } from "./sdk";
@@ -107,6 +108,9 @@ async function startServer() {
   // POST /api/v1/tenants/:id/auth/oauth/google/session-token → 로그인 시작
   // GET  /api/v1/auth/oauth/google/callback          → OAuth 콜백 처리
   app.use('/api/v1', authProxyRouter);
+
+  // 마누스↔Git 원천 분리 Changeset 수신 입구 (POST /api/v1/engine/git/changeset)
+  app.use('/api/v1', engineChangesetRouter);
 
   // partner.dayoutgolf.com 접속 시 URL 유지 - 클라이언트 라우터가 처리하므로 서버는 통과
   // (App.tsx에서 hostname 감지 후 PartnerLandingPage 렌더링)

@@ -2009,3 +2009,12 @@ Detected
 - [x] vitest 단위테스트 17종(도구격리/partner잠금/브랜치가드/토큰누수) 작성·통과
 - [x] 전체 테스트 277 PASS 회귀 확인
 - [x] 체크포인트 저장
+
+## [트랙2 - E2E 파이프라인 완성 (STEP3/4/5)]
+- [x] Changeset 수신 API 실연동 (POST /api/v1/engine/git/changeset, 시크릿 인증/경계차단)
+- [x] 대시보드 운영 UI 확장 (4종 정합성 패널 + 레드팀 리포트 + 오딧/레드팀 재실행 버튼 + 색상 patch 뷰어)
+- [x] 탈마누스 자립전환 상태 진단 서비스/라우터 (vendorNeutral.ts, neutralStatus)
+- [x] 대시보드 자립전환 패널 (현재 모드/준비도/Phase 1~4 로드맵)
+- [x] DB 완전이전 덤프 스크립트 (scripts/export-db-dump.mjs)
+- [x] 서버 완전이전 가이드 문서 (docs/MIGRATION_SELF_HOSTING.md)
+- [x] vitest 신규 22종 (changesetSecurity 13 + vendorNeutral 9), 전체 회귀 통과

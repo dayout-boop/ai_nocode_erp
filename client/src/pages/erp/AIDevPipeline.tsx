@@ -1,17 +1,19 @@
 /**
- * AI 개발 파이프라인 대시보드 [STEP1 §5.2 / STEP3]
+ * AI 개발 파이프라인 대시보드 [STEP1 §5.2 / STEP3 / STEP4]
  * ------------------------------------------------------------------
  * 마스터 전용 'AI 변경 이력 및 정합성 검증 대시보드'.
  *  - 좌측: ai_dev_requests 목록(DB 고속) + 상태 필터
- *  - 우측: 선택 요청 상세(변경 파일 메타 + 커밋 목록)
- *  - '소스 보기' 클릭 시에만 Git API 로 Diff 온디맨드 로드
- *  - main 반영은 오직 마스터 수동 승인/반려 버튼
+ *  - 우측: 선택 요청 상세(변경 파일 메타 + 커밋 + 4종 정합성 + 레드팀)
+ *  - '소스 보기' 클릭 시에만 Git API 로 Diff 온디맨드 로드 (색상 patch 렌더)
+ *  - 4종 정합성 오딧 / 레드팀 교차검증 마스터 수동 재실행
+ *  - main 반영은 오직 마스터 수동 승인/반려 버튼 (AI 결정권 박탈)
  */
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
   GitBranch,
   GitMerge,
@@ -22,6 +24,10 @@ import {
   AlertTriangle,
   Loader2,
   ShieldCheck,
+  ShieldAlert,
+  Bug,
+  Unplug,
+  ServerCog,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,6 +40,28 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
   MASTER_APPROVED: { label: "마스터 승인", cls: "bg-green-100 text-green-700" },
   MASTER_REJECTED: { label: "마스터 반려", cls: "bg-orange-100 text-orange-700" },
 };
+
+/** GitHub unified patch 문자열을 색상 라인으로 렌더링 */
+function PatchView({ patch }: { patch: string }) {
+  const lines = patch.split("\n");
+  return (
+    <pre className="text-[11px] rounded p-2 overflow-x-auto mt-1 max-h-72 bg-gray-950 leading-relaxed">
+      {lines.map((ln, i) => {
+        let cls = "text-gray-300";
+        if (ln.startsWith("+") && !ln.startsWith("+++")) cls = "text-green-400 bg-green-500/10 block";
+        else if (ln.startsWith("-") && !ln.startsWith("---")) cls = "text-red-400 bg-red-500/10 block";
+        else if (ln.startsWith("@@")) cls = "text-cyan-400 block";
+        else if (ln.startsWith("diff") || ln.startsWith("index") || ln.startsWith("+++") || ln.startsWith("---"))
+          cls = "text-gray-500 block";
+        return (
+          <span key={i} className={`${cls} font-mono whitespace-pre-wrap`}>
+            {ln || " "}
+          </span>
+        );
+      })}
+    </pre>
+  );
+}
 
 export default function AIDevPipeline() {
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
@@ -55,6 +83,7 @@ export default function AIDevPipeline() {
     { commitSha: openDiffSha ?? "" },
     { enabled: !!openDiffSha },
   );
+  const neutral = trpc.aiDevPipeline.neutralStatus.useQuery();
 
   const refresh = () => {
     utils.aiDevPipeline.listRequests.invalidate();
@@ -78,8 +107,27 @@ export default function AIDevPipeline() {
     onSuccess: () => { toast.success("반려 처리됨"); refresh(); },
     onError: (e) => toast.error(e.message),
   });
+  const runAudit = trpc.aiDevPipeline.runAudit.useMutation({
+    onSuccess: (r) => {
+      toast[r.isPerfect ? "success" : "error"](
+        r.isPerfect ? "4종 정합성 통과 (마스터 승인 대기)" : `정합성 실패 — ${r.reason}`,
+      );
+      refresh();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const runRedteam = trpc.aiDevPipeline.runRedteam.useMutation({
+    onSuccess: () => { toast.success("레드팀 교차검증 완료"); refresh(); },
+    onError: (e) => toast.error(e.message),
+  });
 
   const statusList = ["INIT", "CODE_GENERATED", "INTEGRITY_PASSED", "INTEGRITY_FAILED", "INTEGRATED", "MASTER_APPROVED", "MASTER_REJECTED"];
+
+  // auditSummary 를 4종 라인 / 레드팀 섹션으로 분리 표출
+  const auditSummary = detail.data?.request.auditSummary ?? "";
+  const redteamSplit = auditSummary.split("—— 레드팀 교차검증 ——");
+  const auditLines = (redteamSplit[0] ?? "").trim().split("\n").filter(Boolean);
+  const redteamText = redteamSplit[1]?.trim();
 
   return (
     <div className="p-6 space-y-6">
@@ -119,6 +167,88 @@ export default function AIDevPipeline() {
           </button>
         ))}
       </div>
+
+      {/* STEP5 — 탈마누스 자립전환 상태 패널 */}
+      {neutral.data && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center justify-between flex-wrap gap-2">
+              <span className="flex items-center gap-2">
+                <Unplug size={18} /> 탈마누스 자립전환 상태
+              </span>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className={
+                    neutral.data.status.currentMode === "MANUS_GATEWAY"
+                      ? "border-blue-300 text-blue-700"
+                      : "border-green-400 text-green-700"
+                  }
+                >
+                  <ServerCog size={12} className="mr-1" />
+                  {neutral.data.status.currentMode === "MANUS_GATEWAY"
+                    ? "마누스 게이트웨이"
+                    : neutral.data.status.currentMode === "NEUTRAL_ANTHROPIC"
+                      ? "자립(Anthropic 직결)"
+                      : "자립(Gemini 직결)"}
+                </Badge>
+                <Badge className="bg-slate-800 text-white">{neutral.data.status.phaseLabel}</Badge>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                <span>자립 준비도 (Phase 4 도달 기준)</span>
+                <span>{neutral.data.status.readinessScore}%</span>
+              </div>
+              <Progress
+                value={neutral.data.status.readinessScore}
+                className={`h-2 ${neutral.data.status.readinessScore === 100 ? "[&>div]:bg-green-500" : neutral.data.status.readinessScore >= 50 ? "[&>div]:bg-yellow-500" : "[&>div]:bg-slate-400"}`}
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              {neutral.data.status.readiness.map((r) => (
+                <div
+                  key={r.key}
+                  className={`rounded-lg border p-2.5 text-xs ${r.ready ? "border-green-200 bg-green-50" : "border-gray-200 bg-gray-50"}`}
+                  title={r.hint}
+                >
+                  <div className="flex items-center gap-1.5 font-medium">
+                    {r.ready ? (
+                      <CheckCircle2 size={13} className="text-green-600" />
+                    ) : (
+                      <XCircle size={13} className="text-gray-400" />
+                    )}
+                    {r.label}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground mt-1 leading-tight">{r.hint}</div>
+                </div>
+              ))}
+            </div>
+            <details className="text-xs">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground select-none">
+                의존도 감소 로드맵 (Phase 1 → 4)
+              </summary>
+              <div className="mt-2 space-y-1.5">
+                {neutral.data.roadmap.map((p) => (
+                  <div
+                    key={p.phase}
+                    className={`rounded border p-2 ${p.phase === neutral.data!.status.phase ? "border-slate-800 bg-slate-50" : "border-gray-100"}`}
+                  >
+                    <div className="font-medium">
+                      Phase {p.phase} — {p.title}{" "}
+                      <span className="text-muted-foreground font-normal">({p.period})</span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">마누스: {p.manusRole}</div>
+                    <div className="text-[10px] text-muted-foreground">자립: {p.selfRange}</div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* 좌측 목록 */}
@@ -178,7 +308,7 @@ export default function AIDevPipeline() {
                 {detail.data.request.errorMessage && (
                   <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700 flex gap-2">
                     <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-                    <span>{detail.data.request.errorMessage}</span>
+                    <span className="whitespace-pre-wrap">{detail.data.request.errorMessage}</span>
                   </div>
                 )}
 
@@ -198,6 +328,54 @@ export default function AIDevPipeline() {
                     ))}
                     {detail.data.files.length === 0 && <div className="text-xs text-muted-foreground">파일 메타 없음</div>}
                   </div>
+                </div>
+
+                {/* 4종 정합성 셀프오딧 패널 */}
+                <div className="rounded-lg border p-3 bg-slate-50">
+                  <div className="text-sm font-medium mb-2 flex items-center justify-between">
+                    <span className="flex items-center gap-1"><ShieldCheck size={14} /> 4종 정합성 셀프오딧</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={runAudit.isPending}
+                      onClick={() => runAudit.mutate({ requestId: detail.data!.request.id })}
+                    >
+                      {runAudit.isPending ? <Loader2 className="animate-spin mr-1" size={12} /> : <RefreshCw size={12} className="mr-1" />}
+                      오딧 재실행
+                    </Button>
+                  </div>
+                  {auditLines.length > 0 ? (
+                    <div className="space-y-1">
+                      {auditLines.map((ln, i) => (
+                        <div key={i} className="text-xs font-mono whitespace-pre-wrap">{ln}</div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-muted-foreground">아직 오딧 기록이 없습니다. '오딧 재실행'을 눌러 4종 정합성 스캔(외부 비용 0원)을 수행하세요.</div>
+                  )}
+                </div>
+
+                {/* 레드팀 교차검증 패널 */}
+                <div className="rounded-lg border p-3 bg-amber-50/60">
+                  <div className="text-sm font-medium mb-2 flex items-center justify-between">
+                    <span className="flex items-center gap-1"><Bug size={14} /> 레드팀 교차검증</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={runRedteam.isPending}
+                      onClick={() => runRedteam.mutate({ requestId: detail.data!.request.id })}
+                    >
+                      {runRedteam.isPending ? <Loader2 className="animate-spin mr-1" size={12} /> : <ShieldAlert size={12} className="mr-1" />}
+                      레드팀 실행
+                    </Button>
+                  </div>
+                  {redteamText ? (
+                    <div className={`text-xs whitespace-pre-wrap ${redteamText.includes("🔴") ? "text-red-700 font-medium" : "text-muted-foreground"}`}>
+                      {redteamText}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-muted-foreground">레드팀 비판 보고 없음. 필요 시 '레드팀 실행'으로 격리 모델 교차검증을 수행하세요(키 미설정 시 비활성).</div>
+                  )}
                 </div>
 
                 {/* 커밋 목록 + Diff 온디맨드 */}
@@ -224,9 +402,7 @@ export default function AIDevPipeline() {
                             {diff.data && diff.data.files.map((df) => (
                               <div key={df.filename} className="mt-2">
                                 <div className="text-xs font-mono font-semibold">{df.filename} <span className="text-green-600">+{df.additions}</span> <span className="text-red-600">-{df.deletions}</span></div>
-                                {df.patch && (
-                                  <pre className="text-[11px] bg-gray-900 text-gray-100 rounded p-2 overflow-x-auto mt-1 max-h-64">{df.patch}</pre>
-                                )}
+                                {df.patch && <PatchView patch={df.patch} />}
                               </div>
                             ))}
                           </div>

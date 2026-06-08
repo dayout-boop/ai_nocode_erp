@@ -18,6 +18,8 @@ import {
   isGitEngineEnabled,
   ALLOWED_BRANCHES,
 } from "../services/gitEngine";
+import { SelfAuditBot } from "../services/selfAuditBot";
+import { getNeutralStatus, NEUTRAL_ROADMAP } from "../services/vendorNeutral";
 
 const STATUS_VALUES = [
   "INIT",
@@ -150,6 +152,47 @@ export const aiDevPipelineRouter = router({
       return { ok: true };
     }),
 
+  /**
+   * 마스터 수동 4종 정합성 오딩 재실행 [STEP4 §1].
+   * 외부 유료 LLM 호출 0원 — 서버 내부 정적 스캔만 수행, 결과를 PASSED/FAILED 로 동결.
+   */
+  runAudit: adminProcedure
+    .input(z.object({ requestId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
+      const [req] = await db.select().from(aiDevRequests).where(eq(aiDevRequests.id, input.requestId)).limit(1);
+      if (!req) throw new TRPCError({ code: "NOT_FOUND", message: "요청을 찾을 수 없습니다" });
+      const bot = new SelfAuditBot();
+      const report = await bot.executeFourLayerScan(input.requestId);
+      await bot.processAuditResult(input.requestId, report);
+      return { ok: true, isPerfect: report.isPerfect, layers: report.layers, summaryReport: report.summaryReport, reason: report.reason };
+    }),
+
+  /**
+   * 선택적 레드팀 교차검증 수동 실행 [STEP4 §2].
+   * 레드팀 모델 키 미설정 시 비활성 안내 텍스트 반환(비용 통제).
+   * AI는 main 병합 결정권 없음 — 비판 보고만 auditSummary 에 추가.
+   */
+  runRedteam: adminProcedure
+    .input(z.object({ requestId: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
+      const [req] = await db.select().from(aiDevRequests).where(eq(aiDevRequests.id, input.requestId)).limit(1);
+      if (!req) throw new TRPCError({ code: "NOT_FOUND", message: "요청을 찾을 수 없습니다" });
+      const commits = await db.select().from(aiGitCommits).where(eq(aiGitCommits.requestId, input.requestId));
+      const messages = commits.map((c) => c.commitMessage).filter((m): m is string => !!m);
+      const fallback = req.commitMessage ? [req.commitMessage] : [];
+      const bot = new SelfAuditBot();
+      const redteamReport = await bot.redteamCrossReview(input.requestId, messages.length ? messages : fallback);
+      // 기존 요약에 레드팀 섹션 붙임(덮어쓰기 아닌 추기)
+      const prev = req.auditSummary ?? "";
+      const merged = `${prev}${prev ? "\n\n" : ""}—— 레드팀 교차검증 ——\n${redteamReport}`;
+      await db.update(aiDevRequests).set({ auditSummary: merged }).where(eq(aiDevRequests.id, input.requestId));
+      return { ok: true, redteamReport };
+    }),
+
   /** 마스터 반려 */
   masterReject: adminProcedure
     .input(z.object({ requestId: z.number(), reason: z.string().max(1000) }))
@@ -161,4 +204,9 @@ export const aiDevPipelineRouter = router({
         .where(eq(aiDevRequests.id, input.requestId));
       return { ok: true };
     }),
+
+  /** STEP5 §2~3 — 탈마누스 자립전환 상태/로드맵 (키 원문 미노출, 설정여부만) */
+  neutralStatus: adminProcedure.query(async () => {
+    return { status: getNeutralStatus(), roadmap: NEUTRAL_ROADMAP };
+  }),
 });
