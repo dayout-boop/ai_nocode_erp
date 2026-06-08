@@ -233,7 +233,94 @@ router.get('/google/callback', async (req, res) => {
         .where(eq(partners.id, partner.id));
     } else {
       // 신규 파트너 — 구글 계정으로 최초 가입
-      // 신규 가입 → AI 온보딩 채팅 페이지로 리다이렉트
+      // 먼저 partner_onboarding 테이블에 이미 완료된 신청이 있는지 확인
+      // (온보딩 채팅 완료 후 구글 재로그인 케이스)
+      const [existingOnboarding] = await db
+        .select()
+        .from(partnerOnboarding)
+        .where(eq(partnerOnboarding.contactEmail, googleUser.email))
+        .orderBy(desc(partnerOnboarding.createdAt))
+        .limit(1);
+
+      if (existingOnboarding && (existingOnboarding.status === 'approved' || existingOnboarding.status === 'active')) {
+        // 이미 온보딩 완료 + 승인된 파트너 → partners 행 신규 생성 후 ERP 진입
+        console.log(`[GoogleAuth] 온보딩 완료된 신규 파트너 감지 (email: ${googleUser.email}) → partners 행 생성`);
+        try {
+          // tenants 조회
+          const [tenantRow] = await db
+            .select({ id: tenants.id })
+            .from(tenants)
+            .where(eq(tenants.onboardingId, existingOnboarding.id))
+            .limit(1);
+          const tenantId = tenantRow?.id ?? null;
+          const hasLicense = !!(existingOnboarding.businessLicenseUrl || (existingOnboarding as any).tourismLicenseUrl);
+
+          const [insertResult] = await db.insert(partners).values({
+            googleId: googleUser.sub,
+            googleEmail: googleUser.email,
+            googleName: googleUser.name,
+            googlePicture: googleUser.picture || null,
+            contactName: existingOnboarding.contactName || googleUser.name,
+            contactEmail: googleUser.email,
+            companyName: existingOnboarding.companyName || googleUser.name,
+            isActive: hasLicense,
+            tenantId: hasLicense ? tenantId : null,
+            lastGoogleLoginAt: new Date(),
+          });
+          const newPartnerId = (insertResult as any).insertId as number;
+          console.log(`[GoogleAuth] partners 행 생성 완료: partner_id=${newPartnerId}, isActive=${hasLicense}`);
+
+          if (!hasLicense) {
+            // 등록증 없음 → 등록증 업로드 게이트로
+            return res.redirect('/partner/pending-verification?email=' + encodeURIComponent(googleUser.email) + '&name=' + encodeURIComponent(googleUser.name));
+          }
+
+          // 등록증 있음 → 세션 발급 후 ERP 진입
+          const sessionPayload = {
+            partnerId: newPartnerId,
+            tenantId,
+            email: googleUser.email,
+            name: googleUser.name,
+            picture: googleUser.picture || null,
+            loginType: 'google' as const,
+            role: 'partner_owner' as const,
+          };
+          const token = await signPartnerJwt(sessionPayload);
+          res.cookie(PARTNER_SESSION_COOKIE, token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            path: '/',
+          });
+          return res.redirect('/partner/dashboard');
+        } catch (createErr: any) {
+          console.error('[GoogleAuth] partners 행 생성 실패:', createErr?.message);
+          // 실패 시 온보딩 채팅으로 fallback
+        }
+      } else if (existingOnboarding && existingOnboarding.status === 'pending') {
+        // 온보딩 신청은 했지만 아직 승인 대기 → 온보딩 채팅으로 복원
+        // partners 행 없이 onboarding만 있는 경우 → 먼저 partners 행 생성 (비활성)
+        try {
+          await db.insert(partners).values({
+            googleId: googleUser.sub,
+            googleEmail: googleUser.email,
+            googleName: googleUser.name,
+            googlePicture: googleUser.picture || null,
+            contactName: existingOnboarding.contactName || googleUser.name,
+            contactEmail: googleUser.email,
+            companyName: existingOnboarding.companyName || googleUser.name,
+            isActive: false,
+            lastGoogleLoginAt: new Date(),
+          });
+          console.log(`[GoogleAuth] pending 파트너 partners 행 생성 완료 (email: ${googleUser.email})`);
+        } catch (insertErr: any) {
+          console.warn('[GoogleAuth] partners 행 생성 스킵 (이미 존재):', insertErr?.message);
+        }
+        return res.redirect('/partner/onboarding-chat?email=' + encodeURIComponent(googleUser.email) + '&name=' + encodeURIComponent(googleUser.name));
+      }
+
+      // 완전 신규 파트너 → AI 온보딩 채팅 페이지로 리다이렉트
       // pending 행은 온보딩 완료(submit) 시점에 생성 (중복 방지)
       return res.redirect('/partner/onboarding-chat?email=' + encodeURIComponent(googleUser.email) + '&name=' + encodeURIComponent(googleUser.name));
     }
