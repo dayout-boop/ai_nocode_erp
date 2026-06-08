@@ -49,6 +49,7 @@ import AILogs from "@/pages/erp/AILogs";
 import DevAI from "@/pages/erp/DevAI";
 import DevAIOrchestrator from "@/pages/erp/DevAIOrchestrator";
 import AIDevEngine from "@/pages/erp/AIDevEngine";
+import AIDevPipeline from "@/pages/erp/AIDevPipeline";
 import MasterAI from "@/pages/erp/MasterAI";
 import MasterLogs from "@/pages/erp/MasterLogs";
 import MasterCosts from "@/pages/erp/MasterCosts";
@@ -122,6 +123,7 @@ const navItems: NavItem[] = [
       { label: "개발 요청", href: "/dev-ai?tab=requests", icon: <ListChecks size={14} /> },
       { label: "기능 목록", href: "/ai-engine/features", icon: <LayoutList size={14} /> },
       { label: "버전 이력", href: "/dev-ai?tab=versions", icon: <GitBranch size={14} /> },
+      { label: "변경이력·정합성 🔀", href: "/ai-dev-pipeline", icon: <GitBranch size={14} /> },
       { label: "오류 로그", href: "/ai-dev-engine", icon: <AlertTriangle size={14} /> },
       { label: "관리 프로젝트", href: "/managed-projects", icon: <FolderOpen size={14} /> },
       { label: "파일 분석 이력", href: "/ai-engine/file-analysis", icon: <FileText size={14} /> },
@@ -345,6 +347,7 @@ function ERPContent() {
           <Route path="/tenant-ai-console" component={TenantAiConsole} />
           <Route path="/image-archive" component={ImageArchive} />
           <Route path="/credit-management" component={CreditManagement} />
+          <Route path="/ai-dev-pipeline" component={AIDevPipeline} />
           <Route component={ERPDashboard} />
         </Switch>
       </Suspense>

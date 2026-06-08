@@ -2210,3 +2210,82 @@ export const tenantCreditRequests = mysqlTable("tenant_credit_requests", {
 });
 export type TenantCreditRequest = typeof tenantCreditRequests.$inferSelect;
 export type InsertTenantCreditRequest = typeof tenantCreditRequests.$inferInsert;
+
+
+// ============================================================
+// AI DEV ENGINE — 서버 내장 Git 엔진 오케스트레이션 메타데이터
+// (소스 본체/Diff는 Git이 관리, DB는 통계·상태·SHA 인덱스만 보관)
+// 사양 근거: docs/step_specs_extracted.md (STEP 1)
+// ============================================================
+
+/**
+ * ai_dev_requests — 에이전트 개발요청·상태 추적 마스터 테이블
+ * agent_id: master_engine / manager_engine / golftalk_engine / assistant_engine
+ */
+export const aiDevRequests = mysqlTable("ai_dev_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 요청 수행 에이전트 식별자 */
+  agentId: varchar("agentId", { length: 50 }).notNull(),
+  /** 소스 브랜치 (기본 dev-1) */
+  sourceBranch: varchar("sourceBranch", { length: 100 }).default("dev-1").notNull(),
+  /** 타깃 브랜치 (기본 dev-2-integration) */
+  targetBranch: varchar("targetBranch", { length: 100 }).default("dev-2-integration").notNull(),
+  /** 라이프사이클 상태 머신 */
+  status: mysqlEnum("status", [
+    "INIT",
+    "CODE_GENERATED",
+    "INTEGRITY_PASSED",
+    "INTEGRITY_FAILED",
+    "INTEGRATED",
+    "MASTER_APPROVED",
+    "MASTER_REJECTED",
+  ]).default("INIT").notNull(),
+  /** 커밋 메시지 (요청 단위 요약) */
+  commitMessage: varchar("commitMessage", { length: 1000 }),
+  /** 정합성 실패 또는 API 연동 실패 시 원인 레포트 */
+  errorMessage: text("errorMessage"),
+  /** 자가점검 요약 보고서 (마스터 TODO 레이어 표출용) */
+  auditSummary: text("auditSummary"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type AiDevRequest = typeof aiDevRequests.$inferSelect;
+export type InsertAiDevRequest = typeof aiDevRequests.$inferInsert;
+
+/**
+ * ai_dev_request_files — 변경 파일 메타 통계 (Diff 문자열 미저장)
+ */
+export const aiDevRequestFiles = mysqlTable("ai_dev_request_files", {
+  id: int("id").autoincrement().primaryKey(),
+  /** ai_dev_requests.id 참조 */
+  requestId: int("requestId").notNull(),
+  /** 수정된 파일의 상대 경로 */
+  filePath: varchar("filePath", { length: 500 }).notNull(),
+  /** 변경 유형 */
+  changeType: mysqlEnum("changeType", ["ADD", "MODIFY", "DELETE"]).notNull(),
+  /** 추가 라인 수 통계 */
+  additions: int("additions").default(0).notNull(),
+  /** 삭제 라인 수 통계 */
+  deletions: int("deletions").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type AiDevRequestFile = typeof aiDevRequestFiles.$inferSelect;
+export type InsertAiDevRequestFile = typeof aiDevRequestFiles.$inferInsert;
+
+/**
+ * ai_git_commits — GitHub 커밋 연동 메타 (commit_sha = PK)
+ */
+export const aiGitCommits = mysqlTable("ai_git_commits", {
+  commitSha: varchar("commitSha", { length: 40 }).primaryKey(),
+  /** ai_dev_requests.id 참조 */
+  requestId: int("requestId").notNull(),
+  /** 커밋 작성 주체 (서버 엔진 고정) */
+  authorName: varchar("authorName", { length: 100 }).default("DuGolf-Server-Engine").notNull(),
+  /** 커밋 메시지 */
+  commitMessage: varchar("commitMessage", { length: 1000 }).notNull(),
+  /** 커밋이 적재된 브랜치 */
+  branch: varchar("branch", { length: 100 }).default("dev-1").notNull(),
+  committedAt: timestamp("committedAt").defaultNow().notNull(),
+});
+export type AiGitCommit = typeof aiGitCommits.$inferSelect;
+export type InsertAiGitCommit = typeof aiGitCommits.$inferInsert;

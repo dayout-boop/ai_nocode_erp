@@ -18,6 +18,7 @@ import { reportError } from "./errorWatcher.js";
 import { subscribe, startHeartbeat } from "../services/realtimeEvents";
 import { startManusSync } from "../services/manusSync";
 import { registerManusWebhookRoute } from "../routers/manusWebhook";
+import { registerScheduledRunDueRoute } from "../routers/scheduledRunDue";
 import partnerGoogleAuthRouter from "../routers/partnerGoogleAuth";
 import authProxyRouter from "../routers/authProxy";
 import { sdk } from "./sdk";
@@ -54,6 +55,8 @@ async function startServer() {
   app.use(cookieParser());
   // Manus 웹훅 수신 엔드포인트 등록 (/api/manus/webhook) - JSON 파싱 후 등록
   registerManusWebhookRoute(app);
+  // Heartbeat 정기 트리거(자립형 크론) — /api/scheduled/run-due
+  registerScheduledRunDueRoute(app);
   registerStorageProxy(app);
   registerOAuthRoutes(app);
   

@@ -3359,6 +3359,7 @@ import { scheduledTasksRouter } from "./routers/scheduledTasks";
 import { agentApprovalsRouter } from "./routers/agentApprovals";
 import { tenantAiRouter } from "./routers/tenantAi";
 import { imageArchiveRouter } from "./routers/imageArchive";
+import { aiDevPipelineRouter } from "./routers/aiDevPipeline";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -3420,5 +3421,6 @@ export const appRouter = router({
   manusWebhook: manusWebhookRouter,
   tenantAi: tenantAiRouter,
   imageArchive: imageArchiveRouter,
+  aiDevPipeline: aiDevPipelineRouter,
 });
 export type AppRouter = typeof appRouter;

@@ -42,4 +42,14 @@ export const ENV = {
   // 파트너 구글 OAuth (환경변수 폴백 — Secret Manager 조회 실패 시 사용)
   partnerGoogleClientId: process.env.PARTNER_GOOGLE_CLIENT_ID ?? "",
   partnerGoogleClientSecret: process.env.PARTNER_GOOGLE_CLIENT_SECRET ?? "",
+  // ── 서버 내장 Git 엔진 (GitHub REST API 직접 호출. 마누스는 GitHub에 직접 연결하지 않음) ──
+  githubToken: process.env.GITHUB_TOKEN ?? "",
+  githubRepoOwner: process.env.GITHUB_REPO_OWNER ?? "",
+  githubRepoName: process.env.GITHUB_REPO_NAME ?? "",
+  // ── Heartbeat 자립형 트리거 시크릿 (무단 호출 차단) ──
+  heartbeatSecretKey: process.env.HEARTBEAT_SECRET_KEY ?? "",
+  // ── 탈마누스(벤더 중립) 스위치 ──
+  aiVendNeutralMode: process.env.AI_VEND_NEUTRAL_MODE ?? "",
+  targetLlmProvider: process.env.TARGET_LLM_PROVIDER ?? "",
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
 };

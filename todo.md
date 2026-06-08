@@ -1991,3 +1991,21 @@ Detected
 - [ ] 승인 거부 시 파트너 거부 사유 이메일 발송
 - [ ] 신규 파트너 가입 시 두골프 담당자 Slack 알림
 - [ ] ERP 파트너 상세: 수집된 URL 목록 + 관리자 메모 기능 표시
+
+## [AI 에이전트 통합 개발엔진 - Step1~5 트랙1] (2026-06-08)
+- [x] DB 메타 스키마 3종(ai_dev_requests / ai_dev_request_files / ai_git_commits) 추가 + db.push
+- [x] 서버 내장 Git 엔진(gitEngine.ts): GitHub REST 5단계 트랜잭션 dev-1 커밋, main 직접커밋 금지
+- [x] 브랜치 화이트리스트 가드(main/dev-1/dev-2-integration) + 충돌 시 자동/강제 병합 금지
+- [x] 커밋 Diff 온디맨드 조회(getCommitDiff) — DB 비대화 방지
+- [x] 변경이력·정합성 tRPC 라우터(aiDevPipeline.ts): 목록/상세/통계/통합/승인/반려
+- [x] 마스터 대시보드 UI(/erp/ai-dev-pipeline) + 사이드바 메뉴
+- [x] 단일 runAgent 엔진(agentEngine.ts): 4창구 통합 진입점
+- [x] 도구격리 팩토리: MASTER만 외부도구, manager/golftalk 동결 + 누수 차단검사
+- [x] partner_id 강제 잠금(enforcePartnerLock)
+- [x] 탈벤더 스위치(AI_VEND_NEUTRAL_MODE): Anthropic 직결 / Gemini 폴백
+- [x] 4종 정합성 셀프오딧 봇(selfAuditBot.ts) + 레드팀 교차검증 + AI 결정권 박탈 상태머신
+- [x] 오케스트레이터(orchestrator.ts): Changeset→DB→dev-1 커밋→통합→오딧 파이프라인
+- [x] Heartbeat 자립형 트리거(POST /api/scheduled/run-due) + 시크릿 토큰 가드
+- [x] vitest 단위테스트 17종(도구격리/partner잠금/브랜치가드/토큰누수) 작성·통과
+- [x] 전체 테스트 277 PASS 회귀 확인
+- [x] 체크포인트 저장
