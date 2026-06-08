@@ -1896,7 +1896,7 @@ Detected
 - [x] AdminManagement.tsx에 계정 정보 수정 다이얼로그 추가 (이름/이메일/전화번호)
 - [x] 마스터 계정 이메일 dayout@dayoutgolf.com으로 DB 업데이트
 - [x] 구글 로그인 콜백에서 adminAccounts.email 일치 시 ERP 대시보드로 분기 처리
-=======
+
 ## [파트너 AI 온보딩 채팅 페이지] (2026-06-08)
 - [x] server/routers/ai.ts: onboardingChat 뮤테이션 추가 (온보딩 전용 systemPrompt, JSON 필드 추출 포함)
 - [x] client/src/pages/Partner/PartnerOnboardingChat.tsx: 신규 페이지 생성
@@ -1908,5 +1908,12 @@ Detected
 - [x] App.tsx: /partner/onboarding-chat 라우트 등록
 - [x] server/routers/partnerGoogleAuth.ts: 신규 파트너 리다이렉트를 /partner/onboarding-chat으로 변경
 - [x] TypeScript 오류 0개 확인
+- [x] 체크포인트 저장
+
+## [OCR 결과 인라인 편집 기능] (2026-06-08)
+- [x] LicenseUploadCard: OCR 결과 표시 영역에 "수정" 버튼 추가 (Pencil 아이콘)
+- [x] LicenseUploadCard: 편집 모드 활성화 시 인라인 Input 폼 표시 (저장/취소 버튼 포함)
+- [x] 사업자등록증 OCR 필드 확장: 업체명, 사업자번호, 대표자, 업태, 종목, 주소, 개업일
+- [x] 관광사업자등록증 OCR 필드 확장: 등록번호, 사업종류, 업체명, 대표자, 주소, 등록일
+- [x] 편집 저장 시 ocrResult/ocrRawText 상태 동기화 (제출 시 수정된 값 반영)
 - [ ] 체크포인트 저장
->>>>>>> Stashed changes

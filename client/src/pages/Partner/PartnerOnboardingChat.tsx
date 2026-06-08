@@ -28,6 +28,9 @@ import {
   AlertCircle,
   ChevronUp,
   ChevronDown,
+  Pencil,
+  X,
+  Save,
 } from "lucide-react";
 import * as PortOne from "@portone/browser-sdk/v2";
 
@@ -142,6 +145,7 @@ function LicenseUploadCard({
   state,
   onFileChange,
   ocrFields,
+  onOcrEdit,
 }: {
   title: string;
   description: string;
@@ -149,17 +153,42 @@ function LicenseUploadCard({
   state: LicenseState;
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   ocrFields: { label: string; key: string }[];
+  onOcrEdit: (updated: Record<string, string>) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
+
   const ocrData = state.ocrResult
     ? (() => {
         try {
-          return JSON.parse(state.ocrResult);
+          return JSON.parse(state.ocrResult) as Record<string, string>;
         } catch {
           return null;
         }
       })()
     : null;
+
+  const startEdit = () => {
+    const initial: Record<string, string> = {};
+    ocrFields.forEach((f) => {
+      initial[f.key] = ocrData?.[f.key] ?? "";
+    });
+    setEditForm(initial);
+    setIsEditing(true);
+  };
+
+  const saveEdit = () => {
+    // 기존 ocrData에 편집된 값 병합
+    const merged = { ...(ocrData ?? {}), ...editForm };
+    onOcrEdit(merged);
+    setIsEditing(false);
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setEditForm({});
+  };
 
   return (
     <div
@@ -211,18 +240,86 @@ function LicenseUploadCard({
               className="w-full max-h-32 object-contain rounded-lg border"
             />
           )}
-          {ocrData && (
-            <div className="grid grid-cols-2 gap-1 mt-2">
-              {ocrFields.map((f) =>
-                ocrData[f.key] ? (
-                  <div key={f.key} className="text-xs">
-                    <span className="text-gray-500">{f.label}: </span>
-                    <span className="font-medium text-gray-800">{ocrData[f.key]}</span>
+
+          {/* OCR 결과 표시 / 편집 영역 */}
+          {ocrData && !isEditing && (
+            <div className="bg-white border border-gray-200 rounded-lg p-2.5 space-y-1.5">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">OCR 추출 결과</span>
+                <button
+                  type="button"
+                  onClick={startEdit}
+                  className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                >
+                  <Pencil size={11} /> 수정
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-1">
+                {ocrFields.map((f) => (
+                  <div key={f.key} className="flex items-baseline gap-1 text-xs">
+                    <span className="text-gray-400 shrink-0 w-16">{f.label}</span>
+                    <span className="font-medium text-gray-800 break-all">
+                      {ocrData[f.key] || <span className="text-gray-300 italic">미인식</span>}
+                    </span>
                   </div>
-                ) : null
-              )}
+                ))}
+              </div>
             </div>
           )}
+
+          {/* OCR 편집 폼 */}
+          {isEditing && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+              <div className="flex items-center gap-1.5 mb-2">
+                <ShieldCheck size={13} className="text-blue-600 shrink-0" />
+                <p className="text-[11px] text-blue-700">
+                  OCR 인식이 부정확한 경우 직접 수정하세요. 수정 후 저장하면 반영됩니다.
+                </p>
+              </div>
+              <div className="space-y-2">
+                {ocrFields.map((f) => (
+                  <div key={f.key} className="space-y-0.5">
+                    <Label className="text-[11px] text-gray-600">{f.label}</Label>
+                    <Input
+                      value={editForm[f.key] ?? ""}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({ ...prev, [f.key]: e.target.value }))
+                      }
+                      className="h-7 text-xs"
+                      placeholder={`${f.label} 입력`}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 h-7 text-xs"
+                  onClick={cancelEdit}
+                >
+                  <X size={11} className="mr-1" /> 취소
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="flex-1 h-7 text-xs bg-blue-600 hover:bg-blue-700"
+                  onClick={saveEdit}
+                >
+                  <Save size={11} className="mr-1" /> 저장
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* OCR 결과 없을 때 안내 */}
+          {!ocrData && !state.ocrLoading && (
+            <p className="text-[11px] text-gray-400 text-center py-1">
+              PDF 파일은 OCR 분석이 지원되지 않습니다.
+            </p>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -779,7 +876,19 @@ export default function PartnerOnboardingChat() {
               { label: "업체명", key: "companyName" },
               { label: "사업자번호", key: "businessNumber" },
               { label: "대표자", key: "ceoName" },
+              { label: "업태", key: "businessType" },
+              { label: "종목", key: "businessItem" },
+              { label: "주소", key: "address" },
+              { label: "개업일", key: "openDate" },
             ]}
+            onOcrEdit={(updated) => {
+              setBizLicense((prev) => ({
+                ...prev,
+                ocrResult: JSON.stringify(updated),
+                ocrRawText: JSON.stringify(updated),
+              }));
+              toast.success("사업자등록증 정보가 수정되었습니다.");
+            }}
           />
           <LicenseUploadCard
             title="관광사업자등록증"
@@ -794,7 +903,18 @@ export default function PartnerOnboardingChat() {
               { label: "등록번호", key: "licenseNo" },
               { label: "사업 종류", key: "licenseType" },
               { label: "업체명", key: "companyName" },
+              { label: "대표자", key: "ceoName" },
+              { label: "주소", key: "address" },
+              { label: "등록일", key: "openDate" },
             ]}
+            onOcrEdit={(updated) => {
+              setTourLicense((prev) => ({
+                ...prev,
+                ocrResult: JSON.stringify(updated),
+                ocrRawText: JSON.stringify(updated),
+              }));
+              toast.success("관광사업자등록증 정보가 수정되었습니다.");
+            }}
           />
           {hasBothLicenses && (
             <div className="bg-green-50 border-2 border-green-400 rounded-xl p-3 flex gap-2">
