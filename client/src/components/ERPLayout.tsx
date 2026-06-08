@@ -26,6 +26,8 @@ import {
   Shield,
   // 이미지 아카이브
   Archive,
+  // 크레딧 관리
+  Coins,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -76,6 +78,7 @@ import ManusChat from "@/pages/erp/ManusChat";
 import SettlementsSuppliers from "@/pages/erp/SettlementsSuppliers";
 import TenantAiConsole from "@/pages/erp/TenantAiConsole";
 import ImageArchive from "@/pages/erp/ImageArchive";
+import CreditManagement from "@/pages/erp/CreditManagement";
 import { Loader2 } from "lucide-react";
 
 interface NavChild {
@@ -120,6 +123,7 @@ const navItems: NavItem[] = [
       { label: "AI 로그", href: "/ai-logs", icon: <History size={14} /> },
       { label: "오케스트레이터", href: "/orchestrator", icon: <Zap size={14} /> },
       { label: "분양 AI 콘솔 🏢", href: "/tenant-ai-console", icon: <Shield size={14} /> },
+      { label: "크레딧 관리 💰", href: "/credit-management", icon: <Coins size={14} /> },
       // { label: "마누스채봇 🔗", href: "/erp/manus-chat", icon: <MessageSquare size={14} /> }, // 후보(검토불필요)
     ],
   },
@@ -334,6 +338,7 @@ function ERPContent() {
           <Route path="/managed-projects" component={ManagedProjects} />
           <Route path="/tenant-ai-console" component={TenantAiConsole} />
           <Route path="/image-archive" component={ImageArchive} />
+          <Route path="/credit-management" component={CreditManagement} />
           <Route component={ERPDashboard} />
         </Switch>
       </Suspense>

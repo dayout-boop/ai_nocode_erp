@@ -613,6 +613,92 @@ export const tenantAiRouter = router({
 
       return { success: true };
     }),
+
+  // ─── 수동 크레딧 직접 조정 (관리자 - 증감 모두 지원) ──────────────
+  adminAdjustCredit: adminProcedure
+    .input(
+      z.object({
+        tenantId: z.number(),
+        /** 양수=충전, 음수=차감 */
+        amount: z.number().min(-9999).max(9999).refine((v) => v !== 0, { message: "0은 입력할 수 없습니다." }),
+        memo: z.string().min(1, "조정 사유를 입력해주세요."),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // 테넌트 존재 확인 + 현재 잔액 조회
+      const [tenant] = await db
+        .select({ id: tenants.id, aiCreditsBalance: tenants.aiCreditsBalance, companyName: tenants.companyName })
+        .from(tenants)
+        .where(eq(tenants.id, input.tenantId))
+        .limit(1);
+      if (!tenant) throw new TRPCError({ code: "NOT_FOUND", message: "테넌트를 찾을 수 없습니다." });
+
+      // 차감 시 잔액 부족 체크
+      if (input.amount < 0 && tenant.aiCreditsBalance + input.amount < 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `잔액 부족: 현재 ${tenant.aiCreditsBalance} 크레딧, 차감 요청 ${Math.abs(input.amount)} 크레딧`,
+        });
+      }
+
+      const newBalance = tenant.aiCreditsBalance + input.amount;
+
+      // 잔액 업데이트
+      await db
+        .update(tenants)
+        .set({ aiCreditsBalance: newBalance })
+        .where(eq(tenants.id, input.tenantId));
+
+      // 이력 기록
+      await db.insert(tenantAiCredits).values({
+        tenantId: input.tenantId,
+        type: input.amount > 0 ? "charge" : "deduct",
+        amount: input.amount,
+        balanceAfter: newBalance,
+        processedBy: ctx.user.id,
+        memo: `[수동조정] ${input.memo}`,
+      });
+
+      return { success: true, newBalance, companyName: tenant.companyName };
+    }),
+
+  // ─── 파트너별 크레딧 이력 전체 조회 (관리자 - 타입 필터 포함) ────
+  getAdminCreditHistory: adminProcedure
+    .input(
+      z.object({
+        tenantId: z.number(),
+        type: z.enum(["all", "charge", "deduct", "refund", "monthly_reset"]).default("all"),
+        limit: z.number().default(50),
+        offset: z.number().default(0),
+      })
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const conditions = [eq(tenantAiCredits.tenantId, input.tenantId)];
+      if (input.type !== "all") {
+        conditions.push(eq(tenantAiCredits.type, input.type));
+      }
+
+      const rows = await db
+        .select()
+        .from(tenantAiCredits)
+        .where(and(...conditions))
+        .orderBy(desc(tenantAiCredits.createdAt))
+        .limit(input.limit)
+        .offset(input.offset);
+
+      const [countRow] = await db
+        .select({ total: sql<number>`COUNT(*)` })
+        .from(tenantAiCredits)
+        .where(and(...conditions));
+
+      return { rows, total: countRow?.total ?? 0 };
+    }),
 });
 
 /**
