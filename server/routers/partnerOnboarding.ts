@@ -9,7 +9,7 @@
  */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, ne } from "drizzle-orm";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { partnerOnboarding, tenants, partners } from "../../drizzle/schema";
@@ -170,6 +170,28 @@ export const partnerOnboardingRouter = router({
           reviewedAt: new Date(),
         })
         .where(eq(partnerOnboarding.id, input.id));
+
+      // ─── Slack 알림 발송 (승인/거부 시) ───
+      try {
+        const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
+        if (slackWebhookUrl && current) {
+          let slackMsg = '';
+          if (input.status === 'approved' || input.status === 'active') {
+            slackMsg = `✅ *파트너 승인 완료*\n업체명: ${current.companyName}\n담당자: ${current.contactName} (${current.contactEmail})\n플랜: ${current.subscriptionPlan ?? 'starter'}\n승인자: ${ctx.user.name ?? ctx.user.openId}`;
+          } else if (input.status === 'rejected') {
+            slackMsg = `❌ *파트너 가입 거부*\n업체명: ${current.companyName}\n담당자: ${current.contactName} (${current.contactEmail})\n거부 사유: ${input.adminNote ?? '사유 없음'}\n처리자: ${ctx.user.name ?? ctx.user.openId}`;
+          }
+          if (slackMsg) {
+            fetch(slackWebhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: slackMsg }),
+            }).catch(e => console.warn('[Slack] 알림 발송 실패:', e.message));
+          }
+        }
+      } catch (slackErr: any) {
+        console.warn('[Slack] 알림 오류:', slackErr?.message);
+      }
 
       // 승인 시 테넌트 자동 생성 + 샘플 데이터 자동 생성
       if (input.status === "approved" || input.status === "active") {
@@ -471,10 +493,55 @@ export const partnerOnboardingRouter = router({
       try { if (input.ocrResult) bizOcr = JSON.parse(input.ocrResult); } catch {}
       try { if (input.tourismOcrResult) tourOcr = JSON.parse(input.tourismOcrResult); } catch {}
 
+      // ─── 사업자번호 중복 차단 ───
+      const extractedBizNumber = bizOcr.businessNumber as string | undefined;
+      if (extractedBizNumber) {
+        const [dupCheck] = await db
+          .select({ id: partnerOnboarding.id, contactEmail: partnerOnboarding.contactEmail, status: partnerOnboarding.status })
+          .from(partnerOnboarding)
+          .where(
+            and(
+              eq(partnerOnboarding.businessNumber, extractedBizNumber),
+              ne(partnerOnboarding.contactEmail, input.contactEmail)
+            )
+          )
+          .limit(1);
+        if (dupCheck && (dupCheck.status === 'approved' || dupCheck.status === 'active')) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `이미 등록된 사업자등록번호입니다. (${extractedBizNumber}) 동일 사업자번호로 중복 가입은 불가합니다.`,
+          });
+        }
+      }
+
+      // ─── 업종 키워드 자동 검증 ───
+      const TRAVEL_KEYWORDS = [
+        '여행', '관광', '투어', '골프', '레저', '항공', '호텔', '숙박',
+        '통신판매', '전자상거래', '서비스업', '오락', '스포츠', '레크리에이션',
+        'travel', 'tour', 'golf', 'leisure',
+      ];
+      const bizTypeStr = ((bizOcr.businessType ?? '') + ' ' + (bizOcr.businessItem ?? '')).toLowerCase();
+      const tourTypeStr = ((tourOcr.licenseType ?? '')).toLowerCase();
+      const hasValidIndustry = TRAVEL_KEYWORDS.some(kw => bizTypeStr.includes(kw) || tourTypeStr.includes(kw));
+      // 관광사업자등록증이 있으면 업종 검증 통과 (관광사업자등록증 자체가 여행업 증명)
+      const hasTourismLicense = !!input.tourismLicenseUrl;
+      const industryFlagNote = (!hasValidIndustry && !hasTourismLicense && (bizTypeStr.trim() !== ' '))
+        ? '⚠️ 업종 불일치 자동 플래그: 여행/관광 관련 키워드 미확인 - 관리자 검토 필요'
+        : null;
+
       // 두 등록증이 모두 업로드된 경우 자동 승인 처리
+      // 단, 업종 불일치 플래그가 있으면 reviewing 상태로 전환
       const hasBothLicenses = !!(input.businessLicenseUrl && input.tourismLicenseUrl);
-      const autoApproved = hasBothLicenses;
-      const finalStatus = autoApproved ? "approved" : "pending";
+      const hasAnyLicense = !!(input.businessLicenseUrl || input.tourismLicenseUrl);
+      let finalStatus: 'approved' | 'pending' | 'reviewing';
+      if (hasBothLicenses && !industryFlagNote) {
+        finalStatus = 'approved'; // 두 등록증 + 업종 정상 → 자동 승인
+      } else if (hasAnyLicense && industryFlagNote) {
+        finalStatus = 'reviewing'; // 등록증 있지만 업종 불일치 → 관리자 검토
+      } else {
+        finalStatus = 'pending'; // 등록증 없음 → 대기
+      }
+      const autoApproved = finalStatus === 'approved';
 
       const upsertValues = {
         companyName: (bizOcr.companyName ?? tourOcr.companyName ?? input.contactName) as string,
@@ -500,10 +567,14 @@ export const partnerOnboardingRouter = router({
         sampleCategory: input.sampleCategory,
         subscriptionPlan: input.subscriptionPlan,
         billingCycle: input.billingCycle,
-        status: finalStatus as "pending" | "approved",
+        status: finalStatus as "pending" | "approved" | "reviewing",
         reviewedBy: autoApproved ? "OCR_AUTO_APPROVE" : undefined,
         reviewedAt: autoApproved ? new Date() : undefined,
-        adminNote: autoApproved ? "사업자등록증 + 관광사업자등록증 OCR 인식 완료 - 자동 승인" : undefined,
+        adminNote: autoApproved
+          ? '사업자등록증 + 관광사업자등록증 OCR 인식 완료 - 자동 승인'
+          : industryFlagNote
+            ? industryFlagNote
+            : undefined,
       };
 
       let newId: number;

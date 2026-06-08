@@ -1962,3 +1962,32 @@ Detected
   - PartnerCustomLogin.tsx: ID/PW 로그인 후 /partner/pending-verification 이동
 - [ ] TypeScript 오류 0개 확인
 - [ ] 체크포인트 저장
+
+## [파트너 온보딩 전체 개선 - 업종검증/이메일/대시보드] (2026-06-08)
+
+### 항목 4: PartnerLogin pending_approval 화면 개선
+- [ ] pending 상태: 구글 인증 이메일 표시 + /partner/pending-verification?email=xxx 바로가기 버튼
+- [ ] reviewing 상태(업종 불일치): "업종 확인 중" 안내 + 추가 자료 제출 안내
+- [ ] rejected 상태: 거부 사유 표시 + 재신청 버튼
+
+### 항목 1: 업종 검증 + 사업자번호 중복 차단 + reviewing 자동 분류
+- [ ] submitWithBothOcr: 사업자번호 중복 체크 (동일 businessNumber → 에러 반환)
+- [ ] submitWithBothOcr: 업종 키워드 자동 검증 (여행/관광/통신판매업/골프/레저 없으면 reviewing)
+- [ ] reviewing 상태 파트너: 온보딩 채팅 완료 후 "검토 중" 안내 메시지 표시
+- [ ] 업종 불일치 플래그 DB 저장 (adminNote에 "업종 불일치 자동 플래그" 기록)
+
+### 항목 2: ERP 파트너 관리 대시보드 개선
+- [ ] PartnerOnboardingAdmin.tsx: "자동승인" / "검토 필요(reviewing)" / "거부됨" 탭 추가
+- [ ] 업종 불일치 플래그 표시 (adminNote에 플래그 있는 업체 강조 배지)
+- [ ] 수동 승인/거부 버튼 (reviewing → approved/rejected + 이메일 발송)
+- [ ] partners 테이블: suspendedAt, suspendReason 필드 추가 + db:push
+- [ ] 활성 파트너 정지/복구 기능 (isActive 토글 + 사유 입력)
+
+### 항목 3: 이메일 알림 + 서비스명/URL 수집 + 업체 메모
+- [ ] partner_onboarding 스키마: serviceName, serviceUrl, additionalUrls 필드 추가 + db:push
+- [ ] 온보딩 채팅 Step 1: 서비스명(브랜드명), 홈페이지/블로그 URL 수집 추가
+- [ ] 자동승인 완료 시 파트너 환영 이메일 발송 (접속 URL 포함)
+- [ ] 수동 승인 완료 시 파트너 승인 이메일 발송
+- [ ] 승인 거부 시 파트너 거부 사유 이메일 발송
+- [ ] 신규 파트너 가입 시 두골프 담당자 Slack 알림
+- [ ] ERP 파트너 상세: 수집된 URL 목록 + 관리자 메모 기능 표시

@@ -20,6 +20,10 @@ import {
   Bot,
   Clock,
   Mail,
+  FileText,
+  AlertTriangle,
+  XCircle,
+  RefreshCw,
 } from "lucide-react";
 
 // 구글 로고 SVG
@@ -80,13 +84,14 @@ const SECURITY_BADGES = [
 
 // URL 파라미터 파싱
 function useUrlParams() {
-  const [params, setParams] = useState<{ status?: string; error?: string; email?: string }>({});
+  const [params, setParams] = useState<{ status?: string; error?: string; email?: string; reason?: string }>({});
   useEffect(() => {
     const search = new URLSearchParams(window.location.search);
     setParams({
       status: search.get('status') || undefined,
       error: search.get('error') || undefined,
       email: search.get('email') || undefined,
+      reason: search.get('reason') || undefined,
     });
   }, []);
   return params;
@@ -111,7 +116,7 @@ function getErrorMessage(error?: string): string | null {
 }
 
 export default function PartnerLogin() {
-  const { status, error, email } = useUrlParams();
+  const { status, error, email, reason } = useUrlParams();
   const [isLoading, setIsLoading] = useState(false);
 
   // 구글 OAuth 직접 로그인 — /api/partner/auth/google 으로 리다이렉트
@@ -121,35 +126,121 @@ export default function PartnerLogin() {
     window.location.href = `/api/partner/auth/google?returnUrl=${returnUrl}`;
   };
 
-  // 승인 대기 상태 화면
+  // 공통 헤더 컴포넌트
+  const StatusHeader = () => (
+    <header className="relative z-10 flex items-center justify-between px-6 py-4 border-b border-white/5">
+      <Link href="/partner-landing">
+        <div className="flex items-center gap-2.5 cursor-pointer">
+          <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold text-sm">TC</span>
+          </div>
+          <span className="text-white font-semibold text-sm">투어커뮤니케이션</span>
+        </div>
+      </Link>
+    </header>
+  );
+
+  // ─── 등록증 미제출 (pending) 상태 ───
   if (status === 'pending_approval') {
+    const pendingVerifyUrl = email
+      ? `/partner/pending-verification?email=${encodeURIComponent(email)}`
+      : '/partner/pending-verification';
+
     return (
       <div className="min-h-screen bg-[#0a0f1a] flex flex-col">
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
           <div className="absolute -top-40 -right-40 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl" />
           <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-amber-600/8 rounded-full blur-3xl" />
         </div>
-
-        <header className="relative z-10 flex items-center justify-between px-6 py-4 border-b border-white/5">
-          <Link href="/partner-landing">
-            <div className="flex items-center gap-2.5 cursor-pointer">
-              <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">TC</span>
+        <StatusHeader />
+        <main className="relative z-10 flex-1 flex items-center justify-center px-4 py-8">
+          <div className="w-full max-w-md">
+            {/* 상단 아이콘 + 제목 */}
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FileText size={32} className="text-amber-400" />
               </div>
-              <span className="text-white font-semibold text-sm">투어커뮤니케이션</span>
+              <h1 className="text-2xl font-bold text-white mb-2">사업자 인증 필요</h1>
+              <p className="text-white/50 text-sm leading-relaxed">
+                가입이 진행 중입니다. 사업자등록증을 제출하면<br />
+                <strong className="text-emerald-400">즉시 자동 승인</strong>되어 ERP를 사용할 수 있습니다.
+              </p>
             </div>
-          </Link>
-        </header>
 
+            {/* 구글 인증 계정 표시 */}
+            {email && (
+              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 mb-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle2 size={14} className="text-emerald-400" />
+                  <span className="text-emerald-400 text-xs font-semibold">구글 인증 완료</span>
+                </div>
+                <div className="flex items-center gap-2 text-white/70 text-sm">
+                  <Mail size={13} className="text-white/40" />
+                  <span>{email}</span>
+                </div>
+                <p className="text-white/35 text-xs mt-1">이 계정으로 가입이 진행 중입니다.</p>
+              </div>
+            )}
+
+            {/* 등록증 업로드 안내 카드 */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 mb-4">
+              <h3 className="text-white/80 text-sm font-semibold mb-3">📋 등록증 제출 방법</h3>
+              <div className="space-y-2 mb-4">
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                  <p className="text-white/60 text-xs">아래 버튼을 클릭하여 인증 페이지로 이동</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                  <p className="text-white/60 text-xs">사업자등록증 또는 관광사업자등록증 업로드</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="w-5 h-5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+                  <p className="text-white/60 text-xs">AI 자동 인식 후 즉시 ERP 접속 가능</p>
+                </div>
+              </div>
+              <a
+                href={pendingVerifyUrl}
+                className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg"
+              >
+                <FileText size={16} />
+                <span>사업자 인증 페이지로 이동</span>
+                <ArrowRight size={14} />
+              </a>
+            </div>
+
+            {/* 다른 계정 로그인 */}
+            <button
+              onClick={handleGoogleLogin}
+              className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white/80 font-medium py-3 px-6 rounded-xl transition-all duration-200 border border-white/10 text-sm"
+            >
+              <RefreshCw size={14} />
+              <span>다른 구글 계정으로 로그인</span>
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // ─── 업종 검토 중 (reviewing) 상태 ───
+  if (status === 'reviewing') {
+    return (
+      <div className="min-h-screen bg-[#0a0f1a] flex flex-col">
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
+          <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-blue-600/8 rounded-full blur-3xl" />
+        </div>
+        <StatusHeader />
         <main className="relative z-10 flex-1 flex items-center justify-center px-4 py-8">
           <div className="w-full max-w-md text-center">
-            <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Clock size={32} className="text-amber-400" />
+            <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertTriangle size={32} className="text-blue-400" />
             </div>
-            <h1 className="text-2xl font-bold text-white mb-3">가입 신청 완료</h1>
+            <h1 className="text-2xl font-bold text-white mb-3">업종 확인 중</h1>
             <p className="text-white/60 text-sm leading-relaxed mb-6">
-              가입 신청이 접수되었습니다.<br />
-              관리자 검토 후 <strong className="text-amber-400">1~2 영업일 내</strong>에 승인됩니다.
+              제출하신 사업자등록증의 업종을 확인 중입니다.<br />
+              담당자가 검토 후 <strong className="text-blue-400">1~2 영업일 내</strong>에 안내드립니다.
             </p>
             {email && (
               <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-6">
@@ -157,15 +248,81 @@ export default function PartnerLogin() {
                   <Mail size={14} />
                   <span>{email}</span>
                 </div>
-                <p className="text-white/40 text-xs mt-2">승인 완료 시 위 이메일로 안내드립니다.</p>
+                <p className="text-white/40 text-xs mt-2">검토 완료 시 위 이메일로 안내드립니다.</p>
               </div>
             )}
+            <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-4 mb-4 text-left">
+              <p className="text-blue-300/80 text-xs font-semibold mb-2">📌 추가 자료 제출 안내</p>
+              <p className="text-white/50 text-xs leading-relaxed">
+                여행업/관광업 관련 홈페이지, 블로그, SNS 주소가 있으시면
+                아래 이메일로 보내주시면 검토에 도움이 됩니다.
+              </p>
+              <a href="mailto:partner@dayoutgolf.com" className="text-blue-400 text-xs mt-2 block hover:underline">
+                partner@dayoutgolf.com
+              </a>
+            </div>
             <button
               onClick={handleGoogleLogin}
-              className="w-full flex items-center justify-center gap-3 bg-white/10 hover:bg-white/15 text-white font-medium py-3 px-6 rounded-xl transition-all duration-200 border border-white/10"
+              className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white/80 font-medium py-3 px-6 rounded-xl transition-all duration-200 border border-white/10 text-sm"
             >
-              <span className="text-sm">다른 계정으로 로그인</span>
+              <RefreshCw size={14} />
+              <span>다른 구글 계정으로 로그인</span>
             </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // ─── 승인 거부 (rejected) 상태 ───
+  if (status === 'rejected') {
+    return (
+      <div className="min-h-screen bg-[#0a0f1a] flex flex-col">
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-96 h-96 bg-red-500/10 rounded-full blur-3xl" />
+          <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-red-600/8 rounded-full blur-3xl" />
+        </div>
+        <StatusHeader />
+        <main className="relative z-10 flex-1 flex items-center justify-center px-4 py-8">
+          <div className="w-full max-w-md text-center">
+            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+              <XCircle size={32} className="text-red-400" />
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-3">가입 신청 거부</h1>
+            <p className="text-white/60 text-sm leading-relaxed mb-4">
+              안타깝게도 가입 신청이 승인되지 않았습니다.
+            </p>
+            {reason && (
+              <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4 mb-6 text-left">
+                <p className="text-red-300/80 text-xs font-semibold mb-1">거부 사유</p>
+                <p className="text-white/60 text-sm">{decodeURIComponent(reason)}</p>
+              </div>
+            )}
+            {email && (
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-6">
+                <div className="flex items-center gap-2 justify-center text-white/60 text-sm">
+                  <Mail size={14} />
+                  <span>{email}</span>
+                </div>
+                <p className="text-white/40 text-xs mt-2">자세한 안내는 위 이메일로 발송되었습니다.</p>
+              </div>
+            )}
+            <div className="space-y-3">
+              <a
+                href="/partner/onboarding-chat"
+                className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg"
+              >
+                <RefreshCw size={14} />
+                <span>재신청하기</span>
+              </a>
+              <a
+                href="mailto:partner@dayoutgolf.com"
+                className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white/80 font-medium py-3 px-6 rounded-xl transition-all duration-200 border border-white/10 text-sm"
+              >
+                <Mail size={14} />
+                <span>이의 신청 문의</span>
+              </a>
+            </div>
           </div>
         </main>
       </div>

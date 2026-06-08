@@ -1594,7 +1594,15 @@ export const partnerOnboarding = mysqlTable("partner_onboarding", {
   portonePaymentId: varchar("portonePaymentId", { length: 200 }),
   /** 파트너 ID (승인 후 partners 테이블 연결) */
   partnerId: int("partnerId"),
-  /** 관리자 검토 메모 */
+  /** 서비스명 (브랜드명, 상호와 다를 수 있음) */
+  serviceName: varchar("serviceName", { length: 200 }),
+  /** 홈페이지 URL */
+  websiteUrl: varchar("websiteUrl", { length: 500 }),
+  /** 블로그 URL */
+  blogUrl: varchar("blogUrl", { length: 500 }),
+  /** SNS URL (인스타그램, 유튜브 등) */
+  snsUrl: varchar("snsUrl", { length: 500 }),
+  /** 업체 메모 (관리자 내부 기록) */
   adminNote: text("adminNote"),
   /** 검토자 */
   reviewedBy: varchar("reviewedBy", { length: 200 }),

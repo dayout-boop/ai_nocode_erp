@@ -323,6 +323,13 @@
       "when": 1749340000000,
       "tag": "0044_graceful_shotgun",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "5",
+      "when": 1780908165508,
+      "tag": "0045_cuddly_queen_noir",
+      "breakpoints": true
     }
   ]
 }
