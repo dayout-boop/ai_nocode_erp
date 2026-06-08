@@ -466,8 +466,15 @@ export const aiRouter = router({
       })
     )
     .mutation(async ({ input }) => {
+      const collected = input.collectedData;
+      const alreadyKnown: string[] = [];
+      if (collected.contactName) alreadyKnown.push(`담당자명: ${collected.contactName}`);
+      if (collected.contactEmail) alreadyKnown.push(`이메일: ${collected.contactEmail}`);
+      if (collected.contactPhone) alreadyKnown.push(`전화번호: ${collected.contactPhone}`);
+      if (collected.companyName) alreadyKnown.push(`업체명: ${collected.companyName}`);
+
       const ONBOARDING_SYSTEM_PROMPT = `당신은 두골프(DayOutGolf) 파트너 온보딩 전담 AI 매니저입니다.
-신규 파트너가 구글 로그인 후 처음 만나는 AI입니다. 친절하고 전문적으로 안내하세요.
+신규 파트너가 구글 로그인 후 첫 만나는 AI입니다. 친절하고 전문적으로 안내하세요.
 
 ## 온보딩 단계
 - Step 1: 담당자 연락처 수집 (담당자명, 이메일, 전화번호, 업체명)
@@ -478,12 +485,19 @@ export const aiRouter = router({
 ## 현재 수집된 정보
 ${JSON.stringify(input.collectedData, null, 2)}
 
+${alreadyKnown.length > 0 ? `## ⚠️ 중요: 이미 확인된 정보
+${alreadyKnown.join('\n')}
+
+위 정보는 이미 확인된 값입니다. 사용자가 수정을 요청하지 않는 한 이 값을 그대로 사용하세요.
+이미 알고 있는 정보를 다시 확인하거나 재입력을 요청하지 마세요.
+` : ''}
 ## 현재 단계: Step ${input.currentStep}
 
 ## 응답 규칙
 1. 항상 한국어로 친절하게 답변하세요.
-2. 정보를 수집할 때는 자연스러운 대화로 진행하세요.
-3. 정보가 수집되면 응답 마지막에 반드시 아래 JSON 블록을 포함하세요:
+2. 이미 수집된 정보는 다시 묻지 마세요. 눈에 맞는 정보만 수집하세요.
+3. 정보를 수집할 때는 자연스러운 대화로 진행하세요.
+4. 정보가 수집되면 응답 마지막에 반드시 아래 JSON 블록을 포함하세요:
 
 \`\`\`json
 {
@@ -499,11 +513,12 @@ ${JSON.stringify(input.collectedData, null, 2)}
 }
 \`\`\`
 
-4. 정보가 없으면 JSON 블록을 생략하세요.
-5. Step 1에서는 담당자명, 이메일, 전화번호, 업체명을 수집하세요.
-6. Step 2에서는 등록증 업로드를 안내하고 업로드 완료 시 자동 승인됨을 알리세요.
-7. Step 3에서는 플랜 선택을 도와주세요. 스타터(무료)를 먼저 추천하세요.
-8. 모든 정보 수집 완료 시 stepComplete: true를 반환하세요.`;
+5. 정보가 없으면 JSON 블록을 생략하세요.
+6. Step 1에서는 담당자명, 이메일, 전화번호, 업체명을 수집하세요. 이미 수집된 항목은 건너뛰세요.
+7. Step 2에서는 등록증 업로드를 안내하고 업로드 완료 시 자동 승인됨을 알리세요.
+8. Step 3에서는 플랜 선택을 도와주세요. 스타터(무료)를 먼저 추천하세요.
+9. 모든 정보 수집 완료 시 stepComplete: true를 반환하세요.
+10. 사용자가 이름을 수정하면 즉시 JSON fields에 반영하세요 (예: "김xx라고 해"라고 하면 contactName: "김xx"로 업데이트).`;
 
       const messages: import("../services/openrouter").ChatMessage[] = [
         ...input.history.map((h) => ({ role: h.role as "user" | "assistant", content: h.content })),

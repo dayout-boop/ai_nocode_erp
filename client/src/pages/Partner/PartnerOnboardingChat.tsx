@@ -422,6 +422,10 @@ export default function PartnerOnboardingChat() {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [onboardingId, setOnboardingId] = useState<number | null>(null);
 
+  // 채팅창 파일 업로드 ref
+  const chatBizFileRef = useRef<HTMLInputElement>(null);
+  const chatTourFileRef = useRef<HTMLInputElement>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -432,6 +436,74 @@ export default function PartnerOnboardingChat() {
   useEffect(() => {
     scrollToBottom();
   }, [chatMessages, isTyping, scrollToBottom]);
+
+  // ─── 이탈 후 재진입 복원 ─────────────────────────────────────────────────
+  const statusQuery = trpc.partnerOnboarding.getStatusByEmail.useQuery(
+    { email: googleEmail },
+    { enabled: !!googleEmail, retry: false }
+  );
+
+  useEffect(() => {
+    if (!statusQuery.data) return;
+    const d = statusQuery.data;
+    if (!d.hasApplication || !d.data) return;
+
+    // 이미 승인/활성 파트너면 대시보드로
+    if (d.status === 'approved' || d.status === 'active') {
+      navigate('/partner/dashboard');
+      return;
+    }
+
+    // pending/reviewing 상태면 기존 데이터 복원
+    if (d.status === 'pending' || d.status === 'reviewing') {
+      const saved = d.data;
+      setOnboardingId(saved.id);
+      setForm((prev) => ({
+        ...prev,
+        contactName: saved.contactName || prev.contactName,
+        contactEmail: saved.contactEmail || prev.contactEmail,
+        contactPhone: (saved.contactPhone as string) || prev.contactPhone,
+        companyName: (saved.companyName as string) || prev.companyName,
+        subscriptionPlan: (saved.subscriptionPlan as 'starter' | 'standard' | 'premium') || prev.subscriptionPlan,
+        sampleCategory: (saved.sampleCategory as 'golf_tour_domestic' | 'golf_tour_overseas' | 'golf_tour_mixed') || prev.sampleCategory,
+      }));
+
+      // 등록증 URL이 있으면 Step 2 또는 3으로 복원
+      if (saved.businessLicenseUrl) {
+        setBizLicense((prev) => ({
+          ...prev,
+          url: saved.businessLicenseUrl as string,
+          ocrResult: (saved.ocrResult as string) || '',
+          ocrRawText: (saved.ocrResult as string) || '',
+        }));
+      }
+      if (saved.tourismLicenseUrl) {
+        setTourLicense((prev) => ({
+          ...prev,
+          url: saved.tourismLicenseUrl as string,
+          ocrResult: (saved.tourismOcrResult as string) || '',
+          ocrRawText: (saved.tourismOcrResult as string) || '',
+        }));
+      }
+
+      // 단계 복원
+      if (saved.businessLicenseUrl || saved.tourismLicenseUrl) {
+        setStep(2);
+      }
+
+      // 복원 안내 메시지
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: 'restore-msg',
+          role: 'assistant' as const,
+          content: `이전에 진행하시던 가입 절차가 있습니다. 이어서 진행해 드릴게요! 😊\n\n현재 저장된 정보:\n• 담당자: ${saved.contactName || '미입력'}\n• 이메일: ${saved.contactEmail}\n• 업체명: ${(saved.companyName as string) || '미입력'}\n${saved.businessLicenseUrl ? '• 사업자등록증: 업로드 완료 ✅' : ''}\n${saved.tourismLicenseUrl ? '• 관광사업자등록증: 업로드 완료 ✅' : ''}\n\n계속 진행하시겠어요?`,
+          timestamp: new Date(),
+        },
+      ]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusQuery.data]);
 
   // ─── tRPC mutations ────────────────────────────────────────────────────────
   const onboardingChatMutation = trpc.aiAssistant.onboardingChat.useMutation();
@@ -593,18 +665,55 @@ export default function PartnerOnboardingChat() {
       // 2. OCR 처리 (이미지 파일만)
       if (file.type.startsWith("image/")) {
         try {
+          let ocrStr = "";
+          let ocrParsed: Record<string, string> | null = null;
           if (type === "biz") {
             const ocrResult = await ocrBizMutation.mutateAsync({ imageUrl: data.url });
-            const ocrStr = ocrResult.data ? JSON.stringify(ocrResult.data) : "";
+            ocrStr = ocrResult.data ? JSON.stringify(ocrResult.data) : "";
+            ocrParsed = ocrResult.data as Record<string, string> | null;
             setter((prev) => ({ ...prev, ocrLoading: false, ocrResult: ocrStr, ocrRawText: ocrStr }));
           } else {
             const ocrResult = await ocrTourMutation.mutateAsync({ imageUrl: data.url });
-            const ocrStr = ocrResult.data ? JSON.stringify(ocrResult.data) : "";
+            ocrStr = ocrResult.data ? JSON.stringify(ocrResult.data) : "";
+            ocrParsed = ocrResult.data as Record<string, string> | null;
             setter((prev) => ({ ...prev, ocrLoading: false, ocrResult: ocrStr, ocrRawText: ocrStr }));
           }
           toast.success(
             `${type === "biz" ? "사업자등록증" : "관광사업자등록증"} OCR 분석 완료`
           );
+          // 채팅창에 OCR 결과 표시
+          if (ocrParsed) {
+            const typeName = type === "biz" ? "사업자등록증" : "관광사업자등록증";
+            const fields = type === "biz"
+              ? [
+                  { label: "업체명", key: "companyName" },
+                  { label: "사업자번호", key: "businessNumber" },
+                  { label: "대표자", key: "ceoName" },
+                  { label: "업태", key: "businessType" },
+                  { label: "종목", key: "businessItem" },
+                  { label: "주소", key: "address" },
+                  { label: "개업일", key: "openDate" },
+                ]
+              : [
+                  { label: "등록번호", key: "licenseNo" },
+                  { label: "사업 종류", key: "licenseType" },
+                  { label: "업체명", key: "companyName" },
+                  { label: "대표자", key: "ceoName" },
+                  { label: "주소", key: "address" },
+                  { label: "등록일", key: "openDate" },
+                ];
+            const summary = fields
+              .filter((f) => ocrParsed![f.key])
+              .map((f) => `• ${f.label}: ${ocrParsed![f.key]}`)
+              .join("\n");
+            const confirmMsg: ChatMessage = {
+              id: `ocr-${Date.now()}`,
+              role: "assistant",
+              content: `${typeName} OCR 분석이 완료되었습니다! 📋\n\n**추출된 정보:**\n${summary || '인식된 정보 없음'}\n\n정보가 맞나요? 다르면 좌측 패널에서 "수정" 버튼으로 직접 수정할 수 있습니다.`,
+              timestamp: new Date(),
+            };
+            setChatMessages((prev) => [...prev, confirmMsg]);
+          }
         } catch {
           setter((prev) => ({ ...prev, ocrLoading: false }));
         }
@@ -784,13 +893,17 @@ export default function PartnerOnboardingChat() {
             <div>
               <Label className="text-xs font-semibold text-gray-700 mb-1 block">
                 이메일 <span className="text-red-500">*</span>
+                {googleEmail && (
+                  <span className="ml-1.5 text-[10px] text-green-600 font-normal bg-green-50 px-1.5 py-0.5 rounded-full">구글 인증됨</span>
+                )}
               </Label>
               <Input
                 type="email"
                 placeholder="hong@company.com"
                 value={form.contactEmail}
-                onChange={(e) => updateForm({ contactEmail: e.target.value })}
-                className="text-sm"
+                readOnly={!!googleEmail}
+                onChange={(e) => !googleEmail && updateForm({ contactEmail: e.target.value })}
+                className={`text-sm ${googleEmail ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}`}
               />
             </div>
             <div>
@@ -815,7 +928,19 @@ export default function PartnerOnboardingChat() {
           <Button
             className="w-full bg-green-600 hover:bg-green-700 text-sm"
             disabled={!step1Valid}
-            onClick={() => setStep(2)}
+            onClick={() => {
+              setStep(2);
+              // AI에게 단계 전환 알림
+              setChatMessages((prev) => [
+                ...prev,
+                {
+                  id: `step1-done-${Date.now()}`,
+                  role: 'assistant' as const,
+                  content: `담당자 정보가 저장되었습니다! 😊\n• 이름: ${form.contactName}\n• 이메일: ${form.contactEmail}${form.contactPhone ? `\n• 전화: ${form.contactPhone}` : ''}${form.companyName ? `\n• 업체명: ${form.companyName}` : ''}\n\n이제 **Step 2: 등록증 업로드** 단계입니다.\n사업자등록증과 관광사업자등록증을 업로드해 주세요. 아래 버튼을 클릭하면 파일을 선택할 수 있어요!`,
+                  timestamp: new Date(),
+                },
+              ]);
+            }}
           >
             다음 단계 <ChevronRight size={14} className="ml-1" />
           </Button>
@@ -932,7 +1057,31 @@ export default function PartnerOnboardingChat() {
               size="sm"
               className="flex-1 bg-green-600 hover:bg-green-700"
               disabled={(!hasBizLicense && !hasTourLicense) || isAnyLoading || isProcessing}
-              onClick={handleStep2Next}
+              onClick={() => {
+                if (hasBothLicenses) {
+                  // 자동 승인 시도 전 AI 알림
+                  setChatMessages((prev) => [
+                    ...prev,
+                    {
+                      id: `step2-auto-${Date.now()}`,
+                      role: 'assistant' as const,
+                      content: '두 등록증이 모두 업로드되었습니다! 🎉 자동 승인을 진행하겠습니다...',
+                      timestamp: new Date(),
+                    },
+                  ]);
+                } else {
+                  setChatMessages((prev) => [
+                    ...prev,
+                    {
+                      id: `step2-done-${Date.now()}`,
+                      role: 'assistant' as const,
+                      content: `등록증 업로드 완료! 📎 이제 **Step 3: 플랜 선택** 단계입니다.\n원하시는 구독 플랜을 선택해 주세요. 스타터 플랜은 무료로 시작할 수 있어요!`,
+                      timestamp: new Date(),
+                    },
+                  ]);
+                }
+                handleStep2Next();
+              }}
             >
               {isProcessing ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
               {hasBothLicenses ? "즉시 자동 승인" : "다음 단계"}
@@ -1009,15 +1158,28 @@ export default function PartnerOnboardingChat() {
             <p className="text-sm text-gray-600">
               {submitWithBothOcrMutation.data?.autoApproved
                 ? "즉시 자동 승인되었습니다. 파트너 대시보드로 이동합니다."
-                : "관리자 검토 후 1~2 영업일 내에 승인됩니다."}
+                : "관리자 검토 후 1~2 영업일 내에 승인됩니다. 승인 이메일을 수령하시면 로그인하실 수 있습니다."}
             </p>
           </div>
-          <Button
-            className="bg-green-600 hover:bg-green-700"
-            onClick={() => navigate("/partner/dashboard")}
-          >
-            파트너 대시보드로 이동
-          </Button>
+          {submitWithBothOcrMutation.data?.autoApproved ? (
+            <Button
+              className="bg-green-600 hover:bg-green-700"
+              onClick={() => window.location.href = '/partner/dashboard'}
+            >
+              파트너 대시보드로 이동
+            </Button>
+          ) : (
+            <div className="space-y-2 w-full">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => window.location.href = '/partner/login'}
+              >
+                파트너 로그인 페이지로
+              </Button>
+              <p className="text-xs text-gray-400">승인 완료 후 로그인하시면 대시보드를 이용할 수 있습니다</p>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1092,6 +1254,64 @@ export default function PartnerOnboardingChat() {
 
       {/* 입력창 */}
       <div className="bg-white border-t px-3 py-2 shrink-0">
+        {/* Step 2에서 파일 업로드 단축 버튼 */}
+        {step === 2 && (
+          <div className="flex gap-2 mb-2">
+            <button
+              type="button"
+              className={`flex-1 flex items-center gap-1.5 justify-center text-xs px-3 py-1.5 rounded-lg border transition-all ${
+                bizLicense.url
+                  ? 'border-green-400 bg-green-50 text-green-700'
+                  : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-green-400 hover:bg-green-50'
+              }`}
+              onClick={() => chatBizFileRef.current?.click()}
+              disabled={bizLicense.uploading || bizLicense.ocrLoading}
+            >
+              {bizLicense.uploading || bizLicense.ocrLoading ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : bizLicense.url ? (
+                <CheckCircle2 size={12} />
+              ) : (
+                <Upload size={12} />
+              )}
+              사업자등록증
+            </button>
+            <button
+              type="button"
+              className={`flex-1 flex items-center gap-1.5 justify-center text-xs px-3 py-1.5 rounded-lg border transition-all ${
+                tourLicense.url
+                  ? 'border-blue-400 bg-blue-50 text-blue-700'
+                  : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-blue-400 hover:bg-blue-50'
+              }`}
+              onClick={() => chatTourFileRef.current?.click()}
+              disabled={tourLicense.uploading || tourLicense.ocrLoading}
+            >
+              {tourLicense.uploading || tourLicense.ocrLoading ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : tourLicense.url ? (
+                <CheckCircle2 size={12} />
+              ) : (
+                <Upload size={12} />
+              )}
+              관광사업자등록증
+            </button>
+            {/* 파일 입력 숨김 */}
+            <input
+              ref={chatBizFileRef}
+              type="file"
+              accept="image/*,.pdf"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLicenseUpload(f, 'biz'); }}
+            />
+            <input
+              ref={chatTourFileRef}
+              type="file"
+              accept="image/*,.pdf"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLicenseUpload(f, 'tour'); }}
+            />
+          </div>
+        )}
         <div className="flex gap-2 items-end">
           <textarea
             ref={chatInputRef}

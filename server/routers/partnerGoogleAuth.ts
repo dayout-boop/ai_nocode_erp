@@ -8,7 +8,7 @@ import express from 'express';
 import { getGoogleOAuthCredentials } from '../_core/googleSecretManager';
 import { getDb } from '../db';
 import { partners, partnerOnboarding, adminAccounts } from '../../drizzle/schema';
-import { eq, or } from 'drizzle-orm';
+import { eq, or, desc } from 'drizzle-orm';
 import { SignJWT, jwtVerify } from 'jose';
 import { ENV } from '../_core/env';
 
@@ -233,52 +233,27 @@ router.get('/google/callback', async (req, res) => {
         .where(eq(partners.id, partner.id));
     } else {
       // 신규 파트너 — 구글 계정으로 최초 가입
-      // 1) partnerOnboarding에 pending 상태로 등록
-      const [onboardingResult] = await db
-        .insert(partnerOnboarding)
-        .values({
-          status: 'pending',
-          companyName: googleUser.name + ' (구글 가입)',
-          contactName: googleUser.name,
-          contactEmail: googleUser.email,
-          subscriptionPlan: 'starter',
-          billingCycle: 'monthly',
-        });
-      const newOnboardingId = (onboardingResult as any).insertId;
-
-      // 2) partners 테이블에 기본 레코드 생성 (비활성 상태, onboardingId 연결)
-      await db
-        .insert(partners)
-        .values({
-          companyName: googleUser.name,
-          contactName: googleUser.name,
-          contactEmail: googleUser.email,
-          googleId: googleUser.sub,
-          googleEmail: googleUser.email,
-          googleName: googleUser.name,
-          googlePicture: googleUser.picture || null,
-          lastGoogleLoginAt: new Date(),
-          isActive: false, // 관리자 승인 후 활성화
-        });
-
-      // 3) 관리자에게 신규 가입 알림 발송
-      try {
-        const { notifyOwner } = await import('../_core/notification');
-        await notifyOwner({
-          title: '신규 파트너 가입 신청',
-          content: `구글 계정으로 신규 파트너가 가입 신청했습니다.\n이름: ${googleUser.name}\n이메일: ${googleUser.email}\n\nERP 관리자 페이지에서 승인해주세요.`,
-        });
-      } catch (notifyErr) {
-        console.warn('[GoogleAuth] 관리자 알림 발송 실패 (비필수):', notifyErr);
-      }
-
       // 신규 가입 → AI 온보딩 채팅 페이지로 리다이렉트
-      // 구글 이메일/이름을 쿼리 파라미터로 전달하여 폼 자동 채움에 활용
+      // pending 행은 온보딩 완료(submit) 시점에 생성 (중복 방지)
       return res.redirect('/partner/onboarding-chat?email=' + encodeURIComponent(googleUser.email) + '&name=' + encodeURIComponent(googleUser.name));
     }
 
-    // 4. 비활성 파트너 확인
+    // 4. 비활성 파트너 확인 (온보딩 미완료 또는 승인 대기 중)
     if (!partner.isActive) {
+      // 온보딩 신청 여부 확인
+      const [onboardingRow] = await db
+        .select({ id: partnerOnboarding.id, status: partnerOnboarding.status })
+        .from(partnerOnboarding)
+        .where(eq(partnerOnboarding.contactEmail, googleUser.email))
+        .orderBy(desc(partnerOnboarding.createdAt))
+        .limit(1);
+
+      if (!onboardingRow || onboardingRow.status === 'pending' || onboardingRow.status === 'reviewing') {
+        // 온보딩 미완료 또는 검토 중 → 온보딩 채팅으로 이동 (이탈 후 재진입 복원)
+        return res.redirect('/partner/onboarding-chat?email=' + encodeURIComponent(googleUser.email) + '&name=' + encodeURIComponent(googleUser.name));
+      }
+
+      // 승인 대기 중 (approved 상태이지만 파트너 활성화 전)
       return res.redirect('/partner/login?status=pending_approval&email=' + encodeURIComponent(googleUser.email));
     }
 

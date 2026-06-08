@@ -1,27 +1,37 @@
 // ============================================================
 // DOGOLF Partner Dashboard — 입점사 파트너 대시보드
+// partner_session 쿠키 기반 인증 (Manus OAuth 독립)
 // ============================================================
-import { Link } from "wouter";
-import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
+import { Link, useLocation } from "wouter";
+import { usePartnerAuth } from "@/_core/hooks/usePartnerAuth";
 import { trpc } from "@/lib/trpc";
 import {
   Package,
   CalendarDays,
   DollarSign,
   MessageSquare,
-  ChevronRight,
   TrendingUp,
-  AlertCircle,
   Loader2,
   LogOut,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 export default function PartnerDashboard() {
-  const { user, loading, isAuthenticated, logout } = useAuth();
+  const { user, loading, isAuthenticated, logout } = usePartnerAuth();
+  const [, navigate] = useLocation();
+
+  // 온보딩 상태 조회 (이메일 기반 - 공개 API 사용)
+  const myStatusQuery = trpc.partnerOnboarding.getStatusByEmail.useQuery(
+    { email: user?.email ?? "" },
+    { enabled: !!user?.email }
+  );
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/partner/login");
+  };
 
   if (loading) {
     return (
@@ -32,9 +42,15 @@ export default function PartnerDashboard() {
   }
 
   if (!isAuthenticated) {
-    window.location.href = getLoginUrl();
+    // 파트너 로그인 페이지로 이동
+    window.location.href = "/partner/login";
     return null;
   }
+
+  // 온보딩 미완료 상태 처리
+  const onboardingStatus = myStatusQuery.data?.status;
+  const isPending = onboardingStatus === "pending" || onboardingStatus === "reviewing";
+  const isRejected = onboardingStatus === "rejected";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -60,7 +76,7 @@ export default function PartnerDashboard() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => logout()}
+              onClick={handleLogout}
               className="text-gray-500 gap-1.5"
             >
               <LogOut size={14} />
@@ -71,6 +87,39 @@ export default function PartnerDashboard() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+        {/* 승인 대기 중 안내 */}
+        {isPending && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex gap-3">
+            <AlertCircle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-bold text-amber-900 mb-1">가입 승인 대기 중</h3>
+              <p className="text-sm text-amber-800">
+                관리자 검토 후 1~2 영업일 내에 승인됩니다. 승인 완료 시 이메일로 안내드립니다.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* 반려 안내 */}
+        {isRejected && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-5 flex gap-3">
+            <AlertCircle size={20} className="text-red-600 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-bold text-red-900 mb-1">가입 신청 반려</h3>
+              <p className="text-sm text-red-800">
+                {myStatusQuery.data?.data?.adminNote || "가입 신청이 반려되었습니다. 관리자에게 문의해주세요."}
+              </p>
+              <Button
+                size="sm"
+                className="mt-3 bg-red-600 hover:bg-red-700"
+                onClick={() => navigate("/partner/onboarding-chat?email=" + encodeURIComponent(user?.email ?? "") + "&name=" + encodeURIComponent(user?.name ?? ""))}
+              >
+                재신청하기
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* 환영 배너 */}
         <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-2xl p-5 text-white">
           <p className="text-green-100 text-sm font-body mb-1">파트너 대시보드</p>
@@ -85,10 +134,10 @@ export default function PartnerDashboard() {
         {/* 통계 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { icon: Package, label: "등록 상품", value: "12", unit: "개", color: "text-blue-600", bg: "bg-blue-50" },
-            { icon: CalendarDays, label: "이번 달 예약", value: "34", unit: "건", color: "text-green-600", bg: "bg-green-50" },
-            { icon: DollarSign, label: "이번 달 정산", value: "2,840", unit: "만원", color: "text-amber-600", bg: "bg-amber-50" },
-            { icon: TrendingUp, label: "조회수", value: "1,204", unit: "회", color: "text-purple-600", bg: "bg-purple-50" },
+            { icon: Package, label: "등록 상품", value: "0", unit: "개", color: "text-blue-600", bg: "bg-blue-50" },
+            { icon: CalendarDays, label: "이번 달 예약", value: "0", unit: "건", color: "text-green-600", bg: "bg-green-50" },
+            { icon: DollarSign, label: "이번 달 정산", value: "0", unit: "만원", color: "text-amber-600", bg: "bg-amber-50" },
+            { icon: TrendingUp, label: "조회수", value: "0", unit: "회", color: "text-purple-600", bg: "bg-purple-50" },
           ].map((stat) => (
             <Card key={stat.label} className="border-0 shadow-sm">
               <CardContent className="p-4">
@@ -118,9 +167,11 @@ export default function PartnerDashboard() {
               { label: "AI 매니저 상담", icon: "🤖", href: "/partner/chat", desc: "운영 지원 AI" },
             ].map((action) => (
               <Link key={action.label} href={action.href}>
-                <div className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-100 hover:border-green-200 hover:bg-green-50 transition-all cursor-pointer text-center">
-                  <span className="text-2xl">{action.icon}</span>
-                  <p className="text-sm font-semibold text-gray-800 font-body">{action.label}</p>
+                <div className="border border-gray-200 rounded-xl p-3 hover:border-green-400 hover:bg-green-50 transition-all cursor-pointer group">
+                  <div className="text-2xl mb-2">{action.icon}</div>
+                  <p className="text-sm font-semibold text-gray-800 group-hover:text-green-700 font-body">
+                    {action.label}
+                  </p>
                   <p className="text-xs text-gray-500 font-body">{action.desc}</p>
                 </div>
               </Link>
@@ -128,89 +179,14 @@ export default function PartnerDashboard() {
           </CardContent>
         </Card>
 
-        {/* 최근 예약 */}
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold text-gray-700 font-body">최근 예약</CardTitle>
-            <Button variant="ghost" size="sm" className="text-green-600 text-xs gap-1">
-              전체보기 <ChevronRight size={12} />
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {[
-                { name: "김○○", pkg: "태국 파타야 3박5일", date: "2026-05-10", status: "confirmed" },
-                { name: "이○○", pkg: "베트남 다낭 4박6일", date: "2026-05-15", status: "pending" },
-                { name: "박○○", pkg: "필리핀 세부 5박7일", date: "2026-05-20", status: "confirmed" },
-              ].map((booking, i) => (
-                <div key={i} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm">
-                      👤
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800 font-body">{booking.name}</p>
-                      <p className="text-xs text-gray-500 font-body">{booking.pkg}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs text-gray-400 font-body hidden sm:block">{booking.date}</p>
-                    <Badge
-                      variant={booking.status === "confirmed" ? "default" : "secondary"}
-                      className={`text-xs ${booking.status === "confirmed" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}
-                    >
-                      {booking.status === "confirmed" ? "확정" : "대기"}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* AI 매니저 배너 */}
-        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 rounded-2xl p-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-xl">
-              🤖
-            </div>
-            <div>
-              <p className="font-semibold text-gray-800 text-sm font-body">두골프 매니저 AI</p>
-              <p className="text-xs text-gray-500 font-body">상품 등록, 정산 기준, ERP 사용법을 즉시 안내해 드립니다</p>
-            </div>
-          </div>
-          <Link href="/partner/chat">
-            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
-              상담 시작
-            </Button>
-          </Link>
-        </div>
-
         {/* 공지사항 */}
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold text-gray-700 font-body flex items-center gap-2">
-              <AlertCircle size={14} className="text-amber-500" />
-              파트너 공지
-            </CardTitle>
+            <CardTitle className="text-sm font-semibold text-gray-700 font-body">공지사항</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {[
-                { title: "2026년 5월 정산 일정 안내", date: "2026-04-20", isNew: true },
-                { title: "여름 시즌 상품 등록 마감 안내", date: "2026-04-15", isNew: false },
-                { title: "파트너 수수료 정책 변경 안내", date: "2026-04-10", isNew: false },
-              ].map((notice, i) => (
-                <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                  <div className="flex items-center gap-2">
-                    {notice.isNew && (
-                      <Badge className="bg-red-100 text-red-600 text-xs px-1.5 py-0">NEW</Badge>
-                    )}
-                    <p className="text-sm text-gray-700 font-body">{notice.title}</p>
-                  </div>
-                  <p className="text-xs text-gray-400 font-body flex-shrink-0 ml-2">{notice.date}</p>
-                </div>
-              ))}
+            <div className="text-center py-8 text-gray-400 text-sm">
+              등록된 공지사항이 없습니다.
             </div>
           </CardContent>
         </Card>

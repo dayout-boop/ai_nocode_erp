@@ -51,18 +51,40 @@ export const partnerOnboardingRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
 
-      // 중복 이메일 체크
+      // 기존 행 조회 (pending/reviewing 상태인 경우 업데이트, 승인/활성 상태는 신규 삽입 거부)
       const [existing] = await db
-        .select({ id: partnerOnboarding.id })
+        .select({ id: partnerOnboarding.id, status: partnerOnboarding.status })
         .from(partnerOnboarding)
         .where(eq(partnerOnboarding.contactEmail, input.contactEmail))
+        .orderBy(desc(partnerOnboarding.createdAt))
         .limit(1);
 
       if (existing) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: "이미 해당 이메일로 신청된 내역이 있습니다.",
-        });
+        if (existing.status === 'approved' || existing.status === 'active') {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "이미 승인된 파트너 계정입니다. 파트너 대시보드로 이동해주세요.",
+          });
+        }
+        // pending/reviewing 상태: 기존 행 업데이트 (upsert)
+        await db.update(partnerOnboarding).set({
+          companyName: input.companyName,
+          businessNumber: input.businessNumber,
+          ceoName: input.ceoName,
+          businessType: input.businessType,
+          businessItem: input.businessItem,
+          address: input.address,
+          contactName: input.contactName,
+          contactPhone: input.contactPhone,
+          businessLicenseKey: input.businessLicenseKey,
+          businessLicenseUrl: input.businessLicenseUrl,
+          ocrResult: input.ocrResult,
+          sampleCategory: input.sampleCategory,
+          subscriptionPlan: input.subscriptionPlan,
+          billingCycle: input.billingCycle,
+          status: "pending",
+        }).where(eq(partnerOnboarding.id, existing.id));
+        return { success: true, id: existing.id };
       }
 
       const [result] = await db.insert(partnerOnboarding).values({
@@ -427,17 +449,18 @@ export const partnerOnboardingRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
 
-      // 중복 이메일 체크
+      // 기존 행 조회 (pending/reviewing 상태인 경우 업데이트)
       const [existing] = await db
-        .select({ id: partnerOnboarding.id })
+        .select({ id: partnerOnboarding.id, status: partnerOnboarding.status })
         .from(partnerOnboarding)
         .where(eq(partnerOnboarding.contactEmail, input.contactEmail))
+        .orderBy(desc(partnerOnboarding.createdAt))
         .limit(1);
 
-      if (existing) {
+      if (existing && (existing.status === 'approved' || existing.status === 'active')) {
         throw new TRPCError({
           code: "CONFLICT",
-          message: "이미 해당 이메일로 신청된 내역이 있습니다.",
+          message: "이미 승인된 파트너 계정입니다. 파트너 대시보드로 이동해주세요.",
         });
       }
 
@@ -452,7 +475,7 @@ export const partnerOnboardingRouter = router({
       const autoApproved = hasBothLicenses;
       const finalStatus = autoApproved ? "approved" : "pending";
 
-      const [result] = await db.insert(partnerOnboarding).values({
+      const upsertValues = {
         companyName: (bizOcr.companyName ?? tourOcr.companyName ?? input.contactName) as string,
         businessNumber: bizOcr.businessNumber as string | undefined,
         ceoName: bizOcr.ceoName as string | undefined,
@@ -476,13 +499,23 @@ export const partnerOnboardingRouter = router({
         sampleCategory: input.sampleCategory,
         subscriptionPlan: input.subscriptionPlan,
         billingCycle: input.billingCycle,
-        status: finalStatus,
+        status: finalStatus as "pending" | "approved",
         reviewedBy: autoApproved ? "OCR_AUTO_APPROVE" : undefined,
         reviewedAt: autoApproved ? new Date() : undefined,
         adminNote: autoApproved ? "사업자등록증 + 관광사업자등록증 OCR 인식 완료 - 자동 승인" : undefined,
-      });
+      };
 
-      const newId = (result as { insertId: number }).insertId;
+      let newId: number;
+      if (existing) {
+        // 기존 pending 행 업데이트
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await db.update(partnerOnboarding).set(upsertValues as any).where(eq(partnerOnboarding.id, existing.id));
+        newId = existing.id;
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const [result] = await db.insert(partnerOnboarding).values(upsertValues as any);
+        newId = (result as { insertId: number }).insertId;
+      }
 
       // 자동 승인 시 샘플 데이터 생성 비동기 실행
       if (autoApproved) {
@@ -553,6 +586,106 @@ export const partnerOnboardingRouter = router({
         .where(eq(partnerOnboarding.id, row.id));
 
       return { success: true };
+    }),
+
+  /** 이메일로 온보딩 상태 조회 (파트너 구글 로그인 전용 - 공개 API) */
+  getStatusByEmail: publicProcedure
+    .input(z.object({ email: z.string().email() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { hasApplication: false, status: null, data: null };
+      const [row] = await db
+        .select()
+        .from(partnerOnboarding)
+        .where(eq(partnerOnboarding.contactEmail, input.email))
+        .orderBy(desc(partnerOnboarding.createdAt))
+        .limit(1);
+      if (!row) return { hasApplication: false, status: null, data: null };
+      return {
+        hasApplication: true,
+        status: row.status,
+        data: {
+          id: row.id,
+          companyName: row.companyName,
+          contactName: row.contactName,
+          contactEmail: row.contactEmail,
+          contactPhone: (row as Record<string, unknown>).contactPhone as string | null ?? null,
+          businessNumber: (row as Record<string, unknown>).businessNumber as string | null ?? null,
+          ceoName: (row as Record<string, unknown>).ceoName as string | null ?? null,
+          businessType: (row as Record<string, unknown>).businessType as string | null ?? null,
+          businessItem: (row as Record<string, unknown>).businessItem as string | null ?? null,
+          address: (row as Record<string, unknown>).address as string | null ?? null,
+          tourismLicenseNo: (row as Record<string, unknown>).tourismLicenseNo as string | null ?? null,
+          tourismLicenseType: (row as Record<string, unknown>).tourismLicenseType as string | null ?? null,
+          tourismOpenDate: (row as Record<string, unknown>).tourismOpenDate as string | null ?? null,
+          subscriptionPlan: row.subscriptionPlan,
+          sampleCategory: row.sampleCategory,
+          businessLicenseUrl: row.businessLicenseUrl ?? null,
+          tourismLicenseUrl: (row as Record<string, unknown>).tourismLicenseUrl as string | null ?? null,
+          ocrResult: row.ocrResult ?? null,
+          tourismOcrResult: (row as Record<string, unknown>).tourismOcrResult as string | null ?? null,
+          adminNote: row.adminNote ?? null,
+          createdAt: row.createdAt,
+        },
+      };
+    }),
+
+  /** 온보딩 임시 저장 / 진행 상태 업데이트 (이탈 후 재진입 복원용) */
+  saveDraft: publicProcedure
+    .input(
+      z.object({
+        contactEmail: z.string().email(),
+        contactName: z.string().optional(),
+        contactPhone: z.string().optional(),
+        companyName: z.string().optional(),
+        businessLicenseKey: z.string().optional(),
+        businessLicenseUrl: z.string().optional(),
+        ocrResult: z.string().optional(),
+        ocrRawText: z.string().optional(),
+        tourismLicenseKey: z.string().optional(),
+        tourismLicenseUrl: z.string().optional(),
+        tourismOcrResult: z.string().optional(),
+        tourismOcrRawText: z.string().optional(),
+        subscriptionPlan: z.enum(["starter", "standard", "premium"]).optional(),
+        billingCycle: z.enum(["monthly", "yearly"]).optional(),
+        sampleCategory: z.enum(["golf_tour_domestic", "golf_tour_overseas", "golf_tour_mixed"]).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
+
+      // 기존 pending 행 조회
+      const [existing] = await db
+        .select({ id: partnerOnboarding.id, status: partnerOnboarding.status })
+        .from(partnerOnboarding)
+        .where(eq(partnerOnboarding.contactEmail, input.contactEmail))
+        .orderBy(desc(partnerOnboarding.createdAt))
+        .limit(1);
+
+      // pending 상태인 경우만 업데이트 (approved/active는 건드리지 않음)
+      if (existing && (existing.status === 'pending' || existing.status === 'reviewing')) {
+        const updateData: Record<string, unknown> = {};
+        if (input.contactName !== undefined) updateData.contactName = input.contactName;
+        if (input.contactPhone !== undefined) updateData.contactPhone = input.contactPhone;
+        if (input.companyName !== undefined) updateData.companyName = input.companyName;
+        if (input.businessLicenseKey !== undefined) updateData.businessLicenseKey = input.businessLicenseKey;
+        if (input.businessLicenseUrl !== undefined) updateData.businessLicenseUrl = input.businessLicenseUrl;
+        if (input.ocrResult !== undefined) updateData.ocrResult = input.ocrResult;
+        if (input.ocrRawText !== undefined) updateData.ocrRawText = input.ocrRawText;
+        if (input.tourismLicenseKey !== undefined) updateData.tourismLicenseKey = input.tourismLicenseKey;
+        if (input.tourismLicenseUrl !== undefined) updateData.tourismLicenseUrl = input.tourismLicenseUrl;
+        if (input.tourismOcrResult !== undefined) updateData.tourismOcrResult = input.tourismOcrResult;
+        if (input.tourismOcrRawText !== undefined) updateData.tourismOcrRawText = input.tourismOcrRawText;
+        if (input.subscriptionPlan !== undefined) updateData.subscriptionPlan = input.subscriptionPlan;
+        if (input.billingCycle !== undefined) updateData.billingCycle = input.billingCycle;
+        if (input.sampleCategory !== undefined) updateData.sampleCategory = input.sampleCategory;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await db.update(partnerOnboarding).set(updateData as any).where(eq(partnerOnboarding.id, existing.id));
+        return { success: true, id: existing.id, action: 'updated' };
+      }
+
+      return { success: true, id: existing?.id ?? null, action: 'skipped' };
     }),
 
   /** 파일 업로드 URL 생성 (사업자등록증 이미지) */
