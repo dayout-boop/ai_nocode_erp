@@ -1945,3 +1945,20 @@ Detected
 - [x] 단계 스킵 시 AI 가이드 안내 (등록증 스킵 → 나중에 업로드 안내)
 - [x] TypeScript 오류 0개 확인
 - [x] 체크포인트 저장
+
+## [파트너 자동승인 흐름 + 등록증 게이트 + ERP 파트너 직접 생성] (2026-06-08)
+- [ ] partnerOnboarding.submit: 등록증 업로드 완료 시 즉시 isActive=true 자동 전환 로직
+- [ ] partnerGoogleAuth.ts: 등록증 있으면 자동승인 후 /partner/dashboard 바로 이동
+- [ ] partnerGoogleAuth.ts: 등록증 없는 pending 파트너 → /partner/pending-verification 이동
+- [ ] /partner/pending-verification 페이지 신규 생성 (등록증 업로드 게이트)
+  - 사업자등록증 / 관광사업자등록증 업로드 UI
+  - 업로드 완료 시 자동승인 → /partner/dashboard 이동
+  - 업로드 없이 대기 가능 (관리자 수동 검토 안내)
+- [ ] PartnerLogin.tsx: pending_approval 상태에서 /partner/pending-verification 링크 추가
+- [ ] ERP 파트너 직접 생성 기능 (관리자용)
+  - DB 스키마: partners 테이블에 customLoginId, customLoginPwHash 컬럼 추가
+  - tRPC: partner.createByAdmin (업체명, 담당자명, 이메일, 초기ID, 초기PW)
+  - ERP UI: 파트너 관리 페이지에 "파트너 직접 등록" 버튼 + 폼
+  - PartnerCustomLogin.tsx: ID/PW 로그인 후 /partner/pending-verification 이동
+- [ ] TypeScript 오류 0개 확인
+- [ ] 체크포인트 저장

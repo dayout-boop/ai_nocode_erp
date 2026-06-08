@@ -33,6 +33,7 @@ import PartnerLogin from "./pages/Partner/PartnerLogin";
 import PartnerResetPassword from "./pages/Partner/PartnerResetPassword";
 import PartnerCustomLogin from "./pages/Partner/PartnerCustomLogin";
 import PartnerOnboardingChat from "./pages/Partner/PartnerOnboardingChat";
+import PartnerPendingVerification from "./pages/Partner/PartnerPendingVerification";
 import Pricing from "./pages/Pricing";
 
 // 투어커뮤니케이션 파트너 랜딩페이지
@@ -95,6 +96,8 @@ function Router() {
       <Route path={"/partner/custom-login"} component={PartnerCustomLogin} />
       {/* AI 온보딩 채팅 (구글 로그인 후 신규 파트너) */}
       <Route path={"/partner/onboarding-chat"} component={PartnerOnboardingChat} />
+      {/* 등록증 인증 게이트 (온보딩 완료 후 등록증 미제출 파트너) */}
+      <Route path={"/partner/pending-verification"} component={PartnerPendingVerification} />
 
       {/* 구독 플랜 페이지 */}
       <Route path={"/pricing"} component={Pricing} />

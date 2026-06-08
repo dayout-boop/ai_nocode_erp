@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import {
   Building2, Phone, Mail, User, Plus, Search, Eye, CalendarPlus,
   ChevronLeft, ChevronRight, Calendar, Clock, Pencil, Trash2,
-  Lock, CreditCard, FileText, X, RefreshCw
+  Lock, CreditCard, FileText, X, RefreshCw, CheckCircle2
 } from "lucide-react";
 
 // ── 타입 ──────────────────────────────────────────────────────
@@ -178,6 +178,7 @@ function PartnerFormModal({
   onSaved: () => void;
 }) {
   const isEdit = !!partner;
+  const [createdInfo, setCreatedInfo] = useState<{ loginId: string; loginPw: string; companyName: string } | null>(null);
 
   const [form, setForm] = useState({
     companyName: partner?.companyName || "",
@@ -200,7 +201,12 @@ function PartnerFormModal({
     onSuccess: () => {
       toast.success("파트너 등록 완료");
       onSaved();
-      onClose();
+      // 로그인 정보가 있으면 안내 다이얼로그 표시
+      if (form.loginId && form.loginPw) {
+        setCreatedInfo({ loginId: form.loginId, loginPw: form.loginPw, companyName: form.companyName });
+      } else {
+        onClose();
+      }
     },
     onError: (e) => toast.error(e.message),
   });
@@ -230,6 +236,7 @@ function PartnerFormModal({
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -343,6 +350,88 @@ function PartnerFormModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* 파트너 생성 완료 후 접속 정보 안내 다이얼로그 */}
+    {createdInfo && (
+      <Dialog open={!!createdInfo} onOpenChange={() => { setCreatedInfo(null); onClose(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-700">
+              <CheckCircle2 size={18} className="text-green-600" />
+              파트너 등록 완료
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              <strong>{createdInfo.companyName}</strong> 파트너 계정이 생성되었습니다.
+              아래 접속 정보를 파트너에게 안내해주세요.
+            </p>
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+              <div>
+                <p className="text-xs text-gray-400 mb-1">파트너 로그인 URL</p>
+                <div className="flex items-center gap-2">
+                  <code className="text-xs bg-white border border-gray-200 rounded px-2 py-1 flex-1 truncate">
+                    https://partner.dayoutgolf.com/partner/login
+                  </code>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0 text-xs"
+                    onClick={() => {
+                      navigator.clipboard.writeText('https://partner.dayoutgolf.com/partner/login');
+                      toast.success('링크 복사 완료');
+                    }}
+                  >
+                    복사
+                  </Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">로그인 ID</p>
+                  <div className="flex items-center gap-1.5">
+                    <code className="text-sm font-mono bg-white border border-gray-200 rounded px-2 py-1 flex-1">
+                      {createdInfo.loginId}
+                    </code>
+                    <Button size="sm" variant="outline" className="px-2 text-xs" onClick={() => { navigator.clipboard.writeText(createdInfo!.loginId); toast.success('ID 복사'); }}>
+                      복사
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">비밀번호</p>
+                  <div className="flex items-center gap-1.5">
+                    <code className="text-sm font-mono bg-white border border-gray-200 rounded px-2 py-1 flex-1">
+                      {createdInfo.loginPw}
+                    </code>
+                    <Button size="sm" variant="outline" className="px-2 text-xs" onClick={() => { navigator.clipboard.writeText(createdInfo!.loginPw); toast.success('PW 복사'); }}>
+                      복사
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
+              파트너가 로그인 후 사업자등록증을 업로드하면 자동 승인되어 ERP를 바로 이용할 수 있습니다.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                const info = `파트너 로그인 정보\n\n로그인 URL: https://partner.dayoutgolf.com/partner/login\n로그인 ID: ${createdInfo.loginId}\n비밀번호: ${createdInfo.loginPw}\n\n로그인 후 사업자등록증을 업로드하면 자동 승인됩니다.`;
+                navigator.clipboard.writeText(info);
+                toast.success('접속 정보 전체 복사 완료');
+              }}
+              className="bg-dogolf-green hover:bg-dogolf-green-dark text-white"
+            >
+              접속 정보 전체 복사
+            </Button>
+            <Button variant="outline" onClick={() => { setCreatedInfo(null); onClose(); }}>닫기</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )}
+    </>
   );
 }
 

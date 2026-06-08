@@ -12,7 +12,8 @@ import { TRPCError } from "@trpc/server";
 import { eq, desc } from "drizzle-orm";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { partnerOnboarding, tenants } from "../../drizzle/schema";
+import { partnerOnboarding, tenants, partners } from "../../drizzle/schema";
+import { or } from "drizzle-orm";
 import { invokeLLM } from "../_core/llm";
 import { storagePut } from "../storage";
 import { onPartnerApproved } from "../services/sampleDataSeeder";
@@ -517,13 +518,86 @@ export const partnerOnboardingRouter = router({
         newId = (result as { insertId: number }).insertId;
       }
 
-      // 자동 승인 시 샘플 데이터 생성 비동기 실행
+      // 자동 승인 시: 테넌트 생성 + partners.isActive=true 업데이트 + 샘플 데이터 생성
       if (autoApproved) {
         const category = (input.sampleCategory ?? "golf_tour_mixed") as
           | "golf_tour_domestic"
           | "golf_tour_overseas"
           | "golf_tour_mixed";
-        onPartnerApproved(newId, category).catch(console.error);
+
+        // 1) tenants 테이블에 자동 생성 (없는 경우만)
+        let tenantId: number | undefined;
+        try {
+          const plan = SUBSCRIPTION_PLANS.find(p => p.id === (input.subscriptionPlan ?? "starter"));
+          const aiCreditsDefault = plan?.aiCreditsPerMonth ?? 100;
+          const companyName = (upsertValues.companyName ?? input.contactName) as string;
+          const slugBase = companyName
+            .replace(/[^a-zA-Z0-9가-힣]/g, "")
+            .toLowerCase()
+            .slice(0, 20) || "partner";
+          const slug = `${slugBase}-${newId}`;
+          const trialExpires = new Date();
+          trialExpires.setDate(trialExpires.getDate() + 30);
+
+          const [insertResult] = await db.insert(tenants).values({
+            onboardingId: newId,
+            slug,
+            companyName,
+            subscriptionPlan: (input.subscriptionPlan ?? "starter") as "starter" | "standard" | "premium",
+            billingCycle: (input.billingCycle ?? "monthly") as "monthly" | "yearly",
+            subscriptionStatus: "trial",
+            subscriptionExpiresAt: trialExpires,
+            isActive: true,
+            sampleCategory: category,
+            sampleSeeded: false,
+            aiCreditsBalance: aiCreditsDefault,
+            aiCreditsMonthlyLimit: aiCreditsDefault,
+          });
+          tenantId = Number((insertResult as any).insertId);
+          console.log(`[AutoApprove] 테넌트 자동 생성 완료: tenant_id=${tenantId}, slug=${slug}`);
+        } catch (tenantErr: any) {
+          // slug 중복 등으로 이미 생성된 경우 기존 테넌트 조회
+          console.warn(`[AutoApprove] 테넌트 생성 스킵 (이미 존재할 수 있음):`, tenantErr?.message);
+          const [existingTenant] = await db
+            .select({ id: tenants.id })
+            .from(tenants)
+            .where(eq(tenants.onboardingId, newId))
+            .limit(1);
+          if (existingTenant) tenantId = existingTenant.id;
+        }
+
+        // 2) partners 테이블에서 이메일로 파트너 조회 후 isActive=true + tenantId 업데이트
+        if (tenantId) {
+          try {
+            const [existingPartner] = await db
+              .select({ id: partners.id })
+              .from(partners)
+              .where(
+                or(
+                  eq(partners.googleEmail, input.contactEmail),
+                  eq(partners.contactEmail, input.contactEmail)
+                )
+              )
+              .limit(1);
+
+            if (existingPartner) {
+              await db
+                .update(partners)
+                .set({ isActive: true, tenantId })
+                .where(eq(partners.id, existingPartner.id));
+              console.log(`[AutoApprove] 파트너 활성화 완료: partner_id=${existingPartner.id}, tenant_id=${tenantId}`);
+            } else {
+              // partners 행이 없는 경우 (구글 로그인 전 온보딩 완료 케이스)
+              // partnerGoogleAuth.ts 콜백에서 로그인 시 자동 처리됨
+              console.log(`[AutoApprove] partners 행 없음 - 구글 로그인 시 자동 생성 예정 (email: ${input.contactEmail})`);
+            }
+          } catch (partnerErr: any) {
+            console.error(`[AutoApprove] 파트너 활성화 실패:`, partnerErr?.message);
+          }
+        }
+
+        // 3) 비동기로 샘플 데이터 생성 (응답 블로킹 방지)
+        onPartnerApproved(newId, category, tenantId).catch(console.error);
       }
 
       return { success: true, id: newId, autoApproved };

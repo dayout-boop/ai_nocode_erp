@@ -7,7 +7,7 @@
 import express from 'express';
 import { getGoogleOAuthCredentials } from '../_core/googleSecretManager';
 import { getDb } from '../db';
-import { partners, partnerOnboarding, adminAccounts } from '../../drizzle/schema';
+import { partners, partnerOnboarding, adminAccounts, tenants } from '../../drizzle/schema';
 import { eq, or, desc } from 'drizzle-orm';
 import { SignJWT, jwtVerify } from 'jose';
 import { ENV } from '../_core/env';
@@ -242,7 +242,7 @@ router.get('/google/callback', async (req, res) => {
     if (!partner.isActive) {
       // 온보딩 신청 여부 확인
       const [onboardingRow] = await db
-        .select({ id: partnerOnboarding.id, status: partnerOnboarding.status })
+        .select()
         .from(partnerOnboarding)
         .where(eq(partnerOnboarding.contactEmail, googleUser.email))
         .orderBy(desc(partnerOnboarding.createdAt))
@@ -253,8 +253,38 @@ router.get('/google/callback', async (req, res) => {
         return res.redirect('/partner/onboarding-chat?email=' + encodeURIComponent(googleUser.email) + '&name=' + encodeURIComponent(googleUser.name));
       }
 
-      // 승인 대기 중 (approved 상태이지만 파트너 활성화 전)
-      return res.redirect('/partner/login?status=pending_approval&email=' + encodeURIComponent(googleUser.email));
+      // approved 상태: 등록증 업로드 여부 확인
+      if (onboardingRow.status === 'approved') {
+        const hasLicense = !!(onboardingRow.businessLicenseUrl || (onboardingRow as any).tourismLicenseUrl);
+        if (hasLicense) {
+          // 등록증 있음 → 자동 활성화 후 ERP 진입
+          try {
+            // tenants 조회
+            const [tenantRow] = await db
+              .select({ id: tenants.id })
+              .from(tenants)
+              .where(eq(tenants.onboardingId, onboardingRow.id))
+              .limit(1);
+            const tenantId = tenantRow?.id ?? null;
+
+            await db
+              .update(partners)
+              .set({ isActive: true, tenantId })
+              .where(eq(partners.id, partner.id));
+            partner = { ...partner, isActive: true, tenantId };
+            console.log(`[GoogleAuth] 자동 활성화 완료: partner_id=${partner.id}, tenant_id=${tenantId}`);
+          } catch (activateErr) {
+            console.error('[GoogleAuth] 자동 활성화 실패:', activateErr);
+          }
+          // 아래 세션 발급 로직으로 계속 진행
+        } else {
+          // 등록증 없음 → 등록증 업로드 게이트 페이지로 이동
+          return res.redirect('/partner/pending-verification?email=' + encodeURIComponent(googleUser.email) + '&name=' + encodeURIComponent(googleUser.name));
+        }
+      } else {
+        // 기타 상태 (rejected 등) → 로그인 페이지로
+        return res.redirect('/partner/login?status=pending_approval&email=' + encodeURIComponent(googleUser.email));
+      }
     }
 
     // 5. 파트너 세션 JWT 발급
