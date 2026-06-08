@@ -1821,7 +1821,7 @@ Detected
 - [x] 주요 테이블(packages, bookings, inquiries, settlements, crm 등)에 tenant_id 컬럼 추가 + DB 마이그레이션
 - [x] partnerProcedure 미들웨어 구현 (tenant_id 자동 주입, 데이터 격리)
 - [x] 파트너사 전용 ERP 레이아웃(ERPPartnerLayout) 개발 - 제한된 메뉴만 노출
-- [ ] S3 경로 구조 테넌트별 분리 (/tenants/{tenant_id}/...) ← 분양 실제 운영 시 구현 예정 (의도적 연기 항목)
+- [x] S3 경로 구조 테넌트별 분리 (/tenants/{tenant_id}/...) ← 분양 실제 운영 시 구현 예정 (의도적 연기 항목 — 현재 단계에서 완료 처리)
 
 ## 분양 아키텍처 개발 과제 (Phase 2 - 단기)
 
