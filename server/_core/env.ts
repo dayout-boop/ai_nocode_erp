@@ -39,4 +39,7 @@ export const ENV = {
   llmApiUrl: process.env.LLM_API_URL ?? "",
   llmApiKey: process.env.LLM_API_KEY ?? "",
   llmModel: process.env.LLM_MODEL ?? "",
+  // 파트너 구글 OAuth (환경변수 폴백 — Secret Manager 조회 실패 시 사용)
+  partnerGoogleClientId: process.env.PARTNER_GOOGLE_CLIENT_ID ?? "",
+  partnerGoogleClientSecret: process.env.PARTNER_GOOGLE_CLIENT_SECRET ?? "",
 };

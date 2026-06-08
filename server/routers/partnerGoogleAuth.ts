@@ -64,7 +64,8 @@ router.get('/google', async (req, res) => {
     const returnUrl = (req.query.returnUrl as string) || '/partner/dashboard';
     const state = Buffer.from(JSON.stringify({ returnUrl, ts: Date.now() })).toString('base64url');
 
-    const callbackUrl = `${req.protocol}://${req.get('host')}/api/partner/auth/google/callback`;
+    // 구글 콘솔에 등록된 실제 운영 도메인으로 고정 (동적 host 사용 금지)
+    const callbackUrl = 'https://partner.dayoutgolf.com/api/partner/auth/google/callback';
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -127,7 +128,8 @@ router.get('/google/callback', async (req, res) => {
       return res.redirect('/partner/login?error=not_configured');
     }
 
-    const callbackUrl = `${req.protocol}://${req.get('host')}/api/partner/auth/google/callback`;
+    // 구글 콘솔에 등록된 실제 운영 도메인으로 고정 (동적 host 사용 금지)
+    const callbackUrl = 'https://partner.dayoutgolf.com/api/partner/auth/google/callback';
 
     // 1. code → token 교환
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {

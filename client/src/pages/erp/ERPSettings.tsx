@@ -30,11 +30,11 @@ interface ServiceStatus {
 }
 
 // 지원하는 API 서비스 목록
-// ※ Google OAuth Client ID/Secret은 Google Cloud Secret Manager의
-//   'partner_dayoutgolf' 시크릿에서 자동으로 읽어옴 (별도 입력 불필요)
+// ※ Google OAuth Client ID/Secret은 ERP DB에 AES-256 암호화 저장하여 관리합니다.
 const API_SERVICES = [
-  // ── 인증 ──────────────────────────────────────────────────────────────────────
-  { key: "google_oauth_secret_manager", name: "Google OAuth (Secret Manager)", description: "partner_dayoutgolf 시크릿에서 Client ID/Secret 자동 로드 — 별도 입력 불필요", category: "인증", readOnly: true },
+  // ── 인증 ────────────────────────────────────────────────────────────────────────────────
+  { key: "partner_google_client_id", name: "Google OAuth Client ID", description: "파트너 구글 로그인 클라이언트 ID (510091206789-...apps.googleusercontent.com)", category: "인증" },
+  { key: "partner_google_client_secret", name: "Google OAuth Client Secret", description: "파트너 구글 로그인 클라이언트 Secret (GOCSPX-...)", category: "인증" },
   // ── AI ──────────────────────────────────────────────────────────────────────
   { key: "openrouter", name: "OpenRouter", description: "AI 모델 라우팅 (GPT-4, Claude, Gemini 등)", category: "AI" },
   { key: "gemini", name: "Google Gemini", description: "Google Gemini AI API", category: "AI" },
