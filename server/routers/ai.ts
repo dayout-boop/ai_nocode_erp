@@ -440,6 +440,120 @@ export const aiRouter = router({
     }),
 
   /**
+   * 파트너 온보딩 AI 채팅 (신규 파트너 전용, 인증 불필요)
+   * - 대화로 정보 수집 후 JSON 구조화 데이터 반환
+   * - 수기 입력 필드 자동 채움에 사용
+   */
+  onboardingChat: publicProcedure
+    .input(
+      z.object({
+        message: z.string().min(1).max(1000),
+        sessionId: z.string().min(1).max(100),
+        history: z
+          .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() }))
+          .optional()
+          .default([]),
+        currentStep: z.number().min(1).max(4).default(1),
+        collectedData: z.object({
+          contactName: z.string().optional(),
+          contactEmail: z.string().optional(),
+          contactPhone: z.string().optional(),
+          companyName: z.string().optional(),
+          subscriptionPlan: z.enum(["starter", "standard", "premium"]).optional(),
+          billingCycle: z.enum(["monthly", "yearly"]).optional(),
+          sampleCategory: z.enum(["golf_tour_domestic", "golf_tour_overseas", "golf_tour_mixed"]).optional(),
+        }).optional().default({}),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const ONBOARDING_SYSTEM_PROMPT = `당신은 두골프(DayOutGolf) 파트너 온보딩 전담 AI 매니저입니다.
+신규 파트너가 구글 로그인 후 처음 만나는 AI입니다. 친절하고 전문적으로 안내하세요.
+
+## 온보딩 단계
+- Step 1: 담당자 연락처 수집 (담당자명, 이메일, 전화번호, 업체명)
+- Step 2: 사업자등록증 + 관광사업자등록증 OCR 업로드 안내
+- Step 3: 구독 플랜 선택 안내 (스타터 무료 / 스탠다드 99,000원 / 프리미엄 299,000원)
+- Step 4: 완료 안내
+
+## 현재 수집된 정보
+${JSON.stringify(input.collectedData, null, 2)}
+
+## 현재 단계: Step ${input.currentStep}
+
+## 응답 규칙
+1. 항상 한국어로 친절하게 답변하세요.
+2. 정보를 수집할 때는 자연스러운 대화로 진행하세요.
+3. 정보가 수집되면 응답 마지막에 반드시 아래 JSON 블록을 포함하세요:
+
+\`\`\`json
+{
+  "action": "fill",
+  "fields": {
+    "contactName": "홍길동",
+    "contactEmail": "hong@example.com",
+    "contactPhone": "010-1234-5678",
+    "companyName": "투어컴퍼니"
+  },
+  "nextStep": 2,
+  "stepComplete": true
+}
+\`\`\`
+
+4. 정보가 없으면 JSON 블록을 생략하세요.
+5. Step 1에서는 담당자명, 이메일, 전화번호, 업체명을 수집하세요.
+6. Step 2에서는 등록증 업로드를 안내하고 업로드 완료 시 자동 승인됨을 알리세요.
+7. Step 3에서는 플랜 선택을 도와주세요. 스타터(무료)를 먼저 추천하세요.
+8. 모든 정보 수집 완료 시 stepComplete: true를 반환하세요.`;
+
+      const messages: import("../services/openrouter").ChatMessage[] = [
+        ...input.history.map((h) => ({ role: h.role as "user" | "assistant", content: h.content })),
+        { role: "user" as const, content: input.message },
+      ];
+
+      let responseText = "죄송합니다. 잠시 후 다시 시도해 주세요.";
+      let extractedFields: Record<string, unknown> = {};
+      let nextStep: number | null = null;
+      let stepComplete = false;
+
+      try {
+        const result = await orchestratorChat({
+          messages,
+          complexity: "low",
+          assistant: "manager",
+          sessionId: input.sessionId,
+          systemPrompt: ONBOARDING_SYSTEM_PROMPT,
+        });
+        responseText = result.text;
+
+        // JSON 블록 추출
+        const jsonMatch = responseText.match(/```json\s*([\s\S]*?)```/);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[1].trim());
+            if (parsed.action === "fill") {
+              extractedFields = parsed.fields || {};
+              nextStep = parsed.nextStep || null;
+              stepComplete = parsed.stepComplete || false;
+            }
+            // JSON 블록을 응답 텍스트에서 제거
+            responseText = responseText.replace(/```json[\s\S]*?```/, "").trim();
+          } catch {
+            // JSON 파싱 실패 시 무시
+          }
+        }
+      } catch (err) {
+        console.error("[onboardingChat] AI 호출 실패:", err);
+      }
+
+      return {
+        response: responseText,
+        extractedFields,
+        nextStep,
+        stepComplete,
+      };
+    }),
+
+  /**
    * 세션별 대화 내역 조회
    */
   getSessionMessages: erpLoginProcedure

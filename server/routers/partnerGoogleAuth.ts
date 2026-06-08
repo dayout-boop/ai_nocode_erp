@@ -272,8 +272,9 @@ router.get('/google/callback', async (req, res) => {
         console.warn('[GoogleAuth] 관리자 알림 발송 실패 (비필수):', notifyErr);
       }
 
-      // 신규 가입 → 승인 대기 페이지로 리다이렉트
-      return res.redirect('/partner/login?status=pending_approval&email=' + encodeURIComponent(googleUser.email));
+      // 신규 가입 → AI 온보딩 채팅 페이지로 리다이렉트
+      // 구글 이메일/이름을 쿼리 파라미터로 전달하여 폼 자동 채움에 활용
+      return res.redirect('/partner/onboarding-chat?email=' + encodeURIComponent(googleUser.email) + '&name=' + encodeURIComponent(googleUser.name));
     }
 
     // 4. 비활성 파트너 확인

@@ -1881,6 +1881,7 @@ Detected
 - [x] TypeScript 오류 0개 확인
 - [x] 체크포인트 저장
 
+<<<<<<< Updated upstream
 ## 관리자 ERP: 파트너별 크레딧 수동 부여/조절 기능 [고도화]
 
 - [x] 관리자 ERP 크레딧 관리 페이지 — 파트너 목록 + 현재 크레딧 잔액 일람표
@@ -1895,3 +1896,17 @@ Detected
 - [x] AdminManagement.tsx에 계정 정보 수정 다이얼로그 추가 (이름/이메일/전화번호)
 - [x] 마스터 계정 이메일 dayout@dayoutgolf.com으로 DB 업데이트
 - [x] 구글 로그인 콜백에서 adminAccounts.email 일치 시 ERP 대시보드로 분기 처리
+=======
+## [파트너 AI 온보딩 채팅 페이지] (2026-06-08)
+- [x] server/routers/ai.ts: onboardingChat 뮤테이션 추가 (온보딩 전용 systemPrompt, JSON 필드 추출 포함)
+- [x] client/src/pages/Partner/PartnerOnboardingChat.tsx: 신규 페이지 생성
+  - PC: 좌측 수기 입력 패널(Step 1~4) + 우측 두골프 매니저 AI 채팅
+  - 모바일: AI 채팅 전체화면 + 하단 수기입력 아이콘 → 슬라이드업 패널
+  - AI 응답에서 JSON 추출 → 수기 입력 필드 실시간 자동 채움
+  - 챕터별 완료 시 "다음" 버튼 활성화 또는 채팅창 "다음" 입력 시 Step 전환
+  - URL 쿼리 파라미터(email, name) 자동 채움 (구글 로그인 후)
+- [x] App.tsx: /partner/onboarding-chat 라우트 등록
+- [x] server/routers/partnerGoogleAuth.ts: 신규 파트너 리다이렉트를 /partner/onboarding-chat으로 변경
+- [x] TypeScript 오류 0개 확인
+- [ ] 체크포인트 저장
+>>>>>>> Stashed changes
