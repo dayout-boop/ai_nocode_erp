@@ -96,21 +96,27 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // AI 통합 카테고리 (최상단 고정) — 챗봇 + 마스터 + 엔진 통합
+  // AI 챗봇 카테고리 (최상단 고정) — 두골프마스터 / 두골프매니저 대화 이력
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  {
+    label: "AI 챗봇",
+    icon: <MessageSquare size={18} />,
+    children: [
+      { label: "두골프 마스터 🤖", href: "/master-ai", icon: <BrainCircuit size={14} /> },
+      { label: "마스터 대화 이력", href: "/master-ai/logs", icon: <History size={14} /> },
+      { label: "두골프 매니저 💼", href: "/manager-chat", icon: <MessageSquare size={14} /> },
+      { label: "매니저 대화 이력", href: "/manager-admin", icon: <History size={14} /> },
+      { label: "골프톡 관리", href: "/golftalk-admin", icon: <Settings2 size={14} /> },
+      { label: "OpenRouter 에이전트 ⚡", href: "/openrouter-agent", icon: <Zap size={14} /> },
+    ],
+  },
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // AI 관리 카테고리 — 엔진 / 로그 / 비용 / 기타
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   {
     label: "AI 관리",
     icon: <Sparkles size={18} />,
     children: [
-      // ── 챗봇 ──
-      { label: "두골프 마스터 🤖", href: "/master-ai", icon: <BrainCircuit size={14} /> },
-      { label: "대화 이력", href: "/master-ai/logs", icon: <History size={14} /> },
-      { label: "AI 비용 현황", href: "/master-ai/costs", icon: <DollarSign size={14} /> },
-      { label: "두골프 매니저 💼", href: "/manager-chat", icon: <MessageSquare size={14} /> },
-      { label: "두골프 매니저 관리", href: "/manager-admin", icon: <UserCog size={14} /> },
-      { label: "골프톡 관리", href: "/golftalk-admin", icon: <Settings2 size={14} /> },
-      { label: "OpenRouter 에이전트 ⚡", href: "/openrouter-agent", icon: <Zap size={14} /> },
-      // ── 엔진 ──
       { label: "엔진 대시보드", href: "/ai-engine", icon: <Gauge size={14} /> },
       { label: "모델 라우팅", href: "/ai-engine/model-routing", icon: <Cpu size={14} /> },
       { label: "개발 요청", href: "/dev-ai?tab=requests", icon: <ListChecks size={14} /> },
@@ -122,9 +128,9 @@ const navItems: NavItem[] = [
       { label: "Gemini 어시스턴트", href: "/gemini", icon: <Sparkles size={14} /> },
       { label: "AI 로그", href: "/ai-logs", icon: <History size={14} /> },
       { label: "오케스트레이터", href: "/orchestrator", icon: <Zap size={14} /> },
+      { label: "AI 비용 현황", href: "/master-ai/costs", icon: <DollarSign size={14} /> },
       { label: "분양 AI 콘솔 🏢", href: "/tenant-ai-console", icon: <Shield size={14} /> },
       { label: "크레딧 관리 💰", href: "/credit-management", icon: <Coins size={14} /> },
-      // { label: "마누스채봇 🔗", href: "/erp/manus-chat", icon: <MessageSquare size={14} /> }, // 후보(검토불필요)
     ],
   },
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
