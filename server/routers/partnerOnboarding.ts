@@ -18,6 +18,7 @@ import { invokeLLM } from "../_core/llm";
 import { storagePut } from "../storage";
 import { onPartnerApproved } from "../services/sampleDataSeeder";
 import { SUBSCRIPTION_PLANS } from "../products";
+import { buildApprovedEmail, buildRejectedEmail, buildWelcomeEmail, sendPartnerEmail } from "../partnerMail";
 // 관리자 전용 프로시저
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "admin") {
@@ -238,6 +239,31 @@ export const partnerOnboardingRouter = router({
             | "golf_tour_mixed";
           // 2) 비동기로 샘플 데이터 생성 (응답 블로킹 방지)
           onPartnerApproved(input.id, category, tenantId).catch(console.error);
+        }
+      }
+
+      // ─── 이메일 알림 (승인/거부 시, 비동기·비차단) ───
+      if (current?.contactEmail) {
+        const wasApproved = current.status === 'approved' || current.status === 'active';
+        if ((input.status === 'approved' || input.status === 'active') && !wasApproved) {
+          const mail = buildApprovedEmail({
+            to: current.contactEmail,
+            companyName: current.companyName,
+            contactName: current.contactName,
+            onboardingId: input.id,
+          });
+          sendPartnerEmail({ type: 'approved', to: current.contactEmail, subject: mail.subject, html: mail.html, text: mail.text, onboardingId: input.id })
+            .catch(e => console.warn('[Mail] 승인 메일 발송 실패:', e?.message));
+        } else if (input.status === 'rejected' && current.status !== 'rejected') {
+          const mail = buildRejectedEmail({
+            to: current.contactEmail,
+            companyName: current.companyName,
+            contactName: current.contactName,
+            reason: input.adminNote,
+            onboardingId: input.id,
+          });
+          sendPartnerEmail({ type: 'rejected', to: current.contactEmail, subject: mail.subject, html: mail.html, text: mail.text, onboardingId: input.id })
+            .catch(e => console.warn('[Mail] 거부 메일 발송 실패:', e?.message));
         }
       }
 
@@ -669,6 +695,18 @@ export const partnerOnboardingRouter = router({
 
         // 3) 비동기로 샘플 데이터 생성 (응답 블로킹 방지)
         onPartnerApproved(newId, category, tenantId).catch(console.error);
+      }
+
+      // ─── 자동승인 시 환영 메일 발송 (비동기·비차단) ───
+      if (autoApproved && input.contactEmail) {
+        const welcome = buildWelcomeEmail({
+          to: input.contactEmail,
+          companyName: (upsertValues.companyName ?? input.contactName) as string,
+          contactName: input.contactName,
+          onboardingId: newId,
+        });
+        sendPartnerEmail({ type: 'welcome', to: input.contactEmail, subject: welcome.subject, html: welcome.html, text: welcome.text, onboardingId: newId })
+          .catch(e => console.warn('[Mail] 환영 메일 발송 실패:', e?.message));
       }
 
       return { success: true, id: newId, autoApproved };

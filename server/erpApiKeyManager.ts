@@ -128,6 +128,28 @@ export async function getApiKey(serviceKey: string): Promise<string> {
   return envMap[serviceKey] || '';
 }
 
+/**
+ * 캐시를 우회하여 DB에서 직접 복호화 키를 조회한다.
+ * SMTP 비밀번호처럼 "항상 최신값 실시간 반영"이 필요한 발송 시점에 사용.
+ * DB에 없으면 빈 문자열 반환(호출부에서 ENV 폴백 처리).
+ */
+export async function getApiKeyFresh(serviceKey: string): Promise<string> {
+  try {
+    const db = await getDb();
+    if (!db) return '';
+    const rows = await db
+      .select()
+      .from(erpApiSettings)
+      .where(eq(erpApiSettings.serviceKey, serviceKey));
+    if (rows.length === 0 || !rows[0].apiKeyEncrypted || !rows[0].isActive) {
+      return '';
+    }
+    return decryptApiKey(rows[0].apiKeyEncrypted) || '';
+  } catch {
+    return '';
+  }
+}
+
 /** 추가 설정값 조회 (JSON) */
 export async function getApiConfig(serviceKey: string): Promise<Record<string, string>> {
   try {

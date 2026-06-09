@@ -1947,50 +1947,46 @@ Detected
 - [x] 체크포인트 저장
 
 ## [파트너 자동승인 흐름 + 등록증 게이트 + ERP 파트너 직접 생성] (2026-06-08)
-- [ ] partnerOnboarding.submit: 등록증 업로드 완료 시 즉시 isActive=true 자동 전환 로직
-- [ ] partnerGoogleAuth.ts: 등록증 있으면 자동승인 후 /partner/dashboard 바로 이동
-- [ ] partnerGoogleAuth.ts: 등록증 없는 pending 파트너 → /partner/pending-verification 이동
-- [ ] /partner/pending-verification 페이지 신규 생성 (등록증 업로드 게이트)
+- [x] partnerOnboarding.submit: 등록증 업로드 완료 시 즉시 isActive=true 자동 전환 로직 (partnerOnboarding.ts:592,621,657)
+- [x] partnerGoogleAuth.ts: 등록증 있으면 자동승인 후 /partner/dashboard 바로 이동 (partnerGoogleAuth.ts:296)
+- [x] partnerGoogleAuth.ts: 등록증 없는 pending 파트너 → /partner/pending-verification 이동 (partnerGoogleAuth.ts:275)
+- [x] /partner/pending-verification 페이지 신규 생성 (등록증 업로드 게이트) (PartnerPendingVerification.tsx + App.tsx:100)
   - 사업자등록증 / 관광사업자등록증 업로드 UI
   - 업로드 완료 시 자동승인 → /partner/dashboard 이동
   - 업로드 없이 대기 가능 (관리자 수동 검토 안내)
-- [ ] PartnerLogin.tsx: pending_approval 상태에서 /partner/pending-verification 링크 추가
-- [ ] ERP 파트너 직접 생성 기능 (관리자용)
-  - DB 스키마: partners 테이블에 customLoginId, customLoginPwHash 컬럼 추가
-  - tRPC: partner.createByAdmin (업체명, 담당자명, 이메일, 초기ID, 초기PW)
-  - ERP UI: 파트너 관리 페이지에 "파트너 직접 등록" 버튼 + 폼
-  - PartnerCustomLogin.tsx: ID/PW 로그인 후 /partner/pending-verification 이동
-- [ ] TypeScript 오류 0개 확인
-- [ ] 체크포인트 저장
+- [x] PartnerLogin.tsx: pending_approval 상태에서 /partner/pending-verification 링크 추가 (PartnerLogin.tsx:144-147)
+- [ ] ERP 파트너 직접 생성 기능 (관리자용) — 미구현 (createByAdmin 프로시저/직접등록 폼 없음, 단 loginId/loginPwHash 컬럼은 기존 존재하여 customLoginId/PwHash 추가 불필요)
+- [x] TypeScript 오류 0개 확인 (tsc --noEmit EXIT=0)
+- [x] 체크포인트 저장 (6dfa68ad)
 
 ## [파트너 온보딩 전체 개선 - 업종검증/이메일/대시보드] (2026-06-08)
 
 ### 항목 4: PartnerLogin pending_approval 화면 개선
-- [ ] pending 상태: 구글 인증 이메일 표시 + /partner/pending-verification?email=xxx 바로가기 버튼
-- [ ] reviewing 상태(업종 불일치): "업종 확인 중" 안내 + 추가 자료 제출 안내
-- [ ] rejected 상태: 거부 사유 표시 + 재신청 버튼
+- [x] pending 상태: 구글 인증 이메일 표시 + /partner/pending-verification?email=xxx 바로가기 버튼 (PartnerLogin.tsx:144-147)
+- [x] reviewing 상태(업종 불일치): "업종 확인 중" 안내 + 추가 자료 제출 안내 (PartnerLogin.tsx:226-)
+- [x] rejected 상태: 거부 사유 표시 + 재신청 버튼 (PartnerLogin.tsx:278,297,316)
 
 ### 항목 1: 업종 검증 + 사업자번호 중복 차단 + reviewing 자동 분류
-- [ ] submitWithBothOcr: 사업자번호 중복 체크 (동일 businessNumber → 에러 반환)
-- [ ] submitWithBothOcr: 업종 키워드 자동 검증 (여행/관광/통신판매업/골프/레저 없으면 reviewing)
-- [ ] reviewing 상태 파트너: 온보딩 채팅 완료 후 "검토 중" 안내 메시지 표시
-- [ ] 업종 불일치 플래그 DB 저장 (adminNote에 "업종 불일치 자동 플래그" 기록)
+- [x] submitWithBothOcr: 사업자번호 중복 체크 (동일 businessNumber → 에러 반환) (partnerOnboarding.ts:496-512)
+- [x] submitWithBothOcr: 업종 키워드 자동 검증 (여행/관광/통신판매업/골프/레저 없으면 reviewing) (partnerOnboarding.ts:516-544 TRAVEL_KEYWORDS)
+- [x] reviewing 상태 파트너: 온보딩 채팅 완료 후 "검토 중" 안내 (PartnerLogin.tsx:226 reviewing 화면 + PartnerOnboardingChat.tsx:525 상태 복원)
+- [x] 업종 불일치 플래그 DB 저장 (adminNote에 "업종 불일치 자동 플래그" 기록) (partnerOnboarding.ts:529 industryFlagNote)
 
 ### 항목 2: ERP 파트너 관리 대시보드 개선
-- [ ] PartnerOnboardingAdmin.tsx: "자동승인" / "검토 필요(reviewing)" / "거부됨" 탭 추가
-- [ ] 업종 불일치 플래그 표시 (adminNote에 플래그 있는 업체 강조 배지)
-- [ ] 수동 승인/거부 버튼 (reviewing → approved/rejected + 이메일 발송)
-- [ ] partners 테이블: suspendedAt, suspendReason 필드 추가 + db:push
-- [ ] 활성 파트너 정지/복구 기능 (isActive 토글 + 사유 입력)
+- [x] PartnerOnboardingAdmin.tsx: "자동승인" / "검토 필요(reviewing)" / "거부됨" 탭 추가 (PartnerOnboardingAdmin.tsx 상태 필터/스탠카드)
+- [x] 업종 불일치 플래그 표시 (adminNote에 플래그 있는 업체 강조 배지) (PartnerOnboardingAdmin.tsx:39-41,140,242)
+- [x] 수동 승인/거부 버튼 (reviewing → approved/rejected) (PartnerOnboardingAdmin.tsx:465-499) — 단 이메일 발송은 미구현(Slack만 존재)
+- [ ] partners 테이블: suspendedAt, suspendReason 필드 추가 + db:push — 미구현(partners 테이블에 해당 컬럼 없음)
+- [ ] 활성 파트너 정지/복구 기능 (isActive 토글 + 사유 입력) — 미구현(파트너 개별 정지/복구 없음, tenants.suspend만 별도 존재)
 
 ### 항목 3: 이메일 알림 + 서비스명/URL 수집 + 업체 메모
-- [ ] partner_onboarding 스키마: serviceName, serviceUrl, additionalUrls 필드 추가 + db:push
-- [ ] 온보딩 채팅 Step 1: 서비스명(브랜드명), 홈페이지/블로그 URL 수집 추가
-- [ ] 자동승인 완료 시 파트너 환영 이메일 발송 (접속 URL 포함)
-- [ ] 수동 승인 완료 시 파트너 승인 이메일 발송
-- [ ] 승인 거부 시 파트너 거부 사유 이메일 발송
-- [ ] 신규 파트너 가입 시 두골프 담당자 Slack 알림
-- [ ] ERP 파트너 상세: 수집된 URL 목록 + 관리자 메모 기능 표시
+- [x] partner_onboarding 스키마: 서비스명/URL 필드 (serviceName, websiteUrl, blogUrl, snsUrl로 구현됨 - schema.ts:1598-) — 원량의 serviceUrl/additionalUrls는 동등 대체
+- [ ] 온보딩 채팅 Step 1: 서비스명(브랜드명), 홈페이지/블로그 URL 수집 추가 — 미구현(DB 컬럼만 있고 채팅 수집 플로우 없음)
+- [ ] 자동승인 완료 시 파트너 환영 이메일 발송 (접속 URL 포함) — 미구현(이메일 발송 수단 없음)
+- [ ] 수동 승인 완료 시 파트너 승인 이메일 발송 — 미구현
+- [ ] 승인 거부 시 파트너 거부 사유 이메일 발송 — 미구현
+- [ ] 신규 파트너 가입 시 두골프 담당자 Slack 알림 — 미구현(승인/거부 Slack만 존재, 신규 가입 알림 없음)
+- [x] ERP 파트너 상세: 관리자 메모 기능 표시 (PartnerOnboardingAdmin.tsx:453-507) — 단 수집된 URL 목록 전용 표시는 채팅 수집 미구현과 연동 미완
 
 ## [AI 에이전트 통합 개발엔진 - Step1~5 트랙1] (2026-06-08)
 - [x] DB 메타 스키마 3종(ai_dev_requests / ai_dev_request_files / ai_git_commits) 추가 + db.push
@@ -2041,3 +2037,15 @@ Detected
 - [x] G3. aiDevPipeline.ts에 롤백 tRPC 프로시저 3종 추가 (listBranchCommits/rollbackToCommit/listRollbackLogs, adminProcedure, git_rollback_logs 감사 테이블 신규 + db:push, tsc 0에러)
 - [x] G4. DevAI.tsx 버전 이력 탭에 '자체 Git 롤백' 패널 추가 (브랜치 선택+커밋 이력+롤백 버튼+확인 다이얼로그+감사 이력), 기존 체크포인트 안내는 '체크포인트 참조'로 유지, tsc 0에러
 - [x] G5. 롤백 vitest 7개 작성(main 차단/SHA 검증/history-preserving/no-op) — 전체 30파일 326개 테스트 통과, tsc 0에러, 회귀 없음
+
+
+## [자립형 이메일 발송 엔진 - nodemailer + 구글 워크스페이스 SMTP] (2026-06-09)
+- [x] M1. nodemailer 8.0.10 + @types/nodemailer 설치 완료
+- [x] M2. server/mailer.ts 자립형 헬퍼 완성: resolveSmtpConfig(실시간 조회+복호화, ENV 폴백), sendMail(일회성 transporter→발송→close 휘발), verifySmtp(테스트)
+- [x] M3a. 백엔드 mailRouter: getSmtpConfig/upsertSmtpConfig(비번 암호화+마스킹, user/from/host/port extraConfig)/testSmtpConnection/sendTestMail/listEmailLogs (master 전용) + routers.ts 등록, tsc 0에러
+- [x] M3b. partnerMail.ts: 환영/승인/거부 메일 템플릿 + sendPartnerEmail(발송+메타 로그)
+- [x] M3c. ERPSettings.tsx SmtpCard 추가(계정/From/host/port/앱비번 등록, 연결 테스트, 테스트 발송, 발송 로그 토글) — API키 탭 LLM 카드 뒤 배치, tsc 0에러
+- [x] M4. partner_email_logs 테이블(onboardingId/receiverEmail/emailType/subject/status/messageId/errorMessage, 본문 미저장) + db:push 완료(테이블 생성 확인)
+- [x] M5. 파트너 메일 3종 연동: updateStatus에 승인/거부 메일(중복발송 가드: 상태 전환 시에만), submitWithBothOcr 자동승인 시 환영 메일 — 모두 비동기/비차단, tsc 0에러
+- [x] M6. mailer.test.ts(13)+partnerMail.test.ts(6) 작성: 실시간 복호화 결합/465·587 secure/설정누락 가드/일회성 transporter 휘발/템플릿 3종 — 전체 345개 테스트 통과, 회귀 없음
+- [x] M7. tsc 0에러 확인(EXIT=0) + 체크포인트 저장

@@ -5,6 +5,7 @@ import { adminAccountsRouter } from "./routers/adminAccounts";
 import { adminAuthRouter } from "./routers/adminAuth";
 import { adminManagementRouter } from "./routers/adminManagement";
 import { erpApiKeysRouter } from "./routers/erpApiKeys";
+import { mailRouter } from "./routers/mail";
 import { knowledgeBlockRouter } from "./routers/knowledgeBlock";
 import { manusWebhookRouter } from "./routers/manusWebhook";
 import { reservationInquiriesRouter, inquiryTemplatesRouter } from "./routers/reservationInquiries";
@@ -3417,6 +3418,7 @@ export const appRouter = router({
   adminAuth: adminAuthRouter,
   adminManagement: adminManagementRouter,
   erpApiKeys: erpApiKeysRouter,
+  mail: mailRouter,
   knowledgeBlock: knowledgeBlockRouter,
   manusWebhook: manusWebhookRouter,
   tenantAi: tenantAiRouter,

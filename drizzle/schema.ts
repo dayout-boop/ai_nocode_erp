@@ -2345,3 +2345,32 @@ export const gitRollbackLogs = mysqlTable("git_rollback_logs", {
 });
 export type GitRollbackLog = typeof gitRollbackLogs.$inferSelect;
 export type InsertGitRollbackLog = typeof gitRollbackLogs.$inferInsert;
+
+
+// ============================================================
+// PARTNER_EMAIL_LOGS - 파트너 이메일 발송 로그 (메타데이터 전용)
+// ============================================================
+/**
+ * 이메일 발송 메타데이터만 경량 저장한다. (본문은 저장하지 않음 - 용량 절약)
+ * 발송 성공/실패 여부와 감사 추적용.
+ */
+export const partnerEmailLogs = mysqlTable("partner_email_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 관련 파트너 온보딩 ID (있으면) */
+  onboardingId: int("onboardingId"),
+  /** 수신자 이메일 */
+  receiverEmail: varchar("receiverEmail", { length: 255 }).notNull(),
+  /** 메일 종류: welcome(환영) / approved(승인) / rejected(거부) / test(테스트) / custom */
+  emailType: varchar("emailType", { length: 30 }).notNull(),
+  /** 제목 */
+  subject: varchar("subject", { length: 300 }).notNull(),
+  /** 발송 상태: sent / failed */
+  status: varchar("status", { length: 20 }).notNull(),
+  /** SMTP messageId (성공 시) */
+  messageId: varchar("messageId", { length: 300 }),
+  /** 실패 사유 (실패 시) */
+  errorMessage: text("errorMessage"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type PartnerEmailLog = typeof partnerEmailLogs.$inferSelect;
+export type InsertPartnerEmailLog = typeof partnerEmailLogs.$inferInsert;

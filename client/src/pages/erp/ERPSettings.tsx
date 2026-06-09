@@ -14,6 +14,7 @@ import {
   CheckCircle2, XCircle, AlertCircle, ExternalLink, RefreshCw,
   CreditCard, MessageSquare, Video, Zap, Bot, Bell, Key, Settings,
   Eye, EyeOff, Pencil, Trash2, Plus, Save, X,
+  Mail, Send, Loader2,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -158,6 +159,9 @@ function ApiKeyManagementTab() {
         }
         saving={upsertMutation.isPending}
       />
+
+      {/* 자립형 이메일(SMTP) 설정 */}
+      <SmtpCard />
 
       {/* 서비스별 API 키 목록 */}
       <Card className="border-0 shadow-sm">
@@ -931,6 +935,166 @@ const LLM_PROVIDER_OPTIONS = [
     badgeClass: "bg-slate-100 text-slate-600",
   },
 ] as const;
+
+// ─── SMTP(자립형 이메일) 설정 카드 ────────────────
+function SmtpCard() {
+  const { data: cfg, isLoading, refetch } = trpc.mail.getSmtpConfig.useQuery(undefined, { retry: 1 });
+  const [user, setUser] = useState("");
+  const [from, setFrom] = useState("");
+  const [host, setHost] = useState("smtp.gmail.com");
+  const [port, setPort] = useState("465");
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [testTo, setTestTo] = useState("");
+  const [hydrated, setHydrated] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
+
+  // 서버값으로 1회 초기화
+  if (cfg && !hydrated) {
+    setUser(cfg.user || "");
+    setFrom(cfg.from || "");
+    setHost(cfg.host || "smtp.gmail.com");
+    setPort(cfg.port || "465");
+    setHydrated(true);
+  }
+
+  const upsert = trpc.mail.upsertSmtpConfig.useMutation({
+    onSuccess: () => { toast.success("SMTP 설정이 저장되었습니다"); setPassword(""); refetch(); },
+    onError: (e) => toast.error(e.message || "저장 실패"),
+  });
+  const testConn = trpc.mail.testSmtpConnection.useMutation({
+    onSuccess: (d) => toast.success(`SMTP 연결 성공! (${d.user} @ ${d.host}:${d.port})`),
+    onError: (e) => toast.error(e.message || "연결 실패"),
+  });
+  const sendTest = trpc.mail.sendTestMail.useMutation({
+    onSuccess: () => toast.success("테스트 메일을 발송했습니다"),
+    onError: (e) => toast.error(e.message || "발송 실패"),
+  });
+  const logsQuery = trpc.mail.listEmailLogs.useQuery({ limit: 20 }, { enabled: showLogs });
+
+  // master가 아니면 쿼리 실패 → 카드 숨김
+  if (!isLoading && !cfg) return null;
+
+  return (
+    <Card className="border-0 shadow-sm bg-gradient-to-br from-slate-50 to-emerald-50/40">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Mail size={16} className="text-emerald-600" />
+          자립형 이메일 (SMTP)
+          {cfg?.hasPassword && (
+            <Badge className="text-xs bg-green-100 text-green-700 border-green-200">
+              <CheckCircle2 size={10} className="mr-1" />등록됨
+            </Badge>
+          )}
+        </CardTitle>
+        <CardDescription className="text-xs">
+          구글 워크스페이스 SMTP로 파트너 메일(환영·승인·거부)을 직접 발송합니다. 앱 비밀번호는 AES-256으로 암호화 저장되며 발송 시점에만 복호화됩니다.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-slate-400 text-sm py-2"><RefreshCw size={14} className="animate-spin" />로딩 중...</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs font-medium text-slate-500">발송 계정 (SMTP 사용자)</label>
+                <Input value={user} onChange={(e) => setUser(e.target.value)} placeholder="tour@dayoutgolf.com" className="text-sm h-8 mt-1" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-500">발신 표시 주소 (From)</label>
+                <Input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="비우면 발송계정과 동일" className="text-sm h-8 mt-1" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-500">SMTP 호스트</label>
+                <Input value={host} onChange={(e) => setHost(e.target.value)} placeholder="smtp.gmail.com" className="text-sm h-8 mt-1" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-500">포트 (465=SSL, 587=TLS)</label>
+                <Input value={port} onChange={(e) => setPort(e.target.value)} placeholder="465" className="text-sm h-8 mt-1" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-500">
+                구글 앱 비밀번호 (16자)
+                {cfg?.hasPassword && <span className="text-green-600 ml-1">· 등록됨 ({cfg.passwordMasked})</span>}
+              </label>
+              <div className="flex items-center gap-2 mt-1">
+                <Input
+                  type={showPw ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={cfg?.hasPassword ? "변경 시에만 입력 (비워두면 기존 유지)" : "xxxx xxxx xxxx xxxx"}
+                  className="text-sm h-8 font-mono flex-1"
+                  autoComplete="new-password"
+                />
+                <button type="button" onClick={() => setShowPw((v) => !v)} className="text-slate-400 hover:text-slate-600">
+                  {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">2단계 인증 활성화 후 Google 계정 → 보안 → 앱 비밀번호에서 발급한 16자리를 입력하세요.</p>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button
+                size="sm"
+                onClick={() => upsert.mutate({ user, from, host, port, password: password || undefined })}
+                disabled={upsert.isPending || !user}
+                className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {upsert.isPending ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Save size={12} className="mr-1" />}저장
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => testConn.mutate()} disabled={testConn.isPending || !cfg?.hasPassword} className="h-8 text-xs">
+                {testConn.isPending ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Zap size={12} className="mr-1" />}연결 테스트
+              </Button>
+            </div>
+            <Separator className="my-1" />
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex-1 min-w-[180px]">
+                <label className="text-xs font-medium text-slate-500">테스트 메일 수신 주소</label>
+                <Input value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="datyout@dayoutgolf.com" className="text-sm h-8 mt-1" />
+              </div>
+              <Button size="sm" variant="outline" onClick={() => sendTest.mutate({ to: testTo })} disabled={sendTest.isPending || !testTo} className="h-8 text-xs">
+                {sendTest.isPending ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Send size={12} className="mr-1" />}테스트 발송
+              </Button>
+            </div>
+            <button type="button" onClick={() => setShowLogs((v) => !v)} className="text-xs text-emerald-700 hover:underline">
+              {showLogs ? "▾ 발송 로그 숨기기" : "▸ 최근 발송 로그 보기"}
+            </button>
+            {showLogs && (
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                {logsQuery.isLoading ? (
+                  <div className="p-3 text-xs text-slate-400">로딩 중...</div>
+                ) : (logsQuery.data && logsQuery.data.length > 0) ? (
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-50 text-slate-500">
+                      <tr><th className="text-left px-2 py-1.5">시각</th><th className="text-left px-2 py-1.5">종류</th><th className="text-left px-2 py-1.5">수신자</th><th className="text-left px-2 py-1.5">상태</th></tr>
+                    </thead>
+                    <tbody>
+                      {logsQuery.data.map((log) => (
+                        <tr key={log.id} className="border-t border-slate-100">
+                          <td className="px-2 py-1.5 text-slate-500">{new Date(log.createdAt).toLocaleString()}</td>
+                          <td className="px-2 py-1.5">{log.emailType}</td>
+                          <td className="px-2 py-1.5 text-slate-600">{log.receiverEmail}</td>
+                          <td className="px-2 py-1.5">
+                            {log.status === "sent"
+                              ? <span className="text-green-600">✓ 발송</span>
+                              : <span className="text-red-500" title={log.errorMessage ?? ""}>✗ 실패</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="p-3 text-xs text-slate-400">발송 기록이 없습니다.</div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 function LlmProviderCard({
   currentValue,
