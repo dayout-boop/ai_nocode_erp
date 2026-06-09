@@ -209,15 +209,48 @@ const normalizeToolChoice = (
   return toolChoice;
 };
 
-const resolveApiUrl = () =>
+// ============================================================
+// 듀얼 폴백 구조 (서버 이전 대응)
+//  1순위: 마누스 forge (BUILT_IN_FORGE) — 기존 방식 그대로
+//  폴백 : OpenRouter (ERP DB 키 우선 → 환경변수) — 마누스 없이 자립
+// 호출부(9개 라우터)의 invokeLLM 시그니처/반환 타입은 변경 없음
+// ============================================================
+
+const FORGE_DEFAULT_URL = "https://forge.manus.im/v1/chat/completions";
+const OPENROUTER_DEFAULT_URL = "https://openrouter.ai/api/v1";
+
+// forge 사용 가능 여부 (키 존재)
+const isForgeAvailable = (): boolean => !!ENV.forgeApiKey;
+
+const resolveForgeUrl = () =>
   ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
     ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions`
-    : "https://forge.manus.im/v1/chat/completions";
+    : FORGE_DEFAULT_URL;
 
-const assertApiKey = () => {
-  if (!ENV.forgeApiKey) {
-    throw new Error("OPENAI_API_KEY is not configured");
+// OpenRouter 키 조회: ERP DB(erpApiKeyManager) 우선 → 환경변수 폴백
+async function resolveOpenRouterKey(): Promise<string> {
+  try {
+    const { getApiKey } = await import("../erpApiKeyManager");
+    const dbKey = await getApiKey("openrouter");
+    if (dbKey && dbKey.trim().length > 0) return dbKey.trim();
+  } catch {
+    // erpApiKeyManager 로드 실패 시 환경변수로 폴백
   }
+  return (ENV.openrouterApiKey ?? "").trim();
+}
+
+const resolveOpenRouterUrl = () => {
+  const base = (ENV.openrouterBaseUrl ?? OPENROUTER_DEFAULT_URL).replace(/\/$/, "");
+  return `${base}/chat/completions`;
+};
+
+// forge용 모델 → OpenRouter 모델 매핑
+const OPENROUTER_MODEL_FALLBACK = "google/gemini-2.5-flash";
+const mapModelForOpenRouter = (forgeModel: string): string => {
+  // 이미 provider/model 형식이면 그대로 사용
+  if (forgeModel.includes("/")) return forgeModel;
+  if (forgeModel.startsWith("gemini")) return `google/${forgeModel}`;
+  return OPENROUTER_MODEL_FALLBACK;
 };
 
 const normalizeResponseFormat = ({
@@ -265,9 +298,8 @@ const normalizeResponseFormat = ({
   };
 };
 
-export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
-  assertApiKey();
-
+// 공통 payload 구성 (forge / OpenRouter 공용)
+function buildPayload(params: InvokeParams, model: string): Record<string, unknown> {
   const {
     messages,
     tools,
@@ -280,7 +312,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   } = params;
 
   const payload: Record<string, unknown> = {
-    model: "gemini-2.5-flash",
+    model,
     messages: messages.map(normalizeMessage),
   };
 
@@ -288,17 +320,9 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.tools = tools;
   }
 
-  const normalizedToolChoice = normalizeToolChoice(
-    toolChoice || tool_choice,
-    tools
-  );
+  const normalizedToolChoice = normalizeToolChoice(toolChoice || tool_choice, tools);
   if (normalizedToolChoice) {
     payload.tool_choice = normalizedToolChoice;
-  }
-
-  payload.max_tokens = 32768
-  payload.thinking = {
-    "budget_tokens": 128
   }
 
   const normalizedResponseFormat = normalizeResponseFormat({
@@ -307,12 +331,20 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     outputSchema,
     output_schema,
   });
-
   if (normalizedResponseFormat) {
     payload.response_format = normalizedResponseFormat;
   }
 
-  const response = await fetch(resolveApiUrl(), {
+  return payload;
+}
+
+// 1순위: 마누스 forge 호출
+async function invokeViaForge(params: InvokeParams): Promise<InvokeResult> {
+  const payload = buildPayload(params, "gemini-2.5-flash");
+  payload.max_tokens = 32768;
+  payload.thinking = { budget_tokens: 128 };
+
+  const response = await fetch(resolveForgeUrl(), {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -324,9 +356,64 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(
-      `LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`
+      `forge LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`
     );
   }
 
   return (await response.json()) as InvokeResult;
+}
+
+// 폴백: OpenRouter 호출 (마누스 없이 자립)
+async function invokeViaOpenRouter(params: InvokeParams): Promise<InvokeResult> {
+  const apiKey = await resolveOpenRouterKey();
+  if (!apiKey) {
+    throw new Error("OpenRouter API 키가 없습니다 (ERP 설정 또는 OPENROUTER_API_KEY 필요)");
+  }
+
+  const payload = buildPayload(params, mapModelForOpenRouter("gemini-2.5-flash"));
+  payload.max_tokens = params.maxTokens ?? params.max_tokens ?? 32768;
+
+  const response = await fetch(resolveOpenRouterUrl(), {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${apiKey}`,
+      "HTTP-Referer": "https://dayoutgolf.com",
+      "X-Title": "DOGOLF ERP",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `OpenRouter LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`
+    );
+  }
+
+  return (await response.json()) as InvokeResult;
+}
+
+/**
+ * invokeLLM — 듀얼 폴백
+ * 1) forge 키가 있으면 forge 먼저 시도, 실패 시 OpenRouter로 폴백
+ * 2) forge 키가 없으면 (서버 이전 환경) 처음부터 OpenRouter 사용
+ * 호출부는 이 함수만 쓰므로 기존 코드 변경 불필요
+ */
+export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
+  if (isForgeAvailable()) {
+    try {
+      return await invokeViaForge(params);
+    } catch (forgeErr) {
+      console.warn(
+        `[invokeLLM] forge 실패, OpenRouter로 폴백: ${
+          forgeErr instanceof Error ? forgeErr.message : String(forgeErr)
+        }`
+      );
+      return await invokeViaOpenRouter(params);
+    }
+  }
+
+  // forge 키 없음 → 마누스 외부 서버로 간주, OpenRouter 자립 호출
+  return await invokeViaOpenRouter(params);
 }

@@ -1992,6 +1992,7 @@ Detected
 - [ ] 신규 파트너 가입 시 두골프 담당자 Slack 알림
 - [ ] ERP 파트너 상세: 수집된 URL 목록 + 관리자 메모 기능 표시
 
+<<<<<<< Updated upstream
 ## [AI 에이전트 통합 개발엔진 - Step1~5 트랙1] (2026-06-08)
 - [x] DB 메타 스키마 3종(ai_dev_requests / ai_dev_request_files / ai_git_commits) 추가 + db.push
 - [x] 서버 내장 Git 엔진(gitEngine.ts): GitHub REST 5단계 트랜잭션 dev-1 커밋, main 직접커밋 금지
@@ -2025,3 +2026,14 @@ Detected
 - [x] gitEngine ghHeaders → getApiKey("github_token") DB 우선 동적 조회
 - [x] scheduledRunDue → getApiKey("heartbeat_secret_key") DB 우선 동적 조회
 - [x] engineChangeset → getApiKey("engine_api_key") DB 우선 동적 조회
+=======
+
+## 마누스 종속성 자립화 (듀얼 폴백 — 서버 이전 대응)
+- [x] 1. LLM(invokeLLM) 듀얼 폴백: forge 1순위 → OpenRouter 폴백, ERP 키 DB 연결
+- [x] 1-1. invokeLLM 폴백 vitest 작성 및 통과 (4개 통과, 전체 264개 통과)
+- [ ] 2. 파일 스토리지 폴백 (S3 직결 옵션)
+- [ ] 3. manusPipe/manusSync DB 자립 폴백
+- [ ] 4. 웹검색·알림 폴백 (Slack 보유 활용)
+- [ ] 5. ERP 설정에 LLM 제공자 선택 UI
+- [ ] 6. (선택) 관리자 세션 DB화
+>>>>>>> Stashed changes
