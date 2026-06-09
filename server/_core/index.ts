@@ -21,6 +21,7 @@ import { registerManusWebhookRoute } from "../routers/manusWebhook";
 import { registerScheduledRunDueRoute } from "../routers/scheduledRunDue";
 import engineChangesetRouter from "../routers/engineChangeset";
 import partnerGoogleAuthRouter from "../routers/partnerGoogleAuth";
+import memberAuthRouter from "../routers/memberAuth";
 import authProxyRouter from "../routers/authProxy";
 import { sdk } from "./sdk";
 import { validateAdminSession } from "./adminAuth";
@@ -102,6 +103,8 @@ async function startServer() {
 
   // 파트너 구글 OAuth 인증 (Manus 종속 없는 독립 인증)
   app.use('/api/partner/auth', partnerGoogleAuthRouter);
+  // 일반회원 자립 인증 (이메일/비밀번호 + 구글, Manus 비의존)
+  app.use('/api/member/auth', memberAuthRouter);
 
   // 멀티테넌트 SaaS 보안 프록시 API (크레딧 검증 인터셉터 포함)
   // POST /api/v1/auth/oauth/google/initiate          → 신규 가입 시작

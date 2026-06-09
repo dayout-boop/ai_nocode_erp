@@ -43,6 +43,8 @@ const inputSchema = z.object({
     )
     .optional()
     .default([]),
+  // 개발 모드: manus(마누스 태스크 전송) | self(탈마누스 자립 Git 엔진)
+  devMode: z.enum(["manus", "self"]).optional().default("manus"),
 });
 
 // ─── Tool Call 타입 ─────────────────────────────────────────────
@@ -154,10 +156,17 @@ export function registerMasterStreamRoute(app: Express) {
       }
 
       // 6. 시스템 프롬프트 조합
+      // 개발 모드별 지침 — 마스터가 선택한 개발 방식에 따라 LLM 응답/안내가 달라짐
+      const devModeGuide =
+        input.devMode === "self"
+          ? `\n\n[개발 모드: 탈마누스 자립 개발]\n현재 마스터는 "탈마누스 자립 개발" 모드를 선택했습니다. 개발 요청이 감지되면 Manus 태스크 전송이 아닌, 서버 내장 Git 엔진(Changeset → dev-1 → dev-2-integration → main)을 통한 자립 개발 파이프라인을 기준으로 안내하세요. "Manus"라는 표현 대신 "자립 개발 엔진"으로 안내합니다.`
+          : `\n\n[개발 모드: 마누스 개발]\n현재 마스터는 "마누스 개발" 모드를 선택했습니다. 개발 요청이 감지되면 기존처럼 Manus 태스크로 전송하는 흐름으로 안내하세요.`;
+
+      const systemWithMode = MASTER_SYSTEM_PROMPT + devModeGuide;
       const systemWithContext =
         contextParts.length > 0
-          ? `${MASTER_SYSTEM_PROMPT}\n\n[현재 컨텍스트]\n${contextParts.join("\n\n")}`
-          : MASTER_SYSTEM_PROMPT;
+          ? `${systemWithMode}\n\n[현재 컨텍스트]\n${contextParts.join("\n\n")}`
+          : systemWithMode;
 
       // 7. 사용자 메시지 로그 저장
       await db.insert(aiLogs).values({

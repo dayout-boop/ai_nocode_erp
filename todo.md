@@ -2093,3 +2093,20 @@ Detected
 - [x] settlements list/updateStatus/supplierSummary partnerProcedure + tenantId 필터
 - [x] inquiries list/reply/updateStatus partnerProcedure + tenantId 필터
 - [x] 멀티테넌트 개발 관리 문서 작성 (docs/multitenant-dev-guide.md)
+
+
+## 일반회원 자립 인증 + 개발모드 토글 (2026-06-09 진행중)
+- [ ] 일반회원 자립 인증 라우터 (memberAuth.ts): 이메일/비밀번호 + 구글 OAuth, 마누스 폴백 유지
+- [ ] users 테이블에 passwordHash/googleId/provider 컬럼 추가
+- [ ] context.ts에 일반회원 자립 세션(member_session) 검증 추가 (마누스 폴백)
+- [ ] 두골프마스터 채팅에 마누스/탈마누스 개발 모드 토글 아이콘 추가
+- [ ] 개발 모드에 따른 LLM 요청/대화 분기 연결
+- [ ] vitest 검증 (자립 인증 + 개발모드 분기)
+
+## 일반회원 자립 인증 + 개발모드 토글 (2026-06-09 완료)
+- [x] 일반회원 자립 인증 라우터 (memberAuth.ts): 이메일/비밀번호 + 구글 OAuth, 마누스 폴백
+- [x] users 테이블에 자립 인증 컬럼 추가 + db:push
+- [x] context.ts에 일반회원 자립 세션(member_session) 검증 추가 (마누스 폴백)
+- [x] 두골프마스터 채팅에 마누스/탈마누스 개발 모드 토글 아이콘 추가
+- [x] 개발 모드(devMode)를 master-stream 페이로드로 전송 + 시스템 프롬프트 분기
+- [x] vitest 검증 (memberAuth JWT 3건 + devMode 스키마 3건, 6/6 통과)

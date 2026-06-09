@@ -22,6 +22,10 @@ export const users = mysqlTable("users", {
   phone: varchar("phone", { length: 20 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  // 자립 인증 (마누스 비의존): 이메일/비밀번호 + 구글 OAuth
+  passwordHash: varchar("passwordHash", { length: 255 }),
+  googleId: varchar("googleId", { length: 200 }),
+  authProvider: mysqlEnum("authProvider", ["manus", "local", "google"]).default("manus").notNull(),
   memo: text("memo"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

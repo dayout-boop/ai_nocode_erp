@@ -18,6 +18,7 @@ import {
   PanelRight, X, Paperclip, Image as ImageIcon, FileText, ChevronRight,
   GitCommit, Layers, Link2, CheckSquare, XCircle, Wifi, WifiOff,
   Bell, BellRing, Sparkles, History, ChevronLeft,
+  Cloud, Server,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -1072,6 +1073,25 @@ export default function MasterAI() {
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 개발 모드 토글: 'manus'(마누스 개발) | 'self'(탈마누스 자립 개발)
+  // localStorage에 저장해 새로고침/재방문 시에도 유지
+  const [devMode, setDevMode] = useState<"manus" | "self">(() => {
+    if (typeof window === "undefined") return "manus";
+    const saved = window.localStorage.getItem("dogolf_dev_mode");
+    return saved === "self" ? "self" : "manus";
+  });
+  const toggleDevMode = useCallback(() => {
+    setDevMode((prev) => {
+      const next = prev === "manus" ? "self" : "manus";
+      try {
+        window.localStorage.setItem("dogolf_dev_mode", next);
+      } catch {
+        /* localStorage 접근 불가 시 무시 */
+      }
+      return next;
+    });
+  }, []);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -1523,7 +1543,7 @@ export default function MasterAI() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ message: messageWithFileContext, sessionId, history, fileContexts }),
+        body: JSON.stringify({ message: messageWithFileContext, sessionId, history, fileContexts, devMode }),
         signal: controller.signal,
       });
 
@@ -1659,7 +1679,7 @@ export default function MasterAI() {
       abortRef.current = null;
       textareaRef.current?.focus();
     }
-  }, [isStreaming, messages, sessionId, streamingAutoScroll, attachedFiles, lastSentDevRequestId, lastSentManusTaskId, detectCompleteMutation, uploadFileMutation, analyzeFileMutation]);
+  }, [isStreaming, messages, sessionId, streamingAutoScroll, attachedFiles, lastSentDevRequestId, lastSentManusTaskId, detectCompleteMutation, uploadFileMutation, analyzeFileMutation, devMode]);
 
   const handleSendDevRequest = useCallback(
     (msgId: string, suggestion: DevRequestSuggestion) => {
@@ -2092,6 +2112,24 @@ export default function MasterAI() {
 
             <div className="w-px h-4 bg-gray-200 mx-1" />
 
+            {/* 개발 모드 토글: 마누스 개발 ↔ 탈마누스 자립 개발 */}
+            <button
+              type="button"
+              onClick={toggleDevMode}
+              disabled={isStreaming}
+              className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors disabled:opacity-50 border ${
+                devMode === "self"
+                  ? "text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100"
+                  : "text-sky-700 bg-sky-50 border-sky-200 hover:bg-sky-100"
+              }`}
+              title={devMode === "self" ? "탈마누스 자립 개발 모드 (서버 내장 Git 엔진)" : "마누스 개발 모드 (Manus 태스크 전송)"}
+            >
+              {devMode === "self" ? <Server size={13} /> : <Cloud size={13} />}
+              <span className="hidden sm:inline">{devMode === "self" ? "탈마누스" : "마누스"}</span>
+            </button>
+
+            <div className="w-px h-4 bg-gray-200 mx-1" />
+
             {/* 빠른 명령 드롭다운 */}
             <div className="relative group">
               <button
@@ -2158,9 +2196,19 @@ export default function MasterAI() {
               )}
             </Button>
           </div>
-          <p className="text-[10px] text-gray-400 mt-1.5 flex items-center gap-1 justify-center">
+          <p className="text-[10px] text-gray-400 mt-1.5 flex items-center gap-1 justify-center flex-wrap">
             <Database size={9} />
             사실 기반 응답 전용 · ERP DB 직접 접근 · 최근 20턴 컨텍스트 · 세션: {sessionId.slice(0, 12)}...
+            <span className="mx-1">·</span>
+            {devMode === "self" ? (
+              <span className="inline-flex items-center gap-0.5 text-emerald-600 font-medium">
+                <Server size={9} /> 탈마누스 자립 개발 모드
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-0.5 text-sky-600 font-medium">
+                <Cloud size={9} /> 마누스 개발 모드
+              </span>
+            )}
           </p>
         </div>
       </div>

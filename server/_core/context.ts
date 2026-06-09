@@ -56,11 +56,31 @@ export async function createContext(
   const transactionId =
     (opts.req.headers["x-transaction-id"] as string | undefined) || randomUUID();
 
-  // 1. 먼저 Manus OAuth 인증 시도
+  // 1. 먼저 Manus OAuth 인증 시도 (기존 유지)
   try {
     user = await sdk.authenticateRequest(opts.req);
   } catch {
     user = null;
+  }
+
+  // 1-B. Manus 인증 실패 시 일반회원 자립 세션(member_session) 검증 — Manus 비의존
+  if (!user) {
+    try {
+      const memberToken = opts.req.cookies?.member_session;
+      if (memberToken) {
+        const { payload } = await jwtVerify(memberToken, await getJwtSecret());
+        const openId = payload?.openId as string | undefined;
+        if (openId) {
+          const { getUserByOpenId } = await import("../db");
+          const dbUser = await getUserByOpenId(openId);
+          if (dbUser) {
+            user = dbUser as User;
+          }
+        }
+      }
+    } catch {
+      // member_session 검증 실패 시 무시하고 다음 폴백으로
+    }
   }
 
   // 2. Manus 인증 실패 시 마스터 세션 쿠키 확인
