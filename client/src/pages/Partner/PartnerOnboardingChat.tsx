@@ -47,6 +47,10 @@ interface OnboardingFormData {
   contactEmail: string;
   contactPhone: string;
   companyName: string;
+  serviceName: string;
+  websiteUrl: string;
+  blogUrl: string;
+  snsUrl: string;
   sampleCategory: "golf_tour_domestic" | "golf_tour_overseas" | "golf_tour_mixed";
   subscriptionPlan: "starter" | "standard" | "premium";
   billingCycle: "monthly" | "yearly";
@@ -449,6 +453,10 @@ export default function PartnerOnboardingChat() {
     contactEmail: googleEmail,
     contactPhone: "",
     companyName: "",
+    serviceName: "",
+    websiteUrl: "",
+    blogUrl: "",
+    snsUrl: "",
     sampleCategory: "golf_tour_mixed",
     subscriptionPlan: "starter",
     billingCycle: "monthly",
@@ -532,6 +540,10 @@ export default function PartnerOnboardingChat() {
         contactEmail: saved.contactEmail || prev.contactEmail,
         contactPhone: (saved.contactPhone as string) || prev.contactPhone,
         companyName: (saved.companyName as string) || prev.companyName,
+        serviceName: (saved.serviceName as string) || prev.serviceName,
+        websiteUrl: (saved.websiteUrl as string) || prev.websiteUrl,
+        blogUrl: (saved.blogUrl as string) || prev.blogUrl,
+        snsUrl: (saved.snsUrl as string) || prev.snsUrl,
         subscriptionPlan:
           (saved.subscriptionPlan as "starter" | "standard" | "premium") ||
           prev.subscriptionPlan,
@@ -944,6 +956,10 @@ export default function PartnerOnboardingChat() {
         sampleCategory: form.sampleCategory,
         subscriptionPlan: "starter",
         billingCycle: "monthly",
+        serviceName: form.serviceName || undefined,
+        websiteUrl: form.websiteUrl || undefined,
+        blogUrl: form.blogUrl || undefined,
+        snsUrl: form.snsUrl || undefined,
       });
     } else {
       setChatMessages((prev) => [
@@ -970,6 +986,10 @@ export default function PartnerOnboardingChat() {
         sampleCategory: form.sampleCategory,
         subscriptionPlan: form.subscriptionPlan,
         billingCycle: form.billingCycle,
+        serviceName: form.serviceName || undefined,
+        websiteUrl: form.websiteUrl || undefined,
+        blogUrl: form.blogUrl || undefined,
+        snsUrl: form.snsUrl || undefined,
       });
       if (form.subscriptionPlan !== "starter") {
         toast.info("신청 정보가 저장되었습니다. 잠시 후 결제 버튼을 다시 눌러주세요.");
@@ -987,6 +1007,10 @@ export default function PartnerOnboardingChat() {
         sampleCategory: form.sampleCategory,
         subscriptionPlan: "starter",
         billingCycle: form.billingCycle,
+        serviceName: form.serviceName || undefined,
+        websiteUrl: form.websiteUrl || undefined,
+        blogUrl: form.blogUrl || undefined,
+        snsUrl: form.snsUrl || undefined,
       });
       return;
     }
@@ -1137,6 +1161,42 @@ export default function PartnerOnboardingChat() {
                 className="text-sm"
               />
             </div>
+            <div>
+              <Label className="text-xs font-semibold text-gray-700 mb-1 block">서비스명 (브랜드명)</Label>
+              <Input
+                placeholder="두골프 투어"
+                value={form.serviceName}
+                onChange={(e) => updateForm({ serviceName: e.target.value })}
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-gray-700 mb-1 block">홈페이지 URL</Label>
+              <Input
+                placeholder="https://example.com"
+                value={form.websiteUrl}
+                onChange={(e) => updateForm({ websiteUrl: e.target.value })}
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-gray-700 mb-1 block">블로그 URL</Label>
+              <Input
+                placeholder="https://blog.naver.com/..."
+                value={form.blogUrl}
+                onChange={(e) => updateForm({ blogUrl: e.target.value })}
+                className="text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-gray-700 mb-1 block">SNS URL (인스타그램/유튜브 등)</Label>
+              <Input
+                placeholder="https://instagram.com/..."
+                value={form.snsUrl}
+                onChange={(e) => updateForm({ snsUrl: e.target.value })}
+                className="text-sm"
+              />
+            </div>
           </div>
           <Button
             className="w-full bg-green-600 hover:bg-green-700 text-sm"
@@ -1148,7 +1208,7 @@ export default function PartnerOnboardingChat() {
                 {
                   id: `step1-done-${Date.now()}`,
                   role: "assistant" as const,
-                  content: `담당자 정보가 저장되었습니다! 😊\n• 이름: ${form.contactName}\n• 이메일: ${form.contactEmail}${form.contactPhone ? `\n• 전화: ${form.contactPhone}` : ""}${form.companyName ? `\n• 업체명: ${form.companyName}` : ""}\n\n이제 **Step 2: 등록증 업로드** 단계입니다.\n채팅창 하단의 📎 버튼으로 사업자등록증과 관광사업자등록증을 업로드해 주세요!`,
+                  content: `담당자 정보가 저장되었습니다! 😊\n• 이름: ${form.contactName}\n• 이메일: ${form.contactEmail}${form.contactPhone ? `\n• 전화: ${form.contactPhone}` : ""}${form.companyName ? `\n• 업체명: ${form.companyName}` : ""}${form.serviceName ? `\n• 서비스명: ${form.serviceName}` : ""}${form.websiteUrl ? `\n• 홈페이지: ${form.websiteUrl}` : ""}\n\n이제 **Step 2: 등록증 업로드** 단계입니다.\n채팅사다 하단의 📎 버튼으로 사업자등록증과 관광사업자등록증을 업로드해 주세요!`,
                   timestamp: new Date(),
                 },
               ]);

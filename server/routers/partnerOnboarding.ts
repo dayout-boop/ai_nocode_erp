@@ -47,6 +47,10 @@ export const partnerOnboardingRouter = router({
         sampleCategory: z.enum(["golf_tour_domestic", "golf_tour_overseas", "golf_tour_mixed"]).default("golf_tour_mixed"),
         subscriptionPlan: z.enum(["starter", "standard", "premium"]).default("starter"),
         billingCycle: z.enum(["monthly", "yearly"]).default("monthly"),
+        serviceName: z.string().optional(),
+        websiteUrl: z.string().optional(),
+        blogUrl: z.string().optional(),
+        snsUrl: z.string().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -84,6 +88,10 @@ export const partnerOnboardingRouter = router({
           sampleCategory: input.sampleCategory,
           subscriptionPlan: input.subscriptionPlan,
           billingCycle: input.billingCycle,
+          serviceName: input.serviceName,
+          websiteUrl: input.websiteUrl,
+          blogUrl: input.blogUrl,
+          snsUrl: input.snsUrl,
           status: "pending",
         }).where(eq(partnerOnboarding.id, existing.id));
         return { success: true, id: existing.id };
@@ -93,8 +101,24 @@ export const partnerOnboardingRouter = router({
         ...input,
         status: "pending",
       });
+      const newId = (result as { insertId: number }).insertId;
 
-      return { success: true, id: (result as { insertId: number }).insertId };
+      // ─── 신규 가입 신청 Slack 알림 ───
+      try {
+        const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
+        if (slackWebhookUrl) {
+          const slackMsg = `📝 *신규 파트너 가입 신청*\n업체명: ${input.companyName}\n담당자: ${input.contactName} (${input.contactEmail})${input.contactPhone ? `\n전화: ${input.contactPhone}` : ''}${input.serviceName ? `\n서비스명: ${input.serviceName}` : ''}${input.websiteUrl ? `\n홈페이지: ${input.websiteUrl}` : ''}\n플랜: ${input.subscriptionPlan ?? 'starter'}\n신청 ID: #${newId}`;
+          fetch(slackWebhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: slackMsg }),
+          }).catch(e => console.warn('[Slack] 신규 가입 알림 발송 실패:', e.message));
+        }
+      } catch (slackErr: any) {
+        console.warn('[Slack] 신규 가입 알림 오류:', slackErr?.message);
+      }
+
+      return { success: true, id: newId };
     }),
 
   /** 신청 목록 조회 (관리자) */
@@ -492,6 +516,10 @@ export const partnerOnboardingRouter = router({
         sampleCategory: z.enum(["golf_tour_domestic", "golf_tour_overseas", "golf_tour_mixed"]).default("golf_tour_mixed"),
         subscriptionPlan: z.enum(["starter", "standard", "premium"]).default("starter"),
         billingCycle: z.enum(["monthly", "yearly"]).default("monthly"),
+        serviceName: z.string().optional(),
+        websiteUrl: z.string().optional(),
+        blogUrl: z.string().optional(),
+        snsUrl: z.string().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -593,6 +621,10 @@ export const partnerOnboardingRouter = router({
         sampleCategory: input.sampleCategory,
         subscriptionPlan: input.subscriptionPlan,
         billingCycle: input.billingCycle,
+        serviceName: input.serviceName,
+        websiteUrl: input.websiteUrl,
+        blogUrl: input.blogUrl,
+        snsUrl: input.snsUrl,
         status: finalStatus as "pending" | "approved" | "reviewing",
         reviewedBy: autoApproved ? "OCR_AUTO_APPROVE" : undefined,
         reviewedAt: autoApproved ? new Date() : undefined,
@@ -604,6 +636,7 @@ export const partnerOnboardingRouter = router({
       };
 
       let newId: number;
+      const isNewApplication = !existing;
       if (existing) {
         // 기존 pending 행 업데이트
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -613,6 +646,25 @@ export const partnerOnboardingRouter = router({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const [result] = await db.insert(partnerOnboarding).values(upsertValues as any);
         newId = (result as { insertId: number }).insertId;
+      }
+
+      // ─── 신규 가입 신청 Slack 알림 (신규 insert 시만) ───
+      if (isNewApplication) {
+        try {
+          const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
+          if (slackWebhookUrl) {
+            const companyNameForSlack = (upsertValues.companyName ?? input.contactName) as string;
+            const statusLabel = autoApproved ? '자동 승인' : finalStatus === 'reviewing' ? '관리자 검토 필요' : '승인 대기';
+            const slackMsg = `📝 *신규 파트너 가입 신청*\n업체명: ${companyNameForSlack}\n담당자: ${input.contactName} (${input.contactEmail})${input.contactPhone ? `\n전화: ${input.contactPhone}` : ''}${input.serviceName ? `\n서비스명: ${input.serviceName}` : ''}${input.websiteUrl ? `\n홈페이지: ${input.websiteUrl}` : ''}\n플랜: ${input.subscriptionPlan ?? 'starter'}\n상태: ${statusLabel}\n신청 ID: #${newId}`;
+            fetch(slackWebhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: slackMsg }),
+            }).catch(e => console.warn('[Slack] 신규 가입 알림 발송 실패:', e.message));
+          }
+        } catch (slackErr: any) {
+          console.warn('[Slack] 신규 가입 알림 오류:', slackErr?.message);
+        }
       }
 
       // 자동 승인 시: 테넌트 생성 + partners.isActive=true 업데이트 + 샘플 데이터 생성
@@ -808,6 +860,10 @@ export const partnerOnboardingRouter = router({
           ocrResult: row.ocrResult ?? null,
           tourismOcrResult: (row as Record<string, unknown>).tourismOcrResult as string | null ?? null,
           adminNote: row.adminNote ?? null,
+          serviceName: (row as Record<string, unknown>).serviceName as string | null ?? null,
+          websiteUrl: (row as Record<string, unknown>).websiteUrl as string | null ?? null,
+          blogUrl: (row as Record<string, unknown>).blogUrl as string | null ?? null,
+          snsUrl: (row as Record<string, unknown>).snsUrl as string | null ?? null,
           createdAt: row.createdAt,
         },
       };

@@ -115,6 +115,91 @@ export const crmRouter = router({
       return { success: true };
     }),
 
+  // 파트너 정지
+  suspendPartner: protectedProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      reason: z.string().min(1, "정지 사유를 입력해주세요"),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await (await import("../db")).getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
+      const { eq } = await import("drizzle-orm");
+      const { partners } = await import("../../drizzle/schema");
+      const [existing] = await db.select({ id: partners.id, companyName: partners.companyName })
+        .from(partners).where(eq(partners.id, input.id)).limit(1);
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "파트너를 찾을 수 없습니다" });
+      await db.update(partners).set({
+        isActive: false,
+        suspendedAt: new Date(),
+        suspendReason: input.reason,
+      }).where(eq(partners.id, input.id));
+      return { success: true };
+    }),
+
+  // 파트너 복구
+  resumePartner: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      const db = await (await import("../db")).getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
+      const { eq } = await import("drizzle-orm");
+      const { partners } = await import("../../drizzle/schema");
+      const [existing] = await db.select({ id: partners.id })
+        .from(partners).where(eq(partners.id, input.id)).limit(1);
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "파트너를 찾을 수 없습니다" });
+      await db.update(partners).set({
+        isActive: true,
+        suspendedAt: null,
+        suspendReason: null,
+      }).where(eq(partners.id, input.id));
+      return { success: true };
+    }),
+
+  // 파트너 상세 (온보딩 URL/adminNote 포함)
+  getPartnerDetail: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await (await import("../db")).getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
+      const { eq } = await import("drizzle-orm");
+      const { partners, partnerOnboarding } = await import("../../drizzle/schema");
+
+      const [partner] = await db.select().from(partners).where(eq(partners.id, input.id)).limit(1);
+      if (!partner) throw new TRPCError({ code: "NOT_FOUND", message: "파트너를 찾을 수 없습니다" });
+
+      // partner_onboarding에서 URL/adminNote 조회 (이메일 기준)
+      let onboardingData: {
+        serviceName: string | null;
+        websiteUrl: string | null;
+        blogUrl: string | null;
+        snsUrl: string | null;
+        adminNote: string | null;
+      } | null = null;
+
+      const email = partner.contactEmail || partner.googleEmail;
+      if (email) {
+        const [onboarding] = await db
+          .select({
+            serviceName: partnerOnboarding.serviceName,
+            websiteUrl: partnerOnboarding.websiteUrl,
+            blogUrl: partnerOnboarding.blogUrl,
+            snsUrl: partnerOnboarding.snsUrl,
+            adminNote: partnerOnboarding.adminNote,
+          })
+          .from(partnerOnboarding)
+          .where(eq(partnerOnboarding.contactEmail, email))
+          .limit(1);
+        if (onboarding) onboardingData = onboarding;
+      }
+
+      const { loginPwHash: _, ...safe } = partner;
+      return {
+        ...safe,
+        onboarding: onboardingData,
+      };
+    }),
+
   // 일정 목록 조회 (파트너별 또는 월별)
   getSchedules: protectedProcedure
     .input(

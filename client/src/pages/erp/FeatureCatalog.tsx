@@ -255,8 +255,8 @@ export default function FeatureCatalog() {
             <p className="text-sm text-muted-foreground mt-0.5">
               두골프 ERP 전체 기능 목록 — 소스 코드 자동 집계
               {data?.generatedAt && (
-                <span className="ml-2 text-xs">
-                  (최종 갱신: {new Date(data.generatedAt).toLocaleString("ko-KR")})
+                <span className="ml-2 text-xs text-amber-600">
+                  (마지막 스캔: {new Date(data.generatedAt).toLocaleString("ko-KR")} · 최신 반영은 소스 재스캔 버튼을 눌러주세요)
                 </span>
               )}
             </p>

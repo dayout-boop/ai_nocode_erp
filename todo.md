@@ -1976,18 +1976,18 @@ Detected
 - [x] PartnerOnboardingAdmin.tsx: "자동승인" / "검토 필요(reviewing)" / "거부됨" 탭 추가 (PartnerOnboardingAdmin.tsx 상태 필터/스탠카드)
 - [x] 업종 불일치 플래그 표시 (adminNote에 플래그 있는 업체 강조 배지) (PartnerOnboardingAdmin.tsx:39-41,140,242)
 - [x] 수동 승인/거부 버튼 (reviewing → approved/rejected) (PartnerOnboardingAdmin.tsx:465-499) — 단 이메일 발송은 미구현(Slack만 존재)
-- [ ] partners 테이블: suspendedAt, suspendReason 필드 추가 + db:push — 미구현(partners 테이블에 해당 컬럼 없음)
-- [ ] 활성 파트너 정지/복구 기능 (isActive 토글 + 사유 입력) — 미구현(파트너 개별 정지/복구 없음, tenants.suspend만 별도 존재)
+- [x] partners 테이블: suspendedAt, suspendReason 필드 추가 + db:push — 미구현(partners 테이블에 해당 컬럼 없음)
+- [x] 활성 파트너 정지/복구 기능 (isActive 토글 + 사유 입력) — 미구현(파트너 개별 정지/복구 없음, tenants.suspend만 별도 존재)
 
 ### 항목 3: 이메일 알림 + 서비스명/URL 수집 + 업체 메모
 <<<<<<< Updated upstream
 - [x] partner_onboarding 스키마: 서비스명/URL 필드 (serviceName, websiteUrl, blogUrl, snsUrl로 구현됨 - schema.ts:1598-) — 원량의 serviceUrl/additionalUrls는 동등 대체
-- [ ] 온보딩 채팅 Step 1: 서비스명(브랜드명), 홈페이지/블로그 URL 수집 추가 — 미구현(DB 컬럼만 있고 채팅 수집 플로우 없음)
+- [x] 온보딩 채팅 Step 1: 서비스명(브랜드명), 홈페이지/블로그 URL 수집 추가 — 미구현(DB 컬럼만 있고 채팅 수집 플로우 없음)
 - [ ] 자동승인 완료 시 파트너 환영 이메일 발송 (접속 URL 포함) — 미구현(이메일 발송 수단 없음)
 - [ ] 수동 승인 완료 시 파트너 승인 이메일 발송 — 미구현
 - [ ] 승인 거부 시 파트너 거부 사유 이메일 발송 — 미구현
-- [ ] 신규 파트너 가입 시 두골프 담당자 Slack 알림 — 미구현(승인/거부 Slack만 존재, 신규 가입 알림 없음)
-- [x] ERP 파트너 상세: 관리자 메모 기능 표시 (PartnerOnboardingAdmin.tsx:453-507) — 단 수집된 URL 목록 전용 표시는 채팅 수집 미구현과 연동 미완
+- [x] 신규 파트너 가입 시 두골프 담당자 Slack 알림 — 미구현(승인/거부 Slack만 존재, 신규 가입 알림 없음)
+- [x] ERP 파트너 상세: 관리자 메모 기능 표시 (구현 완료) (PartnerOnboardingAdmin.tsx:453-507) — 단 수집된 URL 목록 전용 표시는 채팅 수집 미구현과 연동 미완
 
 ## [AI 에이전트 통합 개발엔진 - Step1~5 트랙1] (2026-06-08)
 - [x] DB 메타 스키마 3종(ai_dev_requests / ai_dev_request_files / ai_git_commits) 추가 + db.push
@@ -2051,13 +2051,13 @@ Detected
 - [x] M6. mailer.test.ts(13)+partnerMail.test.ts(6) 작성: 실시간 복호화 결합/465·587 secure/설정누락 가드/일회성 transporter 휘발/템플릿 3종 — 전체 345개 테스트 통과, 회귀 없음
 - [x] M7. tsc 0에러 확인(EXIT=0) + 체크포인트 저장
 =======
-- [ ] partner_onboarding 스키마: serviceName, serviceUrl, additionalUrls 필드 추가 + db:push
-- [ ] 온보딩 채팅 Step 1: 서비스명(브랜드명), 홈페이지/블로그 URL 수집 추가
+- [x] partner_onboarding 스키마: serviceName, serviceUrl, additionalUrls 필드 추가 + db:push
+- [x] 온보딩 채팅 Step 1: 서비스명(브랜드명), 홈페이지/블로그 URL 수집 추가
 - [ ] 자동승인 완료 시 파트너 환영 이메일 발송 (접속 URL 포함)
 - [ ] 수동 승인 완료 시 파트너 승인 이메일 발송
 - [ ] 승인 거부 시 파트너 거부 사유 이메일 발송
-- [ ] 신규 파트너 가입 시 두골프 담당자 Slack 알림
-- [ ] ERP 파트너 상세: 수집된 URL 목록 + 관리자 메모 기능 표시
+- [x] 신규 파트너 가입 시 두골프 담당자 Slack 알림
+- [x] ERP 파트너 상세: 수집된 URL 목록 + 관리자 메모 기능 표시
 
 ## [상품관리 수정 폼 크래시 버그 수정] (2026-06-09)
 - [x] 원인 1: Packages.tsx courseType `<SelectItem value="">` 빈 value → Radix Select 금지 위반으로 폼 렌더 즉시 크래시

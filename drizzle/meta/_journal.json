@@ -358,6 +358,13 @@
       "when": 1780982852095,
       "tag": "0049_steady_ser_duncan",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "5",
+      "when": 1781000239496,
+      "tag": "0050_pale_spiral",
+      "breakpoints": true
     }
   ]
 }

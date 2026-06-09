@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import {
   Building2, Phone, Mail, User, Plus, Search, Eye, CalendarPlus,
   ChevronLeft, ChevronRight, Calendar, Clock, Pencil, Trash2,
-  Lock, CreditCard, FileText, X, RefreshCw, CheckCircle2
+  Lock, CreditCard, FileText, X, RefreshCw, CheckCircle2, Ban, RotateCcw, AlertTriangle
 } from "lucide-react";
 
 // ── 타입 ──────────────────────────────────────────────────────
@@ -37,6 +37,8 @@ type Partner = {
   loginId?: string | null;
   memo?: string | null;
   isActive: boolean;
+  suspendedAt?: Date | null;
+  suspendReason?: string | null;
   createdAt: Date;
 };
 
@@ -683,13 +685,23 @@ function PartnerDetailModal({
   partner,
   onEdit,
   onSchedule,
+  onSuspend,
+  onResume,
 }: {
   open: boolean;
   onClose: () => void;
   partner: Partner | null;
   onEdit: () => void;
   onSchedule: () => void;
+  onSuspend: () => void;
+  onResume: () => void;
 }) {
+  const detailQuery = trpc.crm.getPartnerDetail.useQuery(
+    { id: partner?.id ?? 0 },
+    { enabled: open && !!partner }
+  );
+  const onboarding = detailQuery.data?.onboarding ?? null;
+
   if (!partner) return null;
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -792,6 +804,49 @@ function PartnerDetailModal({
             )}
           </div>
 
+          {/* 온보딩 URL 정보 */}
+          {onboarding && (onboarding.serviceName || onboarding.websiteUrl || onboarding.blogUrl || onboarding.snsUrl) && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+              <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide flex items-center gap-1">
+                🌐 서비스 URL 정보
+              </p>
+              {onboarding.serviceName && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">서비스명</span>
+                  <span className="font-medium">{onboarding.serviceName}</span>
+                </div>
+              )}
+              {onboarding.websiteUrl && (
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">홈페이지</span>
+                  <a href={onboarding.websiteUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline text-xs truncate max-w-[200px]">{onboarding.websiteUrl}</a>
+                </div>
+              )}
+              {onboarding.blogUrl && (
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">블로그</span>
+                  <a href={onboarding.blogUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline text-xs truncate max-w-[200px]">{onboarding.blogUrl}</a>
+                </div>
+              )}
+              {onboarding.snsUrl && (
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">SNS</span>
+                  <a href={onboarding.snsUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline text-xs truncate max-w-[200px]">{onboarding.snsUrl}</a>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 관리자 메모 (온보딩 adminNote) */}
+          {onboarding?.adminNote && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-xs font-semibold text-amber-700 mb-1 flex items-center gap-1">
+                📝 관리자 메모 (온보딩)
+              </p>
+              <p className="text-gray-700 text-sm whitespace-pre-wrap">{onboarding.adminNote}</p>
+            </div>
+          )}
+
           {/* 메모 */}
           {partner.memo && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
@@ -799,15 +854,53 @@ function PartnerDetailModal({
               <p className="text-gray-700 text-sm whitespace-pre-wrap">{partner.memo}</p>
             </div>
           )}
+
+          {/* 정지 사유 */}
+          {partner.suspendedAt && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-xs font-semibold text-red-700 mb-1 flex items-center gap-1">
+                <AlertTriangle size={12} /> 정지 정보
+              </p>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">정지 일시</span>
+                <span className="font-medium text-red-700">{new Date(partner.suspendedAt).toLocaleString('ko-KR')}</span>
+              </div>
+              {partner.suspendReason && (
+                <div className="mt-1">
+                  <span className="text-gray-500 text-xs">사유: </span>
+                  <span className="text-red-700 text-sm">{partner.suspendReason}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={onSchedule} className="flex items-center gap-1">
             <CalendarPlus size={14} /> 일정 등록
           </Button>
           <Button variant="outline" size="sm" onClick={onEdit} className="flex items-center gap-1">
             <Pencil size={14} /> 수정
           </Button>
+          {partner.isActive ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onSuspend}
+              className="flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
+            >
+              <Ban size={14} /> 정지
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onResume}
+              className="flex items-center gap-1 text-green-600 border-green-200 hover:bg-green-50"
+            >
+              <RotateCcw size={14} /> 복구
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={onClose}>닫기</Button>
         </DialogFooter>
       </DialogContent>
@@ -836,6 +929,10 @@ export default function CRMPartners() {
   const [scheduleDefaultDate, setScheduleDefaultDate] = useState<Date | undefined>();
   const [schedulePartnerId, setSchedulePartnerId] = useState<number | undefined>();
 
+  // 정지 다이얼로그 상태
+  const [showSuspendDialog, setShowSuspendDialog] = useState(false);
+  const [suspendReason, setSuspendReason] = useState("");
+
   // 데이터 조회
   const { data: partners = [], refetch: refetchPartners } = trpc.crm.getPartners.useQuery(
     { search: search || undefined },
@@ -850,6 +947,28 @@ export default function CRMPartners() {
   const deleteMut = trpc.crm.deletePartner.useMutation({
     onSuccess: () => {
       toast.success("파트너 삭제 완료");
+      refetchPartners();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  // 정지
+  const suspendMut = trpc.crm.suspendPartner.useMutation({
+    onSuccess: () => {
+      toast.success("파트너 정지 완료");
+      setShowSuspendDialog(false);
+      setShowDetail(false);
+      setSuspendReason("");
+      refetchPartners();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  // 복구
+  const resumeMut = trpc.crm.resumePartner.useMutation({
+    onSuccess: () => {
+      toast.success("파트너 복구 완료");
+      setShowDetail(false);
       refetchPartners();
     },
     onError: (e) => toast.error(e.message),
@@ -1183,7 +1302,58 @@ export default function CRMPartners() {
         partner={selectedPartner}
         onEdit={() => { setShowDetail(false); setShowPartnerForm(true); }}
         onSchedule={() => handlePartnerSchedule(selectedPartner!)}
+        onSuspend={() => { setShowSuspendDialog(true); }}
+        onResume={() => {
+          if (selectedPartner && confirm(`"${selectedPartner.companyName}" 파트너를 복구하시겠습니까?`)) {
+            resumeMut.mutate({ id: selectedPartner.id });
+          }
+        }}
       />
+
+      {/* 정지 사유 입력 다이얼로그 */}
+      <Dialog open={showSuspendDialog} onOpenChange={(o) => { if (!o) { setShowSuspendDialog(false); setSuspendReason(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Ban size={18} /> 파트너 정지
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">
+              <span className="font-semibold">{selectedPartner?.companyName}</span> 파트너를 정지합니다.
+              정지 시 파트너는 시스템에 접속할 수 없습니다.
+            </p>
+            <div>
+              <Label htmlFor="suspendReason" className="text-sm font-medium">정지 사유 <span className="text-red-500">*</span></Label>
+              <Textarea
+                id="suspendReason"
+                value={suspendReason}
+                onChange={(e) => setSuspendReason(e.target.value)}
+                placeholder="정지 사유를 입력해주세요 (예: 계약 위반, 미지급, 요청 정지)"
+                className="mt-1 resize-none"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => { setShowSuspendDialog(false); setSuspendReason(""); }}>
+              취소
+            </Button>
+            <Button
+              size="sm"
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={!suspendReason.trim() || suspendMut.isPending}
+              onClick={() => {
+                if (selectedPartner) {
+                  suspendMut.mutate({ id: selectedPartner.id, reason: suspendReason.trim() });
+                }
+              }}
+            >
+              {suspendMut.isPending ? "정지 중..." : "정지 확인"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ScheduleFormModal
         open={showScheduleForm}

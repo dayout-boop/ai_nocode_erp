@@ -814,6 +814,10 @@ export const partners = mysqlTable("partners", {
   memo: text("memo"),
   /** 활성 상태 */
   isActive: boolean("isActive").default(true).notNull(),
+  /** 정지 일시 (null이면 정지 아님) */
+  suspendedAt: timestamp("suspendedAt"),
+  /** 정지 사유 */
+  suspendReason: text("suspendReason"),
   tenantId: int("tenantId"),  // null = 두골프 본사, 1~N = 파트너사
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
