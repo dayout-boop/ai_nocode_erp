@@ -29,7 +29,9 @@ import {
   adminAccounts,
   partners,
   partnerOnboarding,
+  tenants,
 } from "../drizzle/schema";
+import { SUBSCRIPTION_PLANS } from "./products";
 // AI 엔진 테이블은 별도 import로 처리됨 (아래 참조)
 import { eq, desc, and, gte, lte, like, sql, count, asc, isNotNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
@@ -1376,7 +1378,7 @@ const crmRouter = router({
       return safe;
     }),
 
-  createPartner: protectedProcedure
+  createPartner: adminProcedure
     .input(z.object({
       companyName: z.string().min(1),
       businessNumber: z.string().optional(),
@@ -1392,10 +1394,12 @@ const crmRouter = router({
       loginPw: z.string().optional(),
       memo: z.string().optional(),
       isActive: z.boolean().optional(),
+      createTenant: z.boolean().optional(),
+      subscriptionPlan: z.enum(['starter', 'standard', 'premium']).optional(),
     }))
     .mutation(async ({ input }) => {
       const { createPartner } = await import('./db.js');
-      const { loginPw, ...rest } = input;
+      const { loginPw, createTenant, subscriptionPlan, ...rest } = input;
       let loginPwHash: string | undefined;
       if (loginPw) {
         const encoder = new TextEncoder();
@@ -1404,8 +1408,42 @@ const crmRouter = router({
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         loginPwHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
       }
-      await createPartner({ ...rest, loginPwHash });
-      return { success: true };
+      const { insertId: partnerId } = await createPartner({ ...rest, loginPwHash });
+
+      // 전용 테넌트 자동 생성 + 양방향 연결 (옵션)
+      let tenantId: number | undefined;
+      if (createTenant && partnerId > 0) {
+        try {
+          const db = await getDb();
+          if (db) {
+            const plan = SUBSCRIPTION_PLANS.find((p) => p.id === (subscriptionPlan ?? 'starter'));
+            const aiCredits = plan?.aiCreditsPerMonth ?? 100;
+            const slugBase = input.companyName.replace(/[^a-zA-Z0-9가-힣]/g, '').toLowerCase().slice(0, 20) || 'partner';
+            const slug = `${slugBase}-${partnerId}`;
+            const trialExpires = new Date();
+            trialExpires.setDate(trialExpires.getDate() + 30);
+            const [tRes] = await db.insert(tenants).values({
+              partnerId,
+              slug,
+              companyName: input.companyName,
+              subscriptionPlan: (subscriptionPlan ?? 'starter') as 'starter' | 'standard' | 'premium',
+              subscriptionStatus: 'trial',
+              subscriptionExpiresAt: trialExpires,
+              isActive: true,
+              aiCreditsBalance: aiCredits,
+              aiCreditsMonthlyLimit: aiCredits,
+            });
+            tenantId = Number((tRes as unknown as { insertId?: number }).insertId ?? 0) || undefined;
+            if (tenantId) {
+              await db.update(partners).set({ tenantId }).where(eq(partners.id, partnerId));
+            }
+          }
+        } catch (e) {
+          console.warn('[CRM] 전용 테넌트 자동 생성 스킵:', (e as Error)?.message);
+        }
+      }
+
+      return { success: true, partnerId: partnerId || undefined, tenantId };
     }),
 
   updatePartner: protectedProcedure

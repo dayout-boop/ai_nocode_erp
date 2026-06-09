@@ -126,7 +126,9 @@ export async function createPartner(data: InsertPartner) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.insert(partners).values(data);
-  return result[0];
+  // mysql2 결과의 insertId 반환 (없으면 0)
+  const insertId = Number((result as unknown as { insertId?: number }[])[0]?.insertId ?? 0);
+  return { insertId };
 }
 
 export async function updatePartner(id: number, data: Partial<InsertPartner>) {

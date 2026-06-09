@@ -200,6 +200,10 @@ function PartnerFormModal({
     isActive: partner?.isActive ?? true,
   });
 
+  // 신규 등록 전용: 테넌트(구독 워크스페이스) 자동 생성 옵션
+  const [createTenant, setCreateTenant] = useState(false);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<"starter" | "standard" | "premium">("starter");
+
   const createMut = trpc.crm.createPartner.useMutation({
     onSuccess: () => {
       toast.success("파트너 등록 완료");
@@ -231,7 +235,7 @@ function PartnerFormModal({
     if (isEdit && partner) {
       updateMut.mutate({ id: partner.id, data: form });
     } else {
-      createMut.mutate(form);
+      createMut.mutate({ ...form, createTenant, subscriptionPlan });
     }
   };
 
@@ -338,6 +342,41 @@ function PartnerFormModal({
                 </div>
               </div>
             </div>
+
+            {/* 신규 등록 시에만: 전용 테넌트(구독 워크스페이스) 자동 생성 */}
+            {!isEdit && (
+              <div className="border-t pt-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="createTenant"
+                    checked={createTenant}
+                    onChange={(e) => setCreateTenant(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="createTenant" className="text-sm cursor-pointer">
+                    전용 테넌트(구독 워크스페이스) 함께 생성
+                  </Label>
+                </div>
+                <p className="text-xs text-gray-400 mt-1 ml-6">
+                  체크 시 파트너에게 독립된 데이터 공간(테넌트)이 생성되고 자동 연결됩니다. 30일 체험 시작.
+                </p>
+                {createTenant && (
+                  <div className="mt-2 ml-6">
+                    <Label className="text-xs text-gray-500">구독 플랜</Label>
+                    <select
+                      value={subscriptionPlan}
+                      onChange={(e) => setSubscriptionPlan(e.target.value as "starter" | "standard" | "premium")}
+                      className="mt-1 w-full border border-gray-200 rounded-md px-2 py-1.5 text-sm"
+                    >
+                      <option value="starter">스타터 (무료 체험)</option>
+                      <option value="standard">스탠다드</option>
+                      <option value="premium">프리미엄</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
 

@@ -1980,14 +1980,13 @@ Detected
 - [x] 활성 파트너 정지/복구 기능 (isActive 토글 + 사유 입력) — 미구현(파트너 개별 정지/복구 없음, tenants.suspend만 별도 존재)
 
 ### 항목 3: 이메일 알림 + 서비스명/URL 수집 + 업체 메모
-<<<<<<< Updated upstream
-- [x] partner_onboarding 스키마: 서비스명/URL 필드 (serviceName, websiteUrl, blogUrl, snsUrl로 구현됨 - schema.ts:1598-) — 원량의 serviceUrl/additionalUrls는 동등 대체
-- [x] 온보딩 채팅 Step 1: 서비스명(브랜드명), 홈페이지/블로그 URL 수집 추가 — 미구현(DB 컬럼만 있고 채팅 수집 플로우 없음)
-- [ ] 자동승인 완료 시 파트너 환영 이메일 발송 (접속 URL 포함) — 미구현(이메일 발송 수단 없음)
-- [ ] 수동 승인 완료 시 파트너 승인 이메일 발송 — 미구현
-- [ ] 승인 거부 시 파트너 거부 사유 이메일 발송 — 미구현
-- [x] 신규 파트너 가입 시 두골프 담당자 Slack 알림 — 미구현(승인/거부 Slack만 존재, 신규 가입 알림 없음)
-- [x] ERP 파트너 상세: 관리자 메모 기능 표시 (구현 완료) (PartnerOnboardingAdmin.tsx:453-507) — 단 수집된 URL 목록 전용 표시는 채팅 수집 미구현과 연동 미완
+- [x] partner_onboarding 스키마: 서비스명/URL 필드 (serviceName, websiteUrl, blogUrl, snsUrl - schema.ts:1598-)
+- [x] 온보딩 채팅 Step 1: 서비스명(브랜드명), 홈페이지/블로그 URL 수집
+- [x] 자동승인 완료 시 파트너 환영 이메일 발송 (partnerOnboarding.ts:752 sendPartnerEmail welcome, SMTP 발송 확인 sent=3)
+- [x] 수동 승인 완료 시 파트너 승인 이메일 발송 (partnerOnboarding.ts:279 sendPartnerEmail approved, 상태전환 가드)
+- [x] 승인 거부 시 파트너 거부 사유 이메일 발송 (partnerOnboarding.ts:289 sendPartnerEmail rejected, 사유 포함)
+- [x] 신규 파트너 가입 시 두골프 담당자 Slack 알림 (승인/거부 Slack)
+- [x] ERP 파트너 상세: 관리자 메모 기능 표시 (PartnerOnboardingAdmin.tsx:453-507)
 
 ## [AI 에이전트 통합 개발엔진 - Step1~5 트랙1] (2026-06-08)
 - [x] DB 메타 스키마 3종(ai_dev_requests / ai_dev_request_files / ai_git_commits) 추가 + db.push
@@ -2050,14 +2049,6 @@ Detected
 - [x] M5. 파트너 메일 3종 연동: updateStatus에 승인/거부 메일(중복발송 가드: 상태 전환 시에만), submitWithBothOcr 자동승인 시 환영 메일 — 모두 비동기/비차단, tsc 0에러
 - [x] M6. mailer.test.ts(13)+partnerMail.test.ts(6) 작성: 실시간 복호화 결합/465·587 secure/설정누락 가드/일회성 transporter 휘발/템플릿 3종 — 전체 345개 테스트 통과, 회귀 없음
 - [x] M7. tsc 0에러 확인(EXIT=0) + 체크포인트 저장
-=======
-- [x] partner_onboarding 스키마: serviceName, serviceUrl, additionalUrls 필드 추가 + db:push
-- [x] 온보딩 채팅 Step 1: 서비스명(브랜드명), 홈페이지/블로그 URL 수집 추가
-- [ ] 자동승인 완료 시 파트너 환영 이메일 발송 (접속 URL 포함)
-- [ ] 수동 승인 완료 시 파트너 승인 이메일 발송
-- [ ] 승인 거부 시 파트너 거부 사유 이메일 발송
-- [x] 신규 파트너 가입 시 두골프 담당자 Slack 알림
-- [x] ERP 파트너 상세: 수집된 URL 목록 + 관리자 메모 기능 표시
 
 ## [상품관리 수정 폼 크래시 버그 수정] (2026-06-09)
 - [x] 원인 1: Packages.tsx courseType `<SelectItem value="">` 빈 value → Radix Select 금지 위반으로 폼 렌더 즉시 크래시
@@ -2067,7 +2058,6 @@ Detected
 - [x] 원인 3: PackageFormDialog가 useState 초기값을 한 번만 잡아 수정 시 기존 데이터 미로딩
 - [x] 수정 3: PackageFormDialog에 key={showForm ? (editPackage?.id ?? "new") : "closed"} 부여 → 수정 시 재마운트로 데이터 정상 로딩
 - [x] 검증: 프리뷰에서 수정 폼 기존 데이터 정상 로딩 확인, tsc 0에러, 전체 260 테스트 통과
->>>>>>> Stashed changes
 
 ## [ERP 전체 페이지 점검 - 버그 수정] (2026-06-09)
 
@@ -2145,4 +2135,14 @@ Detected
 
 ### 검증
 - [x] vitest: devFlow(7) + deployRunner(4) 신규 11건 통과, 전체 362건 통과(erp.test 현사양 갱신)
-- [ ] 체크포인트 저장 및 결과 보고
+- [x] 체크포인트 저장 및 결과 보고 (v: f1cd1f32)
+
+## 이메일 발송 검증 + 관리자 파트너 직접 생성 (2026-06-10)
+- [x] 이메일 발송(승인/거부/환영) 기구현 확인: partnerMail.ts + partnerOnboarding.ts, SMTP 등록 1, 발송로그 sent=3 fail=0
+- [x] todo.md Git 충돌 마커(<<</===/>>>) 해소
+- [x] crm.createPartner(routers.ts crmRouter): adminProcedure 게이트 적용
+- [x] createPartner: createTenant/subscriptionPlan 옵션 + 전용 테넌트 자동생성(30일 체험) + partners.tenantId 양방향 연결
+- [x] db.createPartner: insertId 반환하도록 보강
+- [x] CRMPartners 폼: '전용 테넌트 함께 생성' 체크박스 + 구독 플랜 선택 UI(신규 등록 시)
+- [x] 미사용 중복파일 routers/crm.ts 원복(혼선 제거)
+- [x] vitest: partnerCreateTenant.test 12건 통과, 전체 386건 통과, tsc 0에러
