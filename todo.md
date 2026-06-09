@@ -1955,7 +1955,7 @@ Detected
   - 업로드 완료 시 자동승인 → /partner/dashboard 이동
   - 업로드 없이 대기 가능 (관리자 수동 검토 안내)
 - [x] PartnerLogin.tsx: pending_approval 상태에서 /partner/pending-verification 링크 추가 (PartnerLogin.tsx:144-147)
-- [ ] ERP 파트너 직접 생성 기능 (관리자용) — 미구현 (createByAdmin 프로시저/직접등록 폼 없음, 단 loginId/loginPwHash 컬럼은 기존 존재하여 customLoginId/PwHash 추가 불필요)
+- [x] ERP 파트너 직접 생성 기능 (관리자용) — 구현 완료: crm.createPartner(adminProcedure) + CRMPartners PartnerFormModal 폼 + 전용 테넌트 자동생성/연결 옵션 (2026-06-10)
 - [x] TypeScript 오류 0개 확인 (tsc --noEmit EXIT=0)
 - [x] 체크포인트 저장 (6dfa68ad)
 
@@ -2146,3 +2146,24 @@ Detected
 - [x] CRMPartners 폼: '전용 테넌트 함께 생성' 체크박스 + 구독 플랜 선택 UI(신규 등록 시)
 - [x] 미사용 중복파일 routers/crm.ts 원복(혼선 제거)
 - [x] vitest: partnerCreateTenant.test 12건 통과, 전체 386건 통과, tsc 0에러
+
+## 자체 배포 실행기 보강 + 서버 이전 활성화 설정 UI (2026-06)
+### Phase A — deployRunner 로직 보강
+- [x] env.ts: DEPLOY_GIT_PULL_CMD / DEPLOY_GIT_PULL_DIR 환경변수 키 추가
+- [x] deployRunner: git pull 단계 추가 (SELF_DEPLOY_ENABLED 가드 안, full/pull 페이즈)
+- [x] deployRunner: 중복 실행 방지 락 추가 (in-memory isRunning 플래그)
+- [x] DeployPhase 타입에 "pull" 추가, triggerDeploy input schema 동기화
+### Phase B — ERP 설정 '서버 이전 활성화' 카테고리 UI
+- [x] ServerMigrationCard 컴포넌트 신규 작성 (ERPSettings 내 별도 카테고리)
+  - [x] 오너 체크리스트 (이전 전 확인 항목 설명 체크란 — 로컬 localStorage 체크 상태 유지)
+  - [x] 환경 종속값 입력란 (SELF_DEPLOY_ENABLED 토글, DEPLOY_RESTART_CMD, DEPLOY_GIT_PULL_CMD, DEPLOY_GIT_PULL_DIR)
+  - [x] 현재 배포 상태 배지 (enabled/disabled, deployStatus 쿼리 연동)
+  - [x] 각 입력란에 설명 툴팁/안내문 (언제 채워야 하는지 명시)
+### Phase C — DeployButton UI 결과 표시 보강
+- [x] DeployButton: 단계별 진행 스피너 (pull → build → restart 순서 표시)
+- [x] DeployButton: 배포 완료/실패 결과 토스트 + 출력 로그 펼치기 패널
+- [x] DeployButton: 중복 클릭 방지 (실행 중 버튼 비활성화)
+### 검증
+- [x] vitest: deployRunner git pull + 락 테스트 추가 (기존 deployRunner.test.ts 확장)
+- [x] vitest: 전체 회귀 확인 (기존 386건 이상 통과)
+- [x] 체크포인트 저장

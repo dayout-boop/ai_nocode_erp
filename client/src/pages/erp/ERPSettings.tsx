@@ -14,7 +14,7 @@ import {
   CheckCircle2, XCircle, AlertCircle, ExternalLink, RefreshCw,
   CreditCard, MessageSquare, Video, Zap, Bot, Bell, Key, Settings,
   Eye, EyeOff, Pencil, Trash2, Plus, Save, X,
-  Mail, Send, Loader2,
+  Mail, Send, Loader2, Server, GitBranch, AlertTriangle, Info, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -873,6 +873,300 @@ function IntegrationStatusTab() {
   );
 }
 
+// ─── 서버 이전 활성화 탭 ─────────────────────────────────────────────────────────
+/**
+ * 오너 체크리스트 항목 정의
+ * - 이전 전 반드시 확인해야 하는 항목들
+ * - 환경 종속값은 실제 외부서버에서 채워야 하는 항목
+ */
+const MIGRATION_CHECKLIST = [
+  {
+    id: "git_setup",
+    label: "외부서버에 Git 저장소 클론 완료",
+    desc: "외부서버에서 git clone 또는 git pull로 최신 소스를 받아야 합니다.",
+    required: true,
+  },
+  {
+    id: "node_pnpm",
+    label: "Node.js 22 + pnpm 설치 완료",
+    desc: "pnpm --version 으로 설치 여부를 확인하세요.",
+    required: true,
+  },
+  {
+    id: "pm2_or_systemd",
+    label: "프로세스 매니저(pm2 또는 systemd) 설정 완료",
+    desc: "서버 재시작 명령이 필요합니다. 예: pm2 start dist/index.js --name dogolf",
+    required: true,
+  },
+  {
+    id: "env_vars",
+    label: "외부서버 .env 파일 또는 환경변수 주입 완료",
+    desc: "DATABASE_URL, JWT_SECRET 등 필수 환경변수를 외부서버에 설정하세요.",
+    required: true,
+  },
+  {
+    id: "deploy_restart_cmd",
+    label: "DEPLOY_RESTART_CMD 환경변수 설정",
+    desc: "예: DEPLOY_RESTART_CMD=\"pm2 restart dogolf\" — 재시작 명령이 없으면 빌드 후 수동 재시작이 필요합니다.",
+    required: false,
+  },
+  {
+    id: "deploy_git_pull_cmd",
+    label: "DEPLOY_GIT_PULL_CMD 환경변수 설정",
+    desc: "예: DEPLOY_GIT_PULL_CMD=\"git pull origin main\" — 미설정 시 배포 전 git pull 단계가 생략됩니다.",
+    required: false,
+  },
+  {
+    id: "self_deploy_enabled",
+    label: "SELF_DEPLOY_ENABLED=true 설정 (마지막 단계)",
+    desc: "위 항목을 모두 확인한 후 마지막으로 이 값을 true로 설정하세요. 설정 즉시 배포 버튼이 실제 빌드/재시작을 실행합니다.",
+    required: true,
+  },
+  {
+    id: "test_deploy",
+    label: "테스트 배포 1회 실행 및 결과 확인",
+    desc: "CRM 파트너 페이지 헤더의 '최신버전 배포' 버튼으로 테스트 배포를 실행하고 결과 로그를 확인하세요.",
+    required: true,
+  },
+];
+
+const ENV_FIELDS = [
+  {
+    key: "SELF_DEPLOY_ENABLED",
+    label: "자체 배포 활성화 스위치",
+    desc: '"true" 로 설정 시 배포 버튼이 실제 빌드/재시작을 실행합니다. 기본값: 비활성(마누스 Publish 사용)',
+    example: "true",
+    required: true,
+    isSwitch: true,
+  },
+  {
+    key: "DEPLOY_GIT_PULL_CMD",
+    label: "Git Pull 명령",
+    desc: "배포 전 최신 소스를 받아오는 명령. 비어있으면 pull 단계 생략.",
+    example: "git pull origin main",
+    required: false,
+    isSwitch: false,
+  },
+  {
+    key: "DEPLOY_GIT_PULL_DIR",
+    label: "Git Pull 실행 디렉토리",
+    desc: "git pull을 실행할 경로. 비어있으면 서버 실행 디렉토리(process.cwd()) 사용.",
+    example: "/srv/dogolf",
+    required: false,
+    isSwitch: false,
+  },
+  {
+    key: "DEPLOY_BUILD_CMD",
+    label: "빌드 명령",
+    desc: "빌드 실행 명령. 기본값: pnpm build",
+    example: "pnpm build",
+    required: false,
+    isSwitch: false,
+  },
+  {
+    key: "DEPLOY_RESTART_CMD",
+    label: "서버 재시작 명령",
+    desc: "빌드 완료 후 서버를 재시작하는 명령. 비어있으면 재시작 단계 생략.",
+    example: "pm2 restart dogolf",
+    required: false,
+    isSwitch: false,
+  },
+];
+
+function ServerMigrationTab() {
+  const STORAGE_KEY = "erp_migration_checklist";
+  const [checked, setChecked] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [showEnvGuide, setShowEnvGuide] = useState(false);
+
+  const { data: deployEnv, isLoading } = trpc.settings.getDeployEnvStatus.useQuery(undefined, { retry: 1 });
+
+  function toggleCheck(id: string) {
+    setChecked((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+
+  const totalRequired = MIGRATION_CHECKLIST.filter((c) => c.required).length;
+  const doneRequired = MIGRATION_CHECKLIST.filter((c) => c.required && checked[c.id]).length;
+  const allRequiredDone = doneRequired === totalRequired;
+
+  return (
+    <div className="space-y-5">
+      {/* 현재 배포 상태 배지 */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Server size={16} className="text-slate-600" />
+            현재 배포 환경 상태
+          </CardTitle>
+          <CardDescription className="text-xs">
+            외부서버 환경변수 설정 여부를 실시간으로 표시합니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-slate-400 text-sm"><Loader2 size={14} className="animate-spin" /> 조회 중...</div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border">
+                {deployEnv?.selfDeployEnabled
+                  ? <CheckCircle2 size={14} className="text-emerald-500" />
+                  : <XCircle size={14} className="text-slate-400" />}
+                <div>
+                  <p className="text-xs font-medium text-slate-700">자체 배포 스위치</p>
+                  <p className={`text-[11px] font-bold ${deployEnv?.selfDeployEnabled ? "text-emerald-600" : "text-slate-400"}`}>
+                    {deployEnv?.selfDeployEnabled ? "활성" : "비활성"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border">
+                {deployEnv?.hasGitPullCmd
+                  ? <CheckCircle2 size={14} className="text-emerald-500" />
+                  : <AlertCircle size={14} className="text-amber-400" />}
+                <div>
+                  <p className="text-xs font-medium text-slate-700">Git Pull 명령</p>
+                  <p className={`text-[11px] font-bold ${deployEnv?.hasGitPullCmd ? "text-emerald-600" : "text-amber-500"}`}>
+                    {deployEnv?.hasGitPullCmd ? "설정됨" : "미설정(생략)"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border">
+                {deployEnv?.hasRestartCmd
+                  ? <CheckCircle2 size={14} className="text-emerald-500" />
+                  : <AlertCircle size={14} className="text-amber-400" />}
+                <div>
+                  <p className="text-xs font-medium text-slate-700">재시작 명령</p>
+                  <p className={`text-[11px] font-bold ${deployEnv?.hasRestartCmd ? "text-emerald-600" : "text-amber-500"}`}>
+                    {deployEnv?.hasRestartCmd ? "설정됨" : "미설정(생략)"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 오너 이전 체크리스트 */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-blue-600" />
+              서버 이전 체크리스트
+            </CardTitle>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+              allRequiredDone ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+            }`}>
+              필수 {doneRequired}/{totalRequired} 완료
+            </span>
+          </div>
+          <CardDescription className="text-xs">
+            외부서버로 이전하기 전에 아래 항목을 순서대로 확인하세요. 체크 상태는 브라우저에 저장됩니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {MIGRATION_CHECKLIST.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => toggleCheck(item.id)}
+              className={`w-full text-left flex items-start gap-3 p-3 rounded-lg border transition-all ${
+                checked[item.id]
+                  ? "border-emerald-300 bg-emerald-50"
+                  : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/30"
+              }`}
+            >
+              <div className={`mt-0.5 shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
+                checked[item.id] ? "border-emerald-500 bg-emerald-500" : "border-slate-300"
+              }`}>
+                {checked[item.id] && <CheckCircle2 size={10} className="text-white" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-medium ${
+                    checked[item.id] ? "text-emerald-700 line-through" : "text-slate-800"
+                  }`}>{item.label}</span>
+                  {item.required
+                    ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">필수</span>
+                    : <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">권장</span>}
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{item.desc}</p>
+              </div>
+            </button>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* 환경 종속값 입력란 안내 */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-2">
+          <button
+            type="button"
+            className="flex items-center justify-between w-full text-left"
+            onClick={() => setShowEnvGuide((v) => !v)}
+          >
+            <CardTitle className="text-base flex items-center gap-2">
+              <GitBranch size={16} className="text-purple-600" />
+              환경변수 설정 가이드
+            </CardTitle>
+            {showEnvGuide ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+          </button>
+          <CardDescription className="text-xs">
+            외부서버 .env 파일 또는 환경변수에 아래 값을 설정하세요. 마누스 Secrets에 넣어도 이전 후 외부서버에서는 의미 없습니다.
+          </CardDescription>
+        </CardHeader>
+        {showEnvGuide && (
+          <CardContent className="space-y-3">
+            {ENV_FIELDS.map((field) => (
+              <div key={field.key} className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-1">
+                <div className="flex items-center gap-2">
+                  <code className="text-xs font-mono font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded">
+                    {field.key}
+                  </code>
+                  {field.required
+                    ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">필수</span>
+                    : <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">선택</span>}
+                </div>
+                <p className="text-xs text-slate-600">{field.desc}</p>
+                <div className="flex items-center gap-1.5">
+                  <Info size={11} className="text-slate-400 shrink-0" />
+                  <code className="text-[11px] text-slate-500 font-mono">
+                    예: {field.key}="{field.example}"
+                  </code>
+                </div>
+              </div>
+            ))}
+
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-700 space-y-1">
+                  <p className="font-semibold">이전 시 주의사항</p>
+                  <ul className="space-y-0.5 list-disc list-inside">
+                    <li>마누스 Secrets에 설정한 값은 외부서버에서 자동으로 주입되지 않습니다.</li>
+                    <li>외부서버의 .env 파일 또는 pm2 ecosystem.config.js에 직접 입력해야 합니다.</li>
+                    <li>SELF_DEPLOY_ENABLED=true는 모든 준비가 완료된 후 마지막에 설정하세요.</li>
+                    <li>main 브랜치 자동 병합은 이 기능과 무관합니다. 배포 버튼은 이미 반영된 소스를 빌드/재시작만 합니다.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 // ─── 메인 설정 페이지 ─────────────────────────────────────────────────────────
 export default function ERPSettings() {
   const [activeTab, setActiveTab] = useState("integration");
@@ -896,6 +1190,10 @@ export default function ERPSettings() {
             <Key size={14} />
             ERP API 키 관리
           </TabsTrigger>
+          <TabsTrigger value="server-migration" className="gap-2">
+            <Zap size={14} />
+            서버 이전 활성화
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="integration">
@@ -904,6 +1202,10 @@ export default function ERPSettings() {
 
         <TabsContent value="apikeys">
           <ApiKeyManagementTab />
+        </TabsContent>
+
+        <TabsContent value="server-migration">
+          <ServerMigrationTab />
         </TabsContent>
       </Tabs>
     </div>

@@ -68,6 +68,20 @@ export const settingsRouter = router({
     return { success: true };
   }),
 
+  /** 서버 이전 활성화 — 배포 환경 설정 상태 조회 */
+  getDeployEnvStatus: adminProcedure.query(() => {
+    return {
+      selfDeployEnabled: ENV.selfDeployEnabled === "true",
+      deployBuildCmd: ENV.deployBuildCmd || "pnpm build",
+      deployRestartCmd: ENV.deployRestartCmd || "",
+      deployGitPullCmd: ENV.deployGitPullCmd || "",
+      deployGitPullDir: ENV.deployGitPullDir || "",
+      // 각 항목 설정 여부
+      hasRestartCmd: !!ENV.deployRestartCmd,
+      hasGitPullCmd: !!ENV.deployGitPullCmd,
+    };
+  }),
+
   /** Manus API 연동 테스트 (스마트 라우팅 포함) */
   testManus: adminProcedure.mutation(async () => {
     if (!ENV.manusApiKey) {

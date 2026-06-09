@@ -2369,8 +2369,8 @@ export const deployLogs = mysqlTable("deploy_logs", {
   tenantId: int("tenantId").default(1).notNull(),
   /** 연관된 개발요청 id (ai_dev_requests.id, 선택) */
   requestId: int("requestId"),
-  /** 배포 단계: build / restart / full(빌드+재시작) */
-  phase: mysqlEnum("phase", ["build", "restart", "full"]).notNull(),
+  /** 배포 단계: pull / build / restart / full(전체) */
+  phase: mysqlEnum("phase", ["pull", "build", "restart", "full"]).notNull(),
   /** 배포 대상 커밋 SHA (선택) */
   commitSha: varchar("commitSha", { length: 40 }),
   /** 성공 여부 */

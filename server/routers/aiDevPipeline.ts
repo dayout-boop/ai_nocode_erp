@@ -352,7 +352,7 @@ export const aiDevPipelineRouter = router({
   triggerDeploy: adminProcedure
     .input(
       z.object({
-        phase: z.enum(["build", "restart", "full"]).default("full"),
+        phase: z.enum(["pull", "build", "restart", "full"]).default("full"),
         tenantId: z.number().optional(),
         requestId: z.number().optional(),
         commitSha: z.string().max(40).optional(),

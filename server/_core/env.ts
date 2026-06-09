@@ -60,4 +60,9 @@ export const ENV = {
   // 빌드 명령 (기본 pnpm build) · 재시작 명령 (기본 비움 — 프로세스 매니저 의존)
   deployBuildCmd: process.env.DEPLOY_BUILD_CMD ?? "pnpm build",
   deployRestartCmd: process.env.DEPLOY_RESTART_CMD ?? "",
+  // git pull 명령 (기본 비움 — 외부서버 이전 시 설정)
+  // 예: "git pull origin main" 또는 "git -C /srv/dogolf pull origin main"
+  deployGitPullCmd: process.env.DEPLOY_GIT_PULL_CMD ?? "",
+  // git pull 실행 디렉토리 (기본 비움 — 비어있으면 process.cwd() 사용)
+  deployGitPullDir: process.env.DEPLOY_GIT_PULL_DIR ?? "",
 };

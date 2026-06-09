@@ -1,0 +1,1 @@
+ALTER TABLE `deploy_logs` MODIFY COLUMN `phase` enum('pull','build','restart','full') NOT NULL;
