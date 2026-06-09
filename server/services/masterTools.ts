@@ -1170,6 +1170,50 @@ async function scheduleTask(
 }
 
 // ─── 외부 검색 도구 구현 ─────────────────────────────────────────
+/**
+ * 검색 폴백: Serper.dev (ERP DB serviceKey="serper" 또는 SERPER_API_KEY 등록 시 활성화).
+ * 키가 없으면 null 반환 → 호출부가 graceful 빈 결과 처리. (서버 이전 자립)
+ */
+async function webSearchViaSerper(
+  query: string,
+  count: number,
+  start: number
+): Promise<ToolCallResult | null> {
+  let apiKey = "";
+  try {
+    const { getApiKey } = await import("../erpApiKeyManager");
+    apiKey = await getApiKey("serper");
+  } catch {
+    apiKey = "";
+  }
+  if (!apiKey) apiKey = process.env.SERPER_API_KEY ?? "";
+  if (!apiKey) return null;
+
+  try {
+    const resp = await fetch("https://google.serper.dev/search", {
+      method: "POST",
+      headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ q: query, num: count }),
+    });
+    if (!resp.ok) return null;
+    const data = (await resp.json()) as { organic?: Array<{ title: string; link: string; snippet?: string }> };
+    const results = (data.organic || []).slice(0, count).map((r) => ({
+      title: r.title,
+      url: r.link,
+      snippet: r.snippet ?? "",
+    }));
+    return {
+      tool: "web_search",
+      success: true,
+      data: { query, results, count: results.length, provider: "serper" },
+      queryTime: Date.now() - start,
+    };
+  } catch (e) {
+    console.warn("[webSearch] Serper 폴백 실패:", e);
+    return null;
+  }
+}
+
 async function webSearch(args: Record<string, unknown>, start: number): Promise<ToolCallResult> {
   const query = String(args.query || "");
   const count = Math.min(Number(args.count || 5), 10);
@@ -1177,31 +1221,41 @@ async function webSearch(args: Record<string, unknown>, start: number): Promise<
     return { tool: "web_search", success: false, error: "검색 쿼리가 필요합니다", queryTime: Date.now() - start };
   }
   try {
-    // Manus 내장 검색 API 활용 (BUILT_IN_FORGE_API)
+    // 1순위: Manus 내장 검색 API (BUILT_IN_FORGE_API)
     const forgeUrl = process.env.BUILT_IN_FORGE_API_URL?.replace(/\/+$/, "");
     const forgeKey = process.env.BUILT_IN_FORGE_API_KEY;
-    if (!forgeUrl || !forgeKey) {
-      return { tool: "web_search", success: false, error: "검색 API 미설정", queryTime: Date.now() - start };
+
+    if (forgeUrl && forgeKey) {
+      try {
+        const resp = await fetch(`${forgeUrl}/v1/search`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${forgeKey}` },
+          body: JSON.stringify({ query, count }),
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          return {
+            tool: "web_search",
+            success: true,
+            data: { query, results: data.results || data, count: (data.results || data)?.length || 0 },
+            queryTime: Date.now() - start,
+          };
+        }
+        console.warn(`[webSearch] forge 검색 오류(${resp.status}), 폴백 시도`);
+      } catch (e) {
+        console.warn("[webSearch] forge 검색 실패, 폴백 시도:", e);
+      }
     }
-    const resp = await fetch(`${forgeUrl}/v1/search`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${forgeKey}` },
-      body: JSON.stringify({ query, count }),
-    });
-    if (!resp.ok) {
-      // fallback: 간단한 결과 반환
-      return {
-        tool: "web_search",
-        success: true,
-        data: { query, results: [], message: `'${query}' 검색 완료 (결과 없음 - API 응답 오류: ${resp.status})` },
-        queryTime: Date.now() - start,
-      };
-    }
-    const data = await resp.json();
+
+    // 폴백: ERP DB/환경변수에 Serper 검색 키가 등록된 경우 사용 (서버 이전 자립)
+    const serperResult = await webSearchViaSerper(query, count, start);
+    if (serperResult) return serperResult;
+
+    // 검색 수단이 전혀 없으면 graceful 빈 결과 (ERP 무중단)
     return {
       tool: "web_search",
       success: true,
-      data: { query, results: data.results || data, count: (data.results || data)?.length || 0 },
+      data: { query, results: [], message: `'${query}' 검색 완료 (검색 API 미설정 - 결과 없음)` },
       queryTime: Date.now() - start,
     };
   } catch (err) {

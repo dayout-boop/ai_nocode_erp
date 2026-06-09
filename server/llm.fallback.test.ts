@@ -36,6 +36,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.doUnmock("./erpApiKeyManager");
   process.env = { ...ORIGINAL_ENV };
 });
 
@@ -99,6 +100,58 @@ describe("invokeLLM 듀얼 폴백", () => {
     expect(res.choices[0].message.content).toBe("ok");
     expect(calls).toHaveLength(1);
     expect(calls[0]).toContain("openrouter.example.com");
+  });
+
+  it("제공자 선호도 openrouter면 forge 키가 있어도 OpenRouter를 먼저 호출한다", async () => {
+    process.env.BUILT_IN_FORGE_API_KEY = "forge-key";
+    process.env.BUILT_IN_FORGE_API_URL = "https://forge.example.com";
+    process.env.OPENROUTER_BASE_URL = "https://openrouter.example.com/api/v1";
+
+    vi.doMock("./erpApiKeyManager", () => ({
+      getApiKey: vi.fn(async (svc: string) => {
+        if (svc === "llm_provider_preference") return "openrouter";
+        if (svc === "openrouter") return "or-key";
+        return "";
+      }),
+    }));
+
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      calls.push(String(url));
+      return jsonResponse(OK_RESPONSE);
+    }));
+
+    const { invokeLLM } = await import("./_core/llm");
+    const res = await invokeLLM({ messages: [{ role: "user", content: "hi" }] });
+
+    expect(res.choices[0].message.content).toBe("ok");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain("openrouter.example.com");
+  });
+
+  it("제공자 선호도 forge면 forge만 호출하고 폴백하지 않는다", async () => {
+    process.env.BUILT_IN_FORGE_API_KEY = "forge-key";
+    process.env.BUILT_IN_FORGE_API_URL = "https://forge.example.com";
+    process.env.OPENROUTER_API_KEY = "or-key";
+
+    vi.doMock("./erpApiKeyManager", () => ({
+      getApiKey: vi.fn(async (svc: string) =>
+        svc === "llm_provider_preference" ? "forge" : ""
+      ),
+    }));
+
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      calls.push(String(url));
+      return jsonResponse(OK_RESPONSE);
+    }));
+
+    const { invokeLLM } = await import("./_core/llm");
+    const res = await invokeLLM({ messages: [{ role: "user", content: "hi" }] });
+
+    expect(res.choices[0].message.content).toBe("ok");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain("forge.example.com");
   });
 
   it("forge도 OpenRouter도 모두 실패하면 에러를 던진다", async () => {

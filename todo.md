@@ -2031,6 +2031,6 @@ Detected
 - [x] 1-1. invokeLLM 폴백 vitest 작성 및 통과 (4개 통과, 전체 264개 통과)
 - [x] 2. 파일 스토리지 폴백 (S3 직결 옵션) — 업로드/다운로드/프록시 모두 폴백, vitest 5개 통과
 - [x] 3. manusPipe/manusSync DB 자립 폴백 — MANUS 키 ERP DB 우선 조회 + 키 부재 시 graceful 처리, vitest 2개 통과 (전체 310개 통과)
-- [ ] 4. 웹검색·알림 폴백 (Slack 보유 활용)
-- [ ] 5. ERP 설정에 LLM 제공자 선택 UI
+- [x] 4. 웹검색·알림 폴백 — notifyOwner Slack 폴백, webSearch Serper 폴백(ERP 키 등록 시), 둘 다 graceful, vitest 2개 통과
+- [x] 5. ERP 설정에 LLM 제공자 선택 UI — 기본 LLM 제공자 카드(auto/openrouter/forge) + serper 검색폴백 키 항목 추가, invokeLLM에 llm_provider_preference 연결, vitest 2개 추가 (전체 314개 통과)
 - [ ] 6. (선택) 관리자 세션 DB화

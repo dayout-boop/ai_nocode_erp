@@ -46,6 +46,7 @@ const API_SERVICES = [
   { key: "runway", name: "Runway ML", description: "AI 영상 생성 API", category: "미디어" },
   { key: "n8n", name: "n8n", description: "워크플로우 자동화", category: "자동화" },
   { key: "pixabay", name: "Pixabay", description: "이미지 검색 API", category: "미디어" },
+  { key: "serper", name: "Serper (검색 폴백)", description: "두골프마스터 웹검색 폴백. 마누스 forge 검색이 없는 서버에서 등록 시 google.serper.dev로 자립 검색.", category: "자동화" },
   // ── v3 엔진 (Git·Heartbeat·Changeset) ─────────────────────────────────────
   { key: "github_token", name: "GitHub Token (Git 엔진)", description: "서버 내장 Git 엔진용 Fine-grained PAT. Contents: Write 권한 필요. 미설정 시 커밋 없이 DB 메타만 기록(안전모드).", category: "v3 엔진" },
   { key: "heartbeat_secret_key", name: "Heartbeat Secret Key", description: "POST /api/scheduled/run-due 무단호출 차단 토큰. 설정 후 crontab 한 줄로 자립 오딧 가동.", category: "v3 엔진" },
@@ -133,6 +134,30 @@ function ApiKeyManagementTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* 기본 LLM 제공자 선택 (자립 모드) */}
+      <LlmProviderCard
+        currentValue={(() => {
+          const row = keys?.find((k) => k.serviceKey === "llm_provider_preference");
+          if (!row?.extraConfig) return "auto";
+          try {
+            const v = JSON.parse(row.extraConfig)?.value;
+            return v === "forge" || v === "openrouter" ? v : "auto";
+          } catch {
+            return "auto";
+          }
+        })()}
+        onSave={(value) =>
+          upsertMutation.mutate({
+            serviceKey: "llm_provider_preference",
+            serviceName: "기본 LLM 제공자",
+            apiKey: value, // 암호화 저장(폴백 경로)
+            extraConfig: { value }, // 평문 조회용
+            isActive: true,
+          })
+        }
+        saving={upsertMutation.isPending}
+      />
 
       {/* 서비스별 API 키 목록 */}
       <Card className="border-0 shadow-sm">
@@ -878,5 +903,85 @@ export default function ERPSettings() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+
+// ─── 기본 LLM 제공자 선택 카드 (서버 이전·자립 모드) ───────────────────────
+const LLM_PROVIDER_OPTIONS = [
+  {
+    value: "auto",
+    label: "자동 (권장)",
+    desc: "마누스 forge 우선 → 실패 시 OpenRouter 자동 폴백. 현재 운영 방식 그대로.",
+    badge: "기본",
+    badgeClass: "bg-emerald-100 text-emerald-700",
+  },
+  {
+    value: "openrouter",
+    label: "OpenRouter 우선",
+    desc: "OpenRouter 직결을 1순위로 사용 → 실패 시 forge 폴백. 다른 서버로 이전했을 때 자립 운영.",
+    badge: "자립",
+    badgeClass: "bg-blue-100 text-blue-700",
+  },
+  {
+    value: "forge",
+    label: "Manus forge 전용",
+    desc: "마누스 forge만 사용 (폴백 없음). 마누스 환경에서만 권장.",
+    badge: "단일",
+    badgeClass: "bg-slate-100 text-slate-600",
+  },
+] as const;
+
+function LlmProviderCard({
+  currentValue,
+  onSave,
+  saving,
+}: {
+  currentValue: string;
+  onSave: (value: string) => void;
+  saving: boolean;
+}) {
+  return (
+    <Card className="border-0 shadow-sm bg-gradient-to-br from-slate-50 to-blue-50/40">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Bot size={16} className="text-blue-600" />
+          기본 LLM 제공자
+        </CardTitle>
+        <CardDescription className="text-xs">
+          ERP의 AI 기능(OCR·개발요청·파일분석 등)이 어떤 LLM 경로를 1순위로 쓸지 결정합니다.
+          채팅(두골프마스터·매니저·골프톡)은 별도 OpenRouter 직결이라 이 설정과 무관하게 동작합니다.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {LLM_PROVIDER_OPTIONS.map((opt) => {
+          const selected = currentValue === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              disabled={saving || selected}
+              onClick={() => onSave(opt.value)}
+              className={`w-full text-left rounded-lg border p-3 transition-all ${
+                selected
+                  ? "border-blue-400 bg-blue-50 ring-1 ring-blue-300"
+                  : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/40"
+              } ${saving && !selected ? "opacity-60" : ""}`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-sm text-slate-800">{opt.label}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${opt.badgeClass}`}>
+                    {opt.badge}
+                  </span>
+                </div>
+                {selected && <CheckCircle2 size={16} className="text-blue-600 shrink-0" />}
+              </div>
+              <p className="text-xs text-slate-500 mt-1">{opt.desc}</p>
+            </button>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }

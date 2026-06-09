@@ -113,6 +113,9 @@ export async function getApiKey(serviceKey: string): Promise<string> {
     n8n: ENV.n8nWebhookUrl,
     manus: ENV.manusApiKey,
     pixabay: ENV.pixabayApiKey,
+    serper: process.env.SERPER_API_KEY ?? '',
+    // ♥ LLM 제공자 선호도 (auto/openrouter/forge) — 기본 auto
+    llm_provider_preference: process.env.LLM_PROVIDER_PREFERENCE ?? '',
     // ♥ Google OAuth Client ID/Secret은 Google Cloud Secret Manager에서 읽음
     //   (googleSecretManager.ts → getGoogleOAuthCredentials 함수 사용)
     // ♥ v3 엔진 키 (DB 우선, ENV 폴백)

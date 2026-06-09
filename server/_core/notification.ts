@@ -63,23 +63,34 @@ const validatePayload = (input: NotificationPayload): NotificationPayload => {
  * cannot be reached (callers can fall back to email/slack). Validation errors
  * bubble up as TRPC errors so callers can fix the payload.
  */
+/**
+ * Slack 웹훅으로 알림 폴백 전송 (forge 부재/실패 시).
+ * SLACK_WEBHOOK_URL이 없으면 false 반환 (ERP 무중단).
+ */
+async function notifyViaSlack(title: string, content: string): Promise<boolean> {
+  const webhook = ENV.slackWebhookUrl;
+  if (!webhook) return false;
+  try {
+    const resp = await fetch(webhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: `*${title}*\n${content}` }),
+    });
+    return resp.ok;
+  } catch (e) {
+    console.warn("[Notification] Slack 폴백 전송 실패:", e);
+    return false;
+  }
+}
+
 export async function notifyOwner(
   payload: NotificationPayload
 ): Promise<boolean> {
   const { title, content } = validatePayload(payload);
 
-  if (!ENV.forgeApiUrl) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Notification service URL is not configured.",
-    });
-  }
-
-  if (!ENV.forgeApiKey) {
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Notification service API key is not configured.",
-    });
+  // forge 알림 서비스가 없으면 (서버 이전 환경) 바로 Slack 폴백
+  if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
+    return notifyViaSlack(title, content);
   }
 
   const endpoint = buildEndpointUrl(ENV.forgeApiUrl);
@@ -103,12 +114,14 @@ export async function notifyOwner(
           detail ? `: ${detail}` : ""
         }`
       );
-      return false;
+      // forge 실패 시 Slack 폴백 시도
+      return notifyViaSlack(title, content);
     }
 
     return true;
   } catch (error) {
     console.warn("[Notification] Error calling notification service:", error);
-    return false;
+    // 네트워크 오류 시 Slack 폴백 시도
+    return notifyViaSlack(title, content);
   }
 }

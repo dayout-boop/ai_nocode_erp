@@ -395,12 +395,53 @@ async function invokeViaOpenRouter(params: InvokeParams): Promise<InvokeResult> 
 }
 
 /**
- * invokeLLM — 듀얼 폴백
- * 1) forge 키가 있으면 forge 먼저 시도, 실패 시 OpenRouter로 폴백
- * 2) forge 키가 없으면 (서버 이전 환경) 처음부터 OpenRouter 사용
- * 호출부는 이 함수만 쓰므로 기존 코드 변경 불필요
+ * LLM 제공자 선호도 조회 (ERP DB 우선 → 기본 auto)
+ *  - "auto"      : forge 우선 → OpenRouter 폴백 (기본, 기존 동작)
+ *  - "openrouter": OpenRouter 우선 → forge 폴백 (서버 이전·자립 모드)
+ *  - "forge"     : forge만 사용 (폴백 없음)
+ */
+async function resolveLlmPreference(): Promise<"auto" | "openrouter" | "forge"> {
+  try {
+    const { getApiKey } = await import("../erpApiKeyManager");
+    const pref = (await getApiKey("llm_provider_preference")).trim().toLowerCase();
+    if (pref === "openrouter" || pref === "forge" || pref === "auto") return pref;
+  } catch {
+    // 기본값으로 폴백
+  }
+  return "auto";
+}
+
+/**
+ * invokeLLM — ERP 설정 기반 듀얼 폴백
+ * 제공자 선호도(auto/openrouter/forge)를 ERP DB에서 읽어 1순위를 결정.
+ * 호출부(9개 라우터)는 이 함수만 쓰므로 기존 코드 변경 불필요
  */
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
+  const preference = await resolveLlmPreference();
+
+  // forge 전용 모드
+  if (preference === "forge") {
+    return await invokeViaForge(params);
+  }
+
+  // OpenRouter 우선 모드 (서버 이전·자립) → 실패 시 forge 폴백(가능한 경우)
+  if (preference === "openrouter") {
+    try {
+      return await invokeViaOpenRouter(params);
+    } catch (orErr) {
+      if (isForgeAvailable()) {
+        console.warn(
+          `[invokeLLM] OpenRouter 실패, forge로 폴백: ${
+            orErr instanceof Error ? orErr.message : String(orErr)
+          }`
+        );
+        return await invokeViaForge(params);
+      }
+      throw orErr;
+    }
+  }
+
+  // auto (기본): forge 우선 → OpenRouter 폴백
   if (isForgeAvailable()) {
     try {
       return await invokeViaForge(params);
