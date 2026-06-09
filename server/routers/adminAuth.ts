@@ -49,7 +49,7 @@ export const adminAuthRouter = router({
     const sessionId = ctx.req.cookies?.admin_session;
 
     if (sessionId) {
-      logoutAdminSession(sessionId);
+      await logoutAdminSession(sessionId);
     }
 
     // 쿠키 삭제
@@ -71,7 +71,7 @@ export const adminAuthRouter = router({
       return null;
     }
 
-    const session = validateAdminSession(sessionId);
+    const session = await validateAdminSession(sessionId);
 
     if (!session) {
       return null;

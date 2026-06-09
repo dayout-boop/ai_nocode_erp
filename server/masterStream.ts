@@ -62,7 +62,7 @@ export function registerMasterStreamRoute(app: Express) {
     // 1-a. admin_session 쿠키 확인 (마스터 ERP 로그인)
     const adminSessionId = (req as any).cookies?.admin_session;
     if (adminSessionId) {
-      const adminSession = validateAdminSession(adminSessionId);
+      const adminSession = await validateAdminSession(adminSessionId);
       if (adminSession) {
         userId = adminSession.adminId;
       }

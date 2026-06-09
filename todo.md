@@ -2033,4 +2033,4 @@ Detected
 - [x] 3. manusPipe/manusSync DB 자립 폴백 — MANUS 키 ERP DB 우선 조회 + 키 부재 시 graceful 처리, vitest 2개 통과 (전체 310개 통과)
 - [x] 4. 웹검색·알림 폴백 — notifyOwner Slack 폴백, webSearch Serper 폴백(ERP 키 등록 시), 둘 다 graceful, vitest 2개 통과
 - [x] 5. ERP 설정에 LLM 제공자 선택 UI — 기본 LLM 제공자 카드(auto/openrouter/forge) + serper 검색폴백 키 항목 추가, invokeLLM에 llm_provider_preference 연결, vitest 2개 추가 (전체 314개 통과)
-- [ ] 6. (선택) 관리자 세션 DB화
+- [x] 6. 관리자 세션 DB화 — admin_sessions 테이블 추가, adminAuth 비동기 DB 우선+인메모리 폴백, 호출부 6곳 await 전환, 서버 재시작·다중서버에서도 로그인 유지, vitest 5개+기존 8개 통과 (전체 319개 통과)

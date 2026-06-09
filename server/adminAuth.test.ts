@@ -58,14 +58,14 @@ describe('Admin Authentication', () => {
     const loginResult = await authenticateAdmin(testUsername, testPassword);
     const sessionId = loginResult.sessionId;
 
-    const session = validateAdminSession(sessionId);
+    const session = await validateAdminSession(sessionId);
     expect(session).toBeDefined();
     expect(session?.adminId).toBe(loginResult.adminId);
     expect(session?.username).toBe(testUsername);
   });
 
-  it('잘못된 세션 ID로 검증하면 null을 반환해야 한다', () => {
-    const session = validateAdminSession('invalid_session_id');
+  it('잘못된 세션 ID로 검증하면 null을 반환해야 한다', async () => {
+    const session = await validateAdminSession('invalid_session_id');
     expect(session).toBeNull();
   });
 
@@ -74,14 +74,14 @@ describe('Admin Authentication', () => {
     const sessionId = loginResult.sessionId;
 
     // 로그아웃 전 검증
-    let session = validateAdminSession(sessionId);
+    let session = await validateAdminSession(sessionId);
     expect(session).toBeDefined();
 
     // 로그아웃
-    logoutAdminSession(sessionId);
+    await logoutAdminSession(sessionId);
 
     // 로그아웃 후 검증
-    session = validateAdminSession(sessionId);
+    session = await validateAdminSession(sessionId);
     expect(session).toBeNull();
   });
 

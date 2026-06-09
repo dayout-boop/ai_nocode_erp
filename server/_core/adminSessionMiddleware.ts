@@ -5,7 +5,7 @@ import { validateAdminSession } from './adminAuth';
  * 마스터 ERP 세션 검증 미들웨어
  * 쿠키에서 admin_session을 추출하여 유효성 검증
  */
-export function adminSessionMiddleware(
+export async function adminSessionMiddleware(
   req: Request,
   res: Response,
   next: NextFunction
@@ -17,7 +17,7 @@ export function adminSessionMiddleware(
     return res.status(401).json({ error: '로그인이 필요합니다' });
   }
 
-  const session = validateAdminSession(sessionId);
+  const session = await validateAdminSession(sessionId);
 
   if (!session) {
     // 세션이 만료되었거나 유효하지 않음

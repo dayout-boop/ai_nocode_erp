@@ -8,6 +8,7 @@ import {
   decimal,
   boolean,
   json,
+  bigint,
 } from "drizzle-orm/mysql-core";
 
 // ============================================================
@@ -1919,6 +1920,31 @@ export const adminAccounts = mysqlTable("admin_accounts", {
 
 export type AdminAccount = typeof adminAccounts.$inferSelect;
 export type InsertAdminAccount = typeof adminAccounts.$inferInsert;
+
+/**
+ * 관리자 세션 (서버 재시작·다중 서버 환경에서도 로그인 유지)
+ * 기존 인메모리 Map을 DB로 이전하여 서버 이전 시에도 세션 존속.
+ */
+export const adminSessions = mysqlTable("admin_sessions", {
+  /** 세션 ID (쿠키에 저장되는 토큰) */
+  sessionId: varchar("sessionId", { length: 100 }).primaryKey(),
+  /** 관리자 계정 ID */
+  adminId: int("adminId").notNull(),
+  /** 로그인 ID (username) */
+  username: varchar("username", { length: 100 }).notNull(),
+  /** 역할: admin | master */
+  role: varchar("role", { length: 20 }).notNull(),
+  /** 로그인 시각 (Unix ms) */
+  loginTime: bigint("loginTime", { mode: "number" }).notNull(),
+  /** 마지막 활동 시각 (Unix ms) */
+  lastActivity: bigint("lastActivity", { mode: "number" }).notNull(),
+  /** 만료 시각 (Unix ms) — 조회 인덱스용 */
+  expiresAt: bigint("expiresAt", { mode: "number" }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AdminSession = typeof adminSessions.$inferSelect;
+export type InsertAdminSession = typeof adminSessions.$inferInsert;
 
 /**
  * ERP API 키 설정 테이블

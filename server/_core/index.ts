@@ -135,7 +135,7 @@ async function startServer() {
       if (!userId) {
         const adminSessionId = req.cookies?.admin_session_id ?? req.cookies?.admin_session;
         if (adminSessionId) {
-          const session = validateAdminSession(adminSessionId);
+          const session = await validateAdminSession(adminSessionId);
           if (session) {
             userId = session.adminId;
           }
@@ -156,12 +156,16 @@ async function startServer() {
   });
 
   // admin_session 쿠키 검증 미들웨어 - masterProcedure에서 ctx.req.adminSession 사용
-  app.use('/api/trpc', (req, res, next) => {
+  app.use('/api/trpc', async (req, res, next) => {
     const adminSessionId = req.cookies?.admin_session;
     if (adminSessionId) {
-      const session = validateAdminSession(adminSessionId);
-      if (session) {
-        (req as any).adminSession = session;
+      try {
+        const session = await validateAdminSession(adminSessionId);
+        if (session) {
+          (req as any).adminSession = session;
+        }
+      } catch {
+        // 세션 검증 실패 시 통과 (비로그인 상태로 진행)
       }
     }
     next();

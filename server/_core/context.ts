@@ -53,7 +53,7 @@ export async function createContext(
     try {
       const adminSessionId = opts.req.cookies?.admin_session;
       if (adminSessionId) {
-        const session = validateAdminSession(adminSessionId);
+        const session = await validateAdminSession(adminSessionId);
         if (session) {
           // 마스터 세션이 유효하면 admin 역할의 가상 User 객체 주입
           // protectedProcedure가 마스터 세션도 허용하도록
