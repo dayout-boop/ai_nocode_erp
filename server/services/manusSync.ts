@@ -14,7 +14,17 @@ const MANUS_API_BASE = "https://api.manus.ai/v2";
 const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5분
 let syncTimer: ReturnType<typeof setInterval> | null = null;
 
-function getManusApiKey(): string {
+/**
+ * MANUS API 키 조회: ERP DB(erpApiKeyManager) 우선 → 환경변수 폴백
+ */
+async function resolveManusApiKey(): Promise<string> {
+  try {
+    const { getApiKey } = await import("../erpApiKeyManager");
+    const dbKey = await getApiKey("manus");
+    if (dbKey && dbKey.trim().length > 0) return dbKey.trim();
+  } catch {
+    // 환경변수로 폴백
+  }
   return process.env.MANUS_API_KEY ?? "";
 }
 
@@ -26,7 +36,7 @@ async function getManusTaskStatus(taskId: string): Promise<{
   agentStatus: "running" | "waiting" | "stopped" | "error" | "unknown";
   lastMessage?: string;
 } | null> {
-  const apiKey = getManusApiKey();
+  const apiKey = await resolveManusApiKey();
   if (!apiKey) return null;
 
   try {
@@ -119,7 +129,7 @@ export async function syncManusTaskStatuses(): Promise<{
   const db = await getDb();
   if (!db) return { checked: 0, completed: 0, errors: 0 };
 
-  const apiKey = getManusApiKey();
+  const apiKey = await resolveManusApiKey();
   if (!apiKey) {
     console.warn("[ManusSync] MANUS_API_KEY 미설정 - 동기화 건너뜀");
     return { checked: 0, completed: 0, errors: 0 };

@@ -23,7 +23,18 @@ import { ENV } from "../_core/env";
 
 const MANUS_API_BASE = "https://api.manus.ai/v2";
 
-function getManusApiKey(): string {
+/**
+ * MANUS API 키 조회: ERP DB(erpApiKeyManager) 우선 → 환경변수 폴백
+ * 다른 서버로 이전 시 환경변수 없이 ERP 설정으로도 키 관리 가능
+ */
+async function resolveManusApiKey(): Promise<string> {
+  try {
+    const { getApiKey } = await import("../erpApiKeyManager");
+    const dbKey = await getApiKey("manus");
+    if (dbKey && dbKey.trim().length > 0) return dbKey.trim();
+  } catch {
+    // erpApiKeyManager 로드 실패 시 환경변수로 폴백
+  }
   return process.env.MANUS_API_KEY ?? "";
 }
 
@@ -97,7 +108,7 @@ async function sendMessageToExistingTask(
   taskId: string,
   message: string
 ): Promise<{ success: boolean }> {
-  const apiKey = getManusApiKey();
+  const apiKey = await resolveManusApiKey();
   if (!apiKey) return { success: false };
 
   try {
@@ -140,7 +151,7 @@ async function createNewTask(
   message: string,
   title: string
 ): Promise<{ success: boolean; taskId?: string; taskUrl?: string }> {
-  const apiKey = getManusApiKey();
+  const apiKey = await resolveManusApiKey();
   if (!apiKey) {
     console.warn("[ManusPipe] MANUS_API_KEY가 설정되지 않았습니다.");
     return { success: false };
@@ -323,7 +334,7 @@ export async function smartSendToManus(req: {
   /** true이면 무조건 신규 태스크 생성 */
   forceNewTask?: boolean;
 }): Promise<ManusRoutingResult> {
-  const apiKey = getManusApiKey();
+  const apiKey = await resolveManusApiKey();
   if (!apiKey) {
     return {
       success: false,
@@ -592,7 +603,7 @@ export async function autoRegisterAndSend(devRequest: {
   const devRequestId = inserted.id;
 
   // 2. Manus 스마트 라우팅으로 전송
-  if (!getManusApiKey()) {
+  if (!(await resolveManusApiKey())) {
     console.warn("[ManusPipe] Manus API 설정 없음 - DB 등록만 완료");
     return { devRequestId, manusTaskId: "", manusTaskUrl: "", routingType: "new_task", routingReason: "API 키 없음", success: false };
   }
@@ -671,7 +682,7 @@ export async function publishManusSite(): Promise<{
   websiteId?: string;
   error?: string;
 }> {
-  const apiKey = process.env.MANUS_API_KEY;
+  const apiKey = await resolveManusApiKey();
   const taskId = process.env.MANUS_DOGOLF_TASK_ID;
   if (!apiKey || !taskId) {
     return { ok: false, error: "MANUS_API_KEY 또는 MANUS_DOGOLF_TASK_ID가 설정되지 않았습니다." };

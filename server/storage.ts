@@ -17,6 +17,11 @@ function getForgeConfig() {
   return { forgeUrl: forgeUrl.replace(/\/+$/, ""), forgeKey };
 }
 
+// forge 스토리지 사용 가능 여부
+function isForgeStorageAvailable(): boolean {
+  return !!ENV.forgeApiUrl && !!ENV.forgeApiKey;
+}
+
 function normalizeKey(relKey: string): string {
   return relKey.replace(/^\/+/, "");
 }
@@ -33,42 +38,63 @@ export async function storagePut(
   data: Buffer | Uint8Array | string,
   contentType = "application/octet-stream",
 ): Promise<{ key: string; url: string }> {
-  const { forgeUrl, forgeKey } = getForgeConfig();
   const key = appendHashSuffix(normalizeKey(relKey));
 
-  // 1. Get presigned PUT URL from Forge
-  const presignUrl = new URL("v1/storage/presign/put", forgeUrl + "/");
-  presignUrl.searchParams.set("path", key);
-
-  const presignResp = await fetch(presignUrl, {
-    headers: { Authorization: `Bearer ${forgeKey}` },
-  });
-
-  if (!presignResp.ok) {
-    const msg = await presignResp.text().catch(() => presignResp.statusText);
-    throw new Error(`Storage presign failed (${presignResp.status}): ${msg}`);
+  // forge 스토리지가 없으면 (서버 이전 환경) 계정 S3로 바로 폴백
+  if (!isForgeStorageAvailable()) {
+    const { s3Put } = await import("./s3Fallback");
+    return s3Put(key, data, contentType);
   }
 
-  const { url: s3Url } = (await presignResp.json()) as { url: string };
-  if (!s3Url) throw new Error("Forge returned empty presign URL");
+  try {
+    const { forgeUrl, forgeKey } = getForgeConfig();
 
-  // 2. PUT file directly to S3
-  const blob =
-    typeof data === "string"
-      ? new Blob([data], { type: contentType })
-      : new Blob([data as any], { type: contentType });
+    // 1. Get presigned PUT URL from Forge
+    const presignUrl = new URL("v1/storage/presign/put", forgeUrl + "/");
+    presignUrl.searchParams.set("path", key);
 
-  const uploadResp = await fetch(s3Url, {
-    method: "PUT",
-    headers: { "Content-Type": contentType },
-    body: blob,
-  });
+    const presignResp = await fetch(presignUrl, {
+      headers: { Authorization: `Bearer ${forgeKey}` },
+    });
 
-  if (!uploadResp.ok) {
-    throw new Error(`Storage upload to S3 failed (${uploadResp.status})`);
+    if (!presignResp.ok) {
+      const msg = await presignResp.text().catch(() => presignResp.statusText);
+      throw new Error(`Storage presign failed (${presignResp.status}): ${msg}`);
+    }
+
+    const { url: s3Url } = (await presignResp.json()) as { url: string };
+    if (!s3Url) throw new Error("Forge returned empty presign URL");
+
+    // 2. PUT file directly to S3
+    const blob =
+      typeof data === "string"
+        ? new Blob([data], { type: contentType })
+        : new Blob([data as any], { type: contentType });
+
+    const uploadResp = await fetch(s3Url, {
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      body: blob,
+    });
+
+    if (!uploadResp.ok) {
+      throw new Error(`Storage upload to S3 failed (${uploadResp.status})`);
+    }
+
+    return { key, url: `/manus-storage/${key}` };
+  } catch (forgeErr) {
+    // forge 실패 시 S3 직결이 설정되어 있으면 폴백
+    const { isS3Configured, s3Put } = await import("./s3Fallback");
+    if (await isS3Configured()) {
+      console.warn(
+        `[storagePut] forge 실패, S3 직결로 폴백: ${
+          forgeErr instanceof Error ? forgeErr.message : String(forgeErr)
+        }`,
+      );
+      return s3Put(key, data, contentType);
+    }
+    throw forgeErr;
   }
-
-  return { key, url: `/manus-storage/${key}` };
 }
 
 export async function storageGet(relKey: string): Promise<{ key: string; url: string }> {
@@ -77,21 +103,36 @@ export async function storageGet(relKey: string): Promise<{ key: string; url: st
 }
 
 export async function storageGetSignedUrl(relKey: string): Promise<string> {
-  const { forgeUrl, forgeKey } = getForgeConfig();
   const key = normalizeKey(relKey);
 
-  const getUrl = new URL("v1/storage/presign/get", forgeUrl + "/");
-  getUrl.searchParams.set("path", key);
-
-  const resp = await fetch(getUrl, {
-    headers: { Authorization: `Bearer ${forgeKey}` },
-  });
-
-  if (!resp.ok) {
-    const msg = await resp.text().catch(() => resp.statusText);
-    throw new Error(`Storage signed URL failed (${resp.status}): ${msg}`);
+  // forge 스토리지가 없으면 S3 직결 프리사인으로 폴백
+  if (!isForgeStorageAvailable()) {
+    const { s3GetSignedUrl } = await import("./s3Fallback");
+    return s3GetSignedUrl(key);
   }
 
-  const { url } = (await resp.json()) as { url: string };
-  return url;
+  try {
+    const { forgeUrl, forgeKey } = getForgeConfig();
+
+    const getUrl = new URL("v1/storage/presign/get", forgeUrl + "/");
+    getUrl.searchParams.set("path", key);
+
+    const resp = await fetch(getUrl, {
+      headers: { Authorization: `Bearer ${forgeKey}` },
+    });
+
+    if (!resp.ok) {
+      const msg = await resp.text().catch(() => resp.statusText);
+      throw new Error(`Storage signed URL failed (${resp.status}): ${msg}`);
+    }
+
+    const { url } = (await resp.json()) as { url: string };
+    return url;
+  } catch (forgeErr) {
+    const { isS3Configured, s3GetSignedUrl } = await import("./s3Fallback");
+    if (await isS3Configured()) {
+      return s3GetSignedUrl(key);
+    }
+    throw forgeErr;
+  }
 }
