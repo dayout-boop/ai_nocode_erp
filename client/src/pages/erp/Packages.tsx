@@ -55,9 +55,11 @@ function PackageFormDialog({
     isPopular: editPackage?.isPopular || false,
     isSpecialDeal: editPackage?.isSpecialDeal || false,
     isTrending: editPackage?.isTrending || false,
-    courseType: editPackage?.courseType || "",
+    courseType: editPackage?.courseType || "none",
     badgeType: editPackage?.badgeType || "none",
-    departureCities: editPackage?.departureCities || "",
+    departureCities: Array.isArray(editPackage?.departureCities)
+      ? editPackage.departureCities.join(", ")
+      : (editPackage?.departureCities || ""),
     includesAirfare: editPackage?.includesAirfare ?? true,
     includesGreenFee: editPackage?.includesGreenFee ?? true,
     includesHotel: editPackage?.includesHotel ?? true,
@@ -84,10 +86,23 @@ function PackageFormDialog({
 
   const handleSubmit = () => {
     if (!form.title.trim()) return toast.error("상품명을 입력해주세요.");
+    // 백엔드 입력 규격에 맞게 payload 정규화
+    const { courseType, departureCities, ...rest } = form;
+    const payload: any = {
+      ...rest,
+      // departureCities: "인천, 부산" 문자열 → string[] (백엔드가 배열을 기대)
+      departureCities: typeof departureCities === "string"
+        ? departureCities.split(",").map((s) => s.trim()).filter(Boolean)
+        : (Array.isArray(departureCities) ? departureCities : []),
+    };
+    // courseType은 enum이므로 빈 값('none'/"")이면 키 자체를 제거
+    if (courseType && courseType !== "none") {
+      payload.courseType = courseType;
+    }
     if (editPackage) {
-      updateMutation.mutate({ id: editPackage.id, ...form });
+      updateMutation.mutate({ id: editPackage.id, ...payload });
     } else {
-      createMutation.mutate(form);
+      createMutation.mutate(payload);
     }
   };
 
@@ -188,12 +203,12 @@ function PackageFormDialog({
           </div>
           <div>
             <Label>코스 유형</Label>
-            <Select value={form.courseType || ""} onValueChange={(v) => setForm({ ...form, courseType: v as any })}>
+            <Select value={form.courseType || "none"} onValueChange={(v) => setForm({ ...form, courseType: v as any })}>
               <SelectTrigger className="mt-1">
                 <SelectValue placeholder="코스 유형 선택" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">선택 안함</SelectItem>
+                <SelectItem value="none">선택 안함</SelectItem>
                 <SelectItem value="resort">🏨 리조트</SelectItem>
                 <SelectItem value="oceanfront">🌊 오션뷰</SelectItem>
                 <SelectItem value="mountain">⛰️ 산악</SelectItem>
@@ -535,6 +550,7 @@ export default function PackagesPage() {
         </div>
   
         <PackageFormDialog
+          key={showForm ? (editPackage?.id ?? "new") : "closed"}
           open={showForm}
           onClose={() => { setShowForm(false); setEditPackage(null); }}
           editPackage={editPackage}

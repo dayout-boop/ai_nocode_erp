@@ -1980,6 +1980,7 @@ Detected
 - [ ] 활성 파트너 정지/복구 기능 (isActive 토글 + 사유 입력) — 미구현(파트너 개별 정지/복구 없음, tenants.suspend만 별도 존재)
 
 ### 항목 3: 이메일 알림 + 서비스명/URL 수집 + 업체 메모
+<<<<<<< Updated upstream
 - [x] partner_onboarding 스키마: 서비스명/URL 필드 (serviceName, websiteUrl, blogUrl, snsUrl로 구현됨 - schema.ts:1598-) — 원량의 serviceUrl/additionalUrls는 동등 대체
 - [ ] 온보딩 채팅 Step 1: 서비스명(브랜드명), 홈페이지/블로그 URL 수집 추가 — 미구현(DB 컬럼만 있고 채팅 수집 플로우 없음)
 - [ ] 자동승인 완료 시 파트너 환영 이메일 발송 (접속 URL 포함) — 미구현(이메일 발송 수단 없음)
@@ -2049,3 +2050,21 @@ Detected
 - [x] M5. 파트너 메일 3종 연동: updateStatus에 승인/거부 메일(중복발송 가드: 상태 전환 시에만), submitWithBothOcr 자동승인 시 환영 메일 — 모두 비동기/비차단, tsc 0에러
 - [x] M6. mailer.test.ts(13)+partnerMail.test.ts(6) 작성: 실시간 복호화 결합/465·587 secure/설정누락 가드/일회성 transporter 휘발/템플릿 3종 — 전체 345개 테스트 통과, 회귀 없음
 - [x] M7. tsc 0에러 확인(EXIT=0) + 체크포인트 저장
+=======
+- [ ] partner_onboarding 스키마: serviceName, serviceUrl, additionalUrls 필드 추가 + db:push
+- [ ] 온보딩 채팅 Step 1: 서비스명(브랜드명), 홈페이지/블로그 URL 수집 추가
+- [ ] 자동승인 완료 시 파트너 환영 이메일 발송 (접속 URL 포함)
+- [ ] 수동 승인 완료 시 파트너 승인 이메일 발송
+- [ ] 승인 거부 시 파트너 거부 사유 이메일 발송
+- [ ] 신규 파트너 가입 시 두골프 담당자 Slack 알림
+- [ ] ERP 파트너 상세: 수집된 URL 목록 + 관리자 메모 기능 표시
+
+## [상품관리 수정 폼 크래시 버그 수정] (2026-06-09)
+- [x] 원인 1: Packages.tsx courseType `<SelectItem value="">` 빈 value → Radix Select 금지 위반으로 폼 렌더 즉시 크래시
+- [x] 수정 1: courseType SelectItem을 sentinel 값 `"none"`으로 교체, 초기값/제출 payload 정규화
+- [x] 원인 2: packages.create 프로시저 스키마에 courseType/badgeType/departureCities/isSpecialDeal/isTrending 누락
+- [x] 수정 2: server/routers.ts create 스키마에 누락 필드 추가
+- [x] 원인 3: PackageFormDialog가 useState 초기값을 한 번만 잡아 수정 시 기존 데이터 미로딩
+- [x] 수정 3: PackageFormDialog에 key={showForm ? (editPackage?.id ?? "new") : "closed"} 부여 → 수정 시 재마운트로 데이터 정상 로딩
+- [x] 검증: 프리뷰에서 수정 폼 기존 데이터 정상 로딩 확인, tsc 0에러, 전체 260 테스트 통과
+>>>>>>> Stashed changes

@@ -169,6 +169,14 @@ const packagesRouter = router({
     status: z.enum(["draft", "active", "inactive", "sold_out"]).default("draft"),
     isFeatured: z.boolean().default(false),
     isPopular: z.boolean().default(false),
+    isSpecialDeal: z.boolean().optional(),
+    isTrending: z.boolean().optional(),
+    courseType: z.enum(["resort", "oceanfront", "mountain", "tropical", "parkland", "links", "desert", "tournament"]).optional(),
+    badgeType: z.enum(["none", "best", "exclusive", "new", "limited", "hot"]).optional(),
+    departureCities: z.array(z.string()).optional(),
+    includesAirfare: z.boolean().optional(),
+    includesGreenFee: z.boolean().optional(),
+    includesHotel: z.boolean().optional(),
   })).mutation(async ({ input }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
