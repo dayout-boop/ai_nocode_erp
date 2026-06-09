@@ -496,7 +496,7 @@ export default function PackagesPage() {
                           </td>
                           <td className="px-5 py-3">
                             <div className="flex items-center justify-end gap-1">
-                              <Link href={`/erp/packages/${pkg.id}`}>
+                              <Link href={`/packages/${pkg.id}`}>
                                 <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-indigo-600">
                                   <Eye size={14} />
                                 </Button>

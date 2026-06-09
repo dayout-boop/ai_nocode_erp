@@ -340,7 +340,7 @@ function ERPContent() {
           <Route path="/settings" component={ERPSettings} />
           <Route path="/settings/system" component={SystemSettings} />
           <Route path="/knowledge-block" component={KnowledgeBlockLog} />
-          <Route path="/erp/manus-chat" component={ManusChat} />
+          <Route path="/manus-chat" component={ManusChat} />
           <Route path="/openrouter-agent" component={OpenRouterAgent} />
           <Route path="/dev-dashboard" component={DevDashboard} />
           <Route path="/managed-projects" component={ManagedProjects} />

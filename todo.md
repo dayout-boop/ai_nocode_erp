@@ -2068,3 +2068,15 @@ Detected
 - [x] 수정 3: PackageFormDialog에 key={showForm ? (editPackage?.id ?? "new") : "closed"} 부여 → 수정 시 재마운트로 데이터 정상 로딩
 - [x] 검증: 프리뷰에서 수정 폼 기존 데이터 정상 로딩 확인, tsc 0에러, 전체 260 테스트 통과
 >>>>>>> Stashed changes
+
+## [ERP 전체 페이지 점검 - 버그 수정] (2026-06-09)
+
+### 버그 1: 상품 상세보기(눈 모양) 클릭 시 대시보드로 튕기는 문제
+- [x] PackageDetail.tsx 36행: useRoute("/erp/packages/:id") → useRoute("/packages/:id") 수정 후 useLocation 폴백 추가
+  - 원인: ERPLayout이 nest 라우터로 마운트되어 내부 경로는 /erp prefix 없이 /packages/:id로 매칭됨
+  - params가 null → id=NaN → enabled=false → data=undefined → Switch fallback(ERPDashboard)으로 렌더됨
+- [x] ERPLayout.tsx 343행: Route path="/erp/manus-chat" → "/manus-chat" 수정 (nest 환경 불일치)
+- [x] Packages.tsx 눈 버튼 링크 /erp/packages/:id → /packages/:id 수정
+- [x] PackageDetail 국가 코드 한글 변환 COUNTRY_MAP 추가
+### 버그 2: 상품 상세 페이지 탭 - AI 이미지 자동생성 탭 없음
+- [x] PackageDetail.tsx Tabs 확인 → 이미지 관리 탭 내부에 AI 이미지 자동생성 섹션 포함 확인(정상)

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useRoute } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,14 @@ import { toast } from "sonner";
 import { Plus, Trash2, ArrowLeft, Upload, Star, ImageIcon, X, ChevronUp, ChevronDown, Search, Wand2, Loader2, Video, Zap, CheckCircle, XCircle, Clock } from "lucide-react";
 import { Link } from "wouter";
 import ERPSlotCalendar from "@/components/ERPSlotCalendar";
+const COUNTRY_MAP: Record<string, string> = {
+  korea: "대한민국",
+  thailand: "태국",
+  vietnam: "베트남",
+  philippines: "필리핀",
+  china: "중국",
+  japan: "일본",
+};
 const SEASON_MAP: Record<string, string> = {
   peak: "성수기",
   normal: "평수기",
@@ -33,12 +41,15 @@ const OPTION_TYPE_MAP: Record<string, string> = {
 };
 
 export default function PackageDetail() {
-  const [, params] = useRoute("/erp/packages/:id");
-  const isNew = params?.id === 'new';
-  const id = isNew ? 0 : Number(params?.id);
+  const [, params] = useRoute("/packages/:id");
+  const [location] = useLocation();
+  // nest 환경에서 useRoute params가 null일 경우 useLocation으로 직접 파싱
+  const rawId = params?.id ?? location.split('/packages/')[1]?.split('/')[0];
+  const isNew = rawId === 'new';
+  const id = isNew ? 0 : Number(rawId);
   const utils = trpc.useUtils();
 
-  const { data, isLoading } = trpc.packages.get.useQuery({ id }, { enabled: !!id && !isNew });
+  const { data, isLoading, error } = trpc.packages.get.useQuery({ id }, { enabled: !!id && !isNew });
 
   // Price form
   const [priceForm, setPriceForm] = useState({
@@ -273,7 +284,7 @@ export default function PackageDetail() {
         </div>
         <h2 className="text-xl font-bold text-slate-800">상품 등록</h2>
         <p className="text-slate-500 text-sm">상품 목록에서 "새 상품 등록" 버튼을 이용하여 새 상품을 등록하세요.</p>
-        <Link href="/erp/packages">
+        <Link href="/packages">
           <Button className="bg-indigo-600 hover:bg-indigo-700 text-white">
             <ArrowLeft size={16} className="mr-2" />
             상품 목록으로 이동
@@ -289,14 +300,14 @@ export default function PackageDetail() {
   return (
       <div className="space-y-5">
         <div className="flex items-center gap-3">
-          <Link href="/erp/packages">
+          <Link href="/packages">
             <Button variant="ghost" size="sm" className="text-slate-500">
               <ArrowLeft size={16} className="mr-1" /> 목록
             </Button>
           </Link>
           <div>
             <h1 className="text-xl font-bold text-slate-800">{data.title}</h1>
-            <p className="text-slate-500 text-sm">{data.country} · {data.duration} · 라운딩 {data.roundCount}회</p>
+            <p className="text-slate-500 text-sm">{COUNTRY_MAP[data.country] ?? data.country} · {data.duration} · 라운딩 {data.roundCount}회</p>
           </div>
         </div>
 
@@ -457,7 +468,7 @@ export default function PackageDetail() {
                   <p className="text-xs text-slate-500 mb-1">기본 상품 정보 (자동 적용)</p>
                   <p className="text-sm text-slate-700 font-medium">{data.title}</p>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    {[data.country, data.region].filter(Boolean).join(' · ')}
+                    {[COUNTRY_MAP[data.country] ?? data.country, data.region].filter(Boolean).join(' · ')}
                   </p>
                 </div>
 
