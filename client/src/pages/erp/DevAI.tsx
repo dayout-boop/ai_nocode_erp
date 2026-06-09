@@ -244,6 +244,12 @@ export default function DevAI() {
   const [createVersionOpen, setCreateVersionOpen] = useState(false);
   const [slackWebhookInput, setSlackWebhookInput] = useState("");
 
+  // 자체 Git 롤백 상태
+  const [rollbackBranch, setRollbackBranch] = useState<"dev-1" | "dev-2-integration">("dev-1");
+  const [rollbackTarget, setRollbackTarget] = useState<{ sha: string; message: string } | null>(null);
+  const [rollbackReason, setRollbackReason] = useState("");
+  const [rollbackConfirmOpen, setRollbackConfirmOpen] = useState(false);
+
   // URL 파라미터로 새 요청 다이얼로그 자동 오픈 (ManagedProjects에서 네비게이션 시)
   const _autoOpened = useRef(false);
   if (!_autoOpened.current && urlParams.projectName && urlTab === "requests") {
@@ -290,6 +296,35 @@ export default function DevAI() {
     { featureId: selectedFeatureId ?? undefined },
     { enabled: activeTab === "versions" }
   );
+
+  // 자체 Git 롤백 — 커밋 이력 / 롤백 감사 이력
+  const {
+    data: branchCommits,
+    isLoading: branchCommitsLoading,
+    error: branchCommitsError,
+    refetch: refetchBranchCommits,
+  } = trpc.aiDevPipeline.listBranchCommits.useQuery(
+    { branch: rollbackBranch, limit: 30 },
+    { enabled: activeTab === "versions", retry: false }
+  );
+  const { data: rollbackLogs, refetch: refetchRollbackLogs } =
+    trpc.aiDevPipeline.listRollbackLogs.useQuery(
+      { limit: 20 },
+      { enabled: activeTab === "versions" }
+    );
+  const rollbackMutation = trpc.aiDevPipeline.rollbackToCommit.useMutation({
+    onSuccess: (res) => {
+      toast.success(res.message ?? "롤백이 완료되었습니다.", { duration: 6000 });
+      setRollbackConfirmOpen(false);
+      setRollbackTarget(null);
+      setRollbackReason("");
+      refetchBranchCommits();
+      refetchRollbackLogs();
+    },
+    onError: (err) => {
+      toast.error(`롤백 실패: ${err.message}`, { duration: 7000 });
+    },
+  });
 
   // 정확도 분석 쿼리
   const { data: accuracyStats, isLoading: accuracyStatsLoading, refetch: refetchAccuracy } = trpc.devAI.accuracyStats.useQuery(
@@ -1014,6 +1049,131 @@ export default function DevAI() {
           {/* ===== 버전 이력 탭 ===== */}
           {activeTab === "versions" && (
             <div className="space-y-4">
+              {/* ===== 자체 Git 롤백 패널 (마누스 비종속) ===== */}
+              <Card className="border-amber-200 bg-amber-50/40">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <GitBranch size={18} className="text-amber-600" />
+                      <CardTitle className="text-base text-amber-800">자체 Git 롤백</CardTitle>
+                      <Badge className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-700 border-amber-300">
+                        마누스 비종속
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={rollbackBranch}
+                        onValueChange={(v) => setRollbackBranch(v as "dev-1" | "dev-2-integration")}
+                      >
+                        <SelectTrigger className="w-44 h-8 text-xs bg-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="dev-1">dev-1</SelectItem>
+                          <SelectItem value="dev-2-integration">dev-2-integration</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs bg-white"
+                        onClick={() => refetchBranchCommits()}
+                        disabled={branchCommitsLoading}
+                      >
+                        <RefreshCw size={12} className={branchCommitsLoading ? "animate-spin" : ""} />
+                        새로고침
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-amber-700/80 mt-1">
+                    ERP 화면에서 직접 특정 커밋 시점으로 되돌립니다. 기존 이력은 보존되며 '되돌림 커밋'이 추가됩니다. (main 브랜치는 보호되어 롤백 불가)
+                  </p>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {branchCommitsError ? (
+                    <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+                      <AlertCircle size={14} />
+                      <span>{branchCommitsError.message}</span>
+                    </div>
+                  ) : branchCommitsLoading ? (
+                    <div className="space-y-2">
+                      {[...Array(3)].map((_, i) => (
+                        <div key={i} className="h-12 bg-white/60 rounded-lg animate-pulse" />
+                      ))}
+                    </div>
+                  ) : (branchCommits?.commits ?? []).length === 0 ? (
+                    <p className="text-xs text-slate-500 py-4 text-center">커밋 이력이 없습니다.</p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-80 overflow-y-auto">
+                      {branchCommits!.commits.map((c, idx) => (
+                        <div
+                          key={c.sha}
+                          className="flex items-center justify-between gap-3 bg-white rounded-lg border border-amber-100 px-3 py-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-[11px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                                {c.shortSha}
+                              </span>
+                              {idx === 0 && (
+                                <Badge className="text-[9px] px-1 py-0 bg-green-50 text-green-600 border-green-200">
+                                  현재 HEAD
+                                </Badge>
+                              )}
+                              <span className="text-xs text-slate-700 truncate">{c.message}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400">
+                              {c.author} · {c.date ? new Date(c.date).toLocaleString("ko-KR") : ""}
+                            </span>
+                          </div>
+                          {idx !== 0 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="shrink-0 gap-1.5 text-xs text-amber-600 border-amber-300 hover:bg-amber-50 h-7"
+                              onClick={() => {
+                                setRollbackTarget({ sha: c.sha, message: c.message });
+                                setRollbackReason("");
+                                setRollbackConfirmOpen(true);
+                              }}
+                            >
+                              <RotateCcw size={12} />
+                              이 시점으로 롤백
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 롤백 감사 이력 */}
+                  {(rollbackLogs?.items ?? []).length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-amber-200">
+                      <p className="text-[11px] font-semibold text-amber-700 mb-1.5">최근 롤백 이력</p>
+                      <div className="space-y-1">
+                        {rollbackLogs!.items.slice(0, 5).map((log: any) => (
+                          <div key={log.id} className="flex items-center gap-2 text-[10px] text-slate-500">
+                            {log.success ? (
+                              <CheckCircle2 size={11} className="text-green-500 shrink-0" />
+                            ) : (
+                              <XCircle size={11} className="text-red-500 shrink-0" />
+                            )}
+                            <span className="font-mono">{log.branch}</span>
+                            <span>→ {String(log.targetSha).slice(0, 8)}</span>
+                            <span className="text-slate-400">
+                              ({log.performedByName ?? "?"} · {new Date(log.createdAt).toLocaleString("ko-KR")})
+                            </span>
+                            {!log.success && log.errorMessage && (
+                              <span className="text-red-400 truncate">{log.errorMessage}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               <div className="flex items-center gap-3 flex-wrap">
                 <Select
                   value={selectedFeatureId ? String(selectedFeatureId) : "all"}
@@ -1102,13 +1262,13 @@ export default function DevAI() {
                                 className="shrink-0 gap-1.5 text-xs text-amber-600 border-amber-300 hover:bg-amber-50"
                                 onClick={() => {
                                   toast.info(
-                                    `롤백하려면 Management UI > Version History에서 체크포인트 ID "${ver.checkpointId?.slice(0, 8)}"를 선택하세요.`,
+                                    `이 항목은 체크포인트 기반 참조용입니다. 실제 롤백은 상단 '자체 Git 롤백' 패널에서 커밋을 선택하세요. (체크포인트 ID: ${ver.checkpointId?.slice(0, 8)})`,
                                     { duration: 5000 }
                                   );
                                 }}
                               >
                                 <RotateCcw size={12} />
-                                롤백 안내
+                                체크포인트 참조
                               </Button>
                             )}
                           </div>
@@ -1857,5 +2017,61 @@ export default function DevAI() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* ===== 자체 Git 롤백 확인 다이얼로그 ===== */}
+        <AlertDialog open={rollbackConfirmOpen} onOpenChange={setRollbackConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <RotateCcw size={18} className="text-amber-600" />
+                롤백 확인
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2 text-sm">
+                  <p>
+                    <span className="font-mono font-semibold text-amber-700">{rollbackBranch}</span> 브랜치를
+                    아래 커밋 시점으로 되돌립니다.
+                  </p>
+                  {rollbackTarget && (
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                      <div className="font-mono text-xs text-amber-700">{rollbackTarget.sha.slice(0, 8)}</div>
+                      <div className="text-xs text-slate-600 mt-0.5">{rollbackTarget.message}</div>
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-500">
+                    기존 커밋 이력은 파괴되지 않으며, 해당 시점의 파일 상태를 담은 '되돌림 커밋'이 최신에 추가됩니다. 언제든 다시 앞으로 롤백할 수 있습니다.
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="py-1">
+              <label className="text-xs font-semibold text-slate-600 mb-1.5 block">롤백 사유 (선택)</label>
+              <Textarea
+                value={rollbackReason}
+                onChange={(e) => setRollbackReason(e.target.value)}
+                placeholder="예: 배포 후 장애 발생으로 이전 안정 버전으로 복구"
+                className="text-sm min-h-[60px]"
+              />
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={rollbackMutation.isPending}>취소</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-amber-600 hover:bg-amber-700"
+                disabled={rollbackMutation.isPending || !rollbackTarget}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (!rollbackTarget) return;
+                  rollbackMutation.mutate({
+                    branch: rollbackBranch,
+                    targetSha: rollbackTarget.sha,
+                    reason: rollbackReason || undefined,
+                  });
+                }}
+              >
+                {rollbackMutation.isPending ? "롤백 중..." : "롤백 실행"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
     </>);
 }

@@ -9,7 +9,7 @@
 import { z } from "zod";
 import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { aiDevRequests, aiDevRequestFiles, aiGitCommits } from "../../drizzle/schema";
+import { aiDevRequests, aiDevRequestFiles, aiGitCommits, gitRollbackLogs } from "../../drizzle/schema";
 import { desc, eq, and, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
@@ -17,9 +17,14 @@ import {
   mergeBranch,
   isGitEngineEnabled,
   ALLOWED_BRANCHES,
+  listBranchCommits,
+  rollbackToCommit,
 } from "../services/gitEngine";
 import { SelfAuditBot } from "../services/selfAuditBot";
 import { getNeutralStatus, NEUTRAL_ROADMAP } from "../services/vendorNeutral";
+
+// 롤백 가능 브랜치 (main 제외 — main 은 마스터 수동 승인 전용)
+const ROLLBACKABLE_BRANCHES = ["dev-1", "dev-2-integration"] as const;
 
 const STATUS_VALUES = [
   "INIT",
@@ -209,4 +214,94 @@ export const aiDevPipelineRouter = router({
   neutralStatus: adminProcedure.query(async () => {
     return { status: getNeutralStatus(), roadmap: NEUTRAL_ROADMAP };
   }),
+
+  // ============================================================
+  // 자체 Git 롤백 (마누스 비종속) — ERP 화면에서 직접 되돌리기
+  // ============================================================
+
+  /** 롤백 대상 브랜치의 커밋 이력 조회 (온디맨드 Git API) */
+  listBranchCommits: adminProcedure
+    .input(
+      z.object({
+        branch: z.enum(ROLLBACKABLE_BRANCHES).default("dev-1"),
+        limit: z.number().min(1).max(100).default(30),
+      }),
+    )
+    .query(async ({ input }) => {
+      if (!isGitEngineEnabled()) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Git 엔진 비활성 (ERP 설정 > v3 엔진 > GitHub Token 등록 필요)" });
+      }
+      try {
+        const commits = await listBranchCommits(input.branch, input.limit);
+        return { branch: input.branch, commits };
+      } catch (err: any) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: err.message });
+      }
+    }),
+
+  /**
+   * 롤백 실행 — 특정 커밋 시점으로 dev 브랜치를 되돌린다 (마스터 권한 전용).
+   * history-preserving: 기존 이력 파괴 없이 '되돌림 커밋' 하나를 새로 얹는다.
+   * main 롤백은 gitEngine 레벨에서도 차단됨.
+   */
+  rollbackToCommit: adminProcedure
+    .input(
+      z.object({
+        branch: z.enum(ROLLBACKABLE_BRANCHES).default("dev-1"),
+        targetSha: z.string().min(7).max(40),
+        reason: z.string().max(1000).optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      if (!isGitEngineEnabled()) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Git 엔진 비활성 (ERP 설정 > v3 엔진 > GitHub Token 등록 필요)" });
+      }
+      const db = await getDb();
+      const performedBy = ctx.user?.id ?? null;
+      const performedByName = ctx.user?.name ?? "master";
+      try {
+        const result = await rollbackToCommit(input.branch, input.targetSha, input.reason);
+        // 감사 이력 적재 (DB 연결 시에만)
+        if (db) {
+          await db.insert(gitRollbackLogs).values({
+            branch: input.branch,
+            targetSha: input.targetSha,
+            newCommitSha: result.newCommitSha,
+            reason: input.reason ?? null,
+            success: true,
+            performedBy,
+            performedByName,
+          });
+        }
+        return { ok: true, ...result };
+      } catch (err: any) {
+        const msg = err?.message ?? "unknown";
+        if (db) {
+          await db.insert(gitRollbackLogs).values({
+            branch: input.branch,
+            targetSha: input.targetSha,
+            reason: input.reason ?? null,
+            success: false,
+            errorMessage: msg.slice(0, 1000),
+            performedBy,
+            performedByName,
+          });
+        }
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: msg });
+      }
+    }),
+
+  /** 롤백 감사 이력 조회 (최신순) */
+  listRollbackLogs: adminProcedure
+    .input(z.object({ limit: z.number().min(1).max(100).default(30) }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { items: [] as any[] };
+      const rows = await db
+        .select()
+        .from(gitRollbackLogs)
+        .orderBy(desc(gitRollbackLogs.createdAt))
+        .limit(input?.limit ?? 30);
+      return { items: rows };
+    }),
 });

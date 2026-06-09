@@ -256,6 +256,126 @@ export async function compareBranches(base: AllowedBranch, head: AllowedBranch) 
   return ghJson<any>(`${repoBase()}/compare/${base}...${head}`);
 }
 
+/**
+ * 브랜치 커밋 이력 조회 (롤백 대상 선택용). DB 비대화 방지 — 온디맨드 GitHub API.
+ * 반환: 최신순 커밋 목록 (sha, message, author, date).
+ */
+export interface GitCommitListItem {
+  sha: string;
+  shortSha: string;
+  message: string;
+  author: string;
+  date: string;
+}
+
+export async function listBranchCommits(
+  branch: AllowedBranch,
+  limit = 30,
+): Promise<GitCommitListItem[]> {
+  assertAllowedBranch(branch);
+  const perPage = Math.min(Math.max(limit, 1), 100);
+  const data = await ghJson<any[]>(
+    `${repoBase()}/commits?sha=${encodeURIComponent(branch)}&per_page=${perPage}`,
+  );
+  return (data ?? []).map((c: any) => ({
+    sha: c.sha,
+    shortSha: String(c.sha).slice(0, 8),
+    message: (c.commit?.message ?? "").split("\n")[0],
+    author: c.commit?.author?.name ?? "unknown",
+    date: c.commit?.author?.date ?? "",
+  }));
+}
+
+/**
+ * STEP3 확장 — 롤백(Revert) [마누스 비종속 자체 되돌리기]
+ * ------------------------------------------------------------------
+ * 목적: 마누스 없이 ERP 화면에서 직접 특정 커밋 시점으로 브랜치를 되돌린다.
+ *
+ * 방식: "되돌릴 대상 커밋(targetSha)의 트리 스냅샷"을 브랜치 최신 위에
+ *       **새 커밋으로 얹는다**(history-preserving rollback).
+ *       force-push / history 파괴 없이 GitHub REST 트랜잭션만으로 안전 복원.
+ *       → 기존 커밋 이력은 그대로 보존되고, '되돌림 커밋'이 하나 추가될 뿐.
+ *
+ * 안전 가드:
+ *   - dev 브랜치(dev-1 / dev-2-integration) 한정. main 롤백 영구 금지.
+ *   - targetSha 트리를 새 커밋의 tree 로 그대로 사용(부모는 현재 HEAD).
+ *   - force:false 로 Ref 갱신 → 동시성 충돌 시 자동/강제 덮어쓰기 금지.
+ */
+export interface RollbackResult {
+  success: boolean;
+  newCommitSha: string;
+  branch: string;
+  targetSha: string;
+  message: string;
+}
+
+export async function rollbackToCommit(
+  branch: AllowedBranch,
+  targetSha: string,
+  reason?: string,
+): Promise<RollbackResult> {
+  assertAllowedBranch(branch);
+  if (branch === "main") {
+    throw new Error("[GitEngine] main 브랜치 롤백은 금지됩니다 (마스터 수동 승인 전용 영역)");
+  }
+  if (!targetSha || targetSha.length < 7) {
+    throw new Error("[GitEngine] 롤백 대상 커밋 SHA 가 유효하지 않습니다 (최소 7자)");
+  }
+
+  const base = repoBase();
+  await ensureBranch(branch, "main");
+
+  // (1) 되돌릴 대상 커밋 → 그 시점의 트리 SHA 확보
+  const targetCommit = await ghJson<{ sha: string; tree: { sha: string }; message?: string }>(
+    `${base}/git/commits/${targetSha}`,
+  );
+  const targetTreeSha = targetCommit.tree.sha;
+
+  // (2) 현재 브랜치 HEAD 커밋 SHA (새 커밋의 부모)
+  const ref = await ghJson<{ object: { sha: string } }>(`${base}/git/ref/heads/${branch}`);
+  const headSha = ref.object.sha;
+
+  // 이미 같은 트리면(되돌릴 필요 없음) no-op 처리
+  const headCommit = await ghJson<{ tree: { sha: string } }>(`${base}/git/commits/${headSha}`);
+  if (headCommit.tree.sha === targetTreeSha) {
+    return {
+      success: true,
+      newCommitSha: headSha,
+      branch,
+      targetSha,
+      message: `이미 ${targetSha.slice(0, 8)} 시점과 동일한 상태입니다 (변경 없음)`,
+    };
+  }
+
+  // (3) 대상 트리를 그대로 사용하는 '되돌림 커밋' 생성 (부모: 현재 HEAD → 이력 보존)
+  const revertMessage =
+    `revert: ${targetSha.slice(0, 8)} 시점으로 롤백` + (reason ? `\n\n사유: ${reason}` : "");
+  const newCommit = await ghJson<{ sha: string }>(`${base}/git/commits`, {
+    method: "POST",
+    body: JSON.stringify({
+      message: revertMessage,
+      tree: targetTreeSha,
+      parents: [headSha],
+      author: { name: "DuGolf-Server-Engine", email: "engine@dayoutgolf.com", date: new Date().toISOString() },
+    }),
+  });
+
+  // (4) Ref 안전 갱신 (force:false)
+  await ghJson(`${base}/git/refs/heads/${branch}`, {
+    method: "PATCH",
+    body: JSON.stringify({ sha: newCommit.sha, force: false }),
+  });
+
+  console.log(`[GitEngine] 롤백 완료: ${branch} → ${targetSha.slice(0, 8)} 시점 (새 커밋 ${newCommit.sha.slice(0, 8)})`);
+  return {
+    success: true,
+    newCommitSha: newCommit.sha,
+    branch,
+    targetSha,
+    message: `${branch} 브랜치를 ${targetSha.slice(0, 8)} 시점으로 되돌렸습니다 (되돌림 커밋 ${newCommit.sha.slice(0, 8)})`,
+  };
+}
+
 /** 트랜잭션 실패 시 로컬 백업 격리 덤프 */
 function dumpBackup(devRequestId: number, files: ChangesetFile[], commitMessage: string, err: unknown): void {
   try {

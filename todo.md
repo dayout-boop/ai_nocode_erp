@@ -2034,3 +2034,10 @@ Detected
 - [x] 4. 웹검색·알림 폴백 — notifyOwner Slack 폴백, webSearch Serper 폴백(ERP 키 등록 시), 둘 다 graceful, vitest 2개 통과
 - [x] 5. ERP 설정에 LLM 제공자 선택 UI — 기본 LLM 제공자 카드(auto/openrouter/forge) + serper 검색폴백 키 항목 추가, invokeLLM에 llm_provider_preference 연결, vitest 2개 추가 (전체 314개 통과)
 - [x] 6. 관리자 세션 DB화 — admin_sessions 테이블 추가, adminAuth 비동기 DB 우선+인메모리 폴백, 호출부 6곳 await 전환, 서버 재시작·다중서버에서도 로그인 유지, vitest 5개+기존 8개 통과 (전체 319개 통과)
+
+## 자체 Git 롤백 구현 (마누스 없이 ERP 화면에서 롤백 — 자립화 마지막 고리)
+- [x] G1. v3 Git 엔진 현황 진단 — 커밋/병합/Diff/브랜치비교 동작 확인, 롤백(revert) 함수 부재 확인
+- [x] G2. gitEngine.ts에 롤백 함수 추가 (rollbackToCommit + listBranchCommits, dev 브랜치 한정, main 차단, history-preserving)
+- [x] G3. aiDevPipeline.ts에 롤백 tRPC 프로시저 3종 추가 (listBranchCommits/rollbackToCommit/listRollbackLogs, adminProcedure, git_rollback_logs 감사 테이블 신규 + db:push, tsc 0에러)
+- [x] G4. DevAI.tsx 버전 이력 탭에 '자체 Git 롤백' 패널 추가 (브랜치 선택+커밋 이력+롤백 버튼+확인 다이얼로그+감사 이력), 기존 체크포인트 안내는 '체크포인트 참조'로 유지, tsc 0에러
+- [x] G5. 롤백 vitest 7개 작성(main 차단/SHA 검증/history-preserving/no-op) — 전체 30파일 326개 테스트 통과, tsc 0에러, 회귀 없음

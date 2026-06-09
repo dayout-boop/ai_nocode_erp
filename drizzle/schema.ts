@@ -2315,3 +2315,33 @@ export const aiGitCommits = mysqlTable("ai_git_commits", {
 });
 export type AiGitCommit = typeof aiGitCommits.$inferSelect;
 export type InsertAiGitCommit = typeof aiGitCommits.$inferInsert;
+
+
+// ============================================================
+// GIT_ROLLBACK_LOGS - 자체 Git 롤백 감사 이력 (마누스 비종속 롤백)
+// 누가/언제/어떤 브랜치를 어느 커밋 시점으로 되돌렸는지 추적
+// ============================================================
+export const gitRollbackLogs = mysqlTable("git_rollback_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 롤백 대상 브랜치 (dev-1 | dev-2-integration) */
+  branch: varchar("branch", { length: 100 }).notNull(),
+  /** 되돌릴 대상(이 시점으로 복원) 커밋 SHA */
+  targetSha: varchar("targetSha", { length: 40 }).notNull(),
+  /** 롤백 직전 HEAD 커밋 SHA (되돌리기 전 상태 기록) */
+  previousHeadSha: varchar("previousHeadSha", { length: 40 }),
+  /** 롤백으로 새로 생성된 '되돌림 커밋' SHA */
+  newCommitSha: varchar("newCommitSha", { length: 40 }),
+  /** 롤백 사유 (마스터 입력) */
+  reason: text("reason"),
+  /** 성공 여부 */
+  success: boolean("success").default(true).notNull(),
+  /** 실패 시 에러 메시지 */
+  errorMessage: text("errorMessage"),
+  /** 실행 주체 user.id */
+  performedBy: int("performedBy"),
+  /** 실행 주체 이름 (감사 가독성) */
+  performedByName: varchar("performedByName", { length: 100 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type GitRollbackLog = typeof gitRollbackLogs.$inferSelect;
+export type InsertGitRollbackLog = typeof gitRollbackLogs.$inferInsert;
