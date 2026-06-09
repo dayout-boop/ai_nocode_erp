@@ -2080,3 +2080,16 @@ Detected
 - [x] PackageDetail 국가 코드 한글 변환 COUNTRY_MAP 추가
 ### 버그 2: 상품 상세 페이지 탭 - AI 이미지 자동생성 탭 없음
 - [x] PackageDetail.tsx Tabs 확인 → 이미지 관리 탭 내부에 AI 이미지 자동생성 섹션 포함 확인(정상)
+
+## 멀티테넌트 구조 정립 (2026-06-09 완료)
+- [x] partner_session 쿠키를 tRPC context에서 인식 (partnerOwner, tenantId 주입)
+- [x] partnerProcedure 정의 (마스터=tenantId null 전체 접근, 파트너=tenantId 필터)
+- [x] ERPLayout 파트너 세션 감지 + 마스터 전용 메뉴(masterOnly) 숨김 처리
+- [x] ERPLayout 헤더 파트너 사용자 이름/배지 표시
+- [x] ERPLayout 로그아웃 파트너 모드 분기 처리
+- [x] dashboard stats/monthlyRevenue partnerProcedure + tenantId 필터
+- [x] packages list/get/create/update/delete partnerProcedure + tenantId 필터
+- [x] bookings list/get/updateStatus partnerProcedure + tenantId 필터
+- [x] settlements list/updateStatus/supplierSummary partnerProcedure + tenantId 필터
+- [x] inquiries list/reply/updateStatus partnerProcedure + tenantId 필터
+- [x] 멀티테넌트 개발 관리 문서 작성 (docs/multitenant-dev-guide.md)

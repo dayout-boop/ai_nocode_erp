@@ -5,12 +5,17 @@ import { sdk } from "./sdk";
 import { validateAdminSession } from "./adminAuth";
 import { jwtVerify } from "jose";
 
+async function getJwtSecret() {
+  return new TextEncoder().encode(process.env.JWT_SECRET || "fallback-secret");
+}
+
 /**
  * tRPC 요청 컨텍스트
  * - transactionId: 분산 추적용 요청 고유 ID (X-Transaction-ID 헤더 또는 자동 생성)
  * - isMasterSession: 마스터 ERP 세션 여부
  * - partnerStaff: 파트너 스태프 JWT 인증 정보 (직원 로그인 시)
  * - tenantId: 파트너 테넌트 ID (파트너 대표 또는 직원 로그인 시)
+ * - partnerOwner: 파트너 대표 세션 정보 (partner_session 쿠키 로그인 시)
  */
 export type PartnerStaffCtx = {
   staffId: number;
@@ -21,12 +26,22 @@ export type PartnerStaffCtx = {
   tenantId: number | null;
 };
 
+export type PartnerOwnerCtx = {
+  partnerId: number;
+  tenantId: number | null;
+  email: string | null;
+  name: string | null;
+  loginType: string;
+  role: "partner_owner";
+};
+
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
   res: CreateExpressContextOptions["res"];
   user: User | null;
   isMasterSession?: boolean;
   partnerStaff?: PartnerStaffCtx | null;
+  partnerOwner?: PartnerOwnerCtx | null;
   tenantId?: number | null;
   transactionId: string;
 };
@@ -80,13 +95,14 @@ export async function createContext(
 
   // 3. 파트너 스태프 JWT 검증 (Authorization: Bearer <token> 헤더)
   let partnerStaff: PartnerStaffCtx | null = null;
+  let partnerOwner: PartnerOwnerCtx | null = null;
   let tenantId: number | null = null;
 
   const authHeader = opts.req.headers["authorization"];
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.slice(7);
     try {
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET || "fallback-secret");
+      const secret = await getJwtSecret();
       const { payload } = await jwtVerify(token, secret);
       if (payload.type === "partner_staff" && payload.staffId) {
         // 테넌트 ID 조회 (onboardingId로 tenants 테이블 조회)
@@ -122,12 +138,38 @@ export async function createContext(
     }
   }
 
+  // 4. 파트너 대표 세션 쿠키 검증 (partner_session 쿠키)
+  // 파트너 스태프 세션이 없을 때만 확인
+  if (!partnerStaff) {
+    const partnerSessionToken = opts.req.cookies?.partner_session;
+    if (partnerSessionToken) {
+      try {
+        const secret = await getJwtSecret();
+        const { payload } = await jwtVerify(partnerSessionToken, secret);
+        if (payload.partnerId) {
+          partnerOwner = {
+            partnerId: payload.partnerId as number,
+            tenantId: (payload.tenantId as number | null) ?? null,
+            email: (payload.email as string | null) ?? null,
+            name: (payload.name as string | null) ?? null,
+            loginType: (payload.loginType as string) || "unknown",
+            role: "partner_owner",
+          };
+          tenantId = partnerOwner.tenantId;
+        }
+      } catch {
+        // partner_session 쿠키 검증 실패 시 무시
+      }
+    }
+  }
+
   return {
     req: opts.req,
     res: opts.res,
     user,
     isMasterSession,
     partnerStaff,
+    partnerOwner,
     tenantId,
     transactionId,
   };

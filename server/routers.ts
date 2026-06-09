@@ -14,7 +14,7 @@ import { reservationAffiliateCostsRouter } from "./routers/reservationAffiliateC
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, partnerProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { getDb } from "./db";
 import {
@@ -69,30 +69,32 @@ const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
 });
 
 const dashboardRouter = router({
-  stats: adminProcedure.query(async () => {
+  stats: partnerProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const [totalBookings] = await db.select({ count: count() }).from(bookings);
-    const [pendingBookings] = await db.select({ count: count() }).from(bookings).where(eq(bookings.status, "pending"));
-    const [confirmedBookings] = await db.select({ count: count() }).from(bookings).where(eq(bookings.status, "confirmed"));
-    const [todayBookings] = await db.select({ count: count() }).from(bookings).where(gte(bookings.createdAt, todayStart));
-    const [totalPackages] = await db.select({ count: count() }).from(packages);
-    const [activePackages] = await db.select({ count: count() }).from(packages).where(eq(packages.status, "active"));
-    const [newInquiries] = await db.select({ count: count() }).from(inquiries).where(eq(inquiries.status, "new"));
-    const [inProgressInquiries] = await db.select({ count: count() }).from(inquiries).where(eq(inquiries.status, "in_progress"));
+    // tenantId 필터 조건 (null이면 전체, 값이 있으면 해당 파트너만)
+    const tFilter = ctx.tenantId !== undefined && ctx.tenantId !== null;
+    const [totalBookings] = await db.select({ count: count() }).from(bookings).where(tFilter ? eq(bookings.tenantId, ctx.tenantId!) : undefined);
+    const [pendingBookings] = await db.select({ count: count() }).from(bookings).where(tFilter ? and(eq(bookings.status, "pending"), eq(bookings.tenantId, ctx.tenantId!)) : eq(bookings.status, "pending"));
+    const [confirmedBookings] = await db.select({ count: count() }).from(bookings).where(tFilter ? and(eq(bookings.status, "confirmed"), eq(bookings.tenantId, ctx.tenantId!)) : eq(bookings.status, "confirmed"));
+    const [todayBookings] = await db.select({ count: count() }).from(bookings).where(tFilter ? and(gte(bookings.createdAt, todayStart), eq(bookings.tenantId, ctx.tenantId!)) : gte(bookings.createdAt, todayStart));
+    const [totalPackages] = await db.select({ count: count() }).from(packages).where(tFilter ? eq(packages.tenantId, ctx.tenantId!) : undefined);
+    const [activePackages] = await db.select({ count: count() }).from(packages).where(tFilter ? and(eq(packages.status, "active"), eq(packages.tenantId, ctx.tenantId!)) : eq(packages.status, "active"));
+    const [newInquiries] = await db.select({ count: count() }).from(inquiries).where(tFilter ? and(eq(inquiries.status, "new"), eq(inquiries.tenantId, ctx.tenantId!)) : eq(inquiries.status, "new"));
+    const [inProgressInquiries] = await db.select({ count: count() }).from(inquiries).where(tFilter ? and(eq(inquiries.status, "in_progress"), eq(inquiries.tenantId, ctx.tenantId!)) : eq(inquiries.status, "in_progress"));
     const [totalUsers] = await db.select({ count: count() }).from(users);
-    const [totalPartners] = await db.select({ count: count() }).from(partners);
+    const [totalPartners] = tFilter ? [{ count: 0 }] : await db.select({ count: count() }).from(partners);
     const revenueResult = await db.select({
       total: sql<string>`COALESCE(SUM(totalAmount), 0)`
-    }).from(bookings).where(eq(bookings.paymentStatus, "paid"));
+    }).from(bookings).where(tFilter ? and(eq(bookings.paymentStatus, "paid"), eq(bookings.tenantId, ctx.tenantId!)) : eq(bookings.paymentStatus, "paid"));
     const monthRevenueResult = await db.select({
       total: sql<string>`COALESCE(SUM(totalAmount), 0)`
-    }).from(bookings).where(and(eq(bookings.paymentStatus, "paid"), gte(bookings.createdAt, monthStart)));
-    const recentBookings = await db.select().from(bookings).orderBy(desc(bookings.createdAt)).limit(5);
-    const recentInquiries = await db.select().from(inquiries).orderBy(desc(inquiries.createdAt)).limit(5);
+    }).from(bookings).where(tFilter ? and(eq(bookings.paymentStatus, "paid"), gte(bookings.createdAt, monthStart), eq(bookings.tenantId, ctx.tenantId!)) : and(eq(bookings.paymentStatus, "paid"), gte(bookings.createdAt, monthStart)));
+    const recentBookings = await db.select().from(bookings).where(tFilter ? eq(bookings.tenantId, ctx.tenantId!) : undefined).orderBy(desc(bookings.createdAt)).limit(5);
+    const recentInquiries = await db.select().from(inquiries).where(tFilter ? eq(inquiries.tenantId, ctx.tenantId!) : undefined).orderBy(desc(inquiries.createdAt)).limit(5);
     return {
       totalBookings: totalBookings.count,
       pendingBookings: pendingBookings.count,
@@ -110,18 +112,21 @@ const dashboardRouter = router({
       recentInquiries,
     };
   }),
-  monthlyRevenue: adminProcedure.query(async () => {
+  monthlyRevenue: partnerProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const tFilter = ctx.tenantId !== undefined && ctx.tenantId !== null;
+    const baseConditions = [
+      eq(bookings.paymentStatus, "paid"),
+      gte(bookings.createdAt, new Date(Date.now() - 180 * 24 * 60 * 60 * 1000)),
+    ];
+    if (tFilter) baseConditions.push(eq(bookings.tenantId, ctx.tenantId!) as any);
     const result = await db.select({
       month: sql<string>`DATE_FORMAT(createdAt, '%Y-%m')`,
       revenue: sql<string>`COALESCE(SUM(totalAmount), 0)`,
       bookingCount: count(),
     }).from(bookings)
-      .where(and(
-        eq(bookings.paymentStatus, "paid"),
-        gte(bookings.createdAt, new Date(Date.now() - 180 * 24 * 60 * 60 * 1000))
-      ))
+      .where(and(...baseConditions))
       .groupBy(sql`DATE_FORMAT(createdAt, '%Y-%m')`)
       .orderBy(sql`DATE_FORMAT(createdAt, '%Y-%m')`);
     return result;
@@ -129,17 +134,21 @@ const dashboardRouter = router({
 });
 
 const packagesRouter = router({
-  list: adminProcedure.input(z.object({
+  list: partnerProcedure.input(z.object({
     page: z.number().default(1),
     limit: z.number().default(20),
     status: z.string().optional(),
     country: z.string().optional(),
     search: z.string().optional(),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
     const offset = (input.page - 1) * input.limit;
     const conditions: any[] = [];
+    // tenantId 필터: null이면 전체(마스터), 값이 있으면 해당 파트너 데이터만
+    if (ctx.tenantId !== undefined && ctx.tenantId !== null) {
+      conditions.push(eq(packages.tenantId, ctx.tenantId));
+    }
     if (input.status) conditions.push(eq(packages.status, input.status as any));
     if (input.country) conditions.push(eq(packages.country, input.country));
     if (input.search) conditions.push(like(packages.title, `%${input.search}%`));
@@ -148,7 +157,7 @@ const packagesRouter = router({
     const [total] = await db.select({ count: count() }).from(packages).where(whereClause);
     return { items, total: total.count };
   }),
-  get: adminProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
+  get: partnerProcedure.input(z.object({ id: z.number() })).query(async ({ input, ctx }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
     const [pkg] = await db.select().from(packages).where(eq(packages.id, input.id));
@@ -158,7 +167,7 @@ const packagesRouter = router({
     const slots = await db.select().from(packageSlots).where(eq(packageSlots.packageId, input.id)).orderBy(packageSlots.departureDate);
     return { ...pkg, prices, options, slots };
   }),
-  create: adminProcedure.input(z.object({
+  create: partnerProcedure.input(z.object({
     title: z.string().min(1),
     titleEn: z.string().optional(),
     country: z.string().min(1),
@@ -178,13 +187,14 @@ const packagesRouter = router({
     includesAirfare: z.boolean().optional(),
     includesGreenFee: z.boolean().optional(),
     includesHotel: z.boolean().optional(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    const result = await db.insert(packages).values(input);
+    // 생성 시 tenantId 자동 주입 (파트너는 자신의 tenantId, 마스터는 null)
+    const result = await db.insert(packages).values({ ...input, tenantId: ctx.tenantId ?? null });
     return { id: Number((result as any)[0].insertId) };
   }),
-  update: adminProcedure.input(z.object({
+  update: partnerProcedure.input(z.object({
     id: z.number(),
     title: z.string().optional(),
     country: z.string().optional(),
@@ -224,17 +234,25 @@ const packagesRouter = router({
       meals: z.array(z.string()).optional(),
     })).optional().nullable(),
     cancellationPolicy: z.string().optional().nullable(),
-  })).mutation(async ({ input }) => {
+  })).mutation(async ({ input, ctx }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
     const { id, ...data } = input;
-    await db.update(packages).set(data as any).where(eq(packages.id, id));
+    // 파트너는 자신의 tenantId 상품만 수정 가능
+    const whereClause = ctx.tenantId !== null && ctx.tenantId !== undefined
+      ? and(eq(packages.id, id), eq(packages.tenantId, ctx.tenantId))
+      : eq(packages.id, id);
+    await db.update(packages).set(data as any).where(whereClause);
     return { success: true };
   }),
-  delete: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => {
+  delete: partnerProcedure.input(z.object({ id: z.number() })).mutation(async ({ input, ctx }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    await db.delete(packages).where(eq(packages.id, input.id));
+    // 파트너는 자신의 tenantId 상품만 삭제 가능
+    const whereClause = ctx.tenantId !== null && ctx.tenantId !== undefined
+      ? and(eq(packages.id, input.id), eq(packages.tenantId, ctx.tenantId))
+      : eq(packages.id, input.id);
+    await db.delete(packages).where(whereClause);
     return { success: true };
   }),
   addPrice: adminProcedure.input(z.object({
@@ -773,18 +791,22 @@ const packagesRouter = router({
 });
 
 const bookingsRouter = router({
-  list: adminProcedure.input(z.object({
+  list: partnerProcedure.input(z.object({
     page: z.number().default(1),
     limit: z.number().default(20),
     status: z.string().optional(),
     search: z.string().optional(),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
     const offset = (input.page - 1) * input.limit;
 
-    // ─── bookings 테이블 조회 ───────────────────────────────────
+    // ─── bookings 테이블 조회 ──────────────────────────────────────────────────────
     const bookingConditions: any[] = [];
+    // tenantId 필터: 파트너는 자신의 데이터만
+    if (ctx.tenantId !== undefined && ctx.tenantId !== null) {
+      bookingConditions.push(eq(bookings.tenantId, ctx.tenantId));
+    }
     if (input.status) bookingConditions.push(eq(bookings.status, input.status as any));
     if (input.search) bookingConditions.push(like(bookings.leaderName, `%${input.search}%`));
     const bookingWhereClause = bookingConditions.length > 0 ? and(...bookingConditions) : undefined;
@@ -855,7 +877,7 @@ const bookingsRouter = router({
 
     return { items, total };
   }),
-  get: adminProcedure.input(z.object({ id: z.number(), source: z.enum(["booking", "reservation"]).optional() })).query(async ({ input }) => {
+  get: partnerProcedure.input(z.object({ id: z.number(), source: z.enum(["booking", "reservation"]).optional() })).query(async ({ input }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
@@ -925,7 +947,7 @@ const bookingsRouter = router({
     const [pkg] = await db.select().from(packages).where(eq(packages.id, booking.packageId));
     return { ...booking, travelers: travelersData, package: pkg, _source: "booking" as const };
   }),
-  updateStatus: adminProcedure.input(z.object({
+  updateStatus: partnerProcedure.input(z.object({
     id: z.number(),
     status: z.enum(["pending", "confirmed", "cancelled", "completed"]),
     adminMemo: z.string().optional(),
@@ -1035,15 +1057,19 @@ const bookingsRouter = router({
 });
 
 const settlementsRouter = router({
-  list: adminProcedure.input(z.object({
+  list: partnerProcedure.input(z.object({
     page: z.number().default(1),
     limit: z.number().default(20),
     status: z.string().optional(),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
     const offset = (input.page - 1) * input.limit;
     const conditions: any[] = [];
+    // tenantId 필터: 파트너는 자신의 정산만
+    if (ctx.tenantId !== undefined && ctx.tenantId !== null) {
+      conditions.push(eq(settlements.tenantId, ctx.tenantId));
+    }
     if (input.status) conditions.push(eq(settlements.status, input.status as any));
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
     const items = await db.select().from(settlements).where(whereClause).orderBy(desc(settlements.createdAt)).limit(input.limit).offset(offset);
@@ -1055,7 +1081,7 @@ const settlementsRouter = router({
     }).from(settlements).where(whereClause);
     return { items, total: total.count, summary: summaryResult[0] };
   }),
-  updateStatus: adminProcedure.input(z.object({
+  updateStatus: partnerProcedure.input(z.object({
     id: z.number(),
     status: z.enum(["pending", "paid", "overdue"]),
     paidDate: z.date().optional(),
@@ -1067,9 +1093,11 @@ const settlementsRouter = router({
     await db.update(settlements).set(data).where(eq(settlements.id, id));
     return { success: true };
   }),
-  supplierSummary: adminProcedure.query(async () => {
+  supplierSummary: partnerProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const tenantFilter = ctx.tenantId !== undefined && ctx.tenantId !== null
+      ? eq(settlements.tenantId, ctx.tenantId) : undefined;
     return db.select({
       supplierName: settlements.supplierName,
       supplierType: settlements.supplierType,
@@ -1077,21 +1105,25 @@ const settlementsRouter = router({
       paidAmount: sql<string>`COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END), 0)`,
       pendingAmount: sql<string>`COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0)`,
       cnt: count(),
-    }).from(settlements).groupBy(settlements.supplierName, settlements.supplierType).orderBy(desc(sql`SUM(amount)`));
+    }).from(settlements).where(tenantFilter).groupBy(settlements.supplierName, settlements.supplierType).orderBy(desc(sql`SUM(amount)`));
   }),
 });
 
 const inquiriesRouter = router({
-  list: adminProcedure.input(z.object({
+  list: partnerProcedure.input(z.object({
     page: z.number().default(1),
     limit: z.number().default(20),
     status: z.string().optional(),
     search: z.string().optional(),
-  })).query(async ({ input }) => {
+  })).query(async ({ input, ctx }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
     const offset = (input.page - 1) * input.limit;
     const conditions: any[] = [];
+    // tenantId 필터: 파트너는 자신의 문의만
+    if (ctx.tenantId !== undefined && ctx.tenantId !== null) {
+      conditions.push(eq(inquiries.tenantId, ctx.tenantId));
+    }
     if (input.status) conditions.push(eq(inquiries.status, input.status as any));
     if (input.search) {
       // 이름 또는 연락처(phone) 일부 번호로 검색
@@ -1104,7 +1136,7 @@ const inquiriesRouter = router({
     const [total] = await db.select({ count: count() }).from(inquiries).where(whereClause);
     return { items, total: total.count };
   }),
-  reply: adminProcedure.input(z.object({
+  reply: partnerProcedure.input(z.object({
     id: z.number(),
     adminReply: z.string().min(1),
     status: z.enum(["new", "in_progress", "replied", "closed"]).default("replied"),
@@ -1114,7 +1146,7 @@ const inquiriesRouter = router({
     await db.update(inquiries).set({ adminReply: input.adminReply, status: input.status, repliedAt: new Date() }).where(eq(inquiries.id, input.id));
     return { success: true };
   }),
-  updateStatus: adminProcedure.input(z.object({
+  updateStatus: partnerProcedure.input(z.object({
     id: z.number(),
     status: z.enum(["new", "in_progress", "replied", "closed"]),
   })).mutation(async ({ input }) => {

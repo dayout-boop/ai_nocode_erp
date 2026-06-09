@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, Suspense } from "react";
 import { Link, useLocation, Switch, Route } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { usePartnerAuth } from "@/_core/hooks/usePartnerAuth";
 import { getLoginUrl } from "@/const";
 import {
   LayoutDashboard, Package, Calendar, CreditCard, Users, Megaphone,
@@ -86,6 +87,7 @@ interface NavChild {
   label: string;
   href: string;
   icon?: React.ReactNode;
+  masterOnly?: boolean;
 }
 
 interface NavItem {
@@ -93,6 +95,7 @@ interface NavItem {
   icon: React.ReactNode;
   href?: string;
   children?: NavChild[];
+  masterOnly?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -101,6 +104,7 @@ const navItems: NavItem[] = [
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   {
     label: "AI 챗봇",
+    masterOnly: true,
     icon: <MessageSquare size={18} />,
     children: [
       { label: "두골프 마스터 🤖", href: "/master-ai", icon: <BrainCircuit size={14} /> },
@@ -116,6 +120,7 @@ const navItems: NavItem[] = [
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   {
     label: "AI 관리",
+    masterOnly: true,
     icon: <Sparkles size={18} />,
     children: [
       { label: "엔진 대시보드", href: "/ai-engine", icon: <Gauge size={14} /> },
@@ -178,11 +183,11 @@ const navItems: NavItem[] = [
     icon: <Users size={18} />,
     children: [
       { label: "고객 검색", href: "/crm", icon: <Search size={14} /> },
-      { label: "파트너 관리", href: "/crm/partners", icon: <Building2 size={14} /> },
+      { label: "파트너 관리", href: "/crm/partners", icon: <Building2 size={14} />, masterOnly: true },
       { label: "제휴사 관리", href: "/crm/affiliates", icon: <Building2 size={14} /> },
-      { label: "파트너 온보딩 관리", href: "/partner-onboarding", icon: <UserPlus size={14} /> },
-      { label: "구독 관리", href: "/subscriptions", icon: <CreditCard size={14} /> },
-      { label: "마스터 관리", href: "/crm/admin-management", icon: <Shield size={14} /> },
+      { label: "파트너 온보딩 관리", href: "/partner-onboarding", icon: <UserPlus size={14} />, masterOnly: true },
+      { label: "구독 관리", href: "/subscriptions", icon: <CreditCard size={14} />, masterOnly: true },
+      { label: "마스터 관리", href: "/crm/admin-management", icon: <Shield size={14} />, masterOnly: true },
     ],
   },
   {
@@ -200,9 +205,9 @@ const navItems: NavItem[] = [
     icon: <Settings size={18} />,
     children: [
       { label: "ERP 설정", href: "/settings", icon: <Settings size={14} /> },
-      { label: "시스템 설정", href: "/settings/system", icon: <Cpu size={14} /> },
-      { label: "지식 차단 관리", href: "/knowledge-block", icon: <Shield size={14} /> },
-      { label: "이미지 아카이브", href: "/image-archive", icon: <Archive size={14} /> },
+      { label: "시스템 설정", href: "/settings/system", icon: <Cpu size={14} />, masterOnly: true },
+      { label: "지식 차단 관리", href: "/knowledge-block", icon: <Shield size={14} />, masterOnly: true },
+      { label: "이미지 아카이브", href: "/image-archive", icon: <Archive size={14} />, masterOnly: true },
     ],
   },
 ];
@@ -357,6 +362,8 @@ function ERPContent() {
 
 export default function ERPLayout() {
   const { user, loading, isAuthenticated, logout } = useAuth();
+  // 파트너 대표 세션 확인 (partner_session 쿠키)
+  const { user: partnerUser, loading: partnerLoading, isAuthenticated: isPartnerAuthenticated } = usePartnerAuth();
   const [, setLocation] = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -405,11 +412,19 @@ export default function ERPLayout() {
 
   // 마스터 ERP 세션 확인 (Manus 로그인 없이도 마스터 세션으로 접근 가능)
   // adminSessionQuery 오류를 내성 처리 - localStorage로 대체
-  const adminLoginTime = typeof window !== 'undefined' ? localStorage.getItem('adminLoginTime') : null;
+    const adminLoginTime = typeof window !== 'undefined' ? localStorage.getItem('adminLoginTime') : null;
   const hasMasterSession = adminLoginTime !== null || (adminSessionQuery.data !== undefined && adminSessionQuery.data !== null);
   const isMausAuthenticated = isAuthenticated && user?.role === 'admin';
-
-  if (loading && !hasMasterSession && !adminLoginTime) {
+  // 파트너 모드 여부: 파트너 세션이 있고 마스터 세션이 없을 때
+  const isPartnerMode = isPartnerAuthenticated && !hasMasterSession && !isMausAuthenticated;
+  // 파트너 모드일 때 masterOnly 메뉴 필터링
+  const filteredNavItems = navItems
+    .filter(item => !isPartnerMode || !item.masterOnly)
+    .map(item => ({
+      ...item,
+      children: item.children?.filter(child => !isPartnerMode || !child.masterOnly),
+    }));
+  if ((loading || partnerLoading) && !hasMasterSession && !adminLoginTime && !isPartnerAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-white text-center">
@@ -420,8 +435,13 @@ export default function ERPLayout() {
     );
   }
 
-  // 마스터 세션도 없고 Manus 로그인도 없으면 마스터 로그인 페이지로
-  if (!hasMasterSession && !isMausAuthenticated) {
+  // 파트너 세션이 있으면 파트너 모드로 진입 허용
+  if (isPartnerMode) {
+    // 파트너 모드: 필터링된 메뉴로 ERP 진입 (아래 렌더링에서 filteredNavItems 사용)
+  } else if (!hasMasterSession && !isMausAuthenticated) {
+    // 마스터 세션도 없고 Manus 로그인도 없으면 마스터 로그인 페이지로
+  }
+  if (!hasMasterSession && !isMausAuthenticated && !isPartnerMode) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
@@ -490,7 +510,7 @@ export default function ERPLayout() {
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {navItems.map((item) => (
+          {filteredNavItems.map((item) => (
             <NavItemComponent
               key={item.label}
               item={item}
@@ -517,10 +537,15 @@ export default function ERPLayout() {
           <div
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-700 cursor-pointer transition-colors"
             onClick={() => {
-              // localStorage 즉시 초기화 (hasMasterSession이 true가 되는 것을 방지)
-              localStorage.removeItem('adminLoginTime');
-              // 서버 세션 파기 + 리디렉션
-              adminLogoutMutation.mutate();
+              if (isPartnerMode) {
+                // 파트너 모드: partner_session 쿠키 로그아웃 후 파트너 로그인 페이지로
+                fetch('/api/partner/auth/google/logout', { method: 'POST', credentials: 'include' })
+                  .finally(() => { window.location.href = `${window.location.origin}/partner/login`; });
+              } else {
+                // 마스터 모드: localStorage 즐시 초기화 후 서버 세션 파기
+                localStorage.removeItem('adminLoginTime');
+                adminLogoutMutation.mutate();
+              }
             }}
           >
             <LogOut size={16} className="shrink-0" />
@@ -644,15 +669,17 @@ export default function ERPLayout() {
 
           <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
             <Avatar className="w-8 h-8">
-              <AvatarFallback className="bg-indigo-100 text-indigo-700 text-xs font-bold">
-                {user?.name?.slice(0, 2) || "관리"}
+              <AvatarFallback className={`text-xs font-bold ${isPartnerMode ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                {(isPartnerMode ? partnerUser?.name : user?.name)?.slice(0, 2) || "관리"}
               </AvatarFallback>
             </Avatar>
-            {user?.name && (
-              <span className="text-sm font-medium text-slate-700 hidden sm:block">{user.name}</span>
+            {(isPartnerMode ? partnerUser?.name : user?.name) && (
+              <span className="text-sm font-medium text-slate-700 hidden sm:block">
+                {isPartnerMode ? partnerUser?.name : user?.name}
+              </span>
             )}
-            <Badge variant="secondary" className="text-xs bg-indigo-100 text-indigo-700 hidden sm:flex">
-              관리자
+            <Badge variant="secondary" className={`text-xs hidden sm:flex ${isPartnerMode ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'}`}>
+              {isPartnerMode ? '파트너' : '관리자'}
             </Badge>
           </div>
         </header>

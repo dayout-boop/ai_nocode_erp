@@ -1,7 +1,7 @@
 import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
-import type { TrpcContext } from "./context";
+import type { TrpcContext, PartnerOwnerCtx, PartnerStaffCtx } from "./context";
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
@@ -125,5 +125,68 @@ export const partnerAnyProcedure = t.procedure.use(withTransactionId).use(
       throw new TRPCError({ code: "UNAUTHORIZED", message: "파트너 로그인이 필요합니다." });
     }
     return next({ ctx });
+  }),
+);
+
+/**
+ * 파트너 대표 전용 미들웨어 (partner_session 쿠키)
+ * - ctx.partnerOwner: 파트너 대표 정보 (partnerId, tenantId, email, name)
+ * - ctx.tenantId: 해당 파트너사의 테넌트 ID (데이터 격리에 사용)
+ */
+export const partnerOwnerProcedure = t.procedure.use(withTransactionId).use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+    if (!ctx.partnerOwner) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "파트너 대표 로그인이 필요합니다." });
+    }
+    return next({
+      ctx: {
+        ...ctx,
+        partnerOwner: ctx.partnerOwner as PartnerOwnerCtx,
+        tenantId: ctx.partnerOwner.tenantId,
+      },
+    });
+  }),
+);
+
+/**
+ * 파트너 공통 미들웨어 (대표 또는 스태프 모두 허용)
+ * - partnerOwner(쿠키) 또는 partnerStaff(JWT) 중 하나 있으면 허용
+ * - 마스터(admin) 세션도 허용 (tenantId = null로 전체 접근)
+ * - ctx.tenantId 자동 주입
+ */
+export const partnerProcedure = t.procedure.use(withTransactionId).use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+    // 마스터 세션이면 tenantId = null로 전체 접근 허용
+    if (ctx.user?.role === 'admin') {
+      return next({
+        ctx: {
+          ...ctx,
+          tenantId: null as number | null,
+        },
+      });
+    }
+    // 파트너 대표 세션
+    if (ctx.partnerOwner) {
+      return next({
+        ctx: {
+          ...ctx,
+          partnerOwner: ctx.partnerOwner as PartnerOwnerCtx,
+          tenantId: ctx.partnerOwner.tenantId,
+        },
+      });
+    }
+    // 파트너 스태프 세션
+    if (ctx.partnerStaff) {
+      return next({
+        ctx: {
+          ...ctx,
+          partnerStaff: ctx.partnerStaff as PartnerStaffCtx,
+          tenantId: ctx.partnerStaff.tenantId,
+        },
+      });
+    }
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "파트너 또는 관리자 로그인이 필요합니다." });
   }),
 );
