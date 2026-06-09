@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import DeployButton from "@/components/DeployButton";
 import { toast } from "sonner";
 import {
   Building2, Phone, Mail, User, Plus, Search, Eye, CalendarPlus,
@@ -1030,12 +1031,15 @@ export default function CRMPartners() {
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">파트너 정보 및 일정을 관리합니다</p>
         </div>
-        <Button
-          onClick={() => { setSelectedPartner(null); setShowPartnerForm(true); }}
-          className="bg-dogolf-green hover:bg-dogolf-green-dark text-white flex items-center gap-1.5"
-        >
-          <Plus size={16} /> 신규 등록
-        </Button>
+        <div className="flex items-center gap-2">
+          <DeployButton />
+          <Button
+            onClick={() => { setSelectedPartner(null); setShowPartnerForm(true); }}
+            className="bg-dogolf-green hover:bg-dogolf-green-dark text-white flex items-center gap-1.5"
+          >
+            <Plus size={16} /> 신규 등록
+          </Button>
+        </div>
       </div>
 
       {/* ── 상단: 캘린더 + 일정 리스트 ── */}

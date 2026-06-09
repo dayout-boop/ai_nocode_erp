@@ -2095,14 +2095,14 @@ Detected
 - [x] 멀티테넌트 개발 관리 문서 작성 (docs/multitenant-dev-guide.md)
 
 
-## 테넌트 개념 확정 + 최신버전 배포 (진행중)
-- [ ] 테넌트 개념 문서 갱신: tenantId=1 = 마스터 = 두골프 (동일체), 개발→두골프 즉시반영→파트너 일괄배포
-- [ ] 현재 파트너 관리 페이지(CRM) 코드 구조 파악
-- [ ] 두골프를 tenantId=1로 정식 분리 (기존 null 데이터 tenantId=1 태깅 또는 프로시저 기준 조정)
-- [ ] partnerProcedure 기준 재조정 (마스터=전체조회 / 두골프=tenantId 1 / 파트너=각 tenantId)
-- [ ] 파트너 관리 페이지에 '최신버전 배포' 아이콘/버튼 추가
-- [ ] 배포 기능 백엔드 (검증 버전 → 전체 파트너 일괄 적용)
-- [ ] vitest 검증
+## 테넌트 개념 확정 + 최신버전 배포 (완료)
+- [x] 테넌트 개념: tenantId=1 = 마스터 = 두골프 (동일체), 개발→두골프 즉시반영→파트너 일괄배포
+- [x] 현재 파트너 관리 페이지(CRM) 코드 구조 파악
+- [x] 두골프를 tenantId=1로 정식 분리 (기존 null 데이터 tenantId=1 태깅 완료)
+- [x] partnerProcedure 기준 재조정 확인 (마스터=activeTenantId 반영, 파트너=고정, 헤더 보안 검증)
+- [x] 파트너 관리 페이지에 '최신버전 배포' 버튼 추가(DeployButton)
+- [x] 배포 기능 백엔드(deployRunner + triggerDeploy/deployStatus/listDeployLogs)
+- [x] vitest 검증 (테넌트 셀렉터 12 + deployRunner 4 + devFlow 7, 전체 374건 통과)
 
 ## 일반회원 자립 인증 + 개발모드 토글 (2026-06-09 완료)
 - [x] 일반회원 자립 인증 라우터 (memberAuth.ts): 이메일/비밀번호 + 구글 OAuth, 마누스 폴백
@@ -2121,9 +2121,9 @@ Detected
 - [x] trpc.ts: partnerProcedure에서 마스터 activeTenantId 반영
 - [x] 클라이언트 trpc: x-active-tenant 헤더 동적 전송
 - [x] ERPLayout: 상단 테넌트 셀렉터 UI (마스터 전용, 전체보기/두골프T1/파트너목록)
-- [ ] CRMPartners.tsx: '최신버전 배포' 버튼 추가
-- [ ] vitest: 테넌트 셀렉터/activeTenantId 검증
-- [ ] 체크포인트 저장
+- [x] CRMPartners.tsx: '최신버전 배포' 버튼 추가(DeployButton 연동)
+- [x] vitest: 테넌트 셀렉터/activeTenantId 검증(tenantSelector.test 12건 통과)
+- [x] 체크포인트 저장
 
 ## 개발흐름 기록·테넌트추적·자체배포 (2026-06-10, 오너 승인 순서 2→3→1)
 
