@@ -43,6 +43,14 @@ export type TrpcContext = {
   partnerStaff?: PartnerStaffCtx | null;
   partnerOwner?: PartnerOwnerCtx | null;
   tenantId?: number | null;
+  /**
+   * 마스터 세션이 테넌트 셀렉터로 선택한 활성 테넌트.
+   * - undefined: 헤더 미전달 (셀렉터 없음 → 전체보기 기본)
+   * - null: '전체보기' (모든 테넌트)
+   * - number: 특정 테넌트(예: 1=두골프)만 보기
+   * 파트너/직원 세션에서는 이 값을 신뢰하지 않는다 (보안).
+   */
+  activeTenantId?: number | null;
   transactionId: string;
 };
 
@@ -183,6 +191,25 @@ export async function createContext(
     }
   }
 
+  // 5. 마스터 세션 전용: 테넌트 셀렉터 헤더(x-active-tenant) 파싱
+  //    - 'all' → null (전체보기)
+  //    - 숫자 → 해당 테넌트만 보기
+  //    - 헤더 없음 → undefined (셀렉터 미전달)
+  //    파트너/직원 세션은 이 헤더를 절대 신뢰하지 않는다(보안). partnerProcedure에서 무시.
+  let activeTenantId: number | null | undefined = undefined;
+  if (isMasterSession) {
+    const rawHeader = opts.req.headers["x-active-tenant"];
+    const headerVal = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
+    if (typeof headerVal === "string" && headerVal.length > 0) {
+      if (headerVal === "all") {
+        activeTenantId = null;
+      } else {
+        const parsed = Number(headerVal);
+        activeTenantId = Number.isFinite(parsed) ? parsed : undefined;
+      }
+    }
+  }
+
   return {
     req: opts.req,
     res: opts.res,
@@ -191,6 +218,7 @@ export async function createContext(
     partnerStaff,
     partnerOwner,
     tenantId,
+    activeTenantId,
     transactionId,
   };
 }

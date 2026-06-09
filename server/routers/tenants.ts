@@ -236,4 +236,24 @@ export const tenantsRouter = router({
 
       return result;
     }),
+
+  /**
+   * 테넌트 셀렉터 전용 경량 목록 (마스터 헤더 드롭다운).
+   * - 두골프(tenant#1)를 항상 최상단으로 정렬
+   * - id, companyName, partnerId, isActive만 반환
+   */
+  listForSelector: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
+    const rows = await db
+      .select({
+        id: tenants.id,
+        companyName: tenants.companyName,
+        partnerId: tenants.partnerId,
+        isActive: tenants.isActive,
+      })
+      .from(tenants)
+      .orderBy(tenants.id);
+    return rows;
+  }),
 });

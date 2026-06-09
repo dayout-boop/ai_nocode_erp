@@ -58,10 +58,16 @@ export async function runPipeline(params: {
   context: AgentContext;
   autoIntegrate?: boolean;
   runAudit?: boolean;
+  /** 멀티테넌트 추적 (두골프=1, 기본값) */
+  tenantId?: number;
+  /** 개발 파이프라인 출처 (기본 engine — 자체 changeset 입구) */
+  devSource?: "manus" | "engine" | "manual" | "system";
 }): Promise<OrchestrationState> {
   const { agentId, commitMessage, changeset, context } = params;
   const autoIntegrate = params.autoIntegrate ?? false;
   const runAudit = params.runAudit ?? true;
+  const tenantId = params.tenantId ?? 1;
+  const devSource = params.devSource ?? "engine";
 
   const db = await getDb();
   if (!db) throw new Error("[Orchestrator] Database not available");
@@ -80,10 +86,10 @@ export async function runPipeline(params: {
     }
   }
 
-  // [Stage 3] 라이프사이클 레코드 생성 (INIT)
+  // [Stage 3] 라이프사이클 레코드 생성 (INIT) — 테넌트/출처 함께 기록
   const inserted = await db
     .insert(aiDevRequests)
-    .values({ agentId, status: "INIT", commitMessage });
+    .values({ agentId, status: "INIT", commitMessage, tenantId, devSource });
   // mysql2 insertId 추출
   const requestId = Number((inserted as any)[0]?.insertId ?? (inserted as any).insertId);
   if (!requestId) throw new Error("[Orchestrator] 요청 레코드 생성 실패");

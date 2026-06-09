@@ -2258,6 +2258,10 @@ export type InsertTenantCreditRequest = typeof tenantCreditRequests.$inferInsert
  */
 export const aiDevRequests = mysqlTable("ai_dev_requests", {
   id: int("id").autoincrement().primaryKey(),
+  /** 멀티테넌트 추적: 어느 테넌트의 개발인지 (두골프=1, 기본값) */
+  tenantId: int("tenantId").default(1).notNull(),
+  /** 개발 파이프라인 출처: manus(마누스) / engine(자체 changeset) / manual(직접편집) / system */
+  devSource: mysqlEnum("devSource", ["manus", "engine", "manual", "system"]).default("manus").notNull(),
   /** 요청 수행 에이전트 식별자 */
   agentId: varchar("agentId", { length: 50 }).notNull(),
   /** 소스 브랜치 (기본 dev-1) */
@@ -2353,6 +2357,36 @@ export const gitRollbackLogs = mysqlTable("git_rollback_logs", {
 });
 export type GitRollbackLog = typeof gitRollbackLogs.$inferSelect;
 export type InsertGitRollbackLog = typeof gitRollbackLogs.$inferInsert;
+
+
+// ============================================================
+// DEPLOY_LOGS - 자체 배포 실행 이력 (외부서버 빌드·재시작 트리거 감사)
+// 마누스 유무와 무관하게 "언제 누가 무엇을 배포했는가"를 영구 기록
+// ============================================================
+export const deployLogs = mysqlTable("deploy_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 멀티테넌트: 어느 테넌트 대상 배포인가 (두골프=1) */
+  tenantId: int("tenantId").default(1).notNull(),
+  /** 연관된 개발요청 id (ai_dev_requests.id, 선택) */
+  requestId: int("requestId"),
+  /** 배포 단계: build / restart / full(빌드+재시작) */
+  phase: mysqlEnum("phase", ["build", "restart", "full"]).notNull(),
+  /** 배포 대상 커밋 SHA (선택) */
+  commitSha: varchar("commitSha", { length: 40 }),
+  /** 성공 여부 */
+  success: boolean("success").default(false).notNull(),
+  /** 실행 출력/에러 요약 (앞 4000자) */
+  outputSummary: text("outputSummary"),
+  /** 소요 시간(ms) */
+  durationMs: int("durationMs"),
+  /** 실행 주체 user.id */
+  performedBy: int("performedBy"),
+  /** 실행 주체 이름 */
+  performedByName: varchar("performedByName", { length: 100 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type DeployLog = typeof deployLogs.$inferSelect;
+export type InsertDeployLog = typeof deployLogs.$inferInsert;
 
 
 // ============================================================

@@ -39,6 +39,10 @@ const changesetSchema = z.object({
   partnerId: z.string().optional(),
   // dev-2-integration 자동 통합 여부(기본 false — Heartbeat 가 일괄 처리)
   autoIntegrate: z.boolean().optional(),
+  // 멀티테넌트 추적 (두골프=1, 미지정 시 기본 1)
+  tenantId: z.number().optional(),
+  // 개발 파이프라인 출처 (미지정 시 engine)
+  devSource: z.enum(["manus", "engine", "manual", "system"]).optional(),
 });
 
 router.post("/engine/git/changeset", async (req: Request, res: Response) => {
@@ -80,6 +84,8 @@ router.post("/engine/git/changeset", async (req: Request, res: Response) => {
       context,
       autoIntegrate: payload.autoIntegrate ?? false,
       runAudit: true,
+      tenantId: payload.tenantId,
+      devSource: payload.devSource,
     });
     return res.status(202).json({ success: true, ...result });
   } catch (err: any) {

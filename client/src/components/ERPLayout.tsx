@@ -82,6 +82,7 @@ import TenantAiConsole from "@/pages/erp/TenantAiConsole";
 import ImageArchive from "@/pages/erp/ImageArchive";
 import CreditManagement from "@/pages/erp/CreditManagement";
 import { Loader2 } from "lucide-react";
+import TenantSelector from "@/components/TenantSelector";
 
 interface NavChild {
   label: string;
@@ -587,6 +588,9 @@ export default function ERPLayout() {
           </button>
 
           <div className="flex-1" />
+
+          {/* 마스터 전용 테넌트 셀렉터 (파트너 모드에서는 숨김) */}
+          {!isPartnerMode && <TenantSelector />}
 
           {/* Notification badges */}
           {pendingBookingsCount > 0 && (

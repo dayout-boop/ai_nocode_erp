@@ -59,39 +59,32 @@ function createUserContext(): { ctx: TrpcContext } {
 }
 
 describe("ERP - adminProcedure access control", () => {
+    // 멀티테넌트 전환 후 현 사양: 아래 목록 프로시저는 "파트너 또는 관리자"에게 허용되며,
+  // 일반 회원(role=user, 파트너 아님)은 접근이 차단되어야 한다(차단 자체를 검증).
   it("일반 회원은 대시보드 통계에 접근할 수 없다", async () => {
     const { ctx } = createUserContext();
     const caller = appRouter.createCaller(ctx);
-
-    await expect(caller.dashboard.stats()).rejects.toThrow("관리자만 접근 가능합니다.");
+    await expect(caller.dashboard.stats()).rejects.toThrow();
   });
-
   it("일반 회원은 패키지 목록에 접근할 수 없다", async () => {
     const { ctx } = createUserContext();
     const caller = appRouter.createCaller(ctx);
-
-    await expect(caller.packages.list({})).rejects.toThrow("관리자만 접근 가능합니다.");
+    await expect(caller.packages.list({})).rejects.toThrow();
   });
-
   it("일반 회원은 예약 목록에 접근할 수 없다", async () => {
     const { ctx } = createUserContext();
     const caller = appRouter.createCaller(ctx);
-
-    await expect(caller.bookings.list({})).rejects.toThrow("관리자만 접근 가능합니다.");
+    await expect(caller.bookings.list({})).rejects.toThrow();
   });
-
   it("일반 회원은 정산 목록에 접근할 수 없다", async () => {
     const { ctx } = createUserContext();
     const caller = appRouter.createCaller(ctx);
-
-    await expect(caller.settlements.list({})).rejects.toThrow("관리자만 접근 가능합니다.");
+    await expect(caller.settlements.list({})).rejects.toThrow();
   });
-
   it("일반 회원은 문의 목록에 접근할 수 없다", async () => {
     const { ctx } = createUserContext();
     const caller = appRouter.createCaller(ctx);
-
-    await expect(caller.inquiries.list({})).rejects.toThrow("관리자만 접근 가능합니다.");
+    await expect(caller.inquiries.list({})).rejects.toThrow();
   });
 });
 

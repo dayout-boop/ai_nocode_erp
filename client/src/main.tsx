@@ -53,11 +53,29 @@ queryClient.getMutationCache().subscribe(event => {
   }
 });
 
+// 마스터 테넌트 셀렉터 값(localStorage)을 읽어 요청 헤더로 전송.
+// - 'all' 또는 미설정 → 헤더 생략(서버에서 전체보기 기본)
+// - 숫자 문자열 → 해당 테넌트만
+// 파트너 세션에서는 서버가 이 헤더를 무시하므로 안전.
+const ACTIVE_TENANT_STORAGE_KEY = "erp_active_tenant";
+
 const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
+      headers() {
+        if (typeof window === "undefined") return {};
+        try {
+          const v = window.localStorage.getItem(ACTIVE_TENANT_STORAGE_KEY);
+          if (v && v !== "all") {
+            return { "x-active-tenant": v };
+          }
+        } catch {
+          // localStorage 접근 실패 시 헤더 생략
+        }
+        return {};
+      },
       fetch(input, init) {
         return globalThis.fetch(input, {
           ...(init ?? {}),

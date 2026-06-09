@@ -2095,13 +2095,14 @@ Detected
 - [x] 멀티테넌트 개발 관리 문서 작성 (docs/multitenant-dev-guide.md)
 
 
-## 일반회원 자립 인증 + 개발모드 토글 (2026-06-09 진행중)
-- [ ] 일반회원 자립 인증 라우터 (memberAuth.ts): 이메일/비밀번호 + 구글 OAuth, 마누스 폴백 유지
-- [ ] users 테이블에 passwordHash/googleId/provider 컬럼 추가
-- [ ] context.ts에 일반회원 자립 세션(member_session) 검증 추가 (마누스 폴백)
-- [ ] 두골프마스터 채팅에 마누스/탈마누스 개발 모드 토글 아이콘 추가
-- [ ] 개발 모드에 따른 LLM 요청/대화 분기 연결
-- [ ] vitest 검증 (자립 인증 + 개발모드 분기)
+## 테넌트 개념 확정 + 최신버전 배포 (진행중)
+- [ ] 테넌트 개념 문서 갱신: tenantId=1 = 마스터 = 두골프 (동일체), 개발→두골프 즉시반영→파트너 일괄배포
+- [ ] 현재 파트너 관리 페이지(CRM) 코드 구조 파악
+- [ ] 두골프를 tenantId=1로 정식 분리 (기존 null 데이터 tenantId=1 태깅 또는 프로시저 기준 조정)
+- [ ] partnerProcedure 기준 재조정 (마스터=전체조회 / 두골프=tenantId 1 / 파트너=각 tenantId)
+- [ ] 파트너 관리 페이지에 '최신버전 배포' 아이콘/버튼 추가
+- [ ] 배포 기능 백엔드 (검증 버전 → 전체 파트너 일괄 적용)
+- [ ] vitest 검증
 
 ## 일반회원 자립 인증 + 개발모드 토글 (2026-06-09 완료)
 - [x] 일반회원 자립 인증 라우터 (memberAuth.ts): 이메일/비밀번호 + 구글 OAuth, 마누스 폴백
@@ -2110,3 +2111,38 @@ Detected
 - [x] 두골프마스터 채팅에 마누스/탈마누스 개발 모드 토글 아이콘 추가
 - [x] 개발 모드(devMode)를 master-stream 페이로드로 전송 + 시스템 프롬프트 분기
 - [x] vitest 검증 (memberAuth JWT 3건 + devMode 스키마 3건, 6/6 통과)
+
+## 멀티테넌트 Phase 2~6 (두골프=tenantId 1 정립)
+- [x] DB: 테스트 테넌트(#1,2,3) → #1001~1003 재배치
+- [x] DB: 두골프(partner 90001)를 tenant#1로 등록 + partnerId 연결
+- [x] DB: 두골프 기존 데이터(tenantId NULL) → tenantId=1 태깅
+- [x] shared/const.ts: DOGOLF_TENANT_ID=1, ACTIVE_TENANT_HEADER 상수 추가
+- [x] context.ts: 마스터 세션 x-active-tenant 헤더 파싱 → activeTenantId
+- [x] trpc.ts: partnerProcedure에서 마스터 activeTenantId 반영
+- [x] 클라이언트 trpc: x-active-tenant 헤더 동적 전송
+- [x] ERPLayout: 상단 테넌트 셀렉터 UI (마스터 전용, 전체보기/두골프T1/파트너목록)
+- [ ] CRMPartners.tsx: '최신버전 배포' 버튼 추가
+- [ ] vitest: 테넌트 셀렉터/activeTenantId 검증
+- [ ] 체크포인트 저장
+
+## 개발흐름 기록·테넌트추적·자체배포 (2026-06-10, 오너 승인 순서 2→3→1)
+
+### Phase A — 개발 흐름 DB 기록 활성화
+- [x] devLog 헬퍼 서비스 추가(server/services/devLog.ts): recordDevActivity/updateDevActivityStatus
+- [x] 마누스/자체 무관하게 호출 가능한 기록 경로(tRPC recordActivity) 마련 + listRequests tenantId 필터
+- [x] 기록 실패해도 개발 진행되도록 graceful 처리
+
+### Phase B — 멀티테넌트 추적
+- [x] schema: ai_dev_requests에 tenantId+devSource 컬럼 추가, deploy_logs 테이블 신규
+- [x] orchestrator/engineChangeset 입구에서 tenantId+devSource 수신·기록
+- [x] devLog 헬퍼에 tenantId 파라미터 연동
+- [x] pnpm db:push로 마이그레이션 반영(0052) 및 검증 완료
+
+### Phase C — 자체 배포 실행기
+- [x] deployRunner 서비스(server/services/deployRunner.ts): 빌드·재시작 트리거, SELF_DEPLOY_ENABLED 안전가드
+- [x] tRPC triggerDeploy/deployStatus/listDeployLogs 프로시저 추가(마스터 전용)
+- [x] 배포 로그 DB 기록(deploy_logs 적재)
+
+### 검증
+- [x] vitest: devFlow(7) + deployRunner(4) 신규 11건 통과, 전체 362건 통과(erp.test 현사양 갱신)
+- [ ] 체크포인트 저장 및 결과 보고

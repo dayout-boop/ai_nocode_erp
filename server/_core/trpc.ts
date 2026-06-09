@@ -158,12 +158,17 @@ export const partnerOwnerProcedure = t.procedure.use(withTransactionId).use(
 export const partnerProcedure = t.procedure.use(withTransactionId).use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
-    // 마스터 세션이면 tenantId = null로 전체 접근 허용
+    // 마스터 세션이면 테넌트 셀렉터(activeTenantId) 값을 반영.
+    // - activeTenantId === undefined (헤더 없음) → null (전체보기 기본)
+    // - activeTenantId === null ('전체보기')      → null (전체 접근)
+    // - activeTenantId === number (특정 테넌트)   → 해당 테넌트만
     if (ctx.user?.role === 'admin') {
+      const resolved =
+        ctx.activeTenantId === undefined ? null : ctx.activeTenantId;
       return next({
         ctx: {
           ...ctx,
-          tenantId: null as number | null,
+          tenantId: resolved as number | null,
         },
       });
     }

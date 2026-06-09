@@ -54,4 +54,10 @@ export const ENV = {
   aiVendNeutralMode: process.env.AI_VEND_NEUTRAL_MODE ?? "",
   targetLlmProvider: process.env.TARGET_LLM_PROVIDER ?? "",
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
+  // ── 자체 배포 실행기 (외부서버 빌드·재시작) ──
+  // SELF_DEPLOY_ENABLED=true 일 때만 실제 쉘 실행 허용(기본 비활성 — 안전가드)
+  selfDeployEnabled: process.env.SELF_DEPLOY_ENABLED ?? "",
+  // 빌드 명령 (기본 pnpm build) · 재시작 명령 (기본 비움 — 프로세스 매니저 의존)
+  deployBuildCmd: process.env.DEPLOY_BUILD_CMD ?? "pnpm build",
+  deployRestartCmd: process.env.DEPLOY_RESTART_CMD ?? "",
 };

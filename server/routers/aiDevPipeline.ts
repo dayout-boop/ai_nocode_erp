@@ -10,6 +10,9 @@ import { z } from "zod";
 import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { aiDevRequests, aiDevRequestFiles, aiGitCommits, gitRollbackLogs } from "../../drizzle/schema";
+import { recordDevActivity } from "../services/devLog";
+import { runDeploy, isSelfDeployEnabled } from "../services/deployRunner";
+import { deployLogs } from "../../drizzle/schema";
 import { desc, eq, and, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
@@ -37,12 +40,47 @@ const STATUS_VALUES = [
 ] as const;
 
 export const aiDevPipelineRouter = router({
+  /**
+   * 개발 활동 수동/외부 기록 — 마누스(에이전트)나 다른 파이프라인이
+   * 개발 흐름을 놓치지 않도록 ai_dev_requests 에 1건 적재한다.
+   * 실제 GitHub 커밋/병합과 무관하게 "무슨 개발을 했는지" 기록이 목적.
+   */
+  recordActivity: adminProcedure
+    .input(
+      z.object({
+        summary: z.string().min(1).max(1000),
+        source: z.enum(["manus", "engine", "manual", "system"]).default("manus"),
+        tenantId: z.number().optional(),
+        agentId: z.string().max(50).optional(),
+        commitSha: z.string().max(40).optional(),
+        branch: z.string().max(100).optional(),
+        files: z
+          .array(
+            z.object({
+              filePath: z.string().min(1).max(500),
+              changeType: z.enum(["ADD", "MODIFY", "DELETE"]),
+              additions: z.number().min(0).optional(),
+              deletions: z.number().min(0).optional(),
+            }),
+          )
+          .optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const result = await recordDevActivity(input);
+      if (!result.ok) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `개발기록 실패: ${result.reason}` });
+      }
+      return { ok: true, requestId: result.requestId };
+    }),
+
   /** [A] 변경요청 목록 (DB만 — 0.01초 고속) */
   listRequests: adminProcedure
     .input(
       z.object({
         status: z.enum(STATUS_VALUES).optional(),
         agentId: z.string().optional(),
+        tenantId: z.number().optional(),
         limit: z.number().min(1).max(200).default(50),
         offset: z.number().min(0).default(0),
       }),
@@ -53,6 +91,7 @@ export const aiDevPipelineRouter = router({
       const conds: any[] = [];
       if (input.status) conds.push(eq(aiDevRequests.status, input.status));
       if (input.agentId) conds.push(eq(aiDevRequests.agentId, input.agentId));
+      if (input.tenantId !== undefined) conds.push(eq(aiDevRequests.tenantId, input.tenantId));
       const where = conds.length ? and(...conds) : undefined;
       const [rows, totalRows] = await Promise.all([
         db.select().from(aiDevRequests).where(where)
@@ -289,6 +328,69 @@ export const aiDevPipelineRouter = router({
         }
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: msg });
       }
+    }),
+
+  // ============================================================
+  // 자체 배포 실행기 (외부서버 빌드·재시작) — 마누스 없이 반영
+  // ============================================================
+
+  /** 자체 배포 가능 여부/설정 상태 (화면 안내용) */
+  deployStatus: adminProcedure.query(async () => {
+    return {
+      enabled: isSelfDeployEnabled(),
+      hint: isSelfDeployEnabled()
+        ? "자체 배포 활성 — 외부서버에서 빌드/재시작을 직접 실행합니다."
+        : "자체 배포 비활성(SELF_DEPLOY_ENABLED!=true) — 마누스 Publish 또는 외부서버 수동 반영을 사용하세요.",
+    };
+  }),
+
+  /**
+   * 자체 배포 실행 (빌드/재시작) — 마스터 전용.
+   * 안전가드: SELF_DEPLOY_ENABLED=true 일 때만 실제 쉘 실행.
+   * main 자동 병합은 수행하지 않으며, 이미 반영된 소스를 외부서버에서 빌드/재기동만 한다.
+   */
+  triggerDeploy: adminProcedure
+    .input(
+      z.object({
+        phase: z.enum(["build", "restart", "full"]).default("full"),
+        tenantId: z.number().optional(),
+        requestId: z.number().optional(),
+        commitSha: z.string().max(40).optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const result = await runDeploy({
+        phase: input.phase,
+        tenantId: input.tenantId,
+        requestId: input.requestId,
+        commitSha: input.commitSha,
+        performedBy: ctx.user?.id ?? null,
+        performedByName: ctx.user?.name ?? "master",
+      });
+      return result;
+    }),
+
+  /** 자체 배포 실행 이력 조회 (최신순) */
+  listDeployLogs: adminProcedure
+    .input(
+      z
+        .object({
+          tenantId: z.number().optional(),
+          limit: z.number().min(1).max(100).default(30),
+        })
+        .optional(),
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { items: [] as any[] };
+      const where = input?.tenantId !== undefined ? eq(deployLogs.tenantId, input.tenantId) : undefined;
+      const rows = await db
+        .select()
+        .from(deployLogs)
+        .where(where)
+        .orderBy(desc(deployLogs.createdAt))
+        .limit(input?.limit ?? 30);
+      return { items: rows };
     }),
 
   /** 롤백 감사 이력 조회 (최신순) */
