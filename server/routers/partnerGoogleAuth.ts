@@ -420,6 +420,88 @@ router.get('/google/callback', async (req, res) => {
 });
 
 /**
+ * POST /api/partner/auth/email/login
+ * 파트너 이메일/비밀번호 직접 로그인
+ * - loginId(이메일) + loginPw(비밀번호) 기반
+ * - partner_session 쿠키 발급
+ */
+router.post('/email/login', async (req, res) => {
+  try {
+    const { loginId, loginPw } = req.body as { loginId?: string; loginPw?: string };
+    if (!loginId || !loginPw) {
+      return res.status(400).json({ success: false, error: '아이디와 비밀번호를 입력해주세요.' });
+    }
+
+    const db = await getDb();
+    if (!db) {
+      return res.status(500).json({ success: false, error: '서버 오류가 발생했습니다.' });
+    }
+
+    // loginId 또는 contactEmail로 파트너 조회
+    const matchedPartners = await db
+      .select()
+      .from(partners)
+      .where(
+        or(
+          eq(partners.loginId, loginId),
+          eq(partners.contactEmail, loginId),
+        )
+      )
+      .limit(1);
+
+    const partner = matchedPartners[0];
+    if (!partner) {
+      return res.status(401).json({ success: false, error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
+    }
+
+    // 비밀번호 검증 (bcryptjs 또는 단순 해시)
+    let isValid = false;
+    if (partner.loginPwHash) {
+      try {
+        const bcrypt = await import('bcryptjs');
+        isValid = await bcrypt.compare(loginPw, partner.loginPwHash);
+      } catch {
+        // bcrypt 실패 시 단순 비교 (임시 계정용)
+        isValid = partner.loginPwHash === loginPw;
+      }
+    }
+
+    if (!isValid) {
+      return res.status(401).json({ success: false, error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
+    }
+
+    if (!partner.isActive) {
+      return res.status(403).json({ success: false, error: '승인 대기 중인 계정입니다. 관리자 승인 후 이용 가능합니다.' });
+    }
+
+    // 세션 JWT 발급
+    const sessionPayload = {
+      partnerId: partner.id,
+      tenantId: partner.tenantId,
+      email: partner.contactEmail || partner.loginId,
+      name: partner.contactName || partner.companyName,
+      picture: null,
+      loginType: 'email' as const,
+      role: 'partner_owner' as const,
+    };
+
+    const jwt = await signPartnerJwt(sessionPayload as unknown as Record<string, unknown>);
+    res.cookie('partner_session', jwt, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+
+    return res.json({ success: true, redirectTo: '/partner/dashboard' });
+  } catch (err) {
+    console.error('[EmailLogin] 오류:', err);
+    return res.status(500).json({ success: false, error: '서버 오류가 발생했습니다.' });
+  }
+});
+
+/**
  * POST /api/partner/auth/google/logout
  * 파트너 구글 로그아웃
  */

@@ -117,7 +117,37 @@ function getErrorMessage(error?: string): string | null {
 
 export default function PartnerLogin() {
   const { status, error, email, reason } = useUrlParams();
-  const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [emailLoginId, setEmailLoginId] = useState('');
+  const [emailLoginPw, setEmailLoginPw] = useState('');
+  const [emailLoginError, setEmailLoginError] = useState('');
+  const [emailLoginLoading, setEmailLoginLoading] = useState(false);
+
+  // 이메일/비밀번호 직접 로그인
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailLoginError('');
+    setEmailLoginLoading(true);
+    try {
+      const res = await fetch('/api/partner/auth/email/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ loginId: emailLoginId, loginPw: emailLoginPw }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.location.href = data.redirectTo || '/partner/dashboard';
+      } else {
+        setEmailLoginError(data.error || '로그인에 실패했습니다.');
+      }
+    } catch {
+      setEmailLoginError('서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setEmailLoginLoading(false);
+    }
+  };
 
   // 구글 OAuth 직접 로그인 — /api/partner/auth/google 으로 리다이렉트
   const handleGoogleLogin = () => {
@@ -387,7 +417,7 @@ export default function PartnerLogin() {
             <button
               onClick={handleGoogleLogin}
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 disabled:bg-gray-100 text-gray-800 font-semibold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed group mb-6"
+              className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 disabled:bg-gray-100 text-gray-800 font-semibold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed group mb-4"
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
@@ -404,6 +434,57 @@ export default function PartnerLogin() {
                 />
               )}
             </button>
+
+            {/* 이메일/비밀번호 로그인 토글 */}
+            <button
+              type="button"
+              onClick={() => setShowEmailForm(!showEmailForm)}
+              className="w-full text-white/40 hover:text-white/60 text-xs text-center py-2 transition-colors mb-4"
+            >
+              {showEmailForm ? '▲ 이메일 로그인 접기' : '파트너 아이디/비밀번호로 로그인'}
+            </button>
+
+            {/* 이메일/비밀번호 로그인 폼 */}
+            {showEmailForm && (
+              <form onSubmit={handleEmailLogin} className="mb-4 space-y-3 border-t border-white/10 pt-4">
+                {emailLoginError && (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                    <p className="text-red-300 text-xs">{emailLoginError}</p>
+                  </div>
+                )}
+                <div>
+                  <label className="text-white/50 text-xs mb-1 block">아이디 (이메일 또는 로그인 ID)</label>
+                  <input
+                    type="text"
+                    value={emailLoginId}
+                    onChange={e => setEmailLoginId(e.target.value)}
+                    placeholder="예) dogolf_test"
+                    className="w-full bg-white/5 border border-white/15 rounded-lg px-3 py-2.5 text-white text-sm placeholder-white/25 focus:outline-none focus:border-emerald-500/50 focus:bg-white/8"
+                    required
+                    autoComplete="username"
+                  />
+                </div>
+                <div>
+                  <label className="text-white/50 text-xs mb-1 block">비밀번호</label>
+                  <input
+                    type="password"
+                    value={emailLoginPw}
+                    onChange={e => setEmailLoginPw(e.target.value)}
+                    placeholder="비밀번호 입력"
+                    className="w-full bg-white/5 border border-white/15 rounded-lg px-3 py-2.5 text-white text-sm placeholder-white/25 focus:outline-none focus:border-emerald-500/50 focus:bg-white/8"
+                    required
+                    autoComplete="current-password"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={emailLoginLoading}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition-all duration-200 text-sm"
+                >
+                  {emailLoginLoading ? '로그인 중...' : '로그인'}
+                </button>
+              </form>
+            )}
 
             {/* 구분선 */}
             <div className="flex items-center gap-3 mb-6">

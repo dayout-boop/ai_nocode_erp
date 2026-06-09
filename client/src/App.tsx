@@ -44,9 +44,13 @@ function Router() {
   // wouter Switch/Route 없이 직접 렌더링 (/:rest* 패턴이 / 루트에 매칭 안 되는 문제 해결)
   if (typeof window !== 'undefined' && window.location.hostname === 'partner.dayoutgolf.com') {
     const path = window.location.pathname;
-    // /partner/* 경로는 정상 라우팅 (로그인, 가입, 마이페이지 등)
-    const isPartnerSubRoute = path.startsWith('/partner/') || path === '/partner';
-    if (!isPartnerSubRoute && path !== '/pricing') {
+    // /partner/* 경로 및 파트너 관련 경로는 정상 라우팅 (로그인, 가입, 대시보드, 마이페이지 등)
+    const isPartnerSubRoute =
+      path.startsWith('/partner/') ||
+      path === '/partner' ||
+      path === '/pricing' ||
+      path === '/partner-landing';
+    if (!isPartnerSubRoute) {
       return <PartnerLandingPage />;
     }
   }
@@ -79,6 +83,7 @@ function Router() {
 
       {/* 파트너 센터 */}
       <Route path={"/partner"} component={PartnerDashboard} />
+      <Route path={"/partner/dashboard"} component={PartnerDashboard} />
       <Route path={"/partner/login"} component={PartnerLogin} />
       <Route path={"/partner/chat"} component={PartnerChat} />
 
