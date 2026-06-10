@@ -291,8 +291,15 @@ ${project.customContext ? '\n**추가 컨텍스트:**\n' + project.customContext
 
 **개발 절차:**
 1. 파일 수정 (file 도구 사용)
-2. TypeScript 오류 확인 (cd /home/ubuntu/dogolf && npx tsc --noEmit)
-3. 체크포인트 저장 후 Publish 안내
+2. DB 스키마 변경이 있으면 drizzle/schema.ts 수정 후 \`pnpm db:push\` 를 먼저 실행해 원격 DB에 반영
+3. TypeScript 오류 확인 (cd /home/ubuntu/dogolf && npx tsc --noEmit) 및 vitest 통과 확인
+4. 체크포인트 저장(webdev_save_checkpoint) — 저장 시 변경 코드가 GitHub main 브랜치로 자동 push 됩니다
+5. 사용자에게 Publish 버튼 클릭 안내 (배포는 사용자 확인 후 진행)
+
+**완료 후 반영 체크리스트(누락 금지):**
+- [ ] DB 변경 시 \`pnpm db:push\` 선행 완료
+- [ ] tsc/vitest 통과
+- [ ] 체크포인트 저장으로 GitHub main 반영 완료
 
 **주의:** 이 프로젝트의 Manus WebDev 세션에서 직접 작업하세요. 신규 프로젝트 생성 불필요.`;
 

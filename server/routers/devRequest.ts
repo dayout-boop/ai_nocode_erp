@@ -306,6 +306,9 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
         if (!content) throw new Error("AI 응답 없음");
 
         const parsed = JSON.parse(typeof content === "string" ? content : JSON.stringify(content));
+        // [의도 보존 원칙] LLM 재가공은 분류(category/priority/module/hours/analysis)에 한정한다.
+        //   title/description 은 마스터 1차 생성본을 절대 덮어쓰지 않으며,
+        //   suggestedTitle 은 자동 적용되지 않는 "참고용 제안"일 뿐이다(UI에서 사용자가 명시적으로 채택할 때만 반영).
         return {
           success: true,
           aiCategory: parsed.aiCategory as string,
@@ -313,7 +316,8 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
           module: parsed.module as string,
           estimatedHours: parsed.estimatedHours as number,
           aiAnalysis: parsed.aiAnalysis as string,
-          suggestedTitle: parsed.suggestedTitle as string,
+          /** 참고용 제안 제목 — 원문 title 을 자동으로 대체하지 않음 (사용자 명시 채택 시에만 사용) */
+          suggestedTitleHint: parsed.suggestedTitle as string,
         };
       } catch (err) {
         console.error("[devRequest.classifyRequest] AI 분류 실패:", err);
@@ -325,7 +329,8 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
           module: "ERP",
           estimatedHours: 4,
           aiAnalysis: "AI 분류 실패 - 수동으로 분류해주세요.",
-          suggestedTitle: input.title,
+          /** 참고용 제안 제목 — 분류 실패 시 원문 title 을 그대로 유지 */
+          suggestedTitleHint: input.title,
         };
       }
     }),

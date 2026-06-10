@@ -2237,8 +2237,8 @@ Detected
 
 ### (C) 마누스 개발요청 경로 강화
 - [x] dev_request originalRequest(원문 발췌) 필드 의무화 + 마누스 전송 메시지에 원문 블록 동봉 (masterStream 전 경로 보존)
-- [ ] classifyRequest LLM 재가공을 분류(priority/module/hours)에 한정, title/description 1차 보존
-- [ ] 개발 완료 후 GitHub/DB push 과정 재점검 및 보강
+- [x] classifyRequest LLM 재가공을 분류(priority/module/hours)에 한정, title/description 1차 보존 (suggestedTitle→suggestedTitleHint 참고용 명확화, 원문 title 자동대체 없음)
+- [x] 개발 완료 후 GitHub/DB push 과정 재점검 및 보강 (manusPipe 전송 메시지에 db:push 선행/체크포인트→GitHub main 자동 push 절차 + 완료 체크리스트 명시)
 
 ### (B) 세션 요약/복원
 - [x] 대화 종료(초기화/세션 전환) 시 핵심키워드 + 변경 DB + 개발이력을 저렴 모델(low)로 자동 요약 저장 (master_session_summaries)
