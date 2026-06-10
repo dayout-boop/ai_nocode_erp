@@ -110,7 +110,6 @@ export async function getApiKey(serviceKey: string): Promise<string> {
     kakao: ENV.kakaoApiKey,
     slack: ENV.slackWebhookUrl,
     runway: ENV.runwayApiKey,
-    n8n: ENV.n8nWebhookUrl,
     manus: ENV.manusApiKey,
     pixabay: ENV.pixabayApiKey,
     serper: process.env.SERPER_API_KEY ?? '',

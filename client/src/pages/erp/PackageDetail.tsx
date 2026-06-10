@@ -1470,86 +1470,35 @@ function VideoGenerationTab({ packageId, packageData }: { packageId: number; pac
 
 // ─── 자동화 탭 컴포넌트 ─────────────────────────────────────────
 function AutomationTab({ packageId, packageData }: { packageId: number; packageData: any }) {
-  const utils = trpc.useUtils();
-  const { data: logs, isLoading: logsLoading } = trpc.automation.getLogs.useQuery({ limit: 10, packageId });
-
-  const triggerMutation = trpc.automation.triggerPackagePublish.useMutation({
-    onSuccess: (result) => {
-      toast.success(`SNS 배포 완료 (${result.durationMs}ms)`);
-      utils.automation.getLogs.invalidate();
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
   return (
     <div className="space-y-4">
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Zap size={16} className="text-amber-500" />
-            n8n 자동화 파이프라인
+            자동화 파이프라인
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 text-xs text-amber-700">
-            <p className="font-medium mb-1">자동화 파이프라인 안내</p>
-            <p>n8n 웹훅을 통해 패키지 정보를 SNS(인스타그램, 카카오채널 등)에 자동 배포합니다.</p>
-            <p className="mt-1">N8N_WEBHOOK_URL 환경변수 설정 시 실제 배포됩니다.</p>
+        <CardContent className="space-y-3">
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
+            <p className="font-medium mb-1">내부 파이프라인 운영 중</p>
+            <p>두골프 ERP는 자체 오케스트레이터 파이프라인으로 자동화를 처리합니다.</p>
+            <p className="mt-1">카카오 알림톡 발송, D-1 출발 알림, 예약 확정 알림 등이 스케줄러를 통해 자동 실행됩니다.</p>
           </div>
-
-          <div className="grid grid-cols-1 gap-3">
-            <div className="border rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="font-medium text-slate-700 text-sm">SNS 자동 배포</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{packageData?.title} 패키지를 SNS에 배포합니다</p>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => triggerMutation.mutate({ packageId })}
-                  disabled={triggerMutation.isPending}
-                  className="bg-amber-500 hover:bg-amber-600 text-white"
-                >
-                  {triggerMutation.isPending ? (
-                    <><Loader2 size={12} className="animate-spin mr-1" />실행 중...</>
-                  ) : (
-                    <><Zap size={12} className="mr-1" />배포 실행</>
-                  )}
-                </Button>
-              </div>
+          <div className="grid grid-cols-1 gap-2 text-sm">
+            <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
+              <CheckCircle size={14} className="text-green-500 shrink-0" />
+              <span className="text-slate-700">예약 확정 시 카카오 알림톡 자동 발송</span>
+            </div>
+            <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
+              <CheckCircle size={14} className="text-green-500 shrink-0" />
+              <span className="text-slate-700">D-1 출발 알림 스케줄 자동 실행</span>
+            </div>
+            <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
+              <CheckCircle size={14} className="text-green-500 shrink-0" />
+              <span className="text-slate-700">AI 오케스트레이터 파이프라인 연동</span>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* 자동화 실행 이력 */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">최근 실행 이력</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {logsLoading ? (
-            <p className="text-sm text-slate-400">로딩 중...</p>
-          ) : !logs?.length ? (
-            <p className="text-sm text-slate-400">실행 이력이 없습니다.</p>
-          ) : (
-            <div className="space-y-2">
-              {logs.map((log: any) => (
-                <div key={log.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    {log.status === "success" ? <CheckCircle size={14} className="text-green-500" /> :
-                     log.status === "failed" ? <XCircle size={14} className="text-red-500" /> :
-                     <Clock size={14} className="text-amber-500" />}
-                    <span className="text-slate-700">{log.pipelineName}</span>
-                    {log.durationMs && <span className="text-xs text-slate-400">{log.durationMs}ms</span>}
-                  </div>
-                  <span className="text-xs text-slate-400">
-                    {new Date(log.createdAt).toLocaleDateString("ko-KR")}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>

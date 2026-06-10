@@ -45,7 +45,6 @@ const API_SERVICES = [
   { key: "slack", name: "Slack", description: "Slack 웹훅 알림", category: "알림" },
   // ── 미디어/자동화 ────────────────────────────────────────────────────────────
   { key: "runway", name: "Runway ML", description: "AI 영상 생성 API", category: "미디어" },
-  { key: "n8n", name: "n8n", description: "워크플로우 자동화", category: "자동화" },
   { key: "pixabay", name: "Pixabay", description: "이미지 검색 API", category: "미디어" },
   { key: "serper", name: "Serper (검색 폴백)", description: "두골프마스터 웹검색 폴백. 마누스 forge 검색이 없는 서버에서 등록 시 google.serper.dev로 자립 검색.", category: "자동화" },
   // ── v3 엔진 (Git·Heartbeat·Changeset) ─────────────────────────────────────
@@ -555,21 +554,6 @@ function IntegrationStatusTab() {
       ],
       isRequired: false,
       category: "알림",
-    },
-    // ─── 자동화 ──────────────────────────────────────────────
-    {
-      name: "n8n",
-      key: "n8n",
-      status: integrationStatus?.n8n ? "ok" : "missing",
-      description: "n8n 워크플로우 자동화 - 복잡한 업무 자동화 파이프라인 구성에 사용됩니다.",
-      guideUrl: "https://n8n.io",
-      guideSteps: [
-        "n8n 클라우드 또는 자체 호스팅 설정",
-        "API 키 발급",
-        "N8N_API_KEY, N8N_BASE_URL 등록",
-      ],
-      isRequired: false,
-      category: "자동화",
     },
     // ─── 이미지/미디어 ──────────────────────────────────────
     {

@@ -1,6 +1,6 @@
 /**
  * 결제 모듈 단위 테스트
- * Stripe, 카카오 알림톡, Runway ML, n8n 자동화 모듈 테스트
+ * Stripe, 카카오 알림톡, Runway ML 모듈 테스트
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -126,25 +126,6 @@ describe("Runway ML 동영상 생성 모듈", () => {
   });
 });
 
-// ─── n8n 자동화 모듈 테스트 ─────────────────────────────────────
-describe("n8n 자동화 파이프라인", () => {
-  it("N8N_WEBHOOK_URL 환경변수 타입이 문자열이다", async () => {
-    const { ENV } = await import("./_core/env");
-    expect(typeof ENV.n8nWebhookUrl).toBe("string");
-  });
-
-  it("웹훅 URL 미설정 시 개발 모드로 동작한다", () => {
-    const n8nUrl = process.env.N8N_WEBHOOK_URL;
-    // 미설정 상태 확인
-    if (!n8nUrl) {
-      expect(n8nUrl).toBeFalsy();
-    }
-    // 설정된 경우 URL 형식 확인
-    if (n8nUrl) {
-      expect(n8nUrl).toMatch(/^https?:\/\//);
-    }
-  });
-});
 
 // ─── ENV 설정 테스트 ─────────────────────────────────────────────
 describe("환경변수 설정 검증", () => {
@@ -163,10 +144,5 @@ describe("환경변수 설정 검증", () => {
   it("Runway ML 관련 ENV 키가 존재한다", async () => {
     const { ENV } = await import("./_core/env");
     expect("runwayApiKey" in ENV).toBe(true);
-  });
-
-  it("n8n 관련 ENV 키가 존재한다", async () => {
-    const { ENV } = await import("./_core/env");
-    expect("n8nWebhookUrl" in ENV).toBe(true);
   });
 });

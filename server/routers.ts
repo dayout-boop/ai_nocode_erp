@@ -23,7 +23,7 @@ import {
   packageImages, aiInteractionLogs,
   devRequests, devFeatures, devVersions,
   aiCostLogs,
-  payments, kakaoNotifications, packageVideos, automationLogs,
+  payments, kakaoNotifications, packageVideos,
   reservations,
   aiLogs,
   adminAccounts,
@@ -48,7 +48,6 @@ import {
   sendBookingCancelledNotification,
 } from "./_core/kakao";
 import { generateGolfVideo, getVideoGenerationStatus } from "./_core/runway";
-import { triggerPackagePublishPipeline } from "./_core/n8n";
 import { reportError, isCriticalError } from "./_core/errorWatcher";
 import { generateFixCode, searchErpFeature } from "./_core/autoFixer";
 import { runFullReview, getReviewResults } from "./_core/reviewEngine";
@@ -1009,7 +1008,7 @@ const bookingsRouter = router({
     }
     return { success: true };
   }),
-  /** D-1 알림톡 n8n 파이프라인용: 내일 출발 예약 목록 조회 */
+  /** D-1 알림톡 스케줄러용: 내일 출발 예약 목록 조회 */
   getDepartureTomorrow: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
@@ -3203,65 +3202,6 @@ const videoRouter = router({
     }),
 });
 
-// ─── n8n 자동화 Router ────────────────────────────────────
-const automationRouter = router({
-  /** n8n 웹훅 트리거 (상품 등록 시 SNS 자동 배포) */
-  triggerPackagePublish: adminProcedure
-    .input(z.object({
-      packageId: z.number().int().positive(),
-    }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const [pkg] = await db.select().from(packages).where(eq(packages.id, input.packageId));
-      if (!pkg) throw new TRPCError({ code: "NOT_FOUND" });
-
-      const result = await triggerPackagePublishPipeline({
-        id: pkg.id,
-        title: pkg.title,
-        country: pkg.country,
-        region: pkg.region,
-        imageUrl: pkg.imageUrl,
-      });
-      const { durationMs, responseStatus, error: errorMessage } = result;
-      // 자동화 실행 이력 저장
-      await db.insert(automationLogs).values({
-        pipelineName: "package_sns_publish",
-        triggerType: "manual",
-        triggerEntityId: input.packageId,
-        status: errorMessage ? "failed" : "success",
-        webhookUrl: ENV.n8nWebhookUrl || "dev_mode",
-        requestPayload: { packageId: pkg.id, title: pkg.title },
-        responseStatus,
-        errorMessage,
-        durationMs,
-      });
-
-      if (errorMessage) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: errorMessage });
-      }
-      return { success: true, durationMs };
-    }),
-
-  /** 자동화 실행 이력 조회 */
-  getLogs: adminProcedure
-    .input(z.object({
-      limit: z.number().min(1).max(100).default(20),
-      packageId: z.number().int().positive().optional(),
-    }))
-    .query(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const conditions = input.packageId
-        ? [eq(automationLogs.triggerEntityId, input.packageId)]
-        : [];
-      return db.select().from(automationLogs)
-        .where(conditions.length ? and(...conditions) : undefined)
-        .orderBy(desc(automationLogs.createdAt))
-        .limit(input.limit);
-    }),
-});
-
 // ============================================================
 // 두골프-AI개발 엔진 라우터
 // ============================================================
@@ -3538,8 +3478,7 @@ export const appRouter = router({
   orchestrator: orchestratorRouter,
   payment: paymentRouter,
   video: videoRouter,
-  automation: automationRouter,
-   aiDevEngine: aiDevEngineRouter,
+  aiDevEngine: aiDevEngineRouter,
   promptVersions: promptVersionsRouter,
   modelRouting: modelRoutingRouter,
   aiAssistant: aiRouter,

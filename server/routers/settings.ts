@@ -16,7 +16,6 @@ export const settingsRouter = router({
       kakao: !!(ENV.kakaoApiKey && ENV.kakaoSenderKey),
       slack: !!(ENV.slackWebhookUrl && ENV.slackWebhookUrl.startsWith("https://hooks.slack.com")),
       runway: !!ENV.runwayApiKey,
-      n8n: !!ENV.n8nWebhookUrl,
       manus: !!ENV.manusApiKey,
       manusProjectConfigured: !!(ENV.manusProjectId || ENV.manusDogolfTaskId),
       pixabay: !!ENV.pixabayApiKey,

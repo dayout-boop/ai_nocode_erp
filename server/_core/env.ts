@@ -29,8 +29,6 @@ export const ENV = {
   kakaoSenderKey: process.env.KAKAO_SENDER_KEY ?? "",
   // Runway ML 동영상 생성
   runwayApiKey: process.env.RUNWAY_API_KEY ?? "",
-  // n8n 자동화
-  n8nWebhookUrl: process.env.N8N_WEBHOOK_URL ?? "",
   // 포트원 V2 결제
   portoneApiSecret: process.env.PORTONE_API_SECRET ?? "",
   portoneStoreId: process.env.VITE_PORTONE_STORE_ID ?? "",
