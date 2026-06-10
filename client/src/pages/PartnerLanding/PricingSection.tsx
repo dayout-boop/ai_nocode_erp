@@ -1,4 +1,5 @@
 import { Check, Star } from 'lucide-react'
+import { PARTNER_SIGNUP_ENTRY } from './cta'
 
 const plans = [
   {
@@ -150,9 +151,7 @@ export default function PricingSection() {
 
               {/* CTA 버튼 */}
               <a
-                href="https://partner.dayoutgolf.com/partner/chat"
-                target="_blank"
-                rel="noopener noreferrer"
+                href={PARTNER_SIGNUP_ENTRY}
                 className="block w-full text-center py-3 rounded-xl font-bold text-sm transition-all duration-200"
                 style={
                   plan.popular

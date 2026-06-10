@@ -1,4 +1,5 @@
 import { ArrowRight, Sparkles } from 'lucide-react'
+import { PARTNER_SIGNUP_ENTRY } from './cta'
 
 export default function CTASection() {
   return (
@@ -45,9 +46,7 @@ export default function CTASection() {
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <a
-            href="/partner/login"
-            target="_blank"
-            rel="noopener noreferrer"
+            href={PARTNER_SIGNUP_ENTRY}
             className="flex items-center gap-2 px-10 py-4 rounded-xl font-bold text-white text-lg transition-all duration-200 glow-green"
             style={{ backgroundColor: 'oklch(0.74 0.17 162)' }}
             onMouseEnter={(e) => {

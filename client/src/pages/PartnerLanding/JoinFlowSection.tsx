@@ -1,4 +1,5 @@
 import { ArrowRight } from 'lucide-react'
+import { PARTNER_SIGNUP_ENTRY } from './cta'
 
 const steps = [
   {
@@ -130,9 +131,7 @@ export default function JoinFlowSection() {
         {/* CTA */}
         <div className="text-center mt-16">
           <a
-            href="https://partner.dayoutgolf.com/partner/chat"
-            target="_blank"
-            rel="noopener noreferrer"
+            href={PARTNER_SIGNUP_ENTRY}
             className="inline-flex items-center gap-2 px-8 py-4 rounded-xl font-bold text-white text-lg transition-all duration-200 glow-green"
             style={{ backgroundColor: 'oklch(0.74 0.17 162)' }}
             onMouseEnter={(e) => {

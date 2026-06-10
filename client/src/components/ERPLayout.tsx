@@ -139,8 +139,22 @@ const navItems: NavItem[] = [
       { label: "AI 로그", href: "/ai-logs", icon: <History size={14} /> },
       { label: "오케스트레이터", href: "/orchestrator", icon: <Zap size={14} /> },
       { label: "AI 비용 현황", href: "/master-ai/costs", icon: <DollarSign size={14} /> },
-      { label: "분양 AI 콘솔 🏢", href: "/tenant-ai-console", icon: <Shield size={14} /> },
-      { label: "크레딧 관리 💰", href: "/credit-management", icon: <Coins size={14} /> },
+    ],
+  },
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 신규 분양관리 — 파트너 가입 파이프라인 순서대로 통합 (마스터 전용)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  {
+    label: "신규 분양관리",
+    masterOnly: true,
+    icon: <Building2 size={18} />,
+    children: [
+      { label: "① 신규 가입신청", href: "/partner-onboarding", icon: <UserPlus size={14} />, masterOnly: true },
+      { label: "② 파트너 관리", href: "/crm/partners", icon: <Building2 size={14} />, masterOnly: true },
+      { label: "③ 제휴사 통합코드", href: "/crm/affiliates", icon: <Building2 size={14} />, masterOnly: true },
+      { label: "④ 구독 관리", href: "/subscriptions", icon: <CreditCard size={14} />, masterOnly: true },
+      { label: "⑤ 분양 AI 콘솔 🏢", href: "/tenant-ai-console", icon: <Shield size={14} />, masterOnly: true },
+      { label: "⑥ 크레디트 관리 💰", href: "/credit-management", icon: <Coins size={14} />, masterOnly: true },
     ],
   },
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -186,12 +200,8 @@ const navItems: NavItem[] = [
     icon: <Users size={18} />,
     children: [
       { label: "고객 검색", href: "/crm", icon: <Search size={14} /> },
-      { label: "파트너 관리(마스터)", href: "/crm/partners", icon: <Building2 size={14} />, masterOnly: true },
-      { label: "제휴사 통합코드(마스터)", href: "/crm/affiliates", icon: <Building2 size={14} />, masterOnly: true },
       { label: "우리 제휴사", href: "/crm/my-affiliates", icon: <Building2 size={14} /> },
       { label: "거래처 관리", href: "/crm/my-partners", icon: <Users size={14} /> },
-      { label: "파트너 온보딩 관리", href: "/partner-onboarding", icon: <UserPlus size={14} />, masterOnly: true },
-      { label: "구독 관리", href: "/subscriptions", icon: <CreditCard size={14} />, masterOnly: true },
       { label: "마스터 관리", href: "/crm/admin-management", icon: <Shield size={14} />, masterOnly: true },
     ],
   },

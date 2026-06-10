@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { PARTNER_SIGNUP_ENTRY } from './cta'
 import { Menu, X, Zap } from 'lucide-react'
 
 export default function Navbar() {
@@ -93,9 +94,7 @@ export default function Navbar() {
               파트너 로그인
             </a>
             <a
-              href="/partner/login"
-              target="_blank"
-              rel="noopener noreferrer"
+              href={PARTNER_SIGNUP_ENTRY}
               className="text-sm px-4 py-2 rounded-lg font-semibold text-white transition-all duration-200 glow-green"
               style={{ backgroundColor: 'oklch(0.74 0.17 162)' }}
               onMouseEnter={(e) => {
@@ -138,9 +137,7 @@ export default function Navbar() {
             ))}
             <div className="pt-2 border-t border-[oklch(0.25_0.04_260/0.5)]">
               <a
-                href="/partner/login"
-                target="_blank"
-                rel="noopener noreferrer"
+                href={PARTNER_SIGNUP_ENTRY}
                 className="block w-full text-center text-sm px-4 py-2.5 rounded-lg font-semibold text-white mt-2"
                 style={{ backgroundColor: 'oklch(0.74 0.17 162)' }}
               >
