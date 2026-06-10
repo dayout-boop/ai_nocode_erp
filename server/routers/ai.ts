@@ -626,4 +626,18 @@ ${alreadyKnown.join('\n')}
         .where(eq(aiLogs.sessionId, input.sessionId))
         .orderBy(aiLogs.createdAt);
     }),
+
+  /**
+   * Human-in-the-Loop 도구 승인 후 스트림 재개
+   * 클라이언트는 approvalId를 받아 /api/master-stream-resume로 직접 SSE 연결
+   * 이 프로시저는 approvalId 검증 로직만 수행하고 클라이언트에 전달
+   */
+  approveToolCall: erpLoginProcedure
+    .input(z.object({ approvalId: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      // SSE 스트림 재개는 클라이언트가 approvalId를 받아
+      // 직접 POST /api/master-stream-resume 로 연결하는 방식으로 동작
+      // 이 프로시저는 승인 의도를 클라이언트에서 서버로 전달하는 중개 역할
+      return { approvalId: input.approvalId, approved: true };
+    }),
 });

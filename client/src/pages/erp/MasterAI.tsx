@@ -1420,10 +1420,11 @@ export default function MasterAI() {
   }, [trpcUtils]);
     // ─── Human-in-the-Loop 승인 요청 상태 ──────────────────────────────────
   const [pendingApproval, setPendingApproval] = useState<{
-    id: string;
+    id: string;          // approvalId (서버 pendingApprovals Map 키)
     toolName: string;
     toolArgs: Record<string, unknown>;
     message: string;
+    assistantMsgId: string; // 승인 대기 중인 assistant 메시지 ID
   } | null>(null);
 
   // 파일 업로드 + 텍스트 추출 mutation
@@ -1719,6 +1720,23 @@ export default function MasterAI() {
                 streamingAutoScroll();
 
               } else if (eventType === "done") {
+                // Human-in-the-Loop: 승인 대기 중인 경우 스트림 중단 상태 유지
+                if (data.pendingApprovalId) {
+                  // 승인 대기 중 — isStreaming 유지 (승인 후 재개를 위해)
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantId
+                        ? { ...m, phase: "done" as const }
+                        : m
+                    )
+                  );
+                  // 승인 다이얼로그 표시를 위해 approval_request 이벤트가 이미 수신되었으므로
+                  // pendingApproval에 assistantMsgId를 추가로 업데이트
+                  setPendingApproval((prev) =>
+                    prev ? { ...prev, assistantMsgId: assistantId } : null
+                  );
+                  return; // finally의 setIsStreaming(false) 로 가지 않도록 return
+                }
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantId
@@ -1751,6 +1769,7 @@ export default function MasterAI() {
                   toolName: data.toolName || "",
                   toolArgs: data.toolArgs || {},
                   message: data.message || `'${data.toolName}' 도구 실행 승인이 필요합니다.`,
+                  assistantMsgId: assistantId, // done 이벤트에서도 동일하게 업데이트됨
                 });
               } else if (eventType === "error") {
                 setMessages((prev) =>
@@ -2591,7 +2610,19 @@ export default function MasterAI() {
               variant="outline"
               size="sm"
               onClick={() => {
+                // 승인 거부: 스트림 상태 정리
+                const msgId = pendingApproval?.assistantMsgId;
                 setPendingApproval(null);
+                setIsStreaming(false);
+                if (msgId) {
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === msgId
+                        ? { ...m, streaming: false, phase: "done" as const, content: m.content || "❌ 승인이 거부되었습니다." }
+                        : m
+                    )
+                  );
+                }
                 toast.info('승인이 거부되었습니다.');
               }}
               className="text-red-600 border-red-200 hover:bg-red-50"
@@ -2600,9 +2631,84 @@ export default function MasterAI() {
             </Button>
             <Button
               size="sm"
-              onClick={() => {
+              onClick={async () => {
+                if (!pendingApproval) return;
+                const { id: approvalId, assistantMsgId } = pendingApproval;
                 setPendingApproval(null);
                 toast.success('승인되었습니다. AI가 작업을 계속합니다.');
+
+                // 승인 후 /api/master-stream-resume로 SSE 재개
+                const controller = new AbortController();
+                abortRef.current = controller;
+                try {
+                  const resumeRes = await fetch("/api/master-stream-resume", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ approvalId }),
+                    signal: controller.signal,
+                  });
+                  if (!resumeRes.ok) {
+                    const err = await resumeRes.json().catch(() => ({ error: "재개 실패" }));
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === assistantMsgId
+                          ? { ...m, streaming: false, phase: "done" as const, error: err.error, content: m.content || `❌ ${err.error}` }
+                          : m
+                      )
+                    );
+                    setIsStreaming(false);
+                    return;
+                  }
+                  // SSE 스트림 읽기 (기존 핸들러 재사용)
+                  const reader = resumeRes.body!.getReader();
+                  const decoder = new TextDecoder();
+                  let buffer = "";
+                  let evType = "";
+                  while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n");
+                    buffer = lines.pop() ?? "";
+                    for (const line of lines) {
+                      if (line.startsWith("event: ")) {
+                        evType = line.slice(7).trim();
+                      } else if (line.startsWith("data: ")) {
+                        try {
+                          const d = JSON.parse(line.slice(6));
+                          if (evType === "tool_start") {
+                            setMessages((prev) => prev.map((m) => m.id === assistantMsgId ? { ...m, phase: "querying" as const, toolExecutions: [...(m.toolExecutions ?? []), { id: d.id, name: d.name, status: "running" as const, startedAt: Date.now() }] } : m));
+                          } else if (evType === "tool_done") {
+                            setMessages((prev) => prev.map((m) => { if (m.id !== assistantMsgId) return m; return { ...m, phase: "analyzing" as const, toolExecutions: (m.toolExecutions ?? []).map((t) => t.id === d.id ? { ...t, status: d.success ? "done" : "error" as "done" | "error", queryTime: d.queryTime, error: d.error } : t) }; }));
+                          } else if (evType === "chunk" && d.text !== undefined) {
+                            setMessages((prev) => prev.map((m) => m.id === assistantMsgId ? { ...m, phase: "done" as const, content: m.content + d.text } : m));
+                            streamingAutoScroll();
+                          } else if (evType === "approval_request") {
+                            setPendingApproval({ id: d.id || `approval-${Date.now()}`, toolName: d.toolName || "", toolArgs: d.toolArgs || {}, message: d.message || `'${d.toolName}' 도구 실행 승인이 필요합니다.`, assistantMsgId });
+                          } else if (evType === "done") {
+                            if (d.pendingApprovalId) {
+                              setMessages((prev) => prev.map((m) => m.id === assistantMsgId ? { ...m, phase: "done" as const } : m));
+                              setPendingApproval((prev) => prev ? { ...prev, assistantMsgId } : null);
+                              return;
+                            }
+                            setMessages((prev) => prev.map((m) => m.id === assistantMsgId ? { ...m, streaming: false, phase: "done" as const, model: d.model, tokensIn: d.tokensIn, tokensOut: d.tokensOut, costUsd: d.costUsd, durationMs: d.durationMs, devRequestSuggestion: d.devRequestSuggestion ?? null } : m));
+                          } else if (evType === "error") {
+                            setMessages((prev) => prev.map((m) => m.id === assistantMsgId ? { ...m, streaming: false, phase: "done" as const, error: d.message, content: m.content || `❌ ${d.message}` } : m));
+                          }
+                        } catch { /* 무시 */ }
+                        evType = "";
+                      }
+                    }
+                  }
+                } catch (err) {
+                  if ((err as Error).name !== "AbortError") {
+                    setMessages((prev) => prev.map((m) => m.id === assistantMsgId ? { ...m, streaming: false, phase: "done" as const, error: "연결 오류", content: m.content || "❌ 재개 연결이 실패했습니다." } : m));
+                  }
+                } finally {
+                  setIsStreaming(false);
+                  abortRef.current = null;
+                }
               }}
               className="bg-amber-600 hover:bg-amber-700 text-white"
             >

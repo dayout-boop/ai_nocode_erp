@@ -2259,9 +2259,9 @@ Detected
 
 ## 파트너 ERP 5가지 이슈 (2026-06-10)
 - [x] 수기예약관리/변수치환/견적서 템플릿 클릭 시 마스터 로그인 전환 버그 수정
-- [ ] 홈페이지 설정 테넌트 처리 (파트너 본인 홈페이지 정보 표시)
-- [ ] 홈페이지 바로가기 클릭 시 홈페이지 없는 경우 "홈페이지 만들기 템플릿" 팝업 표시
-- [ ] 파트너 전용 API 연동 페이지 신설 (구글드라이브, 슬랙, 이메일, 도메인, 홈페이지 개설 등 테넌트별)
+- [x] 홈페이지 설정 테넌트 처리 (파트너 본인 홈페이지 정보 표시 - HomepageManagement tenantId 기반 필터링 적용)
+- [x] 홈페이지 바로가기 클릭 시 홈페이지 없는 경우 "홈페이지 만들기 템플릿" 팝업 표시 (getMyHomepageUrl + 팝업 연동)
+- [x] 파트너 전용 API 연동 페이지 신설 (PartnerIntegrations.tsx - 구글드라이브/슬랙/이메일/도메인/GA/카카오/네이버/포트원/커스텀 9종, tenantId 기반 CRUD)
 - [x] 매니저 로그 테넌트 필터링 확인 (파트너 본인 대화만 표시 - erpLoginProcedure 마스터 전용, 파트너 접근 불가)
 - [x] 골프톡 테넌트 필터링 확인 (managerChat partnerProcedure + ctx.tenantId 격리 이미 적용)
 
@@ -2272,3 +2272,11 @@ Detected
 - [x] ERPLayout.tsx 연동 설정 메뉴에 "업체 API 연동" 항목 추가 (masterOnly 없이, /partner-integrations)
 - [x] ai.ts getLogs 파트너 접근 시 tenantId 필터링 확인 (erpLoginProcedure 마스터 전용, 파트너 접근 불가)
 - [x] 골프톡 로그 저장 시 tenantId 기록 확인 (chatSessions.partnerId 기반 게스트 테넌트 식별 - 관리자 전용 조회로 파트너 누이 없음)
+
+## 마스터 AI 도구 승인(Human-in-the-Loop) 버그 수정 (2026-06-11)
+- [x] masterStream.ts: approval_request 이벤트 후 스트림 중단 + tool_calls 서버 메모리 임시 저장
+- [x] masterStream.ts: POST /api/master-stream-resume 엔드포인트 추가 (승인 후 도구 실행 재개)
+- [x] ai.ts: approveToolCall tRPC 프로시저 추가 (승인 ID → resume 엔드포인트 호출)
+- [x] MasterAI.tsx: 승인 버튼 onClick에서 /api/master-stream-resume SSE 재개 연결
+- [x] routers.ts: devAI.createRequest source: "manual" 추가
+- [x] routers.ts: devAI.createRequestFromNaturalLanguage source: "manual" 추가

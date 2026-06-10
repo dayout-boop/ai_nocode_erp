@@ -2297,6 +2297,7 @@ const devAIRouter = router({
       featureId: input.featureId,
       createdBy: ctx.user.id,
       createdByName: ctx.user.name ?? "",
+      source: "manual",
     });
     const newId = (result as any).insertId;
     // 백그라운드 AI 자동 분석 (응답 지연 없이 비동기 실행)
@@ -2562,6 +2563,7 @@ const devAIRouter = router({
       suggestedTeam: analysis.suggestedTeam,
       aiAnalysis: analysis.analysis,
       aiAnalyzed: true,
+      source: "manual",
     });
     return { id: (result as any).insertId, success: true, parsed, analysis };
   }),
