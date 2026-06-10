@@ -809,7 +809,7 @@ function RightPanel({
               <div className="space-y-1.5">
                 {[
                   { name: "벡터 DB (RAG)", benefit: "토큰 소모 40% 절감", priority: "🟠 높음" },
-                  { name: "n8n 자동화", benefit: "Manus 호출 빈도 감소", priority: "🟠 높음" },
+                  { name: "AI 오케스트레이터", benefit: "다중 AI 모델 라우팅 최적화", priority: "🟠 높음" },
                 ].map((item) => (
                   <div key={item.name} className="bg-orange-50 rounded-lg px-3 py-2 border border-orange-100">
                     <div className="flex items-center justify-between mb-0.5">

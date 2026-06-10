@@ -356,7 +356,7 @@ export async function generatePipelineRecommendation(
 오류: ${safe}
 영향 모듈: ${modules}
 
-사용 가능한 도구: ErrorWatcher, AutoFixer(Llama 무료/GPT-4o), ReviewEngine, n8n 자동화, 카카오 알림톡, Stripe 결제, Runway ML`,
+사용 가능한 도구: ErrorWatcher, AutoFixer(Llama 무료/GPT-4o), ReviewEngine, 카카오 알림톡, Stripe 결제, Runway ML`,
         },
       ],
     });

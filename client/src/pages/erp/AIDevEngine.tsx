@@ -604,7 +604,7 @@ function SearchTab() {
         <div className="text-center py-12 text-gray-400">
           <Search className="w-12 h-12 mx-auto mb-2 text-gray-300" />
           <p>검색어를 입력하여 ERP 기능을 찾아보세요.</p>
-          <p className="text-xs mt-1">예: 결제, 예약, 카카오 알림톡, Runway ML, n8n 자동화</p>
+          <p className="text-xs mt-1">예: 결제, 예약, 카카오 알림톡, Runway ML, AI 오케스트레이터</p>
         </div>
       )}
     </div>

@@ -120,7 +120,6 @@ export async function searchErpFeature(query: string): Promise<{
     { name: "결제 관리", description: "Stripe 결제 처리, 결제 이력 조회", file: "server/stripe.ts", route: "/erp/bookings" },
     { name: "카카오 알림톡", description: "예약 확정/취소 시 자동 알림톡 발송", file: "server/_core/kakao.ts" },
     { name: "Runway ML 동영상 생성", description: "상품 홍보 동영상 AI 자동 생성", file: "server/_core/runway.ts", route: "/erp/packages/:id" },
-    { name: "n8n 자동화", description: "SNS 자동 배포, D-1 알림톡 스케줄러", file: "server/_core/n8n.ts", route: "/erp/packages/:id" },
     { name: "AI 오케스트레이터", description: "다중 AI 모델 라우팅, 비용 최적화", file: "server/_core/orchestrator.ts", route: "/erp/ai-orchestrator" },
     { name: "두골프-AI개발 엔진", description: "자동 오류 감지, AI 수정 제안, 재검토 파이프라인", file: "client/src/pages/erp/AIDevEngine.tsx", route: "/erp/ai-dev-engine" },
     { name: "고객 관리", description: "고객 정보 조회, 예약 이력, VIP 관리", file: "client/src/pages/erp/Customers.tsx", route: "/erp/customers" },
