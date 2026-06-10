@@ -107,15 +107,15 @@ const navItems: NavItem[] = [
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   {
     label: "AI 챗봇",
-    masterOnly: true,
+    // masterOnly 제거: 두골프 매니저/매니저로그/골프톡은 파트너도 사용
     icon: <MessageSquare size={18} />,
     children: [
-      { label: "두골프 마스터 🤖", href: "/master-ai", icon: <BrainCircuit size={14} /> },
-      { label: "마스터 대화 이력", href: "/master-ai/logs", icon: <History size={14} /> },
+      { label: "두골프 마스터 🤖", href: "/master-ai", icon: <BrainCircuit size={14} />, masterOnly: true },
+      { label: "마스터 대화 이력", href: "/master-ai/logs", icon: <History size={14} />, masterOnly: true },
       { label: "두골프 매니저 💼", href: "/manager-chat", icon: <MessageSquare size={14} /> },
-      { label: "매니저 대화 이력", href: "/manager-admin", icon: <History size={14} /> },
-      { label: "골프톡 관리", href: "/golftalk-admin", icon: <Settings2 size={14} /> },
-      { label: "OpenRouter 에이전트 ⚡", href: "/openrouter-agent", icon: <Zap size={14} /> },
+      { label: "매니저 로그", href: "/manager-admin", icon: <History size={14} /> },
+      { label: "골프톡", href: "/golftalk-admin", icon: <Settings2 size={14} /> },
+      { label: "OpenRouter 에이전트 ⚡", href: "/openrouter-agent", icon: <Zap size={14} />, masterOnly: true },
     ],
   },
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
