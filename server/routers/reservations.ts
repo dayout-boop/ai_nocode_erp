@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, protectedProcedure, adminProcedure } from "../_core/trpc";
+import { router, protectedProcedure, adminProcedure, partnerProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import {
   reservations,
@@ -14,6 +14,22 @@ import {
 import { eq, like, desc, asc, and, gte, lte, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { format } from "date-fns";
+
+/**
+ * [테넌트 동기화] 자금 레코드(5종)가 부모 reservation의 tenantId를 상속하도록 조회.
+ * 근거: reservation이 자금 5종의 관리급 통합정본(부모). matchedReservationId가 없으면 null 반환.
+ */
+async function getReservationTenantId(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  matchedReservationId?: number | null
+): Promise<number | null> {
+  if (!matchedReservationId) return null;
+  const [res] = await db
+    .select({ tenantId: reservations.tenantId })
+    .from(reservations)
+    .where(eq(reservations.id, matchedReservationId));
+  return res?.tenantId ?? null;
+}
 
 function generateReservationNo(): string {
   const now = new Date();
@@ -55,8 +71,9 @@ async function assertReservationOwnership(
 
 export const reservationsRouter = router({
   // ─── 예약 목록 조회 ───────────────────────────────────────────
-  // 로그인한 모든 사용자가 조회 가능 (ERP 내부 직원 전용)
-  list: protectedProcedure
+  // [테넌트 격리] partnerProcedure: admin 전체보기(tenantId=null)=기존과 동일 전체조회,
+  // 파트너 또는 admin이 특정 테넌트 선택 시 해당 tenantId 예약만 조회
+  list: partnerProcedure
     .input(
       z.object({
         page: z.number().default(1),
@@ -71,11 +88,16 @@ export const reservationsRouter = router({
         warningOnly: z.boolean().default(false),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const offset = (input.page - 1) * input.pageSize;
       const conditions: ReturnType<typeof eq>[] = [];
+
+      // 테넌트 격리: 특정 테넌트 컨텍스트면 해당 예약만
+      if (ctx.tenantId != null) {
+        conditions.push(eq(reservations.tenantId, ctx.tenantId) as any);
+      }
 
       if (input.search) {
         conditions.push(
@@ -145,10 +167,10 @@ export const reservationsRouter = router({
     }),
 
   // ─── 예약 단건 조회 ───────────────────────────────────────────
-  // 로그인한 모든 사용자가 조회 가능
-  getById: protectedProcedure
+  // [테넌트 격리] 특정 테넌트 컨텍스트면 다른 테넌트 예약 접근 차단
+  getById: partnerProcedure
     .input(z.object({ id: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const [reservation] = await db
@@ -156,6 +178,10 @@ export const reservationsRouter = router({
         .from(reservations)
         .where(eq(reservations.id, input.id));
       if (!reservation) throw new TRPCError({ code: "NOT_FOUND", message: "예약을 찾을 수 없습니다." });
+      // 테넌트 격리: 특정 테넌트 컨텍스트는 자사 예약만 열람 가능
+      if (ctx.tenantId != null && reservation.tenantId !== ctx.tenantId) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "다른 업체의 예약은 조회할 수 없습니다." });
+      }
 
       const [incomes, remittances, deposits, charges] = await Promise.all([
         db.select().from(incomeRecords).where(eq(incomeRecords.matchedReservationId, input.id)),
@@ -349,10 +375,12 @@ export const reservationsRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const matchStatus = input.matchedReservationId ? "matched" : "unmatched";
+      const tenantId = await getReservationTenantId(db, input.matchedReservationId);
       const [result] = await db.insert(incomeRecords).values({
         ...input,
         transactionDate: new Date(input.transactionDate),
         matchStatus,
+        tenantId,
       });
 
       if (input.matchedReservationId) {
@@ -395,10 +423,12 @@ export const reservationsRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const matchStatus = input.matchedReservationId ? "matched" : "unmatched";
+      const tenantId = await getReservationTenantId(db, input.matchedReservationId);
       const [result] = await db.insert(remittanceRecords).values({
         ...input,
         transactionDate: new Date(input.transactionDate),
         matchStatus,
+        tenantId,
       });
 
       if (input.matchedReservationId) {
@@ -419,7 +449,8 @@ export const reservationsRouter = router({
     }),
 
   // ─── 입금 내역 목록 ───────────────────────────────────────────
-  listIncome: protectedProcedure
+  // [테넌트 격리] 특정 테넌트 컨텍스트면 자사 자금만
+  listIncome: partnerProcedure
     .input(
       z.object({
         page: z.number().default(1),
@@ -428,11 +459,14 @@ export const reservationsRouter = router({
         search: z.string().optional(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const offset = (input.page - 1) * input.pageSize;
       const conditions: any[] = [];
+      if (ctx.tenantId != null) {
+        conditions.push(eq(incomeRecords.tenantId, ctx.tenantId));
+      }
       if (input.matchStatus !== "all") {
         conditions.push(eq(incomeRecords.matchStatus, input.matchStatus));
       }
@@ -456,7 +490,8 @@ export const reservationsRouter = router({
     }),
 
   // ─── 송금 내역 목록 ───────────────────────────────────────────
-  listRemittance: protectedProcedure
+  // [테넌트 격리]
+  listRemittance: partnerProcedure
     .input(
       z.object({
         page: z.number().default(1),
@@ -465,11 +500,14 @@ export const reservationsRouter = router({
         search: z.string().optional(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const offset = (input.page - 1) * input.pageSize;
       const conditions: any[] = [];
+      if (ctx.tenantId != null) {
+        conditions.push(eq(remittanceRecords.tenantId, ctx.tenantId));
+      }
       if (input.matchStatus !== "all") {
         conditions.push(eq(remittanceRecords.matchStatus, input.matchStatus));
       }
@@ -492,15 +530,19 @@ export const reservationsRouter = router({
     }),
 
   // ─── 예치금 목록 ──────────────────────────────────────────────
-  listDeposit: protectedProcedure
+  // [테넌트 격리]
+  listDeposit: partnerProcedure
     .input(z.object({ type: z.enum(["unpaid", "expected", "deduct_other", "deduct_shinhan", "all"]).default("all") }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const conditions: any[] = [];
+      if (ctx.tenantId != null) conditions.push(eq(depositRecords.tenantId, ctx.tenantId));
+      if (input.type !== "all") conditions.push(eq(depositRecords.type, input.type));
       return db
         .select()
         .from(depositRecords)
-        .where(input.type !== "all" ? eq(depositRecords.type, input.type) : undefined)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(desc(depositRecords.createdAt));
     }),
 
@@ -518,20 +560,23 @@ export const reservationsRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const [result] = await db.insert(depositRecords).values(input);
+      const tenantId = await getReservationTenantId(db, input.reservationId);
+      const [result] = await db.insert(depositRecords).values({ ...input, tenantId });
       return { id: (result as any).insertId };
     }),
 
   // ─── 충전 내역 목록 ───────────────────────────────────────────
-  listCharge: protectedProcedure
+  // [테넌트 격리]
+  listCharge: partnerProcedure
     .input(z.object({ page: z.number().default(1), pageSize: z.number().default(30) }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const offset = (input.page - 1) * input.pageSize;
       return db
         .select()
         .from(chargeRecords)
+        .where(ctx.tenantId != null ? eq(chargeRecords.tenantId, ctx.tenantId) : undefined)
         .orderBy(desc(chargeRecords.transactionDate))
         .limit(input.pageSize)
         .offset(offset);
@@ -555,10 +600,12 @@ export const reservationsRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const matchStatus = input.matchedReservationId ? "matched" : "unmatched";
+      const tenantId = await getReservationTenantId(db, input.matchedReservationId);
       const [result] = await db.insert(chargeRecords).values({
         ...input,
         transactionDate: new Date(input.transactionDate),
         matchStatus,
+        tenantId,
       });
       return { id: (result as any).insertId };
     }),
@@ -634,7 +681,11 @@ export const reservationsRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const { id, ...updateData } = input;
       const matchStatus = updateData.matchedReservationId ? "matched" : (updateData.matchStatus ?? "unmatched");
-      await db.update(chargeRecords).set({ ...updateData, matchStatus }).where(eq(chargeRecords.id, id));
+      // 부모 reservation의 tenantId 상속 (매칭 시점 동기화)
+      const tenantId = await getReservationTenantId(db, updateData.matchedReservationId);
+      await db.update(chargeRecords)
+        .set({ ...updateData, matchStatus, ...(updateData.matchedReservationId ? { tenantId } : {}) })
+        .where(eq(chargeRecords.id, id));
       return { success: true };
     }),
 

@@ -14,6 +14,7 @@ import { orchestratorChat } from "./openrouter";
 import { runPipeline, type OrchestrationState } from "./orchestrator";
 import { isGitEngineEnabled, type ChangesetFile } from "./gitEngine";
 import type { AgentContext } from "./agentEngine";
+import { buildDogolfDevContext, checkTableDuplication } from "./devContext";
 
 export interface SelfDevInput {
   /** dev_requests 테이블에 이미 등록된 요청 ID (참조용) */
@@ -91,16 +92,19 @@ export async function runSelfDevelopment(input: SelfDevInput): Promise<SelfDevRe
 설명:
 ${input.description}`;
 
+    // [통합 일원화] 기존 구조/카탈로그/멀티테넌트 규칙을 강제 주입해 중복 DB 개발을 방지한다.
+    const fullSystemPrompt = `${CODEGEN_SYSTEM_PROMPT}\n\n${buildDogolfDevContext()}`;
+
     const res = await orchestratorChat({
       messages: [
-        { role: "system", content: CODEGEN_SYSTEM_PROMPT },
+        { role: "system", content: fullSystemPrompt },
         { role: "user", content: userPrompt },
       ],
       complexity: "high",
       assistant: "master",
       sessionId: `selfdev-${input.devRequestId ?? Date.now()}`,
       userId: input.requestedBy,
-      systemPrompt: CODEGEN_SYSTEM_PROMPT,
+      systemPrompt: fullSystemPrompt,
       maxTokens: 8192,
       temperature: 0.2,
     });
@@ -162,6 +166,33 @@ ${input.description}`;
     content: f.content,
   }));
 
+  // [중복 DB 가드] drizzle/schema.ts 변경에 신규 mysqlTable 정의가 기존과 중복되면 경고 차단.
+  const schemaFile = changeset.find(
+    (c) => c.action !== "DELETE" && /drizzle\/schema\.ts$/.test(c.filePath) && c.content
+  );
+  if (schemaFile?.content) {
+    const newTableRe = /mysqlTable\(\s*["']([a-z_][a-z0-9_]*)["']/g;
+    const dupWarnings: string[] = [];
+    let tm: RegExpExecArray | null;
+    while ((tm = newTableRe.exec(schemaFile.content)) !== null) {
+      const dup = checkTableDuplication(tm[1]);
+      if (dup.exact) continue; // 기존 테이블 재선언은 정상(전체파일 재작성)
+      if (dup.similar.length > 0) {
+        dupWarnings.push(`'${tm[1]}' ~ 기존 [${dup.similar.join(", ")}] 와 유사(중복 의심)`);
+      }
+    }
+    if (dupWarnings.length > 0) {
+      return {
+        success: false,
+        changedFiles: changeset.map((c) => c.filePath),
+        model,
+        codeGenCostUsd,
+        message: `중복 DB 개발 가드 차단: ${dupWarnings.join(" / ")}. 기존 테이블에 컬럼 추가를 우선 검토하세요.`,
+        summary: generated.summary ?? "",
+      };
+    }
+  }
+
   // [2] 자체 Git 파이프라인 (dev-1 격리 커밋 + 4종 감사)
   const context: AgentContext = {
     callerId: `master-${input.requestedBy}`,
@@ -179,6 +210,7 @@ ${input.description}`;
       runAudit: true,
       tenantId: input.tenantId ?? 1,
       devSource: "engine",
+      devRequestId: input.devRequestId, // [일원화] 요청원장 연결
     });
   } catch (err: any) {
     return {

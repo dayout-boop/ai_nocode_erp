@@ -14,6 +14,7 @@
  */
 import { geminiChat, DOGOLF_SYSTEM_CONTEXT } from "../_core/gemini";
 import { ENV } from "../_core/env";
+import { buildDogolfDevContext } from "./devContext";
 
 export type AgentId = "master_engine" | "manager_engine" | "golftalk_engine" | "assistant_engine";
 export type AgentRole = "MASTER" | "MANAGER" | "GOLFTALK" | "SYSTEM";
@@ -84,7 +85,8 @@ function buildSystemContext(agentId: AgentId, context: AgentContext): string {
   const base = DOGOLF_SYSTEM_CONTEXT;
   switch (agentId) {
     case "master_engine":
-      return `${base}\n\n[역할] 당신은 두골프 마스터(대표) 전용 엔진입니다. 전체 자원 접근이 허용됩니다.`;
+      // [통합 일원화] 마스터 자율엔진(개발 행위 가능)에도 통합 규칙/카탈로그를 주입해 중복 DB를 막는다.
+      return `${base}\n\n[역할] 당신은 두골프 마스터(대표) 전용 엔진입니다. 전체 자원 접근이 허용됩니다.\n\n${buildDogolfDevContext()}`;
     case "manager_engine":
       return `${base}\n\n[역할] 당신은 입점사(파트너 #${context.partnerId}) 전용 매니저 엔진입니다. 외부 웹검색/외부 API는 사용할 수 없으며, 본인 파트너 데이터만 다룹니다.`;
     case "golftalk_engine":

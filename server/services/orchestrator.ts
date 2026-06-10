@@ -23,6 +23,7 @@ import {
 } from "./gitEngine";
 import { SelfAuditBot } from "./selfAuditBot";
 import { enforcePartnerLock, type AgentContext } from "./agentEngine";
+import { checkTableDuplication } from "./devContext";
 
 export type OrchestrationStage =
   | "INBOUND_REQUEST"
@@ -62,12 +63,15 @@ export async function runPipeline(params: {
   tenantId?: number;
   /** 개발 파이프라인 출처 (기본 engine — 자체 changeset 입구) */
   devSource?: "manus" | "engine" | "manual" | "system";
+  /** [일원화] 원본 dev_requests.id 역참조 (요청원장↔엔진라이프사이클 연결) */
+  devRequestId?: number;
 }): Promise<OrchestrationState> {
   const { agentId, commitMessage, changeset, context } = params;
   const autoIntegrate = params.autoIntegrate ?? false;
   const runAudit = params.runAudit ?? true;
   const tenantId = params.tenantId ?? 1;
   const devSource = params.devSource ?? "engine";
+  const devRequestId = params.devRequestId ?? null;
 
   const db = await getDb();
   if (!db) throw new Error("[Orchestrator] Database not available");
@@ -86,10 +90,27 @@ export async function runPipeline(params: {
     }
   }
 
+  // [중복 DB 가드] 입구가 어디든(manus/engine/manual) schema.ts 신규 테이블이 기존과 유사하면 차단.
+  for (const f of changeset) {
+    if (f.action === "DELETE" || !f.content || !/drizzle\/schema\.ts$/.test(f.filePath)) continue;
+    const re = /mysqlTable\(\s*["']([a-z_][a-z0-9_]*)["']/g;
+    const dupWarnings: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(f.content)) !== null) {
+      const dup = checkTableDuplication(m[1]);
+      if (!dup.exact && dup.similar.length > 0) {
+        dupWarnings.push(`'${m[1]}' ~ 기존 [${dup.similar.join(", ")}]`);
+      }
+    }
+    if (dupWarnings.length > 0) {
+      throw new Error(`[Orchestrator] 중복 DB 개발 가드 차단: ${dupWarnings.join(" / ")} — 기존 테이블에 컬럼 추가를 우선 검토하세요.`);
+    }
+  }
+
   // [Stage 3] 라이프사이클 레코드 생성 (INIT) — 테넌트/출처 함께 기록
   const inserted = await db
     .insert(aiDevRequests)
-    .values({ agentId, status: "INIT", commitMessage, tenantId, devSource });
+    .values({ agentId, status: "INIT", commitMessage, tenantId, devSource, devRequestId });
   // mysql2 insertId 추출
   const requestId = Number((inserted as any)[0]?.insertId ?? (inserted as any).insertId);
   if (!requestId) throw new Error("[Orchestrator] 요청 레코드 생성 실패");

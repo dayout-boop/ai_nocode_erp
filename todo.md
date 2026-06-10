@@ -2178,3 +2178,39 @@ Detected
 - [x] managerChat 프로시저를 partnerProcedure 기반으로 전환 + RAG 주입
 - [x] manager.ts 프롬프트 v2 (실제 DB 데이터 기반 응답, 할루시네이션 방지, 테넌트 격리 원칙)
 - [x] vitest: selfDevPipe 5건 + rag.manager 4건 추가, 전체 396건 통과 + tsc 0에러
+
+
+## [긴급] ERP 전체 테넌트 격리 진단/수정 (2026-06-10)
+- [x] 전체 ERP 라우터에서 tenantId 필터 누락 진단 (예약/자금/정산/상품/CRM/문의/대시보드/기능카탈로그)
+- [x] x-active-tenant(업체 선택기) 값이 각 라우터까지 전달·반영되는지 확인 (partnerProcedure가 ctx.tenantId 자동주입)
+- [x] 미적용 라우터를 partnerProcedure/ctx.tenantId 기반으로 일괄 수정 (reservations.list/getById, 자금 list 4종)
+- [x] 좌측 메뉴/업체 선택기 연동 점검 (CRM 메뉴 2계층 분리)
+- [x] vitest 테넌트 격리 회귀 테스트 추가 + 체크포인트
+
+
+## [확정] 2계층 권한모델 + 구/신 DB 분리 + 자금격리 + 구독관리 (2026-06-10)
+- [x] Q4: 중앙 오케스트레이터 별도/결합 구조 재확인 (orchestratorChat=LLM라우팅 / runPipeline=Git실행엔진, selfDevPipe에서 순차결합)
+- [x] Q4: 탈마누스/마누스 개발요청 프로세스 + 개발이력 '3개의 섬'(dev_requests/ai_dev_requests/features.json) 진단 → 일원화 방향 docs/dev-pipeline-and-db-spec.md
+- [x] 구/신 DB 역할 분리 명세 문서화 (reservations=수기예약 정본 / bookings=고객문의·통합조회 보조)
+- [x] Q2: 자금 5종(income/remittance/deposit/charge/prepaid) tenantId 컬럼 마이그레이션 (DB 반영 확인)
+- [x] Q2: 부모 reservation을 자금 하위항목 관리정본으로 승격 + 동기화 (getReservationTenantId, 등록·매칭 시점 모두 적용)
+- [x] Q3 마스터: 제휴사 통합코드 관리 페이지 (affiliates 1607건, masterOnly 표기)
+- [x] Q3 마스터: 파트너 구독관리 — tenants 정본 기반 재구성, 업체명·접수일·만료일·유료플랜·코드연결·비고 표시
+- [x] Q3 마스터: 제휴사/파트너 카테고리 분리 (CRM 메뉴 재구성)
+- [x] Q3 업체: 제휴사 개별등록 (tenant_affiliates: 마스터 검색·재사용+자사 호칭/요금/잔액, 없으면 신규)
+- [x] Q3 업체: 파트너(자사 거래 여행사·숙소·대리점) 등록 (tenant_partners: 은행정보·연락처)
+- [x] 격리 적용: 기존 partnerProcedure 활용 + 예약/자금 라우터 격리 (정산·문의는 이미 적용됨)
+- [x] bookings.list/get의 reservations 무필터 통합 → tenantId 격리 버그 수정
+- [x] vitest 테넌트 누출 회귀 테스트 (전체 417건 통과)
+
+
+## [추가확정] 개발이력 3개 섬 일원화 + 통합 기능카탈로그 강제주입 (2026-06-10)
+- [x] 통합 최상급 문서 현황 파악 (multitenant-dev-guide, tenant-isolation-plan, partner-domain-architecture, dev-pipeline-and-db-spec)
+- [x] LLM 개발요청 시 통합 카탈로그 미주입 진단 (selfDevPipe 고정프롬프트, gemini DOGOLF_SYSTEM_CONTEXT 구버전 — 모든 경로 미주입이었음)
+- [x] A(masterChat) 경로에 통합 카탈로그 강제 주입 + 자율엔진(agentEngine)도 주입
+- [x] B(runPipeline) 경로에 중복 테이블 가드 + devRequestId 역참조 기록 연결
+- [x] 탈마누스(selfDevPipe) 요청 시 buildDogolfDevContext 주입 + 중복 가드
+- [x] 마누스(formatDevRequestMessage) 전송 본문에 통합 개발규칙+카탈로그 요약 동봉
+- [x] ai_dev_requests.devRequestId + tenantId 역참조 컬럼 추가 (DB 반영 확인)
+- [x] 중복 DB 개발 차단 가드: checkTableDuplication (정확/유사 중복 감지, 테스트 통과)
+- [x] 전체 실제 DB 체크 + 연결구조 전수 확인 (스키마 반영·데이터 분포·매칭상태 확인, matchCharge tenantId 상속 보완)

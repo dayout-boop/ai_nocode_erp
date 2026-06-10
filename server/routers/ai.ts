@@ -13,6 +13,7 @@ import { getDb } from "../db";
 import { aiLogs, packages, bookings, devRequests, chatSessions } from "../../drizzle/schema";
 import { classifyIntent, fetchPackageContext, fetchReservationContext, compressHistory, fetchManagerContext } from "../services/rag";
 import { orchestratorChat } from "../services/openrouter";
+import { buildDogolfDevContext } from "../services/devContext";
 import { MASTER_SYSTEM_PROMPT } from "../services/prompts/master";
 import { GOLFTALK_SYSTEM_PROMPT, GOLFTALK_FALLBACK_MESSAGE } from "../services/prompts/golftalk";
 
@@ -88,10 +89,14 @@ export const aiRouter = router({
       const compressedHistory = await compressHistory(input.sessionId, input.history);
 
       // 4. 시스템 프롬프트 + 컨텍스트 조합
+      // [통합 일원화] 마스터 채팅(A 경로)에도 통합 개발 규칙/카탈로그를 주입해
+      //   LLM이 기존 구조를 인지하고 중복 DB/기능을 제안하지 않도록 한다.
+      const devCtx = buildDogolfDevContext();
+      const baseWithDev = `${MASTER_SYSTEM_PROMPT}\n\n${devCtx}`;
       const systemWithContext =
         contextParts.length > 0
-          ? `${MASTER_SYSTEM_PROMPT}\n\n[현재 컨텍스트]\n${contextParts.join("\n\n")}`
-          : MASTER_SYSTEM_PROMPT;
+          ? `${baseWithDev}\n\n[현재 컨텍스트]\n${contextParts.join("\n\n")}`
+          : baseWithDev;
 
       // 5. AI 호출
       const startTime = Date.now();

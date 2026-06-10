@@ -71,6 +71,17 @@ export default function SubscriptionManagement() {
     },
   });
 
+  // 테넌트 상태 제어 뮤테이션 (정지/재개)
+  const setTenantStatusMutation = trpc.subscriptions.setTenantStatus.useMutation({
+    onSuccess: () => {
+      toast.success("구독 상태가 변경되었습니다.");
+      refetch();
+    },
+    onError: (err) => {
+      toast.error(`상태 변경 실패: ${err.message}`);
+    },
+  });
+
   // 결제 검증 뮤테이션
   const verifyMutation = trpc.subscriptions.verify.useMutation({
     onSuccess: (data) => {
@@ -191,13 +202,14 @@ export default function SubscriptionManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>파트너 ID</TableHead>
+                  <TableHead>업체명</TableHead>
+                  <TableHead>코드연결</TableHead>
                   <TableHead>플랜</TableHead>
                   <TableHead>상태</TableHead>
                   <TableHead>결제 주기</TableHead>
-                  <TableHead>시작일</TableHead>
+                  <TableHead>접수일</TableHead>
                   <TableHead>만료일</TableHead>
-                  <TableHead>포트원 결제 ID</TableHead>
+                  <TableHead>비고</TableHead>
                   <TableHead className="text-right">액션</TableHead>
                 </TableRow>
               </TableHeader>
@@ -206,7 +218,32 @@ export default function SubscriptionManagement() {
                   const statusCfg = STATUS_CONFIG[sub.status] ?? STATUS_CONFIG.pending;
                   return (
                     <TableRow key={sub.id}>
-                      <TableCell className="font-mono text-xs">{sub.partnerId}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-gray-900">{sub.companyName}</span>
+                          <span className="font-mono text-[10px] text-gray-400">
+                            {sub.source === "tenant" ? `T#${sub.tenantId}` : "신청서"}
+                            {sub.partnerId ? ` · P#${sub.partnerId}` : ""}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {sub.source === "tenant" ? (
+                          sub.codeLinked ? (
+                            <Badge variant="default" className="flex items-center gap-1 w-fit bg-green-600">
+                              <CheckCircle2 className="w-3 h-3" />연결됨
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive" className="flex items-center gap-1 w-fit">
+                              <AlertCircle className="w-3 h-3" />미연결
+                            </Badge>
+                          )
+                        ) : (
+                          <Badge variant="outline" className="flex items-center gap-1 w-fit text-amber-600 border-amber-300">
+                            <Clock className="w-3 h-3" />테넌트 미생성
+                          </Badge>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <span className="font-semibold">
                           {PLAN_LABELS[sub.planId] ?? sub.planId}
@@ -231,19 +268,19 @@ export default function SubscriptionManagement() {
                           ? new Date(sub.expiresAt).toLocaleDateString("ko-KR")
                           : "-"}
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-gray-400 max-w-[120px] truncate">
-                        {sub.portonePaymentId ?? "-"}
+                      <TableCell className="text-xs text-gray-500 max-w-[160px] truncate" title={sub.memo ?? sub.portonePaymentId ?? ""}>
+                        {sub.memo ?? (sub.portonePaymentId ? `결제ID: ${sub.portonePaymentId}` : "-")}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center gap-2 justify-end">
-                          {sub.portonePaymentId && sub.status === "pending" && (
+                          {sub.source === "onboarding" && sub.portonePaymentId && sub.status === "pending" && (
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() =>
                                 verifyMutation.mutate({
                                   paymentId: sub.portonePaymentId!,
-                                  subscriptionId: sub.id,
+                                  subscriptionId: sub.id.replace(/^onboarding-/, ""),
                                 })
                               }
                               disabled={verifyMutation.isPending}
@@ -251,16 +288,38 @@ export default function SubscriptionManagement() {
                               검증
                             </Button>
                           )}
-                          {sub.status === "active" && (
+                          {sub.source === "onboarding" && sub.status === "active" && (
                             <Button
                               size="sm"
                               variant="destructive"
                               onClick={() => {
-                                setSelectedSub(sub.id);
+                                setSelectedSub(sub.id.replace(/^onboarding-/, ""));
                                 setCancelDialogOpen(true);
                               }}
                             >
                               취소
+                            </Button>
+                          )}
+                          {sub.source === "tenant" && sub.tenantId != null && (sub.status === "active" || sub.status === "trial") && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-amber-600 border-amber-300"
+                              onClick={() => setTenantStatusMutation.mutate({ tenantId: sub.tenantId!, status: "suspended" })}
+                              disabled={setTenantStatusMutation.isPending}
+                            >
+                              정지
+                            </Button>
+                          )}
+                          {sub.source === "tenant" && sub.tenantId != null && sub.status === "suspended" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-green-600 border-green-300"
+                              onClick={() => setTenantStatusMutation.mutate({ tenantId: sub.tenantId!, status: "active" })}
+                              disabled={setTenantStatusMutation.isPending}
+                            >
+                              재개
                             </Button>
                           )}
                         </div>

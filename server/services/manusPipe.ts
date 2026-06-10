@@ -20,6 +20,7 @@ import { eq, and, isNotNull, desc } from "drizzle-orm";
 import { getDb } from "../db";
 import { devRequests, managedProjects } from "../../drizzle/schema";
 import { ENV } from "../_core/env";
+import { getExistingTableNames } from "./devContext";
 
 const MANUS_API_BASE = "https://api.manus.ai/v2";
 
@@ -289,6 +290,20 @@ ${project.customContext ? '\n**추가 컨텍스트:**\n' + project.customContext
 
 **주의:** 이 프로젝트의 Manus WebDev 세션에서 직접 작업하세요. 신규 프로젝트 생성 불필요.`;
 
+  // [통합 일원화] 마누스가 두골프 ERP 데스크에서 작업할 때도 기존 구조/카탈로그를 인지해
+  //   중복 DB/테이블을 만들지 않도록 통합 규칙 요약을 동봉한다.
+  const existingTables = getExistingTableNames();
+  const unifiedRulesBlock = `---
+## ⚠️ 통합 개발 규칙 (중복 DB 개발 금지 — 탈마누스/마누스 공통)
+
+- 아래 기존 테이블 카탈로그(총 ${existingTables.length}개)와 같거나 유사한 테이블을 새로 만들지 마세요(단/복수형 변형 포함). 기존 테이블에 컬럼 추가를 우선 검토하세요.
+- reservations(구) = 수기예약 정본 + 자금 5종(income/remittance/deposit/charge/prepaid)의 부모. bookings(신) = 고객문의·통합조회 보조. 두 테이블을 합치지 마세요.
+- 신규 비즈니스 테이블에는 반드시 tenantId 컬럼을 두고, 파트너용 별도 페이지를 만들지 않고 기존 페이지에 tenantId 필터만 추가합니다.
+
+**기존 테이블 카탈로그:**
+${existingTables.join(", ")}
+`;
+
   return `# 두골프 ERP 개발 요청 [ID: ${req.id}]
 ${followUpNote}
 **제목:** ${req.title}
@@ -304,7 +319,9 @@ ${req.description}
 *두골프 AI 마스터가 자동 생성한 개발 요청입니다.*
 *프로젝트: www.dayoutgolf.com*
 
-${contextBlock}`;
+${contextBlock}
+
+${unifiedRulesBlock}`;
 }
 
 // ─── 스마트 라우팅 핵심 함수 ──────────────────────────────────────────────────

@@ -817,6 +817,10 @@ const bookingsRouter = router({
     // ─── reservations 확정 데이터 통합 ─────────────────────────
     // reservations 테이블의 confirmed 상태 데이터를 bookings 형식으로 변환하여 통합
     const resConditions: any[] = [eq(reservations.status, "confirmed")];
+    // [테넌트 격리 버그 수정] 특정 테넌트 컨텍스트면 reservations 통합도 자사 데이터로 제한
+    if (ctx.tenantId !== undefined && ctx.tenantId !== null) {
+      resConditions.push(eq(reservations.tenantId, ctx.tenantId));
+    }
     if (input.status && input.status !== "confirmed") {
       // 다른 상태 필터 시 reservations는 포함하지 않음
     } else {
@@ -878,7 +882,7 @@ const bookingsRouter = router({
 
     return { items, total };
   }),
-  get: partnerProcedure.input(z.object({ id: z.number(), source: z.enum(["booking", "reservation"]).optional() })).query(async ({ input }) => {
+  get: partnerProcedure.input(z.object({ id: z.number(), source: z.enum(["booking", "reservation"]).optional() })).query(async ({ input, ctx }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
@@ -886,6 +890,10 @@ const bookingsRouter = router({
     if (input.source === "reservation") {
       const [res] = await db.select().from(reservations).where(eq(reservations.id, input.id));
       if (!res) throw new TRPCError({ code: "NOT_FOUND" });
+      // [테넌트 격리] 특정 테넌트 컨텍스트는 자사 예약만
+      if (ctx.tenantId != null && res.tenantId !== ctx.tenantId) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "다른 업체의 예약은 조회할 수 없습니다." });
+      }
       return {
         id: res.id,
         bookingNumber: res.reservationNo,
@@ -944,6 +952,10 @@ const bookingsRouter = router({
     // 일반 예약: bookings 테이블에서 조회
     const [booking] = await db.select().from(bookings).where(eq(bookings.id, input.id));
     if (!booking) throw new TRPCError({ code: "NOT_FOUND" });
+    // [테넌트 격리] 특정 테넌트 컨텍스트는 자사 예약만
+    if (ctx.tenantId != null && booking.tenantId !== ctx.tenantId) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "다른 업체의 예약은 조회할 수 없습니다." });
+    }
     const travelersData = await db.select().from(travelers).where(eq(travelers.bookingId, input.id));
     const [pkg] = await db.select().from(packages).where(eq(packages.id, booking.packageId));
     return { ...booking, travelers: travelersData, package: pkg, _source: "booking" as const };
@@ -3455,6 +3467,8 @@ import { agentApprovalsRouter } from "./routers/agentApprovals";
 import { tenantAiRouter } from "./routers/tenantAi";
 import { imageArchiveRouter } from "./routers/imageArchive";
 import { aiDevPipelineRouter } from "./routers/aiDevPipeline";
+import { tenantAffiliatesRouter } from "./routers/tenantAffiliates";
+import { tenantPartnersRouter } from "./routers/tenantPartners";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -3517,5 +3531,7 @@ export const appRouter = router({
   tenantAi: tenantAiRouter,
   imageArchive: imageArchiveRouter,
   aiDevPipeline: aiDevPipelineRouter,
+  tenantAffiliates: tenantAffiliatesRouter,
+  tenantPartners: tenantPartnersRouter,
 });
 export type AppRouter = typeof appRouter;

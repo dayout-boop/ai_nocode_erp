@@ -920,6 +920,74 @@ export type Affiliate = typeof affiliates.$inferSelect;
 export type InsertAffiliate = typeof affiliates.$inferInsert;
 
 // ============================================================
+// TENANT_AFFILIATES - 업체별 제휴사 재사용/호칭/요금 (2계층 구조)
+//  - 마스터 affiliates(통합코드)를 검색해 재사용하거나(masterAffiliateId),
+//    마스터에 없으면 업체가 신규 등록(masterAffiliateId=null)
+//  - 각 업체가 정한 호칭/요금/잔액을 별도 보관 → 상품/예약/정산/요금 연결 기준
+// ============================================================
+export const tenantAffiliates = mysqlTable("tenant_affiliates", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 업체(테넌트) ID — null은 허용하지 않음(업체 전용 리소스) */
+  tenantId: int("tenantId").notNull(),
+  /** 마스터 affiliates 참조 (null = 업체 자체 신규 등록) */
+  masterAffiliateId: int("masterAffiliateId"),
+  /** 업체가 정한 자사 호칭명 */
+  customName: varchar("customName", { length: 200 }).notNull(),
+  /** 분류 */
+  category: mysqlEnum("category", ["golf_domestic", "golf_overseas", "hotel", "attraction", "transport", "other"]).default("golf_domestic"),
+  /** 자사 적용 그린피/공급가 */
+  customGreenFee: int("customGreenFee").default(0),
+  /** 선입금 잔액 (업체별 독립) */
+  prepaidBalance: int("prepaidBalance").default(0),
+  /** 데파짓 잔액 (업체별 독립) */
+  depositBalance: int("depositBalance").default(0),
+  /** 담당자명 */
+  contactName: varchar("contactName", { length: 100 }),
+  /** 담당자 전화 */
+  contactPhone: varchar("contactPhone", { length: 30 }),
+  notes: text("notes"),
+  status: mysqlEnum("status", ["active", "inactive", "pending"]).default("active"),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type TenantAffiliate = typeof tenantAffiliates.$inferSelect;
+export type InsertTenantAffiliate = typeof tenantAffiliates.$inferInsert;
+
+// ============================================================
+// TENANT_PARTNERS - 업체별 거래처(제휴여행사/숨소/대리점) 개별 관리
+//  - 각 업체가 예약/송금/정산을 진행하는 거래처 원장 (송금/예약/정산 연결)
+// ============================================================
+export const tenantPartners = mysqlTable("tenant_partners", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 업체(테넌트) ID */
+  tenantId: int("tenantId").notNull(),
+  /** 거래처명 */
+  companyName: varchar("companyName", { length: 200 }).notNull(),
+  /** 거래처 유형: 여행사/숨소/대리점/기타 */
+  partnerType: mysqlEnum("partnerType", ["travel_agency", "accommodation", "agency", "other"]).default("travel_agency"),
+  /** 사업자등록번호 */
+  businessNumber: varchar("businessNumber", { length: 20 }),
+  /** 담당자명 */
+  contactName: varchar("contactName", { length: 100 }),
+  /** 담당자 전화 */
+  contactPhone: varchar("contactPhone", { length: 30 }),
+  /** 은행명 */
+  bankName: varchar("bankName", { length: 50 }),
+  /** 계좌번호 */
+  accountNumber: varchar("accountNumber", { length: 50 }),
+  /** 예금주 */
+  accountHolder: varchar("accountHolder", { length: 100 }),
+  notes: text("notes"),
+  status: mysqlEnum("status", ["active", "inactive", "pending"]).default("active"),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type TenantPartner = typeof tenantPartners.$inferSelect;
+export type InsertTenantPartner = typeof tenantPartners.$inferInsert;
+
+// ============================================================
 // RESERVATIONS - 예약 마스터
 // ============================================================
 export const reservations = mysqlTable("reservations", {
@@ -1014,6 +1082,8 @@ export const incomeRecords = mysqlTable("income_records", {
   /** 매칭 상태: unmatched | matched | partial */
   matchStatus: mysqlEnum("matchStatus", ["unmatched", "matched", "partial"]).default("unmatched").notNull(),
   notes: text("notes"),
+  /** 테넌트 격리: 부모 reservation과 동기화 (null=두골프 본사, 1~N=파트너사) */
+  tenantId: int("tenantId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type IncomeRecord = typeof incomeRecords.$inferSelect;
@@ -1045,6 +1115,8 @@ export const remittanceRecords = mysqlTable("remittance_records", {
   /** 매칭 상태 */
   matchStatus: mysqlEnum("matchStatus", ["unmatched", "matched", "partial"]).default("unmatched").notNull(),
   notes: text("notes"),
+  /** 테넌트 격리: 부모 reservation과 동기화 (null=두골프 본사, 1~N=파트너사) */
+  tenantId: int("tenantId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type RemittanceRecord = typeof remittanceRecords.$inferSelect;
@@ -1063,6 +1135,8 @@ export const depositRecords = mysqlTable("deposit_records", {
   type: mysqlEnum("type", ["unpaid", "expected", "deduct_other", "deduct_shinhan"]).notNull(),
   amount: int("amount").notNull(),
   memo: text("memo"),
+  /** 테넌트 격리: 부모 reservation과 동기화 (null=두골프 본사, 1~N=파트너사) */
+  tenantId: int("tenantId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type DepositRecord = typeof depositRecords.$inferSelect;
@@ -1087,6 +1161,8 @@ export const chargeRecords = mysqlTable("charge_records", {
   rawText: text("rawText"),
   matchStatus: mysqlEnum("matchStatus", ["unmatched", "matched", "partial"]).default("unmatched").notNull(),
   notes: text("notes"),
+  /** 테넌트 격리: 부모 reservation과 동기화 (null=두골프 본사, 1~N=파트너사) */
+  tenantId: int("tenantId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type ChargeRecord = typeof chargeRecords.$inferSelect;
@@ -1107,6 +1183,8 @@ export const prepaidRecords = mysqlTable("prepaid_records", {
   /** 잔액 (자동 계산) */
   remainingAmount: int("remainingAmount").default(0),
   notes: text("notes"),
+  /** 테넌트 격리: 제휴사 기준 (null=두골프 본사, 1~N=파트너사) */
+  tenantId: int("tenantId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -2260,6 +2338,8 @@ export const aiDevRequests = mysqlTable("ai_dev_requests", {
   id: int("id").autoincrement().primaryKey(),
   /** 멀티테넌트 추적: 어느 테넌트의 개발인지 (두골프=1, 기본값) */
   tenantId: int("tenantId").default(1).notNull(),
+  /** [일원화 연결고리] 원본 개발요청(dev_requests.id) 역참조 — 요청원장↔엔진라이프사이클 연결 */
+  devRequestId: int("devRequestId"),
   /** 개발 파이프라인 출처: manus(마누스) / engine(자체 changeset) / manual(직접편집) / system */
   devSource: mysqlEnum("devSource", ["manus", "engine", "manual", "system"]).default("manus").notNull(),
   /** 요청 수행 에이전트 식별자 */

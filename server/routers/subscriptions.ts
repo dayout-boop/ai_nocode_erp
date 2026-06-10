@@ -15,7 +15,7 @@ import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { ENV } from "../_core/env";
 import { getDb } from "../db";
 import { SUBSCRIPTION_PLANS, getPlanById } from "../products";
-import { partnerOnboarding, tenants } from "../../drizzle/schema";
+import { partnerOnboarding, tenants, partners } from "../../drizzle/schema";
 import { verifyPayment, cancelPayment } from "../services/portone";
 
 // 관리자 전용 프로시저
@@ -289,31 +289,91 @@ export const subscriptionsRouter = router({
       };
     }),
 
-  /** 전체 구독 목록 조회 (관리자) - partnerOnboarding 테이블 기반 */
+  /**
+   * 전체 구독 목록 조회 (관리자) — tenants(구독 정본) 기반으로 재구성.
+   *
+   * [정본 원칙] 실제 구독 상태/플랜/만료일은 tenants 테이블이 정본이다.
+   * partner_onboarding은 '신청서'일 뿐 만료일/코드연결 정보를 갖지 않는다.
+   * 따라서 tenants를 기준으로 partners(코드연결·업체명)와 onboarding(접수일·결제ID)을
+   * LEFT JOIN하여 통합한다. 또한 아직 테넌트가 생성되지 않은 신청서도
+   * 누락 없이 'pending(테넌트 미생성)' 상태로 함께 노출한다.
+   */
   list: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
-    const rows = await db
+
+    // 1) tenants 정본 + partners 코드연결 조인
+    const tenantRows = await db
+      .select({
+        tenantId: tenants.id,
+        partnerId: tenants.partnerId,
+        onboardingId: tenants.onboardingId,
+        slug: tenants.slug,
+        companyName: tenants.companyName,
+        subscriptionPlan: tenants.subscriptionPlan,
+        subscriptionStatus: tenants.subscriptionStatus,
+        billingCycle: tenants.billingCycle,
+        subscriptionExpiresAt: tenants.subscriptionExpiresAt,
+        isActive: tenants.isActive,
+        memo: tenants.memo,
+        createdAt: tenants.createdAt,
+        partnerCompanyName: partners.companyName,
+        partnerTenantId: partners.tenantId,
+      })
+      .from(tenants)
+      .leftJoin(partners, eq(partners.id, tenants.partnerId))
+      .orderBy(desc(tenants.createdAt));
+
+    const linkedOnboardingIds = new Set(
+      tenantRows.map((t) => t.onboardingId).filter((v): v is number => v != null)
+    );
+
+    const tenantList = tenantRows.map((t) => ({
+      id: `tenant-${t.tenantId}`,
+      source: "tenant" as const,
+      tenantId: t.tenantId,
+      partnerId: t.partnerId ?? null,
+      // 코드연결: 파트너의 tenantId 역참조가 정상 연결되었는지 표시
+      codeLinked: t.partnerTenantId === t.tenantId,
+      companyName: t.companyName ?? t.partnerCompanyName ?? "(미지정)",
+      planId: t.subscriptionPlan,
+      status: t.subscriptionStatus,
+      billingCycle: t.billingCycle,
+      startedAt: t.createdAt,
+      expiresAt: t.subscriptionExpiresAt,
+      portonePaymentId: null as string | null,
+      memo: t.memo ?? null,
+    }));
+
+    // 2) 테넌트가 아직 생성되지 않은 신청서(onboarding) 병합 노출
+    const onboardingRows = await db
       .select()
       .from(partnerOnboarding)
       .orderBy(desc(partnerOnboarding.createdAt));
-    // ERP 구독 관리 UI에 맞는 형태로 변환
-    return rows.map((r) => ({
-      id: String(r.id),
-      partnerId: r.partnerId ?? r.id,
-      planId: r.subscriptionPlan ?? "starter",
-      status: r.status === "active" ? "active"
-        : r.status === "approved" ? "active"
-        : r.status === "pending" && r.portonePaymentId ? "pending"
-        : r.status === "pending" ? "trial"
-        : r.status === "rejected" ? "cancelled"
-        : "pending",
-      billingCycle: r.billingCycle ?? "monthly",
-      startedAt: r.createdAt,
-      expiresAt: null as Date | null,
-      portonePaymentId: r.portonePaymentId,
-      companyName: r.companyName,
-    }));
+
+    const orphanOnboarding = onboardingRows
+      .filter((r) => !linkedOnboardingIds.has(r.id))
+      .map((r) => ({
+        id: `onboarding-${r.id}`,
+        source: "onboarding" as const,
+        tenantId: null as number | null,
+        partnerId: r.partnerId ?? null,
+        codeLinked: false,
+        companyName: r.companyName ?? "(미지정)",
+        planId: r.subscriptionPlan ?? "starter",
+        status: r.status === "approved" ? "active"
+          : r.status === "pending" && r.portonePaymentId ? "pending"
+          : r.status === "pending" ? "trial"
+          : r.status === "rejected" ? "cancelled"
+          : "pending",
+        billingCycle: r.billingCycle ?? "monthly",
+        startedAt: r.createdAt,
+        expiresAt: null as Date | null,
+        portonePaymentId: r.portonePaymentId ?? null,
+        memo: null as string | null,
+      }));
+
+    return [...tenantList, ...orphanOnboarding];
   }),
 
   /** 결제 검증 (관리자) */
@@ -369,6 +429,32 @@ export const subscriptionsRouter = router({
       await db.update(partnerOnboarding)
         .set({ status: "rejected", updatedAt: new Date() })
         .where(eq(partnerOnboarding.id, parseInt(input.subscriptionId)));
+      return { success: true };
+    }),
+
+  /**
+   * 테넌트 구독 상태 변경 (관리자) — tenants 정본 직접 제어.
+   * suspended(정지) / active(재개) / cancelled(해지) 전환과 isActive 동기화.
+   */
+  setTenantStatus: adminProcedure
+    .input(z.object({
+      tenantId: z.number().int().positive(),
+      status: z.enum(["active", "suspended", "cancelled", "trial"]),
+      memo: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
+      const rows = await db.select().from(tenants).where(eq(tenants.id, input.tenantId)).limit(1);
+      if (rows.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "테넌트를 찾을 수 없습니다." });
+      await db.update(tenants)
+        .set({
+          subscriptionStatus: input.status,
+          isActive: input.status === "active" || input.status === "trial",
+          ...(input.memo !== undefined ? { memo: input.memo } : {}),
+          updatedAt: new Date(),
+        })
+        .where(eq(tenants.id, input.tenantId));
       return { success: true };
     }),
 });

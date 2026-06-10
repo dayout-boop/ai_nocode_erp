@@ -61,6 +61,8 @@ import ReservationManagement from "@/pages/erp/ReservationManagement";
 import InquiryTemplates from "@/pages/erp/InquiryTemplates";
 import FinanceManagement from "@/pages/erp/FinanceManagement";
 import AffiliateManagement from "@/pages/erp/AffiliateManagement";
+import TenantAffiliates from "@/pages/erp/TenantAffiliates";
+import TenantPartners from "@/pages/erp/TenantPartners";
 import GolfTalkAdmin from "@/pages/erp/GolfTalkAdmin";
 import ManagerAdmin from "@/pages/erp/ManagerAdmin";
 import ERPSettings from "@/pages/erp/ERPSettings";
@@ -184,8 +186,10 @@ const navItems: NavItem[] = [
     icon: <Users size={18} />,
     children: [
       { label: "고객 검색", href: "/crm", icon: <Search size={14} /> },
-      { label: "파트너 관리", href: "/crm/partners", icon: <Building2 size={14} />, masterOnly: true },
-      { label: "제휴사 관리", href: "/crm/affiliates", icon: <Building2 size={14} /> },
+      { label: "파트너 관리(마스터)", href: "/crm/partners", icon: <Building2 size={14} />, masterOnly: true },
+      { label: "제휴사 통합코드(마스터)", href: "/crm/affiliates", icon: <Building2 size={14} />, masterOnly: true },
+      { label: "우리 제휴사", href: "/crm/my-affiliates", icon: <Building2 size={14} /> },
+      { label: "거래처 관리", href: "/crm/my-partners", icon: <Users size={14} /> },
       { label: "파트너 온보딩 관리", href: "/partner-onboarding", icon: <UserPlus size={14} />, masterOnly: true },
       { label: "구독 관리", href: "/subscriptions", icon: <CreditCard size={14} />, masterOnly: true },
       { label: "마스터 관리", href: "/crm/admin-management", icon: <Shield size={14} />, masterOnly: true },
@@ -316,6 +320,8 @@ function ERPContent() {
           <Route path="/crm" component={ERPCRMCustomers} />
           <Route path="/crm/partners" component={ERPCRMPartners} />
           <Route path="/crm/affiliates" component={AffiliateManagement} />
+          <Route path="/crm/my-affiliates" component={TenantAffiliates} />
+          <Route path="/crm/my-partners" component={TenantPartners} />
           <Route path="/crm/admin-management" component={AdminManagementPage} />
           <Route path="/reservations" component={ReservationManagement} />
           <Route path="/reservations/templates" component={InquiryTemplates} />
