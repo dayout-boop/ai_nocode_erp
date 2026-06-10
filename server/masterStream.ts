@@ -22,6 +22,7 @@ import { classifyIntent, fetchPackageContext, fetchReservationContext, compressH
 import { MASTER_SYSTEM_PROMPT } from "./services/prompts/master";
 import { MASTER_TOOLS, executeTool, APPROVAL_REQUIRED_TOOLS, type ToolCallResult, type CallerContext } from "./services/masterTools";
 import { publish } from "./services/realtimeEvents";
+import { checkRequestForBlockedKeywords, logRejectedRequest, NO_CROSS_DESK_KNOWLEDGE_DIRECTIVE } from "./services/knowledgeFilter";
 import { z } from "zod";
 
 const inputSchema = z.object({
@@ -102,6 +103,35 @@ export function registerMasterStreamRoute(app: Express) {
     }
     const input = parsed.data;
 
+    // 2-1. 타 데스크 지식 차단 키워드 거절 검사 (입력 단계)
+    //  - 요청에 차단 키워드가 포함되면 LLM 호출 없이 즉시 거절 응답
+    const rejection = checkRequestForBlockedKeywords(input.message);
+    if (rejection.rejected) {
+      await logRejectedRequest(rejection, { sessionId: input.sessionId, source: "master-stream" });
+      // 사용자 메시지 + 거절 응답을 로그에 기록
+      try {
+        const dbForLog = await getDb();
+        if (dbForLog) {
+          await dbForLog.insert(aiLogs).values([
+            { sessionId: input.sessionId, userId, assistant: "master", role: "user", content: input.message, modelUsed: "", tokensIn: 0, tokensOut: 0, costUsd: "0", grounded: false },
+            { sessionId: input.sessionId, userId, assistant: "master", role: "assistant", content: rejection.rejectionMessage, modelUsed: "knowledge-filter", tokensIn: 0, tokensOut: 0, costUsd: "0", grounded: false },
+          ]);
+        }
+      } catch { /* 로그 실패 무시 */ }
+
+      // SSE 형식으로 거절 메시지 스트리밍 후 종료
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.setHeader("X-Transaction-ID", transactionId);
+      res.flushHeaders();
+      res.write(`event: chunk\ndata: ${JSON.stringify({ text: rejection.rejectionMessage })}\n\n`);
+      res.write(`event: done\ndata: ${JSON.stringify({ model: "knowledge-filter", tokensIn: 0, tokensOut: 0, costUsd: 0, durationMs: 0, devRequestSuggestion: null, toolsUsed: [], rejected: true, matchedKeywords: rejection.matchedKeywords })}\n\n`);
+      res.end();
+      return;
+    }
+
     // 3. SSE 헤더 설정 (transactionId 포함)
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
@@ -162,7 +192,7 @@ export function registerMasterStreamRoute(app: Express) {
           ? `\n\n[개발 모드: 탈마누스 자립 개발]\n현재 마스터는 "탈마누스 자립 개발" 모드를 선택했습니다. 개발 요청이 감지되면 Manus 태스크 전송이 아닌, 서버 내장 Git 엔진(Changeset → dev-1 → dev-2-integration → main)을 통한 자립 개발 파이프라인을 기준으로 안내하세요. "Manus"라는 표현 대신 "자립 개발 엔진"으로 안내합니다.`
           : `\n\n[개발 모드: 마누스 개발]\n현재 마스터는 "마누스 개발" 모드를 선택했습니다. 개발 요청이 감지되면 기존처럼 Manus 태스크로 전송하는 흐름으로 안내하세요.`;
 
-      const systemWithMode = MASTER_SYSTEM_PROMPT + devModeGuide;
+      const systemWithMode = MASTER_SYSTEM_PROMPT + devModeGuide + "\n\n" + NO_CROSS_DESK_KNOWLEDGE_DIRECTIVE;
       const systemWithContext =
         contextParts.length > 0
           ? `${systemWithMode}\n\n[현재 컨텍스트]\n${contextParts.join("\n\n")}`
@@ -298,7 +328,8 @@ export function registerMasterStreamRoute(app: Express) {
         if (jsonMatch) {
           try {
             const p = JSON.parse(jsonMatch[1]);
-            if (p.type === "dev_request") devRequestSuggestion = p;
+            // 원문 보존: 사용자 입력 원문을 originalRequest로 함께 전달 (LLM 재가공으로 인한 의도 변질 방지)
+            if (p.type === "dev_request") devRequestSuggestion = { ...p, originalRequest: input.message };
           } catch { /* 무시 */ }
         }
 
@@ -351,7 +382,8 @@ export function registerMasterStreamRoute(app: Express) {
             if (jsonMatch) {
               try {
                 const p = JSON.parse(jsonMatch[1]);
-                if (p.type === "dev_request") devRequestSuggestion = p;
+                // 원문 보존: 사용자 입력 원문을 originalRequest로 함께 전달 (LLM 재가공으로 인한 의도 변질 방지)
+                if (p.type === "dev_request") devRequestSuggestion = { ...p, originalRequest: input.message };
               } catch { /* 무시 */ }
             }
           }

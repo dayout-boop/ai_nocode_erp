@@ -165,6 +165,15 @@ export const partnerProcedure = t.procedure.use(withTransactionId).use(
     if (ctx.user?.role === 'admin') {
       const resolved =
         ctx.activeTenantId === undefined ? null : ctx.activeTenantId;
+      // [Phase 6] 파트너 전용 서브도메인(partner.dayoutgolf.com)에서는
+      //  마스터라도 '전체보기(null)'를 허용하지 않는다.
+      //  특정 테넌트를 명시(activeTenantId=숫자)해야만 접근 가능 → 파트너 도메인에서 전 테넌트 누출 차단.
+      if (ctx.isPartnerSubdomain && (resolved === null || resolved === undefined)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "파트너 도메인에서는 특정 테넌트를 선택해야 합니다. (전체보기 불가)",
+        });
+      }
       return next({
         ctx: {
           ...ctx,

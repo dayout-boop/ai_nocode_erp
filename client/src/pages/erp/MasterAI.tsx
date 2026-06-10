@@ -1244,8 +1244,31 @@ export default function MasterAI() {
   const trpcUtils = trpc.useUtils();
 
   // ─── 이전 세션 이어가기 핸들러 ─────────────────────────────────────────────
+  // [Phase 5] 세션 핵심 요약 저장 (세션 종료/전환 시점)
+  const summarizeMutation = trpc.chat.summarizeMasterSession.useMutation();
+  // 직전 세션을 백그라운드로 요약 저장 (실패해도 흐름 차단 안 함)
+  const summarizePreviousSession = (prevSessionId: string, msgCount: number) => {
+    if (!prevSessionId || msgCount < 2) return; // 의미 있는 대화만 요약
+    summarizeMutation.mutate(
+      { sessionId: prevSessionId, force: false },
+      { onError: () => { /* 요약 실패는 무시 */ } }
+    );
+  };
+
+  // 새 대화 시작 (초기화) — 직전 세션 요약 후 초기화
+  const handleNewSession = () => {
+    if (isStreaming) return;
+    summarizePreviousSession(sessionId, messages.filter((m) => m.role === 'user' || m.role === 'assistant').length);
+    setMessages([]);
+    setSessionId(`master-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  };
+
   const handleContinueSession = async (targetSessionId: string) => {
     if (isStreaming) return;
+    // 다른 세션으로 전환하면 직전 세션을 요약 저장
+    if (targetSessionId !== sessionId) {
+      summarizePreviousSession(sessionId, messages.filter((m) => m.role === 'user' || m.role === 'assistant').length);
+    }
     setIsContinuingSession(true);
     setRightPanelOpen(false);
     try {
@@ -1270,16 +1293,24 @@ export default function MasterAI() {
       const totalCount = (result as any).totalCount ?? result.messageCount;
       const loadedCount = result.messageCount;
       const isTruncated = totalCount > loadedCount;
+      // 저장된 핵심 요약(있으면) — 이어가기 안내에 맥락 요약을 함께 표시
+      const saved = (result as any).summary as
+        | { summary?: string; keyTopics?: string; dbChanges?: string; devHistory?: string }
+        | null;
+      const summaryBlock = saved && (saved.summary || saved.keyTopics || saved.dbChanges || saved.devHistory)
+        ? `\n\n---\n📌 **이전 세션 핵심 요약**` +
+          (saved.summary ? `\n${saved.summary}` : '') +
+          (saved.keyTopics ? `\n\n· 핵심 키워드: ${saved.keyTopics}` : '') +
+          (saved.dbChanges ? `\n· DB 변경: ${saved.dbChanges}` : '') +
+          (saved.devHistory ? `\n· 개발 이력: ${saved.devHistory}` : '')
+        : '';
+      const baseNotice = isTruncated
+        ? `⏸️ **이전 대화를 이어갑니다** (${loadedCount}/${totalCount}개 메시지 로드됨 — 최신 ${loadedCount}개)\n\n이전 대화 내용을 바탕으로 질문하시면 이어서 답변드립니다.`
+        : `⏸️ **이전 대화를 이어갑니다** (전체 ${loadedCount}개 메시지 완전 로드됨)\n\n이전 대화 내용을 바탕으로 질문하시면 이어서 답변드립니다.`;
       const continueNotice: Message = {
         id: `continue-notice-${Date.now()}`,
         role: 'assistant',
-        content: isTruncated
-          ? `⏸️ **이전 대화를 이어갑니다** (${loadedCount}/${totalCount}개 메시지 로드됨 — 최신 ${loadedCount}개)
-
-이전 대화 내용을 바탕으로 질문하시면 이어서 답변드립니다.`
-          : `⏸️ **이전 대화를 이어갑니다** (전체 ${loadedCount}개 메시지 완전 로드됨)
-
-이전 대화 내용을 바탕으로 질문하시면 이어서 답변드립니다.`,
+        content: baseNotice + summaryBlock,
         timestamp: new Date(),
         phase: 'done' as const,
         streaming: false,
@@ -1877,7 +1908,7 @@ export default function MasterAI() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setMessages([])}
+              onClick={handleNewSession}
               className="text-xs h-7 px-2"
               disabled={isStreaming}
             >

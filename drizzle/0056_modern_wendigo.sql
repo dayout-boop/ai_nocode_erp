@@ -1,0 +1,1 @@
+ALTER TABLE `dev_requests` ADD `originalRequest` text;

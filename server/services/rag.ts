@@ -4,9 +4,9 @@
  * 키워드 기반 의도 분류 및 DB 컨텍스트 조회
  * 추가 AI 호출 없이 처리하여 토큰 비용 절감
  */
-import { like, desc, eq, and, gte } from "drizzle-orm";
+import { like, desc, eq, and, gte, sql } from "drizzle-orm";
 import { getDb } from "../db";
-import { packages, bookings, settlements } from "../../drizzle/schema";
+import { packages, bookings, settlements, incomeRecords } from "../../drizzle/schema";
 import type { ChatMessage } from "./openrouter";
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -132,7 +132,10 @@ export async function fetchPackageContext(message: string): Promise<string> {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// 예약/정산 컨텍스트 조회 (민감정보 마스킹 적용)
+// 예약/자금 컨텍스트 조회 (민감정보 마스킹 적용)
+// 주의: 이 함수는 bookings(통합조회 보조 테이블) 최근 10건 + income_records(자금 정본)
+//       미매칭 요약을 함께 반환합니다. 정확한 자금 수치는 get_income_match_summary 도구를
+//       통해 LLM이 직접 집계하도록 유도합니다(여기 수치는 컨텍스트 힌트 용도).
 // ────────────────────────────────────────────────────────────────────────────
 
 export async function fetchReservationContext(message: string): Promise<string> {
@@ -140,6 +143,27 @@ export async function fetchReservationContext(message: string): Promise<string> 
   if (!db) return "";
 
   try {
+    // 자금(income_records) 미매칭 요약 — 자금 대사/미매칭 질의 대응
+    let incomeSummaryLine = "";
+    try {
+      const [incomeAgg] = await db
+        .select({
+          unmatchedCount: sql<number>`SUM(CASE WHEN matchStatus = 'unmatched' THEN 1 ELSE 0 END)`,
+          unmatchedAmount: sql<number>`COALESCE(SUM(CASE WHEN matchStatus = 'unmatched' THEN amount ELSE 0 END), 0)`,
+          totalCount: sql<number>`COUNT(*)`,
+        })
+        .from(incomeRecords);
+      if (incomeAgg) {
+        incomeSummaryLine =
+          `\n[자금 정본(income_records) 요약] 총 ${Number(incomeAgg.totalCount ?? 0).toLocaleString()}건 중 ` +
+          `미매칭 ${Number(incomeAgg.unmatchedCount ?? 0).toLocaleString()}건` +
+          ` (미매칭 금액 ${Number(incomeAgg.unmatchedAmount ?? 0).toLocaleString()}원). ` +
+          `정확한 테넌트별 집계는 get_income_match_summary 도구를 사용하세요.`;
+      }
+    } catch (e) {
+      console.error("[RAG] income 요약 조회 실패:", e);
+    }
+
     const recentBookings = await db
       .select({
         id: bookings.id,
@@ -157,7 +181,9 @@ export async function fetchReservationContext(message: string): Promise<string> 
       .orderBy(desc(bookings.createdAt))
       .limit(10);
 
-    if (recentBookings.length === 0) return "최근 예약 내역이 없습니다.";
+    if (recentBookings.length === 0) {
+      return (incomeSummaryLine ? incomeSummaryLine.trim() + "\n\n" : "") + "최근 bookings 내역이 없습니다.";
+    }
 
     const lines = recentBookings.map((b) => {
       const maskedPhone = maskPhone(b.leaderPhone);
@@ -165,7 +191,7 @@ export async function fetchReservationContext(message: string): Promise<string> 
       return `- [${b.bookingNumber}] ${b.leaderName}(${maskedPhone}) | 출발: ${departure} | 총액: ${Number(b.totalAmount).toLocaleString()}원 | 상태: ${b.status} | 결제: ${b.paymentStatus}`;
     });
 
-    return lines.join("\n");
+    return `[최근 bookings 10건]\n` + lines.join("\n") + incomeSummaryLine;
   } catch (err) {
     console.error("[RAG] fetchReservationContext 실패:", err);
     return "";

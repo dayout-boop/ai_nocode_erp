@@ -350,6 +350,8 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
         aiCategory: z.string().optional(),
         aiAnalysis: z.string().optional(),
         chatContext: z.string().optional(),
+        /** 사용자(마스터)가 입력한 원문 — LLM 재가공 전 의도 보존용 */
+        originalRequest: z.string().optional().nullable(),
         /** UI에서 사용자가 선택한 Manus 태스크 ID (최우선 라우팅) */
         selectedTaskId: z.string().optional().nullable(),
         /** true이면 무조건 신규 태스크 생성 */
@@ -418,6 +420,7 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
         requestedBy: ctx.user.id,
         aiCategory: category,
         aiAnalysis: analysis,
+        originalRequest: input.originalRequest ?? input.description,
         selectedTaskId: input.selectedTaskId,
         forceNewTask: input.forceNewTask,
       });

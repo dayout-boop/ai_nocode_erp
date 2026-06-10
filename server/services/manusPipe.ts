@@ -237,6 +237,7 @@ async function formatDevRequestMessage(req: {
   estimatedHours?: number | null;
   aiCategory?: string | null;
   aiAnalysis?: string | null;
+  originalRequest?: string | null;
   isFollowUp?: boolean;
   relatedDevRequestId?: number;
 }): Promise<string> {
@@ -246,6 +247,11 @@ async function formatDevRequestMessage(req: {
 
   const aiNote = req.aiAnalysis
     ? `\n**AI 분석:**\n${req.aiAnalysis}\n`
+    : "";
+
+  // [원문 보존] 마스터가 받은 사용자 원문을 그대로 동봉하여 LLM 재가공으로 인한 의도 변질을 방지
+  const originalNote = req.originalRequest && req.originalRequest.trim().length > 0
+    ? `\n**📌 사용자 원문 요청 (재가공 없이 그대로 — 의도 해석의 최우선 기준):**\n> ${req.originalRequest.trim().replace(/\n/g, "\n> ")}\n`
     : "";
 
   // managed_projects DB에서 동적으로 컨텍스트 로드
@@ -314,7 +320,7 @@ ${followUpNote}
 ${aiNote}
 **상세 설명:**
 ${req.description}
-
+${originalNote}
 ---
 *두골프 AI 마스터가 자동 생성한 개발 요청입니다.*
 *프로젝트: www.dayoutgolf.com*
@@ -346,6 +352,7 @@ export async function smartSendToManus(req: {
   estimatedHours?: number | null;
   aiCategory?: string | null;
   aiAnalysis?: string | null;
+  originalRequest?: string | null;
   /** UI에서 사용자가 선택한 태스크 ID (최우선 라우팅) */
   selectedTaskId?: string | null;
   /** true이면 무조건 신규 태스크 생성 */
@@ -475,6 +482,7 @@ export async function sendSingleRequestToManus(devRequestId: number): Promise<{
     estimatedHours: req.estimatedHours,
     aiCategory: req.aiCategory,
     aiAnalysis: req.aiAnalysis,
+    originalRequest: req.originalRequest,
   });
 
   if (result.success) {
@@ -540,6 +548,7 @@ export async function sendPendingRequestsToManus(): Promise<{
       estimatedHours: req.estimatedHours,
       aiCategory: req.aiCategory,
       aiAnalysis: req.aiAnalysis,
+      originalRequest: req.originalRequest,
     });
 
     if (result.success) {
@@ -584,6 +593,8 @@ export async function autoRegisterAndSend(devRequest: {
   requestedBy?: number;
   aiCategory?: string;
   aiAnalysis?: string;
+  /** 사용자(마스터)가 입력한 원문 — LLM 재가공 전 의도 보존용 */
+  originalRequest?: string | null;
   /** UI에서 사용자가 선택한 Manus 태스크 ID (최우선 라우팅) */
   selectedTaskId?: string | null;
   /** true이면 무조건 신규 태스크 생성 */
@@ -614,6 +625,7 @@ export async function autoRegisterAndSend(devRequest: {
       aiAnalyzed: true,
       aiCategory: devRequest.aiCategory,
       aiAnalysis: devRequest.aiAnalysis,
+      originalRequest: devRequest.originalRequest ?? null,
     })
     .$returningId();
 
@@ -634,6 +646,7 @@ export async function autoRegisterAndSend(devRequest: {
     estimatedHours: devRequest.estimatedHours,
     aiCategory: devRequest.aiCategory,
     aiAnalysis: devRequest.aiAnalysis,
+    originalRequest: devRequest.originalRequest,
     selectedTaskId: devRequest.selectedTaskId,
     forceNewTask: devRequest.forceNewTask,
   });

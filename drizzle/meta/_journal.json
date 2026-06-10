@@ -400,6 +400,20 @@
       "when": 1781070976461,
       "tag": "0055_goofy_excalibur",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "5",
+      "when": 1781076871616,
+      "tag": "0056_modern_wendigo",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "5",
+      "when": 1781077273618,
+      "tag": "0057_empty_master_chief",
+      "breakpoints": true
     }
   ]
 }

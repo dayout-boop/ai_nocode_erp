@@ -23,6 +23,7 @@ import { TRPCError } from "@trpc/server";
 import { chargeCredits, getTenantCreditInfo, CREDIT_PACKAGES, PLAN_CREDIT_LIMITS } from "../services/creditGateway";
 import { invokeLLM } from "../_core/llm";
 import { notifyOwner } from "../_core/notification";
+import { checkRequestForBlockedKeywords, logRejectedRequest, NO_CROSS_DESK_KNOWLEDGE_DIRECTIVE } from "../services/knowledgeFilter";
 import crypto from "crypto";
 
 // 간단한 암호화 헬퍼 (AES-256-GCM)
@@ -717,7 +718,17 @@ async function analyzeApiConnectionAsync(
     const db = await getDb();
     if (!db) return;
 
-    const systemPrompt = `당신은 두골프 ERP 시스템의 AI 개발 분석가입니다.
+    // 타 데스크 지식 차단 키워드 거절 검사 (업체 입력 serviceName/serviceLabel 우회 주입 차단)
+    const tenantRejection = checkRequestForBlockedKeywords(`${serviceName} ${serviceLabel ?? ""}`);
+    if (tenantRejection.rejected) {
+      await logRejectedRequest(tenantRejection, { source: `tenant-ai:${tenantId}` });
+      console.warn(`[tenantAi] 업체 API 분석 거절 - tenantId=${tenantId}, 키워드=${tenantRejection.matchedKeywords.join(", ")}`);
+      return;
+    }
+
+    const systemPrompt = NO_CROSS_DESK_KNOWLEDGE_DIRECTIVE + `
+
+당신은 두골프 ERP 시스템의 AI 개발 분석가입니다.
 분양 업체가 외부 API를 연결했을 때, 해당 API가 두골프 ERP에서 어떤 기능과 연결될 수 있는지 분석합니다.
 
 분석 기준:

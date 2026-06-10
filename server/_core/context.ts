@@ -51,8 +51,20 @@ export type TrpcContext = {
    * 파트너/직원 세션에서는 이 값을 신뢰하지 않는다 (보안).
    */
   activeTenantId?: number | null;
+  /** 요청 Host 헤더 (소문자, 포트 제거) */
+  host?: string;
+  /** partner.dayoutgolf.com 서브도메인 접속 여부 (파트너 전용 도메인) */
+  isPartnerSubdomain?: boolean;
   transactionId: string;
 };
+
+/** Host 헤더가 파트너 전용 서브도메인인지 판별 */
+export function detectPartnerSubdomain(rawHost: string | undefined): { host: string; isPartnerSubdomain: boolean } {
+  const host = (rawHost || "").toLowerCase().split(":")[0].trim();
+  // 파트너 전용 도메인: partner.dayoutgolf.com
+  const isPartnerSubdomain = host === "partner.dayoutgolf.com";
+  return { host, isPartnerSubdomain };
+}
 
 export async function createContext(
   opts: CreateExpressContextOptions
@@ -210,6 +222,13 @@ export async function createContext(
     }
   }
 
+  // 6. Host 헤더 기반 파트너 서브도메인 감지
+  //    - partner.dayoutgolf.com 접속 시 tenantId 컨텍스트를 고정/격리하기 위한 플래그
+  //    - 실제 값은 partnerProcedure에서 활용해 마스터 전체보기 누출을 차단
+  const { host, isPartnerSubdomain } = detectPartnerSubdomain(
+    (Array.isArray(opts.req.headers["host"]) ? opts.req.headers["host"][0] : opts.req.headers["host"]) as string | undefined
+  );
+
   return {
     req: opts.req,
     res: opts.res,
@@ -219,6 +238,8 @@ export async function createContext(
     partnerOwner,
     tenantId,
     activeTenantId,
+    host,
+    isPartnerSubdomain,
     transactionId,
   };
 }

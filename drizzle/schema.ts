@@ -470,6 +470,8 @@ export const devRequests = mysqlTable("dev_requests", {
   accuracyEvaluated: boolean("accuracyEvaluated").default(false).notNull(),
   /** 결과물 자동 수집 시 연결된 Manus 체크포인트 버전 ID */
   resultCheckpointId: varchar("resultCheckpointId", { length: 100 }),
+  /** 사용자(마스터)가 입력한 원문 발추 — LLM 재가공 전 의도 보존용 */
+  originalRequest: text("originalRequest"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -749,6 +751,34 @@ export const aiLogs = mysqlTable("ai_logs", {
 });
 export type AiLog = typeof aiLogs.$inferSelect;
 export type InsertAiLog = typeof aiLogs.$inferInsert;
+
+// ============================================================
+// MASTER_SESSION_SUMMARIES - 두골프 마스터 AI 세션 핵심 요약
+//  - 세션 종료/전환 시 핵심 키워드·변경 DB·개발이력을 요약 저장
+//  - 이어가기 클릭 시 전체 히스토리 대신 이 요약본을 컨텍스트로 주입
+//  - 신규 질문 시 자동 로드하지 않음 (혼선/할루시네이션 방지)
+// ============================================================
+export const masterSessionSummaries = mysqlTable("master_session_summaries", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 마스터 세션 식별자 (ai_logs.sessionId) */
+  sessionId: varchar("sessionId", { length: 100 }).notNull().unique(),
+  /** 핵심 요약 (3~5줄) */
+  summary: text("summary"),
+  /** 핵심 키워드/주제 (쉼표 구분) */
+  keyTopics: text("keyTopics"),
+  /** 변경된 DB/스키마 요약 */
+  dbChanges: text("dbChanges"),
+  /** 개발 이력 요약 (요청/배포 등) */
+  devHistory: text("devHistory"),
+  /** 요약 시점 메시지 수 */
+  messageCount: int("messageCount").default(0),
+  /** 요약에 사용한 모델 */
+  model: varchar("model", { length: 100 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type MasterSessionSummary = typeof masterSessionSummaries.$inferSelect;
+export type InsertMasterSessionSummary = typeof masterSessionSummaries.$inferInsert;
 
 // ============================================================
 // CHAT_SESSIONS - 골프톡/두골프 매니저 상담 세션

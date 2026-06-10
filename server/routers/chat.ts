@@ -12,7 +12,7 @@ import { TRPCError } from "@trpc/server";
 import { eq, desc, and, count, sql, ne } from "drizzle-orm";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { chatSessions, aiLogs } from "../../drizzle/schema";
+import { chatSessions, aiLogs, masterSessionSummaries } from "../../drizzle/schema";
 import { orchestratorChat } from "../services/openrouter";
 import { nanoid } from "nanoid";
 
@@ -334,12 +334,172 @@ export const chatRouter = router({
           content: r.content ?? "",
         }));
 
+      // 저장된 세션 요약(있으면) 함께 반환 — 이어가기 시 전체 히스토리 대신 요약을 컨텍스트로 활용 가능
+      const [savedSummary] = await db
+        .select()
+        .from(masterSessionSummaries)
+        .where(eq(masterSessionSummaries.sessionId, input.sessionId))
+        .limit(1);
+
       return {
         sessionId: input.sessionId,
         history,
         messageCount: history.length,
         totalCount, // DB의 전체 메시지 수 (제한 없이)
         messages: rows, // UI 표시용 전체 메시지
+        summary: savedSummary ?? null, // 저장된 핵심 요약 (없으면 null)
       };
     }),
+
+  /**
+   * [Phase 5] 마스터 세션 핵심 요약 생성/저장
+   *  - 세션 종료/전환 시 호출 (대화 종료 시점)
+   *  - 저렴한 모델로 핵심 키워드 + 변경 DB + 개발이력을 요약 저장
+   *  - 이어가기 클릭 시 loadSessionHistory가 이 요약본을 함께 반환
+   *  - 신규 질문 시 자동 로드하지 않음 (요구사항)
+   */
+  summarizeMasterSession: adminProcedure
+    .input(
+      z.object({
+        sessionId: z.string().min(1).max(100),
+        force: z.boolean().default(false), // 기존 요약이 있어도 재생성
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // 이미 요약이 있고 force가 아니면, 메시지 증가가 없을 때 스킵
+      const [existing] = await db
+        .select()
+        .from(masterSessionSummaries)
+        .where(eq(masterSessionSummaries.sessionId, input.sessionId))
+        .limit(1);
+
+      // 대화 메시지 로드 (user/assistant, system 제외)
+      const rows = await db
+        .select({ role: aiLogs.role, content: aiLogs.content })
+        .from(aiLogs)
+        .where(
+          and(
+            eq(aiLogs.sessionId, input.sessionId),
+            eq(aiLogs.assistant, "master"),
+            ne(aiLogs.role, "system")
+          )
+        )
+        .orderBy(aiLogs.createdAt)
+        .limit(200);
+
+      if (rows.length === 0) {
+        return { success: false, reason: "empty", summary: null as MasterSummaryResult | null };
+      }
+
+      // 변동 없으면 재생성 스킵 (메시지 수 동일)
+      if (existing && !input.force && (existing.messageCount ?? 0) === rows.length) {
+        return {
+          success: true,
+          reason: "unchanged",
+          summary: {
+            summary: existing.summary ?? "",
+            keyTopics: existing.keyTopics ?? "",
+            dbChanges: existing.dbChanges ?? "",
+            devHistory: existing.devHistory ?? "",
+          } as MasterSummaryResult,
+        };
+      }
+
+      // 대화 텍스트 구성 (메시지당 길이 제한)
+      const conversationText = rows
+        .map((m) => `${m.role === "user" ? "관리자" : "마스터AI"}: ${(m.content ?? "").slice(0, 500)}`)
+        .join("\n");
+
+      let result: MasterSummaryResult = {
+        summary: `총 ${rows.length}개 메시지 대화`,
+        keyTopics: "",
+        dbChanges: "",
+        devHistory: "",
+      };
+
+      try {
+        const llm = await orchestratorChat({
+          messages: [
+            {
+              role: "user",
+              content:
+                `다음은 두골프 ERP '마스터 AI' 관리자 대화입니다. 다음 세션에서 이어가기 위한 핵심 요약을 JSON으로 작성하세요.\n\n` +
+                `대화:\n${conversationText.slice(0, 12000)}`,
+            },
+          ],
+          complexity: "low", // 저렴한 모델 사용
+          assistant: "master",
+          sessionId: input.sessionId,
+          systemPrompt:
+            "당신은 대화 요약 전문 AI입니다. 반드시 아래 JSON 스키마로만 응답하세요. 추측/창작 금지, 대화에 실제로 등장한 내용만 요약합니다.\n" +
+            '{"summary":"3~5줄 핵심 요약","keyTopics":"핵심 키워드 쉼표구분","dbChanges":"언급된 DB/스키마 변경 요약(없으면 빈문자열)","devHistory":"개발 요청/배포 등 개발이력 요약(없으면 빈문자열)"}',
+        });
+        // 코드펜스(```json ... ```) 제거 후 파싱
+        const cleaned = (llm.text || "{}").replace(/```(?:json)?\s*([\s\S]*?)\s*```/i, "$1").trim();
+        const parsed = JSON.parse(cleaned || "{}");
+        result = {
+          summary: typeof parsed.summary === "string" ? parsed.summary : result.summary,
+          keyTopics: typeof parsed.keyTopics === "string" ? parsed.keyTopics : "",
+          dbChanges: typeof parsed.dbChanges === "string" ? parsed.dbChanges : "",
+          devHistory: typeof parsed.devHistory === "string" ? parsed.devHistory : "",
+        };
+      } catch {
+        // LLM 실패 시 폴백 요약 유지
+      }
+
+      // upsert (존재 시 갱신, 없으면 삽입)
+      if (existing) {
+        await db
+          .update(masterSessionSummaries)
+          .set({
+            summary: result.summary,
+            keyTopics: result.keyTopics,
+            dbChanges: result.dbChanges,
+            devHistory: result.devHistory,
+            messageCount: rows.length,
+            model: "orchestrator-low",
+            updatedAt: new Date(),
+          })
+          .where(eq(masterSessionSummaries.sessionId, input.sessionId));
+      } else {
+        await db.insert(masterSessionSummaries).values({
+          sessionId: input.sessionId,
+          summary: result.summary,
+          keyTopics: result.keyTopics,
+          dbChanges: result.dbChanges,
+          devHistory: result.devHistory,
+          messageCount: rows.length,
+          model: "orchestrator-low",
+        });
+      }
+
+      return { success: true, reason: existing ? "updated" : "created", summary: result };
+    }),
+
+  /**
+   * [Phase 5] 저장된 마스터 세션 요약 단건 조회
+   */
+  getMasterSessionSummary: adminProcedure
+    .input(z.object({ sessionId: z.string().min(1).max(100) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [row] = await db
+        .select()
+        .from(masterSessionSummaries)
+        .where(eq(masterSessionSummaries.sessionId, input.sessionId))
+        .limit(1);
+      return { summary: row ?? null };
+    }),
 });
+
+// 마스터 세션 요약 결과 타입
+interface MasterSummaryResult {
+  summary: string;
+  keyTopics: string;
+  dbChanges: string;
+  devHistory: string;
+}

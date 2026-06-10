@@ -18,6 +18,8 @@ import {
   aiLogs,
   aiScheduledTasks,
   aiSessionState,
+  incomeRecords,
+  reservations,
 } from "../../drizzle/schema";
 import { eq, gte, lte, and, sql, desc, count, sum, isNull, countDistinct } from "drizzle-orm";
 import { maskPhone, maskEmail } from "./rag";
@@ -100,6 +102,25 @@ export const MASTER_TOOLS = [
           },
         },
         required: ["period"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_income_match_summary",
+      description:
+        "자금(입금내역, income_records) 정본의 매칭 현황을 조회합니다. 미매칭(unmatched)/매칭(matched)/부분(partial) 건수와 금액, 테넌트(업체)별 미매칭 집계, 매칭 후보가 될 수 있는 미입금 예약 수를 반환합니다. '자금 대사', '미매칭 입금', 'unmatched income', '자금 매칭' 관련 질문에 사용합니다.",
+      parameters: {
+        type: "object",
+        properties: {
+          tenantId: {
+            type: "integer",
+            description: "특정 테넌트(업체) ID로 필터링. 생략하면 전체 집계. 0 또는 미지정 시 본사(null) 포함 전체.",
+          },
+        },
+        required: [],
         additionalProperties: false,
       },
     },
@@ -472,6 +493,8 @@ export async function executeTool(
         return await getPackagesList(db, args, start);
       case "get_settlement_summary":
         return await getSettlementSummary(db, args, start);
+      case "get_income_match_summary":
+        return await getIncomeMatchSummary(db, args, start);
       case "get_ai_cost_summary":
         return await getAiCostSummary(db, args, start);
       case "get_dev_requests":
@@ -699,6 +722,80 @@ async function getSettlementSummary(db: any, args: Record<string, unknown>, star
       },
       settlements: rows,
       source: "settlements 테이블",
+    },
+    queryTime: Date.now() - start,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getIncomeMatchSummary(db: any, args: Record<string, unknown>, start: number): Promise<ToolCallResult> {
+  const rawTenant = args.tenantId;
+  const tenantFilter =
+    typeof rawTenant === "number" && rawTenant > 0 ? (rawTenant as number) : null;
+
+  // 1. 전체(또는 테넌트) 매칭 상태별 집계
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const incomeConditions: any[] = [];
+  if (tenantFilter !== null) incomeConditions.push(eq(incomeRecords.tenantId, tenantFilter));
+
+  const [agg] = await db
+    .select({
+      totalCount: count(),
+      unmatchedCount: sql<number>`SUM(CASE WHEN matchStatus = 'unmatched' THEN 1 ELSE 0 END)`,
+      matchedCount: sql<number>`SUM(CASE WHEN matchStatus = 'matched' THEN 1 ELSE 0 END)`,
+      partialCount: sql<number>`SUM(CASE WHEN matchStatus = 'partial' THEN 1 ELSE 0 END)`,
+      unmatchedAmount: sql<number>`COALESCE(SUM(CASE WHEN matchStatus = 'unmatched' THEN amount ELSE 0 END), 0)`,
+    })
+    .from(incomeRecords)
+    .where(incomeConditions.length ? and(...incomeConditions) : undefined);
+
+  // 2. 테넌트별 미매칭 집계 (상위 20개) — null(본사)은 0으로 표기
+  const byTenant = await db
+    .select({
+      tenantId: sql<number>`COALESCE(tenantId, 0)`,
+      unmatchedCount: count(),
+      unmatchedAmount: sql<number>`COALESCE(SUM(amount), 0)`,
+    })
+    .from(incomeRecords)
+    .where(
+      tenantFilter !== null
+        ? and(eq(incomeRecords.matchStatus, "unmatched"), eq(incomeRecords.tenantId, tenantFilter))
+        : eq(incomeRecords.matchStatus, "unmatched")
+    )
+    .groupBy(sql`COALESCE(tenantId, 0)`)
+    .orderBy(desc(count()))
+    .limit(20);
+
+  // 3. 매칭 후보가 될 수 있는 미입금/부분입금 예약 수 (paymentStatus != 'paid')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const resvConditions: any[] = [sql`paymentStatus <> 'paid'`];
+  if (tenantFilter !== null) resvConditions.push(eq(reservations.tenantId, tenantFilter));
+  const [resvAgg] = await db
+    .select({ candidateCount: count() })
+    .from(reservations)
+    .where(and(...resvConditions));
+
+  return {
+    tool: "get_income_match_summary",
+    success: true,
+    data: {
+      tenantId: tenantFilter ?? "전체(본사 포함)",
+      queryAt: new Date().toTimeString().slice(0, 8),
+      summary: {
+        totalCount: Number(agg?.totalCount ?? 0),
+        unmatchedCount: Number(agg?.unmatchedCount ?? 0),
+        matchedCount: Number(agg?.matchedCount ?? 0),
+        partialCount: Number(agg?.partialCount ?? 0),
+        unmatchedAmount: Number(agg?.unmatchedAmount ?? 0),
+      },
+      byTenant: byTenant.map((r: { tenantId: number; unmatchedCount: number; unmatchedAmount: number }) => ({
+        tenantId: Number(r.tenantId) === 0 ? "본사(null)" : Number(r.tenantId),
+        unmatchedCount: Number(r.unmatchedCount),
+        unmatchedAmount: Number(r.unmatchedAmount),
+      })),
+      matchCandidateReservations: Number(resvAgg?.candidateCount ?? 0),
+      source: "income_records, reservations 테이블",
+      note: "미매칭 자금(income_records.matchStatus='unmatched')은 예약 건과 매칭 시 tenantId가 부모 reservation에서 상속됩니다.",
     },
     queryTime: Date.now() - start,
   };

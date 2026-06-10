@@ -200,3 +200,97 @@ export async function getBlockRules() {
     .where(eq(knowledgeBlockRules.isActive, true))
     .orderBy(desc(knowledgeBlockRules.createdAt));
 }
+
+// ============================================================
+// 요청(입력) 단계 키워드 거절 검사
+// ------------------------------------------------------------
+// 마스터 채팅 / 상품생성 / 업체 LLM 등 사용자·업체 요청 입력에
+// 타 데스크 지식 키워드가 포함되면, 해당 요청을 처리하지 않고
+// "규정상 답변할 수 없는 키워드 포함" 거절 응답을 반환한다.
+// (지식 차단 이력은 동일하게 DB에 기록된다.)
+// ============================================================
+export interface RequestRejectionResult {
+  rejected: boolean;
+  matchedKeywords: string[];
+  ruleNames: string[];
+  /** 사용자에게 보여줄 거절 메시지 (rejected=false이면 빈 문자열) */
+  rejectionMessage: string;
+}
+
+/**
+ * 사용자/업체 요청 텍스트를 검사하여, 타 데스크 지식 차단 키워드가
+ * 포함되어 있으면 거절 결과를 반환한다.
+ *
+ * @param requestText 검사할 요청 원문
+ */
+export function checkRequestForBlockedKeywords(
+  requestText: string
+): RequestRejectionResult {
+  const text = requestText || "";
+  const matchedKeywords: string[] = [];
+  const ruleNames = new Set<string>();
+
+  for (const rule of DEFAULT_BLOCK_RULES) {
+    for (const keyword of rule.keywords) {
+      if (text.includes(keyword)) {
+        matchedKeywords.push(keyword);
+        ruleNames.add(rule.ruleName);
+      }
+    }
+  }
+
+  const rejected = matchedKeywords.length > 0;
+  // 중복 키워드 제거
+  const uniqueKeywords = Array.from(new Set(matchedKeywords));
+
+  const rejectionMessage = rejected
+    ? `요청에 두골프 ERP 규정상 처리할 수 없는 키워드(${uniqueKeywords
+        .map((k) => `"${k}"`)
+        .join(", ")})가 포함되어 있어 이 요청은 처리할 수 없습니다. ` +
+      `두골프 ERP/홈페이지 개발·운영과 직접 관련된 다른 질문을 입력해 주세요.`
+    : "";
+
+  return {
+    rejected,
+    matchedKeywords: uniqueKeywords,
+    ruleNames: Array.from(ruleNames),
+    rejectionMessage,
+  };
+}
+
+/**
+ * 요청 거절 시 차단 이력을 DB에 기록한다.
+ */
+export async function logRejectedRequest(
+  result: RequestRejectionResult,
+  context: { sessionId?: string; source?: string } = {}
+): Promise<void> {
+  if (!result.rejected) return;
+  try {
+    const db = await getDb();
+    if (!db) return;
+    await db.insert(knowledgeBlockLogs).values({
+      knowledgeName: `[요청거절${context.source ? `:${context.source}` : ""}] ${result.ruleNames.join(", ")}`.substring(0, 300),
+      blockReason: `요청 입력에서 차단 키워드 감지: ${result.matchedKeywords.join(", ")}`,
+      blockType: "auto",
+      sourceDeskHint: result.ruleNames.join(", ").substring(0, 200) || "타 데스크 (추정)",
+      sessionId: context.sessionId?.substring(0, 100),
+      isBlocked: true,
+    });
+  } catch (err) {
+    console.error("[KnowledgeFilter] 요청 거절 로그 저장 실패:", err);
+  }
+}
+
+/**
+ * 모든 LLM 요청에 자동 포함시킬 "타 데스크 지식 사용 금지" 시스템 지침.
+ * 마스터/상품생성/업체 LLM 등 모든 파이프라인의 system 메시지에 부착한다.
+ */
+export const NO_CROSS_DESK_KNOWLEDGE_DIRECTIVE = `
+[타 데스크 지식 사용 금지 — 강제]
+이 작업은 오직 두골프 ERP/홈페이지 개발·운영과 직접 관련된 지식만 사용합니다.
+GitHub 연동 원칙, IP 보호/라이센스, L-5 인가 스텁, 파일 수정 3회 중단, 자율수행 에이전트 전략,
+최고규율, 멀티하이브리드, 외부 리소스 연결 제한 등 타 데스크에서 유래한 지식·규칙은
+절대 참조하거나 적용하지 않습니다. 위 주제가 요청에 포함되면 "규정상 처리할 수 없는 요청"으로
+응답하고 두골프 ERP 관련 질문을 다시 요청합니다.
+`.trim();

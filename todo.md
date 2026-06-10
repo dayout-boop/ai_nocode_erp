@@ -2214,3 +2214,41 @@ Detected
 - [x] ai_dev_requests.devRequestId + tenantId 역참조 컬럼 추가 (DB 반영 확인)
 - [x] 중복 DB 개발 차단 가드: checkTableDuplication (정확/유사 중복 감지, 테스트 통과)
 - [x] 전체 실제 DB 체크 + 연결구조 전수 확인 (스키마 반영·데이터 분포·매칭상태 확인, matchCharge tenantId 상속 보완)
+
+
+## 마스터 파이프라인 강화 (2026-06-10 요청)
+
+### 사전 조사
+- [x] 마스터 LLM → Manus 태스크 → Git 수정 → GitHub 반영 흐름 실재 확인 (A-5)
+- [x] 마누스 개발요청 클릭 경로 vs 탈마누스(self) 경로의 원문보존 기능 차이 확인 (C)
+- [x] 개발 완료 후 GitHub push + DB push 과정 점검 (C)
+- [x] 현재 세션 요약/이전대화 복원 구조 및 기존 불러오기 아이콘 확인 (B)
+
+### (A) 자금 정본 조회 보강
+- [x] masterTools.ts에 get_income_match_summary 도구 신설 (income_records status='unmatched' 카운트, tenantId별 집계, 매칭 후보 예약 수)
+- [x] fetchReservationContext 정정: 자금/정산 질의 시 income_records 미매칭 요약 주입 또는 함수명 명확화
+- [x] master.ts 사실기반 응답 가드: 도구로 못 세는 수치는 인용 금지
+- [x] 마스터 요청이 불명확할 경우 확인요청(clarification) 리턴 필수
+
+### (D) 타데스크 지식차단 → 키워드 거절 기능 전환
+- [x] 차단 기능 유지하되, ERP/상품생성/업체 LLM 요청에서 차단 키워드 감지 시 "규정상 답변할 수 없는 {키워드} 포함, 다른 질문 요청" 거절 응답으로 전환
+- [x] masterStream/업체 LLM(tenantAi) 파이프라인 입력 단계에 자동 연결
+- [x] 모든 요청에 "타데스크 지식 사용 금지" 지침 자동 포함 (masterStream/tenantAi/devContext)
+
+### (C) 마누스 개발요청 경로 강화
+- [x] dev_request originalRequest(원문 발췌) 필드 의무화 + 마누스 전송 메시지에 원문 블록 동봉 (masterStream 전 경로 보존)
+- [ ] classifyRequest LLM 재가공을 분류(priority/module/hours)에 한정, title/description 1차 보존
+- [ ] 개발 완료 후 GitHub/DB push 과정 재점검 및 보강
+
+### (B) 세션 요약/복원
+- [x] 대화 종료(초기화/세션 전환) 시 핵심키워드 + 변경 DB + 개발이력을 저렴 모델(low)로 자동 요약 저장 (master_session_summaries)
+- [x] 이어가기 시 이후 대화 기준 재요약 (세션 전환 시 직전 세션 upsert 재요약)
+- [x] 신규 질문 자동로드 미적용 결정(혼선/할루시네이션 리스크) — 이어가기 시에만 요약본 컨텍스트 제공
+- [x] 이전 대화기록 전체 복원 (loadSessionHistory limit 500 + 요약본 동반 표시)
+
+### (E) partner 서브도메인 자동 테넌트 고정
+- [x] partner.dayoutgolf.com 접속 세션 테넌트 격리 강화 (detectPartnerSubdomain + partnerProcedure에서 마스터 전체보기 차단)
+
+### 마무리
+- [x] vitest 테스트 작성·검증 (partnerSubdomain/requestRejection 신규 11개, 전체 428개 통과)
+- [x] 체크포인트 저장 및 결과 보고
