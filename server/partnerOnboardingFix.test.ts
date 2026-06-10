@@ -16,8 +16,9 @@ describe("파트너 가입 진입점(cta.ts)", () => {
     "utf-8",
   );
 
-  it("PARTNER_SIGNUP_ENTRY는 구글 인증 엔드포인트로 시작한다", () => {
-    expect(ctaSource).toContain("/api/partner/auth/google");
+  it("PARTNER_SIGNUP_ENTRY는 온보딩 페이지로 직접 연결된다", () => {
+    // 새로운 UX: 랜딩 -> 온보딩 소개 페이지 (구글 로그인 전)
+    expect(ctaSource).toContain("/partner/onboarding-chat");
   });
 
   it("구글 인증 후 onboarding-chat으로 돌아오도록 returnUrl이 설정돼 있다", () => {

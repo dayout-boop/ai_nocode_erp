@@ -397,7 +397,6 @@ router.get('/google/callback', async (req, res) => {
     });
 
     // returnUrl 결정: authProxy 위임값 우선, 없으면 state에서 복원
-    // 승인된 활성 파트너는 풀 ERP(/erp)로 진입 (간이 대시보드 /partner/dashboard 폐기)
     let returnUrl = '/erp';
     if (returnUrlFromProxy && returnUrlFromProxy.startsWith('/')) {
       returnUrl = returnUrlFromProxy;
@@ -411,14 +410,30 @@ router.get('/google/callback', async (req, res) => {
         }
       } catch {}
     }
-    // 이미 승인·활성 파트너가 가입/온보딩/간이대시보드 경로로 돌아가지 않도록 풀 ERP로 강제
-    if (
-      returnUrl.startsWith('/partner/onboarding-chat') ||
-      returnUrl.startsWith('/partner/dashboard') ||
-      returnUrl.startsWith('/partner/join') ||
-      returnUrl.startsWith('/partner/pending-verification')
-    ) {
-      returnUrl = '/erp';
+
+    // returnUrl 분기 처리:
+    // - 활성 파트너 (isActive=true): 온보딩/대시보드/가입 경로 → /erp로 강제 (풀 ERP 진입)
+    // - 비활성 파트너 (isActive=false): 온보딩 경로 유지 (채팅 계속), 기타 경로 → /erp로 강제
+    if (partner.isActive) {
+      // 활성 파트너: 온보딩/대시보드/가입 경로를 모두 /erp로 강제
+      if (
+        returnUrl.startsWith('/partner/onboarding-chat') ||
+        returnUrl.startsWith('/partner/dashboard') ||
+        returnUrl.startsWith('/partner/join') ||
+        returnUrl.startsWith('/partner/pending-verification')
+      ) {
+        returnUrl = '/erp';
+      }
+    } else {
+      // 비활성 파트너 (신규/진행중): 온보딩 채팅 경로는 유지, 기타 경로는 /erp로 강제
+      if (
+        returnUrl.startsWith('/partner/dashboard') ||
+        returnUrl.startsWith('/partner/join') ||
+        returnUrl.startsWith('/partner/pending-verification')
+      ) {
+        returnUrl = '/erp';
+      }
+      // /partner/onboarding-chat는 유지 (신규 가입자가 채팅 계속할 수 있도록)
     }
 
     console.log(`[GoogleAuth] 로그인 성공 - 파트너 ${partner.id}, 테넌트 ${partner.tenantId}, proxyVerified: ${isProxyVerified}`);
