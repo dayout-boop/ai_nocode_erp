@@ -18,7 +18,7 @@ import {
   PanelRight, X, Paperclip, Image as ImageIcon, FileText, ChevronRight,
   GitCommit, Layers, Link2, CheckSquare, XCircle, Wifi, WifiOff,
   Bell, BellRing, Sparkles, History, ChevronLeft,
-  Cloud, Server,
+  Cloud, Server, Globe, Github, ShieldCheck, Code2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -771,6 +771,50 @@ function RightPanel({
 
           {/* 연동 서비스 탭 */}
           <TabsContent value="services" className="flex-1 overflow-y-auto px-3 pb-3 mt-2 space-y-3" style={{ minHeight: 0 }}>
+            {/* 처리 가능 영역 (두골프 마스터 역량) */}
+            <div>
+              <p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1">
+                <ShieldCheck size={11} className="text-emerald-500" />
+                마스터 처리 가능 영역
+              </p>
+              <div className="space-y-1.5">
+                {[
+                  { name: "DB 스키마 / AI 관리 / 개발 관리", icon: <Database size={12} />, gate: "상시", tone: "emerald" },
+                  { name: "개발 요청 자동 감지 (탈마누스/마누스)", icon: <Code2 size={12} />, gate: "상시", tone: "emerald" },
+                  { name: "GitHub 저장소 조회", icon: <Github size={12} />, gate: "상시", tone: "emerald" },
+                  { name: "웹 검색 / 외부 정보 조회", icon: <Globe size={12} />, gate: "승인 필요", tone: "amber" },
+                  { name: "URL 내용 분석", icon: <Link2 size={12} />, gate: "승인 필요", tone: "amber" },
+                ].map((cap) => (
+                  <div
+                    key={cap.name}
+                    className={`flex items-center gap-2 rounded-lg px-2.5 py-2 border ${
+                      cap.tone === "amber"
+                        ? "bg-amber-50 border-amber-200"
+                        : "bg-emerald-50 border-emerald-200"
+                    }`}
+                  >
+                    <div className={cap.tone === "amber" ? "text-amber-600" : "text-emerald-600"}>
+                      {cap.icon}
+                    </div>
+                    <p className="text-[11px] font-medium text-gray-700 flex-1 leading-tight">{cap.name}</p>
+                    <span
+                      className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold shrink-0 ${
+                        cap.tone === "amber"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-emerald-100 text-emerald-700"
+                      }`}
+                    >
+                      {cap.gate}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1.5 leading-tight">
+                ※ 외부 검색·URL 분석은 마스터 승인 후 실행됩니다(승인 후 외부 검색 가능).
+                예약 현황·고객 문의는 두골프 매니저(파트너용)로 이관되었습니다.
+              </p>
+            </div>
+
             <div>
               <p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1">
                 <Link2 size={11} className="text-blue-500" />
@@ -800,23 +844,32 @@ function RightPanel({
               </div>
             </div>
 
-            {/* 권장 추가 연동 */}
+            {/* 비용 최적화 현황 (재확인: 기구현 항목 반영) */}
             <div>
               <p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1">
                 <TrendingUp size={11} className="text-orange-500" />
-                비용 절감 권장 연동
+                비용 최적화 현황
               </p>
               <div className="space-y-1.5">
                 {[
-                  { name: "벡터 DB (RAG)", benefit: "토큰 소모 40% 절감", priority: "🟠 높음" },
-                  { name: "AI 오케스트레이터", benefit: "다중 AI 모델 라우팅 최적화", priority: "🟠 높음" },
+                  { name: "RAG DB 컨텍스트 주입", benefit: "키워드 의도분류로 토큰 절감 · 매니저 테넌트 격리 적용", state: "done" },
+                  { name: "AI 오케스트레이터 라우팅", benefit: "복잡도별 Pro/Flash/Lite 자동 선택", state: "done" },
+                  { name: "탈마누스 자체 개발 엔진", benefit: "외부 API 비용 없이 자체 Git 파이프라인 처리", state: "done" },
+                  { name: "Slack 운영 알림 Webhook", benefit: "개발/오류 알림 자동화", state: "todo" },
                 ].map((item) => (
-                  <div key={item.name} className="bg-orange-50 rounded-lg px-3 py-2 border border-orange-100">
+                  <div
+                    key={item.name}
+                    className={`rounded-lg px-3 py-2 border ${
+                      item.state === "done"
+                        ? "bg-green-50 border-green-100"
+                        : "bg-orange-50 border-orange-100"
+                    }`}
+                  >
                     <div className="flex items-center justify-between mb-0.5">
-                      <p className="text-xs font-semibold text-orange-800">{item.name}</p>
-                      <span className="text-[10px]">{item.priority}</span>
+                      <p className={`text-xs font-semibold ${item.state === "done" ? "text-green-800" : "text-orange-800"}`}>{item.name}</p>
+                      <span className="text-[10px]">{item.state === "done" ? "✅ 구현" : "🟠 권장"}</span>
                     </div>
-                    <p className="text-[10px] text-orange-600">{item.benefit}</p>
+                    <p className={`text-[10px] ${item.state === "done" ? "text-green-600" : "text-orange-600"}`}>{item.benefit}</p>
                   </div>
                 ))}
               </div>
@@ -1364,6 +1417,24 @@ export default function MasterAI() {
     },
   });
 
+  // 탈마누스 자체 개발 실행 (Manus API 미경유)
+  const selfDevMutation = trpc.devRequest.selfDevelop.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(
+          `🛠️ 탈마누스 자체개발 완료 (ID: ${data.devRequestId}) — ${data.changedFiles.length}개 파일 / ${data.stage ?? "-"}`,
+          { duration: 5000 }
+        );
+      } else {
+        toast.warning(`📋 자체개발 등록 (ID: ${data.devRequestId}) — ${data.message}`, { duration: 6000 });
+      }
+      if (data.devRequestId) setLastSentDevRequestId(data.devRequestId);
+    },
+    onError: (err) => {
+      toast.error(`❌ 자체개발 실패: ${err.message}`);
+    },
+  });
+
   const detectCompleteMutation = trpc.devRequest.detectAndCompleteFromResponse.useMutation({
     onSuccess: (data) => {
       if (data.detected && data.updatedCount > 0) {
@@ -1683,10 +1754,43 @@ export default function MasterAI() {
 
   const handleSendDevRequest = useCallback(
     (msgId: string, suggestion: DevRequestSuggestion) => {
+      if (devMode === "self") {
+        // 탈마누스 모드: 마누스 태스크 선택 다이얼로그 없이 자체 엔진으로 즉시 실행
+        setSendingRequests((prev) => new Set(prev).add(msgId));
+        selfDevMutation
+          .mutateAsync({
+            title: suggestion.title,
+            description: suggestion.description,
+            priority: suggestion.priority,
+            module: suggestion.module,
+            estimatedHours: suggestion.estimatedHours,
+          })
+          .then((result) => {
+            setSentRequests((prev) => new Set(prev).add(msgId));
+            setSentRequestResults((prev) => {
+              const next = new Map(prev);
+              next.set(msgId, {
+                routingType: "self_engine",
+                routingReason: result.message ?? "탈마누스 자체 Git 엔진 실행",
+              });
+              return next;
+            });
+          })
+          .catch(() => {})
+          .finally(() => {
+            setSendingRequests((prev) => {
+              const next = new Set(prev);
+              next.delete(msgId);
+              return next;
+            });
+          });
+        return;
+      }
+      // 마누스 모드: 기존 태스크 선택 다이얼로그
       setPendingDevRequest({ msgId, suggestion });
       setTaskSelectOpen(true);
     },
-    []
+    [devMode, selfDevMutation]
   );
 
   const handleTaskConfirm = useCallback(

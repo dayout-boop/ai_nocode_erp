@@ -200,3 +200,176 @@ export async function compressHistory(
 
   return [summaryMessage, ...recent.map((m) => ({ role: m.role, content: m.content }))];
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// 두골프 매니저(파트너용) 테넌트 격리 RAG
+// - tenantId로 본인(파트너사) 데이터만 조회 → 테넌트 간 데이터 누출 원천 차단
+// - tenantId === null 이면 두골프 본사(마스터 전체보기) → 전체 조회
+// - 고객 개인정보는 마스킹
+// ────────────────────────────────────────────────────────────────────────────
+
+import { eq as _eq, and as _and, desc as _desc, sql as _sql, isNull as _isNull } from "drizzle-orm";
+import { inquiries as _inquiries } from "../../drizzle/schema";
+
+/**
+ * tenantId 격리 조건 생성 헬퍼
+ * - tenantId === null: 본사(마스터 전체보기) → 필터 없음(undefined)
+ * - tenantId === number: 해당 테넌트만
+ *
+ * 주의: 파트너 세션은 context.ts에서 자신의 tenantId가 강제 주입되며,
+ * x-active-tenant 헤더를 신뢰하지 않으므로 임의 테넌트 조회가 불가능하다.
+ */
+function tenantCond(column: AnyTenantColumn, tenantId: number | null) {
+  if (tenantId === null || tenantId === undefined) return undefined;
+  return _eq(column, tenantId);
+}
+
+// drizzle 컬럼 타입을 느슨하게 받기 위한 별칭 (런타임 안전, 컴파일 단순화)
+type AnyTenantColumn = Parameters<typeof _eq>[0];
+
+export interface ManagerContextOptions {
+  /** 파트너 테넌트 ID (null = 본사 전체보기). context.ts에서 주입된 값만 전달할 것 */
+  tenantId: number | null;
+  /** 사용자 메시지 (의도 분류용) */
+  message: string;
+  /** 각 섹션 최대 건수 */
+  limit?: number;
+}
+
+/**
+ * 두골프 매니저 RAG 컨텍스트 생성 (테넌트 격리)
+ * - 의도에 따라 예약/정산/상품/문의 컨텍스트를 합성
+ * - 항상 tenantId로 필터링하여 본인 데이터만 노출
+ */
+export async function fetchManagerContext(opts: ManagerContextOptions): Promise<string> {
+  const db = await getDb();
+  if (!db) return "";
+
+  const { tenantId, message } = opts;
+  const limit = Math.min(opts.limit ?? 8, 20);
+  const intent = classifyIntent(message);
+  const sections: string[] = [];
+
+  const scopeLabel = tenantId === null ? "두골프 본사(전체)" : `파트너사 #${tenantId}`;
+
+  try {
+    // ── 상품 컨텍스트 (패키지 의도 또는 기본) ──
+    if (intent.needsPackages || (!intent.needsReservations && !intent.needsStats)) {
+      const pkgRows = await db
+        .select({
+          id: packages.id,
+          title: packages.title,
+          country: packages.country,
+          status: packages.status,
+        })
+        .from(packages)
+        .where(_and(tenantCond(packages.tenantId, tenantId), _eq(packages.status, "active")))
+        .orderBy(_desc(packages.isPopular))
+        .limit(limit);
+      if (pkgRows.length > 0) {
+        sections.push(
+          `[상품 — ${scopeLabel}]\n` +
+            pkgRows
+              .map((p) => `- [ID:${p.id}] ${p.title} | 국가:${p.country} | 상태:${p.status}`)
+              .join("\n")
+        );
+      }
+    }
+
+    // ── 예약 컨텍스트 (테넌트 격리, 개인정보 마스킹) ──
+    if (intent.needsReservations || intent.needsStats) {
+      const bookingRows = await db
+        .select({
+          bookingNumber: bookings.bookingNumber,
+          leaderName: bookings.leaderName,
+          leaderPhone: bookings.leaderPhone,
+          totalAmount: bookings.totalAmount,
+          paidAmount: bookings.paidAmount,
+          status: bookings.status,
+          paymentStatus: bookings.paymentStatus,
+          departureDate: bookings.departureDate,
+        })
+        .from(bookings)
+        .where(tenantCond(bookings.tenantId, tenantId))
+        .orderBy(_desc(bookings.createdAt))
+        .limit(limit);
+      if (bookingRows.length > 0) {
+        sections.push(
+          `[예약 — ${scopeLabel}]\n` +
+            bookingRows
+              .map((b) => {
+                const dep = b.departureDate
+                  ? new Date(b.departureDate).toLocaleDateString("ko-KR")
+                  : "미정";
+                const name = b.leaderName ? b.leaderName.slice(0, 1) + "**" : "-";
+                return `- [${b.bookingNumber}] ${name}(${maskPhone(b.leaderPhone)}) | 출발:${dep} | 총액:${Number(b.totalAmount).toLocaleString()}원 | 상태:${b.status}/${b.paymentStatus}`;
+              })
+              .join("\n")
+        );
+      } else {
+        sections.push(`[예약 — ${scopeLabel}] 조회된 예약이 없습니다.`);
+      }
+
+      // ── 정산 요약 (집계) ──
+      const settleRows = await db
+        .select({
+          status: settlements.status,
+          cnt: _sql<number>`count(*)`,
+          total: _sql<number>`coalesce(sum(${settlements.amount}), 0)`,
+        })
+        .from(settlements)
+        .where(tenantCond(settlements.tenantId, tenantId))
+        .groupBy(settlements.status);
+      if (settleRows.length > 0) {
+        sections.push(
+          `[정산 요약 — ${scopeLabel}]\n` +
+            settleRows
+              .map(
+                (s) =>
+                  `- ${s.status}: ${Number(s.cnt).toLocaleString()}건 / ${Number(s.total).toLocaleString()}원`
+              )
+              .join("\n")
+        );
+      }
+    }
+
+    // ── 문의 컨텍스트 (테넌트 격리, 개인정보 마스킹) ──
+    if (message.includes("문의") || message.includes("상담") || intent.needsStats) {
+      const inqRows = await db
+        .select({
+          name: _inquiries.name,
+          phone: _inquiries.phone,
+          packageName: _inquiries.packageName,
+          status: _inquiries.status,
+          createdAt: _inquiries.createdAt,
+        })
+        .from(_inquiries)
+        .where(tenantCond(_inquiries.tenantId, tenantId))
+        .orderBy(_desc(_inquiries.createdAt))
+        .limit(limit);
+      if (inqRows.length > 0) {
+        sections.push(
+          `[고객 문의 — ${scopeLabel}]\n` +
+            inqRows
+              .map((q) => {
+                const name = q.name ? q.name.slice(0, 1) + "**" : "-";
+                const when = q.createdAt
+                  ? new Date(q.createdAt).toLocaleDateString("ko-KR")
+                  : "-";
+                return `- ${name}(${maskPhone(q.phone)}) | ${q.packageName ?? "상품미지정"} | 상태:${q.status} | ${when}`;
+              })
+              .join("\n")
+        );
+      }
+    }
+
+    if (sections.length === 0) return "";
+    return (
+      `※ 아래 데이터는 ${scopeLabel} 범위로 격리 조회된 실제 DB 데이터입니다. 이 범위 밖 데이터는 존재하지 않습니다.\n\n` +
+      sections.join("\n\n")
+    );
+  } catch (err) {
+    console.error("[RAG] fetchManagerContext 실패:", err);
+    return "";
+  }
+}

@@ -20,6 +20,7 @@ import {
   autoRegisterAndSend,
   publishManusSite,
 } from "../services/manusPipe";
+import { runSelfDevelopment } from "../services/selfDevPipe";
 import { invokeLLM } from "../_core/llm";
 import { createAiNotification } from "./aiNotifications";
 import { publish } from "../services/realtimeEvents";
@@ -433,6 +434,100 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
         module,
         priority,
         estimatedHours,
+      };
+    }),
+
+  /**
+   * 탈마누스 자체 개발 실행 (마누스 API 미경유)
+   * AI가 채팅에서 개발 요청을 감지하고 devMode='self'일 때 이 프로시저로 처리합니다.
+   *
+   * 플로우:
+   * 1. dev_requests 등록 (source=master_ai, engineType=self)
+   * 2. 자체 LLM으로 코드 변경조각(Changeset) 생성 → dev-1 격리 커밋 + 4종 감사 (runPipeline)
+   * 3. 결과를 dev_requests에 반영 후 반환 (Manus 경로와 완전 분리)
+   */
+  selfDevelop: adminProcedure
+    .input(
+      z.object({
+        title: z.string().min(1).max(200),
+        description: z.string().min(1),
+        priority: z.enum(["critical", "high", "medium", "low"]).default("medium"),
+        module: z.string().max(100).default("ERP"),
+        estimatedHours: z.number().int().positive().default(4),
+        aiCategory: z.string().optional(),
+        aiAnalysis: z.string().optional(),
+        /** dev-2-integration 자동 병합 여부 (기본 false) */
+        autoIntegrate: z.boolean().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // 1. dev_requests 등록 (자체 엔진 출처 명시)
+      const [inserted] = await db
+        .insert(devRequests)
+        .values({
+          title: input.title,
+          description: input.description,
+          priority: input.priority,
+          status: "in_progress",
+          module: input.module,
+          estimatedHours: input.estimatedHours,
+          createdBy: ctx.user.id,
+          source: "master_ai",
+          engineType: "self",
+          aiCategory: input.aiCategory,
+          aiAnalysis: input.aiAnalysis,
+          aiAnalyzed: !!input.aiAnalysis,
+        })
+        .$returningId();
+
+      const devRequestId = inserted.id;
+      publish("dev_request_created", {
+        id: devRequestId,
+        title: input.title,
+        priority: input.priority,
+        status: "in_progress",
+      });
+
+      // 2. 자체 개발 파이프 실행 (코드생성 → dev-1 커밋 → 4종 감사)
+      const result = await runSelfDevelopment({
+        devRequestId,
+        title: input.title,
+        description: input.description,
+        module: input.module,
+        aiCategory: input.aiCategory,
+        requestedBy: ctx.user.id,
+        autoIntegrate: input.autoIntegrate ?? false,
+        tenantId: 1,
+      });
+
+      // 3. 결과 반영
+      const newStatus = result.success ? "completed" : "pending";
+      await db
+        .update(devRequests)
+        .set({
+          status: newStatus,
+          result: `[탈마누스 자체개발] ${result.message}\n변경파일: ${result.changedFiles.join(", ") || "없음"}\n단계: ${result.stage ?? "-"} / 정합성: ${result.integrityStatus ?? "-"}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(devRequests.id, devRequestId));
+
+      publish("dev_request_updated", { id: devRequestId, status: newStatus });
+
+      return {
+        devRequestId,
+        success: result.success,
+        engine: "self" as const,
+        pipelineRequestId: result.pipelineRequestId,
+        changedFiles: result.changedFiles,
+        model: result.model,
+        codeGenCostUsd: result.codeGenCostUsd,
+        stage: result.stage,
+        integrityStatus: result.integrityStatus,
+        message: result.message,
+        summary: result.summary,
       };
     }),
 

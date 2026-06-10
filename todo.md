@@ -2167,3 +2167,14 @@ Detected
 - [x] vitest: deployRunner git pull + 락 테스트 추가 (기존 deployRunner.test.ts 확장)
 - [x] vitest: 전체 회귀 확인 (기존 386건 이상 통과)
 - [x] 체크포인트 저장
+
+
+## [신규] 탈마누스/마누스 분기 + 마스터/매니저 역할 재정립 (2026-06)
+- [x] 탈마누스/마누스 개발 흐름 실제 분기 구현 (selfDevPipe.ts + devRequest.selfDevelop + UI devMode 분기, 강제 폴백 제거)
+- [x] 두골프 마스터 시스템 프롬프트 업데이트 (웹검색·URL분석[승인필요], GitHub 조회, DB스키마/AI관리/개발관리, "승인 후 외부 검색 가능")
+- [x] 예약현황·고객문의 → 매니저 이관 (마스터 프롬프트·QUICK_COMMANDS에서 안내), 정산은 마스터 유지
+- [x] MasterAI.tsx 우측 패널: 처리가능영역 섹션 신설 + 비용최적화 현황(구현완료 반영)
+- [x] 두골프 매니저 RAG: rag.ts에 fetchManagerContext 추가 (ctx.tenantId 테넌트 격리)
+- [x] managerChat 프로시저를 partnerProcedure 기반으로 전환 + RAG 주입
+- [x] manager.ts 프롬프트 v2 (실제 DB 데이터 기반 응답, 할루시네이션 방지, 테넌트 격리 원칙)
+- [x] vitest: selfDevPipe 5건 + rag.manager 4건 추가, 전체 396건 통과 + tsc 0에러

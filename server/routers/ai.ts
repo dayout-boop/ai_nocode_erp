@@ -8,10 +8,10 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq, desc, and, gte, sql, count, sum } from "drizzle-orm";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, protectedProcedure, partnerProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { aiLogs, packages, bookings, devRequests, chatSessions } from "../../drizzle/schema";
-import { classifyIntent, fetchPackageContext, fetchReservationContext, compressHistory } from "../services/rag";
+import { classifyIntent, fetchPackageContext, fetchReservationContext, compressHistory, fetchManagerContext } from "../services/rag";
 import { orchestratorChat } from "../services/openrouter";
 import { MASTER_SYSTEM_PROMPT } from "../services/prompts/master";
 import { GOLFTALK_SYSTEM_PROMPT, GOLFTALK_FALLBACK_MESSAGE } from "../services/prompts/golftalk";
@@ -360,7 +360,7 @@ export const aiRouter = router({
    * 두골프 매니저 채팅 (파트너 인증 필수)
    * 입점사 파트너 전용 AI 상담
    */
-  managerChat: protectedProcedure
+  managerChat: partnerProcedure
     .input(
       z.object({
         message: z.string().min(1).max(1000),
@@ -375,7 +375,26 @@ export const aiRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
 
+      // 테넌트 격리: context.ts에서 강제 주입된 tenantId만 사용 (헤더 위조 불가)
+      // - 파트너 세션: 본인 tenantId
+      // - 마스터 세션: activeTenantId(전체보기=null)
+      const tenantId: number | null = ctx.tenantId ?? null;
+      const tenantUserId: number = ctx.user?.id ?? ctx.partnerStaff?.staffId ?? ctx.partnerOwner?.partnerId ?? 0;
+
       const { MANAGER_SYSTEM_PROMPT } = await import("../services/prompts/manager");
+
+      // RAG: 테넌트 격리된 실제 DB 컨텍스트 주입 → 할루시네이션 방지
+      let ragContext = "";
+      try {
+        ragContext = await fetchManagerContext({ tenantId, message: input.message });
+      } catch (e) {
+        console.error("[managerChat] RAG 컨텍스트 조회 실패:", e);
+      }
+
+      const systemPrompt = ragContext
+        ? `${MANAGER_SYSTEM_PROMPT}\n\n═══ [실시간 DB 데이터 — 이 데이터만 사실로 인용] ═══\n${ragContext}`
+        : MANAGER_SYSTEM_PROMPT;
+
       const messages: import("../services/openrouter").ChatMessage[] = [
         ...input.history.map((h) => ({ role: h.role as "user" | "assistant", content: h.content })),
         { role: "user" as const, content: input.message },
@@ -394,8 +413,8 @@ export const aiRouter = router({
           complexity: "medium",
           assistant: "manager",
           sessionId: input.sessionId,
-          userId: ctx.user.id,
-          systemPrompt: MANAGER_SYSTEM_PROMPT,
+          userId: tenantUserId,
+          systemPrompt,
         });
         responseText = result.text;
         modelUsed = result.model;
@@ -411,7 +430,7 @@ export const aiRouter = router({
         .values([
           {
             sessionId: input.sessionId,
-            userId: ctx.user.id,
+            userId: tenantUserId,
             assistant: "manager",
             role: "user",
             content: input.message,
@@ -423,7 +442,7 @@ export const aiRouter = router({
           },
           {
             sessionId: input.sessionId,
-            userId: ctx.user.id,
+            userId: tenantUserId,
             assistant: "manager",
             role: "assistant",
             content: responseText,
