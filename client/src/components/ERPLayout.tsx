@@ -441,7 +441,8 @@ export default function ERPLayout() {
       ...item,
       children: item.children?.filter(child => !isPartnerMode || !child.masterOnly),
     }));
-  if ((loading || partnerLoading) && !hasMasterSession && !adminLoginTime && !isPartnerAuthenticated) {
+  // 파트너 인증이 로딩 중이면 로딩 화면 유지 (마스터 로그인 화면으로 튕기지 않기)
+  if ((loading || partnerLoading) && !hasMasterSession && !adminLoginTime) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-white text-center">
