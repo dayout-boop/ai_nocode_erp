@@ -83,7 +83,8 @@ import SettlementsSuppliers from "@/pages/erp/SettlementsSuppliers";
 import TenantAiConsole from "@/pages/erp/TenantAiConsole";
 import ImageArchive from "@/pages/erp/ImageArchive";
 import CreditManagement from "@/pages/erp/CreditManagement";
-import { Loader2 } from "lucide-react";
+import PartnerIntegrations from "@/pages/erp/PartnerIntegrations";
+import { Loader2, Plug } from "lucide-react";
 import TenantSelector from "@/components/TenantSelector";
 
 interface NavChild {
@@ -215,17 +216,18 @@ const navItems: NavItem[] = [
       { label: "자동 치환 변수", href: "/cms/variables", icon: <Code2 size={14} /> },
     ],
   },
-  {
-    label: "연동 설정",
-    icon: <Settings size={18} />,
-    children: [
-      { label: "ERP 설정", href: "/settings", icon: <Settings size={14} /> },
-      { label: "시스템 설정", href: "/settings/system", icon: <Cpu size={14} />, masterOnly: true },
-      { label: "지식 차단 관리", href: "/knowledge-block", icon: <Shield size={14} />, masterOnly: true },
-      { label: "이미지 아카이브", href: "/image-archive", icon: <Archive size={14} />, masterOnly: true },
-    ],
-  },
-];
+    {
+      label: "연동 설정",
+      icon: <Settings size={18} />,
+      children: [
+        { label: "ERP 설정", href: "/settings", icon: <Settings size={14} /> },
+        { label: "업체 API 연동", href: "/partner-integrations", icon: <Plug size={14} /> },
+        { label: "시스템 설정", href: "/settings/system", icon: <Cpu size={14} />, masterOnly: true },
+        { label: "지식 차단 관리", href: "/knowledge-block", icon: <Shield size={14} />, masterOnly: true },
+        { label: "이미지 아카이브", href: "/image-archive", icon: <Archive size={14} />, masterOnly: true },
+      ],
+    },
+  ];
 
 // ⚠️ ERP 내부 메뉴는 반드시 wouter <Link>를 사용하여 SPA 내부 라우팅으로 처리해야 합니다.
 // <a href>를 사용하면 새 탭/페이지 이동이 발생합니다.
@@ -370,6 +372,7 @@ function ERPContent() {
           <Route path="/image-archive" component={ImageArchive} />
           <Route path="/credit-management" component={CreditManagement} />
           <Route path="/ai-dev-pipeline" component={AIDevPipeline} />
+          <Route path="/partner-integrations" component={PartnerIntegrations} />
           <Route component={ERPDashboard} />
         </Switch>
       </Suspense>

@@ -414,6 +414,13 @@
       "when": 1781077273618,
       "tag": "0057_empty_master_chief",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "5",
+      "when": 1781091300508,
+      "tag": "0058_chubby_wallow",
+      "breakpoints": true
     }
   ]
 }

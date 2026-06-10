@@ -1425,7 +1425,8 @@ export type InsertCustomVariable = typeof customVariables.$inferInsert;
 // ============================================================
 export const siteSettings = mysqlTable("site_settings", {
   id: int("id").autoincrement().primaryKey(),
-  settingKey: varchar("settingKey", { length: 100 }).notNull().unique(),
+  tenantId: int("tenantId"),  // null = 두골프 본사, 1~N = 파트너사
+  settingKey: varchar("settingKey", { length: 100 }).notNull(),
   settingValue: text("settingValue"),
   description: varchar("description", { length: 300 }),
   settingGroup: varchar("settingGroup", { length: 50 }).default("general"),
@@ -1440,6 +1441,7 @@ export type InsertSiteSetting = typeof siteSettings.$inferInsert;
 // ============================================================
 export const siteNavItems = mysqlTable("site_nav_items", {
   id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId"),  // null = 두골프 본사, 1~N = 파트너사
   label: varchar("label", { length: 100 }).notNull(),
   href: varchar("href", { length: 500 }).notNull(),
   sortOrder: int("sortOrder").default(0).notNull(),
@@ -1457,6 +1459,7 @@ export type InsertSiteNavItem = typeof siteNavItems.$inferInsert;
 // ============================================================
 export const siteHeroSlides = mysqlTable("site_hero_slides", {
   id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId"),  // null = 두골프 본사, 1~N = 파트너사
   title: varchar("title", { length: 200 }),
   subtitle: varchar("subtitle", { length: 200 }),
   description: text("description"),
@@ -1480,6 +1483,7 @@ export type InsertSiteHeroSlide = typeof siteHeroSlides.$inferInsert;
 // ============================================================
 export const siteFooter = mysqlTable("site_footer", {
   id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId"),  // null = 두골프 본사, 1~N = 파트너사
   companyName: varchar("companyName", { length: 200 }),
   ceoName: varchar("ceoName", { length: 100 }),
   businessNumber: varchar("businessNumber", { length: 50 }),
@@ -1509,6 +1513,7 @@ export type InsertSiteFooter = typeof siteFooter.$inferInsert;
 // ============================================================
 export const siteFeaturedPackages = mysqlTable("site_featured_packages", {
   id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId"),  // null = 두골프 본사, 1~N = 파트너사
   packageId: int("packageId").notNull(),
   section: varchar("section", { length: 50 }).default("recommended").notNull(),
   sortOrder: int("sortOrder").default(0).notNull(),

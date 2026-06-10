@@ -1,7 +1,15 @@
 import { z } from "zod";
 import { eq, desc, and } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { router, protectedProcedure, publicProcedure } from "../_core/trpc";
+import { router, partnerProcedure, publicProcedure } from "../_core/trpc";
+
+// 파트너 또는 마스터 컨텍스트에서 사용자 이름 추출
+function resolveCreatedBy(ctx: any): string {
+  if (ctx.user) return ctx.user.name ?? ctx.user.email ?? "unknown";
+  if (ctx.partnerOwner) return ctx.partnerOwner.name ?? ctx.partnerOwner.email ?? "unknown";
+  if (ctx.partnerStaff) return ctx.partnerStaff.name ?? "unknown";
+  return "unknown";
+}
 import { getDb } from "../db";
 import {
   customerEstimateTemplates,
@@ -13,7 +21,7 @@ import {
 
 // ─── 고객 견적서 템플릿 라우터 ──────────────────────────────────────
 export const customerEstimateTemplatesRouter = router({
-  list: protectedProcedure.query(async () => {
+  list: partnerProcedure.query(async () => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
     return db
@@ -23,7 +31,7 @@ export const customerEstimateTemplatesRouter = router({
       .orderBy(desc(customerEstimateTemplates.useCount));
   }),
 
-  getById: protectedProcedure
+  getById: partnerProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
       const db = await getDb();
@@ -36,7 +44,7 @@ export const customerEstimateTemplatesRouter = router({
       return row;
     }),
 
-  create: protectedProcedure
+  create: partnerProcedure
     .input(
       z.object({
         name: z.string().min(1),
@@ -59,7 +67,7 @@ export const customerEstimateTemplatesRouter = router({
       return { id: (result as any).insertId };
     }),
 
-  update: protectedProcedure
+  update: partnerProcedure
     .input(
       z.object({
         id: z.number(),
@@ -82,7 +90,7 @@ export const customerEstimateTemplatesRouter = router({
       return { success: true };
     }),
 
-  delete: protectedProcedure
+  delete: partnerProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -97,7 +105,7 @@ export const customerEstimateTemplatesRouter = router({
 // ─── 견적서 라우터 ──────────────────────────────────────────────────
 export const estimatesRouter = router({
   // 견적서 생성
-  create: protectedProcedure
+  create: partnerProcedure
     .input(
       z.object({
         reservationId: z.number(),
@@ -128,7 +136,7 @@ export const estimatesRouter = router({
           .set({
             templateId: input.templateId,
             customData: input.customData,
-            createdBy: ctx.user.name ?? ctx.user.email ?? "unknown",
+            createdBy: resolveCreatedBy(ctx),
           })
           .where(eq(estimates.id, existing.id));
         return { id: existing.id, token: existing.token };
@@ -141,7 +149,7 @@ export const estimatesRouter = router({
         templateId: input.templateId,
         estimateType: input.estimateType,
         customData: input.customData,
-        createdBy: ctx.user.name ?? ctx.user.email ?? "unknown",
+        createdBy: resolveCreatedBy(ctx),
       });
       const newId = (result as any).insertId as number;
       // base64 인코딩 토큰 생성
@@ -169,7 +177,7 @@ export const estimatesRouter = router({
     }),
 
   // 예약별 견적서 목록 조회
-  listByReservation: protectedProcedure
+  listByReservation: partnerProcedure
     .input(z.object({ reservationId: z.number() }))
     .query(async ({ input }) => {
       const db = await getDb();
@@ -251,7 +259,7 @@ export const estimatesRouter = router({
     }),
 
   // 발송 처리
-  markSent: protectedProcedure
+  markSent: partnerProcedure
     .input(
       z.object({
         id: z.number(),
@@ -268,7 +276,7 @@ export const estimatesRouter = router({
       return { success: true };
     }),
 
-  delete: protectedProcedure
+  delete: partnerProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -281,7 +289,7 @@ export const estimatesRouter = router({
    * 견적서 실시간 미리보기
    * DB에 저장하지 않고 예약 데이터 + 템플릿 + 일정을 반환
    */
-  previewByReservation: protectedProcedure
+  previewByReservation: partnerProcedure
     .input(
       z.object({
         reservationId: z.number(),

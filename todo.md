@@ -2256,3 +2256,19 @@ Detected
 ## 파트너 ERP 라우팅 수정 (2026-06-10)
 - [x] App.tsx: partner.dayoutgolf.com에서 /erp 경로를 홍보 페이지가 아닌 실제 ERP로 라우팅 (isPartnerSubRoute에 /erp 추가)
 - [x] 파트너 로그인(tourcm/dogolf1580!) 후 /erp 진입 확인 - API 정상 작동
+
+## 파트너 ERP 5가지 이슈 (2026-06-10)
+- [x] 수기예약관리/변수치환/견적서 템플릿 클릭 시 마스터 로그인 전환 버그 수정
+- [ ] 홈페이지 설정 테넌트 처리 (파트너 본인 홈페이지 정보 표시)
+- [ ] 홈페이지 바로가기 클릭 시 홈페이지 없는 경우 "홈페이지 만들기 템플릿" 팝업 표시
+- [ ] 파트너 전용 API 연동 페이지 신설 (구글드라이브, 슬랙, 이메일, 도메인, 홈페이지 개설 등 테넌트별)
+- [x] 매니저 로그 테넌트 필터링 확인 (파트너 본인 대화만 표시 - erpLoginProcedure 마스터 전용, 파트너 접근 불가)
+- [x] 골프톡 테넌트 필터링 확인 (managerChat partnerProcedure + ctx.tenantId 격리 이미 적용)
+
+## 파트너 멀티테넌트 이슈 수정 (2026-06-10)
+- [x] reservations.create protectedProcedure → partnerProcedure 전환 (수기예약관리 파트너 접근 가능하도록)
+- [x] HomepageManagement 홈페이지 바로가기 버튼 tenantId 기반 URL 조회 + 홈페이지 없으면 팝업 표시
+- [x] 파트너 전용 연동 설정 페이지(PartnerIntegrations.tsx) 신설 - 구글드라이브/슬랙/이메일/도메인/홈페이지 설정
+- [x] ERPLayout.tsx 연동 설정 메뉴에 "업체 API 연동" 항목 추가 (masterOnly 없이, /partner-integrations)
+- [x] ai.ts getLogs 파트너 접근 시 tenantId 필터링 확인 (erpLoginProcedure 마스터 전용, 파트너 접근 불가)
+- [x] 골프톡 로그 저장 시 tenantId 기록 확인 (chatSessions.partnerId 기반 게스트 테넌트 식별 - 관리자 전용 조회로 파트너 누이 없음)

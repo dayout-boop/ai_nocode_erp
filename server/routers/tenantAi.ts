@@ -8,7 +8,7 @@
  */
 
 import { z } from "zod";
-import { router, protectedProcedure, adminProcedure, partnerManagerProcedure } from "../_core/trpc";
+import { router, protectedProcedure, adminProcedure, partnerManagerProcedure, partnerProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import {
   tenants,
@@ -699,6 +699,88 @@ export const tenantAiRouter = router({
         .where(and(...conditions));
 
       return { rows, total: countRow?.total ?? 0 };
+    }),
+
+  // ─── 파트너 전용: 자신 테넌트 API 연동 목록 ─────────────────────────────────────────────
+  getMyApiConnections: partnerProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const tenantId = (ctx as any).tenantId as number | null;
+    if (!tenantId) return [];
+    const rows = await db
+      .select({
+        id: tenantApiConnections.id,
+        serviceName: tenantApiConnections.serviceName,
+        serviceLabel: tenantApiConnections.serviceLabel,
+        status: tenantApiConnections.status,
+        lastTestedAt: tenantApiConnections.lastTestedAt,
+        lastError: tenantApiConnections.lastError,
+        aiAnalysisMemo: tenantApiConnections.aiAnalysisMemo,
+        isActive: tenantApiConnections.isActive,
+        createdAt: tenantApiConnections.createdAt,
+        apiKeyMasked: tenantApiConnections.apiKeyEncrypted,
+        configJson: tenantApiConnections.configJson,
+      })
+      .from(tenantApiConnections)
+      .where(eq(tenantApiConnections.tenantId, tenantId))
+      .orderBy(desc(tenantApiConnections.createdAt));
+    return rows.map((row) => ({
+      ...row,
+      apiKeyMasked: row.apiKeyMasked
+        ? decryptApiKey(row.apiKeyMasked).slice(0, 4) + "****"
+        : null,
+    }));
+  }),
+
+  // ─── 파트너 전용: API 연동 등록/수정 ─────────────────────────────────────────────────────
+  upsertMyApiConnection: partnerProcedure
+    .input(z.object({
+      id: z.number().optional(),
+      serviceName: z.string().min(1),
+      serviceLabel: z.string().optional(),
+      apiKey: z.string().optional(),
+      apiSecret: z.string().optional(),
+      configJson: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const tenantId = (ctx as any).tenantId as number | null;
+      if (!tenantId) throw new TRPCError({ code: "FORBIDDEN", message: "테넌트 정보가 없습니다." });
+      const baseValues = {
+        tenantId,
+        serviceName: input.serviceName,
+        serviceLabel: input.serviceLabel ?? input.serviceName,
+        status: "pending" as const,
+        apiKeyEncrypted: input.apiKey ? encryptApiKey(input.apiKey) : undefined,
+        apiSecretEncrypted: input.apiSecret ? encryptApiKey(input.apiSecret) : undefined,
+        configJson: input.configJson ?? undefined,
+      };
+      if (input.id) {
+        const [existing] = await db.select({ tenantId: tenantApiConnections.tenantId }).from(tenantApiConnections).where(eq(tenantApiConnections.id, input.id));
+        if (!existing || existing.tenantId !== tenantId) throw new TRPCError({ code: "FORBIDDEN", message: "수정 권한이 없습니다." });
+        await db.update(tenantApiConnections).set(baseValues).where(eq(tenantApiConnections.id, input.id));
+        return { success: true, id: input.id };
+      } else {
+        const [result] = await db.insert(tenantApiConnections).values(baseValues);
+        const insertId = (result as { insertId: number }).insertId;
+        analyzeApiConnectionAsync(insertId, tenantId, input.serviceName, input.serviceLabel).catch(console.error);
+        return { success: true, id: insertId };
+      }
+    }),
+
+  // ─── 파트너 전용: API 연동 삭제 ───────────────────────────────────────────────────────────
+  deleteMyApiConnection: partnerProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const tenantId = (ctx as any).tenantId as number | null;
+      if (!tenantId) throw new TRPCError({ code: "FORBIDDEN", message: "테넌트 정보가 없습니다." });
+      const [existing] = await db.select({ tenantId: tenantApiConnections.tenantId }).from(tenantApiConnections).where(eq(tenantApiConnections.id, input.id));
+      if (!existing || existing.tenantId !== tenantId) throw new TRPCError({ code: "FORBIDDEN", message: "삭제 권한이 없습니다." });
+      await db.delete(tenantApiConnections).where(eq(tenantApiConnections.id, input.id));
+      return { success: true };
     }),
 });
 

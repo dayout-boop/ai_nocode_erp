@@ -3,6 +3,7 @@
  * 탭: 전역설정 / 네비게이션 / 히어로슬라이드 / 노출상품 / 푸터 / 사업자등록증OCR
  */
 import { useState, useRef } from "react";
+import { usePartnerAuth } from "@/_core/hooks/usePartnerAuth";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -29,8 +30,14 @@ const TABS = [
 ];
 
 // ─── 전역 설정 탭 ─────────────────────────────────────────────
-function GlobalSettingsTab() {
-  const { data: settings, refetch } = trpc.siteSettings.getSettings.useQuery();
+function GlobalSettingsTab({ isPartnerMode, tenantId }: { isPartnerMode?: boolean; tenantId?: number | null }) {
+  const { data: settings, refetch } = trpc.siteSettings.getSettings.useQuery(
+    isPartnerMode && tenantId ? { tenantId } : undefined
+  );
+  const { data: homepageInfo } = trpc.siteSettings.getMyHomepageUrl.useQuery(undefined, {
+    enabled: !!isPartnerMode,
+  });
+  const [showNoHomepageModal, setShowNoHomepageModal] = useState(false);
   const updateMutation = trpc.siteSettings.updateSettings.useMutation({
     onSuccess: () => { toast.success("전역 설정이 저장되었습니다."); refetch(); },
     onError: (e) => toast.error(e.message),
@@ -42,10 +49,22 @@ function GlobalSettingsTab() {
   const handleChange = (key: string, value: string) => setForm((p) => ({ ...p, [key]: value }));
   const handleSave = () => updateMutation.mutate(form);
 
+  const handleHomepageClick = () => {
+    if (isPartnerMode) {
+      if (homepageInfo?.hasHomepage && homepageInfo.websiteUrl) {
+        window.open(homepageInfo.websiteUrl, "_blank");
+      } else {
+        setShowNoHomepageModal(true);
+      }
+    } else {
+      window.open("https://dayoutgolf.com", "_blank");
+    }
+  };
+
   const fields = [
     { key: "site_title", label: "사이트 제목", type: "text" },
     { key: "site_description", label: "사이트 설명", type: "textarea" },
-    { key: "site_keywords", label: "SEO 키워드 (쉼표 구분)", type: "text" },
+    { key: "site_keywords", label: "SEO 키워드 (쉬표 구분)", type: "text" },
     { key: "logo_url", label: "로고 이미지 URL", type: "text" },
     { key: "favicon_url", label: "파비콘 URL", type: "text" },
     { key: "og_image_url", label: "OG 대표 이미지 URL", type: "text" },
@@ -55,11 +74,29 @@ function GlobalSettingsTab() {
 
   return (
     <div className="space-y-6">
+      {/* 홈페이지 없음 팝업 */}
+      {showNoHomepageModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-dogolf-green/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Globe size={32} className="text-dogolf-green" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">홈페이지 만들기 템플릿</h3>
+              <p className="text-gray-500 text-sm">아직 등록된 홈페이지가 없습니다. 두골프 매니저에게 문의하시면 업체 전용 홈페이지를 개설해 드립니다.</p>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setShowNoHomepageModal(false)}>닫기</Button>
+              <Button className="flex-1 bg-dogolf-green hover:bg-dogolf-green-dark" onClick={() => { setShowNoHomepageModal(false); window.open("https://dayoutgolf.com", "_blank"); }}>두골프 문의하기</Button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-800">홈페이지 전역 설정</h3>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => window.open("https://dayoutgolf.com", "_blank")}>
-            <ExternalLink size={14} className="mr-1" /> 홈페이지 보기
+          <Button variant="outline" size="sm" onClick={handleHomepageClick}>
+            <ExternalLink size={14} className="mr-1" /> {isPartnerMode ? (homepageInfo?.hasHomepage ? "홈페이지 바로가기" : "홈페이지 만들기") : "홈페이지 보기"}
           </Button>
           <Button size="sm" onClick={handleSave} disabled={updateMutation.isPending}>
             <Save size={14} className="mr-1" />
@@ -867,6 +904,9 @@ function AuditLogTab() {
 // ─── 메인 컴포넌트 ────────────────────────────────────────────
 export default function HomepageManagement() {
   const [activeTab, setActiveTab] = useState("global");
+  const { user: partnerUser, isAuthenticated: isPartnerAuthenticated } = usePartnerAuth();
+  const isPartnerMode = isPartnerAuthenticated && !!partnerUser?.tenantId;
+  const tenantId = partnerUser?.tenantId ?? null;
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -877,8 +917,9 @@ export default function HomepageManagement() {
           <h1 className="text-2xl font-bold text-gray-900">홈페이지 관리</h1>
         </div>
         <p className="text-gray-500 text-sm">
-          dayoutgolf.com 홈페이지의 전역 설정, 네비게이션, 히어로 슬라이드, 노출 상품, 푸터를 관리합니다.
-          저장 시 홈페이지에 즉시 반영됩니다.
+          {isPartnerMode
+            ? "업체 홈페이지의 전역 설정, 네비게이션, 히어로 슬라이드, 노출 상품, 푸터를 관리합니다. 저장 시 홈페이지에 즉시 반영됩니다."
+            : "dayoutgolf.com 홈페이지의 전역 설정, 네비게이션, 히어로 슬라이드, 노출 상품, 푸터를 관리합니다. 저장 시 홈페이지에 즉시 반영됩니다."}
         </p>
       </div>
 
@@ -905,7 +946,7 @@ export default function HomepageManagement() {
 
       {/* 탭 컨텐츠 */}
       <div>
-        {activeTab === "global" && <GlobalSettingsTab />}
+        {activeTab === "global" && <GlobalSettingsTab isPartnerMode={isPartnerMode} tenantId={tenantId} />}
         {activeTab === "nav" && <NavigationTab />}
         {activeTab === "hero" && <HeroSlidesTab />}
         {activeTab === "featured" && <FeaturedPackagesTab />}

@@ -1,14 +1,22 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../_core/trpc";
+import { router, partnerProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { reservationInquiries, inquiryTemplates, reservations } from "../../drizzle/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { invokeLLM } from "../_core/llm";
 
+// 파트너 또는 마스터 컨텍스트에서 사용자 이름 추출
+function resolveUpdatedBy(ctx: any): string {
+  if (ctx.user) return ctx.user.name ?? ctx.user.email ?? "unknown";
+  if (ctx.partnerOwner) return ctx.partnerOwner.name ?? ctx.partnerOwner.email ?? "unknown";
+  if (ctx.partnerStaff) return ctx.partnerStaff.name ?? "unknown";
+  return "unknown";
+}
+
 export const reservationInquiriesRouter = router({
   // ─── 예약별 문의 목록 조회 ───────────────────────────────────────
-  listByReservation: protectedProcedure
+  listByReservation: partnerProcedure
     .input(z.object({ reservationId: z.number() }))
     .query(async ({ input }) => {
       const db = await getDb();
@@ -22,7 +30,7 @@ export const reservationInquiriesRouter = router({
     }),
 
   // ─── 문의 생성 ───────────────────────────────────────────────────
-  create: protectedProcedure
+  create: partnerProcedure
     .input(
       z.object({
         reservationId: z.number(),
@@ -46,7 +54,7 @@ export const reservationInquiriesRouter = router({
         reservationNo: input.reservationNo,
         inquiryText: input.inquiryText ?? "",
         sortOrder: nextOrder,
-        updatedBy: ctx.user.name ?? ctx.user.email ?? "unknown",
+        updatedBy: resolveUpdatedBy(ctx),
       });
       const [created] = await db
         .select()
@@ -56,7 +64,7 @@ export const reservationInquiriesRouter = router({
     }),
 
   // ─── 문의 내용 업데이트 (자동저장) ──────────────────────────────
-  updateInquiry: protectedProcedure
+  updateInquiry: partnerProcedure
     .input(
       z.object({
         id: z.number(),
@@ -70,14 +78,14 @@ export const reservationInquiriesRouter = router({
         .update(reservationInquiries)
         .set({
           inquiryText: input.inquiryText,
-          updatedBy: ctx.user.name ?? ctx.user.email ?? "unknown",
+          updatedBy: resolveUpdatedBy(ctx),
         })
         .where(eq(reservationInquiries.id, input.id));
       return { success: true };
     }),
 
   // ─── 답변 내용 업데이트 (자동저장) ──────────────────────────────
-  updateReply: protectedProcedure
+  updateReply: partnerProcedure
     .input(
       z.object({
         id: z.number(),
@@ -93,14 +101,14 @@ export const reservationInquiriesRouter = router({
         .set({
           replyText: input.replyText,
           inquiryStatus: input.inquiryStatus ?? "replied",
-          updatedBy: ctx.user.name ?? ctx.user.email ?? "unknown",
+          updatedBy: resolveUpdatedBy(ctx),
         })
         .where(eq(reservationInquiries.id, input.id));
       return { success: true };
     }),
 
   // ─── AI 자동 문의 생성 ───────────────────────────────────────────
-  generateAuto: protectedProcedure
+  generateAuto: partnerProcedure
     .input(
       z.object({
         id: z.number(),
@@ -163,7 +171,7 @@ ${input.inquiryText}`;
             autoText,
             templateId: input.templateId,
             inquiryStatus: "sent",
-            updatedBy: ctx.user.name ?? ctx.user.email ?? "unknown",
+            updatedBy: resolveUpdatedBy(ctx),
           })
           .where(eq(reservationInquiries.id, input.id));
         // 템플릿 사용 횟수 증가
@@ -180,7 +188,7 @@ ${input.inquiryText}`;
     }),
 
   // ─── 문의 삭제 ───────────────────────────────────────────────────
-  delete: protectedProcedure
+  delete: partnerProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -192,7 +200,7 @@ ${input.inquiryText}`;
 
 // ─── 문의 자동화 템플릿 라우터 ──────────────────────────────────────
 export const inquiryTemplatesRouter = router({
-  list: protectedProcedure
+  list: partnerProcedure
     .input(
       z.object({
         category: z.enum(["golf_booking", "accommodation", "transport", "general", "estimate", "all"]).default("all"),
@@ -213,7 +221,7 @@ export const inquiryTemplatesRouter = router({
       return rows;
     }),
 
-  create: protectedProcedure
+  create: partnerProcedure
     .input(
       z.object({
         name: z.string().min(1),
@@ -234,7 +242,7 @@ export const inquiryTemplatesRouter = router({
       return { id: (result as any).insertId };
     }),
 
-  update: protectedProcedure
+  update: partnerProcedure
     .input(
       z.object({
         id: z.number(),
@@ -253,7 +261,7 @@ export const inquiryTemplatesRouter = router({
       return { success: true };
     }),
 
-  delete: protectedProcedure
+  delete: partnerProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const db = await getDb();

@@ -194,8 +194,8 @@ export const reservationsRouter = router({
     }),
 
   // ─── 예약 등록 ────────────────────────────────────────────────
-  // 로그인한 모든 사용자가 등록 가능 (담당자 자동 기입)
-  create: protectedProcedure
+  // 파트너(대표/스태프) 또는 마스터 모두 등록 가능 (담당자 자동 기입)
+  create: partnerProcedure
     .input(
       z.object({
         productName: z.string().min(1),
@@ -231,8 +231,15 @@ export const reservationsRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const reservationNo = generateReservationNo();
-      // 담당자 정보 자동 기입
-      const managerName = input.managerName || ctx.user.name || ctx.user.email || undefined;
+      // 담당자 정보 자동 기입 (파트너 대표/스태프/마스터 모두 지원)
+      const managerName = input.managerName
+        || (ctx as any).partnerOwner?.name
+        || (ctx as any).partnerStaff?.name
+        || (ctx as any).user?.name
+        || (ctx as any).user?.email
+        || undefined;
+      // 테넌트 격리: 파트너 세션이면 해당 tenantId 자동 기입
+      const tenantId = ctx.tenantId ?? undefined;
       const { packageId, ...restInput } = input;
       const [result] = await db.insert(reservations).values({
         ...restInput,
@@ -242,6 +249,7 @@ export const reservationsRouter = router({
         paidAmount: 0,
         remittedAmount: 0,
         managerName,
+        tenantId: tenantId ?? null,
       });
       const newReservationId = (result as any).insertId as number;
 
@@ -294,8 +302,8 @@ export const reservationsRouter = router({
     }),
 
   // ─── 예약 수정 ────────────────────────────────────────────────
-  // RBAC: admin은 모든 예약 수정 가능, user는 본인 등록 예약만 수정 가능
-  update: protectedProcedure
+  // RBAC: admin은 모든 예약 수정 가능, 파트너는 자사 테넌트 예약만 수정 가능
+  update: partnerProcedure
     .input(
       z.object({
         id: z.number(),
@@ -335,8 +343,17 @@ export const reservationsRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
-      // RBAC: 소유권 검증 (admin은 통과, user는 본인 예약만)
-      await assertReservationOwnership(input.id, ctx.user, db);
+      // RBAC: 파트너 세션이면 자사 테넌트 예약만 수정 가능
+      if (ctx.tenantId != null) {
+        const [existing] = await db
+          .select({ tenantId: reservations.tenantId })
+          .from(reservations)
+          .where(eq(reservations.id, input.id));
+        if (!existing) throw new TRPCError({ code: 'NOT_FOUND', message: '예약을 찾을 수 없습니다.' });
+        if (existing.tenantId !== ctx.tenantId) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: '다른 업체의 예약은 수정할 수 없습니다.' });
+        }
+      }
 
       const { id, departureDate, ...rest } = input;
       const updateData: Record<string, unknown> = { ...rest };

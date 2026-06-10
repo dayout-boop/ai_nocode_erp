@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../_core/trpc";
+import { router, partnerProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { reservationItineraries, affiliates, customVariables } from "../../drizzle/schema";
 import { eq, asc } from "drizzle-orm";
@@ -37,7 +37,7 @@ const itineraryRowSchema = z.object({
 
 export const reservationItinerariesRouter = router({
   // ─── 예약 일정 조회 ───────────────────────────────────────────
-  list: protectedProcedure
+  list: partnerProcedure
     .input(z.object({ reservationId: z.number() }))
     .query(async ({ input }) => {
       const db = await getDb();
@@ -75,7 +75,7 @@ export const reservationItinerariesRouter = router({
     }),
 
   // ─── 예약 일정 일괄 저장 (upsert) ────────────────────────────
-  upsert: protectedProcedure
+  upsert: partnerProcedure
     .input(
       z.object({
         reservationId: z.number(),
@@ -119,7 +119,7 @@ export const reservationItinerariesRouter = router({
     }),
 
   // ─── 예약 일정 전체 삭제 ─────────────────────────────────────
-  deleteAll: protectedProcedure
+  deleteAll: partnerProcedure
     .input(z.object({ reservationId: z.number() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -136,7 +136,7 @@ export const reservationItinerariesRouter = router({
 // ─── 자동 치환 변수 관리 라우터 ──────────────────────────────────
 export const customVariablesRouter = router({
   // 전체 목록 조회
-  list: protectedProcedure.query(async () => {
+  list: partnerProcedure.query(async () => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
     return db
@@ -146,7 +146,7 @@ export const customVariablesRouter = router({
   }),
 
   // 신규 생성
-  create: protectedProcedure
+  create: partnerProcedure
     .input(z.object({
       category: z.string().min(1),
       label: z.string().min(1),
@@ -170,7 +170,7 @@ export const customVariablesRouter = router({
     }),
 
   // 수정
-  update: protectedProcedure
+  update: partnerProcedure
     .input(z.object({
       id: z.number(),
       category: z.string().min(1).optional(),
@@ -191,7 +191,7 @@ export const customVariablesRouter = router({
     }),
 
   // 삭제 (시스템 변수 삭제 불가)
-  delete: protectedProcedure
+  delete: partnerProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -204,7 +204,7 @@ export const customVariablesRouter = router({
     }),
 
   // 시스템 기본 변수 시드 (최초 1회 실행)
-  seedDefaults: protectedProcedure
+  seedDefaults: partnerProcedure
     .mutation(async () => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
@@ -251,7 +251,7 @@ export const customVariablesRouter = router({
       return { inserted, total: DEFAULT_VARIABLES.length };
     }),
   // 활성화/비활성화 토글
-  toggleActive: protectedProcedure
+  toggleActive: partnerProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const db = await getDb();

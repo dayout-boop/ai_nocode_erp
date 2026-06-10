@@ -1,10 +1,11 @@
 /**
  * siteSettingsRouter
  * CMS > 홈페이지 관리 — 전역설정/네비/히어로/푸터/노출상품/OCR/감사로그
+ * [테넌트 지원] partnerProcedure 사용 — 파트너는 자신의 tenantId로만 접근
  */
 import { z } from "zod";
-import { eq, asc, desc } from "drizzle-orm";
-import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { eq, asc, desc, and, isNull } from "drizzle-orm";
+import { partnerProcedure, publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import {
   siteSettings,
@@ -14,10 +15,11 @@ import {
   siteFeaturedPackages,
   siteAuditLogs,
   packages,
+  partnerOnboarding,
+  tenants,
 } from "../../drizzle/schema";
 import { TRPCError } from "@trpc/server";
 import { invokeLLM } from "../_core/llm";
-import { storagePut } from "../storage";
 
 // ─── 감사 로그 헬퍼 ─────────────────────────────────────────
 async function writeAuditLog(opts: {
@@ -46,11 +48,12 @@ async function writeAuditLog(opts: {
   }
 }
 
-// ─── 관리자 체크 헬퍼 ─────────────────────────────────────
-function requireAdmin(role: string) {
-  if (role !== "admin") {
-    throw new TRPCError({ code: "FORBIDDEN", message: "관리자 권한이 필요합니다." });
-  }
+// ─── 호출자 이름/ID 헬퍼 ─────────────────────────────────────
+function getCallerName(ctx: any): string {
+  return ctx.user?.name ?? ctx.user?.openId ?? ctx.partnerOwner?.name ?? ctx.partnerStaff?.name ?? "unknown";
+}
+function getCallerUserId(ctx: any): number | undefined {
+  return ctx.user?.id ?? ctx.partnerOwner?.id ?? ctx.partnerStaff?.id;
 }
 
 // ─── 기본 초기값 ─────────────────────────────────────────
@@ -98,43 +101,51 @@ const DEFAULT_SETTINGS = [
 ];
 
 export const siteSettingsRouter = router({
-  // ─── 전역 설정 ───────────────────────────────────────────
-  getSettings: publicProcedure.query(async () => {
-    const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    const rows = await db.select().from(siteSettings);
-    // 초기값이 없으면 seed
-    if (rows.length === 0) {
-      await db.insert(siteSettings).values(DEFAULT_SETTINGS);
-      return DEFAULT_SETTINGS.reduce((acc: Record<string, string | null>, s: { settingKey: string; settingValue: string }) => {
-        acc[s.settingKey] = s.settingValue;
+  // ─── 전역 설정 조회 (public — tenantId 파라미터로 분기) ──────
+  getSettings: publicProcedure
+    .input(z.object({ tenantId: z.number().nullable().optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const tid = input?.tenantId ?? null;
+      const rows = await db.select().from(siteSettings).where(
+        tid === null ? isNull(siteSettings.tenantId) : eq(siteSettings.tenantId, tid)
+      );
+      // 초기값이 없으면 seed (두골프 본사만)
+      if (rows.length === 0 && tid === null) {
+        await db.insert(siteSettings).values(DEFAULT_SETTINGS);
+        return DEFAULT_SETTINGS.reduce((acc: Record<string, string | null>, s) => {
+          acc[s.settingKey] = s.settingValue;
+          return acc;
+        }, {} as Record<string, string | null>);
+      }
+      return rows.reduce((acc: Record<string, string | null>, s) => {
+        acc[s.settingKey] = s.settingValue ?? null;
         return acc;
       }, {} as Record<string, string | null>);
-    }
-    return rows.reduce((acc: Record<string, string | null>, s: { settingKey: string; settingValue: string | null }) => {
-      acc[s.settingKey] = s.settingValue ?? null;
-      return acc;
-    }, {} as Record<string, string | null>);
-  }),
+    }),
 
-  updateSettings: protectedProcedure
+  updateSettings: partnerProcedure
     .input(z.record(z.string(), z.string().nullable()))
     .mutation(async ({ input, ctx }) => {
-      requireAdmin(ctx.user.role);
-    const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    const old = await db.select().from(siteSettings);
-    for (const [key, value] of Object.entries(input)) {
+      const tenantId = (ctx as any).tenantId as number | null;
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const old = await db.select().from(siteSettings).where(
+        tenantId === null ? isNull(siteSettings.tenantId) : eq(siteSettings.tenantId, tenantId)
+      );
+      for (const [key, value] of Object.entries(input)) {
         const existing = old.find((r) => r.settingKey === key);
         if (existing) {
           await db.update(siteSettings)
-            .set({ settingValue: value, updatedBy: ctx.user.name ?? ctx.user.openId })
-            .where(eq(siteSettings.settingKey, key));
+            .set({ settingValue: value, updatedBy: getCallerName(ctx) })
+            .where(eq(siteSettings.id, existing.id));
         } else {
           await db.insert(siteSettings).values({
+            tenantId,
             settingKey: key,
             settingValue: value,
-            updatedBy: ctx.user.name ?? ctx.user.openId,
+            updatedBy: getCallerName(ctx),
           });
         }
       }
@@ -143,25 +154,30 @@ export const siteSettingsRouter = router({
         action: "update",
         oldValue: old,
         newValue: input,
-        changedBy: ctx.user.name ?? ctx.user.openId,
-        changedByUserId: ctx.user.id,
+        changedBy: getCallerName(ctx),
+        changedByUserId: getCallerUserId(ctx),
       });
       return { success: true };
     }),
 
   // ─── 네비게이션 ──────────────────────────────────────────
-  getNavItems: publicProcedure.query(async () => {
-    const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    const rows = await db.select().from(siteNavItems).orderBy(asc(siteNavItems.sortOrder));
-    if (rows.length === 0) {
-      await db.insert(siteNavItems).values(DEFAULT_NAV_ITEMS);
-      return DEFAULT_NAV_ITEMS;
-    }
-    return rows;
-  }),
+  getNavItems: publicProcedure
+    .input(z.object({ tenantId: z.number().nullable().optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const tid = input?.tenantId ?? null;
+      const rows = await db.select().from(siteNavItems)
+        .where(tid === null ? isNull(siteNavItems.tenantId) : eq(siteNavItems.tenantId, tid))
+        .orderBy(asc(siteNavItems.sortOrder));
+      if (rows.length === 0 && tid === null) {
+        await db.insert(siteNavItems).values(DEFAULT_NAV_ITEMS);
+        return DEFAULT_NAV_ITEMS;
+      }
+      return rows;
+    }),
 
-  updateNavItems: protectedProcedure
+  updateNavItems: partnerProcedure
     .input(z.array(z.object({
       id: z.number().optional(),
       label: z.string(),
@@ -172,15 +188,20 @@ export const siteSettingsRouter = router({
       icon: z.string().optional().nullable(),
     })))
     .mutation(async ({ input, ctx }) => {
-      requireAdmin(ctx.user.role);
+      const tenantId = (ctx as any).tenantId as number | null;
       const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const old = await db.select().from(siteNavItems);
-      // 전체 교체 방식
-      await db.delete(siteNavItems);
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const old = await db.select().from(siteNavItems).where(
+        tenantId === null ? isNull(siteNavItems.tenantId) : eq(siteNavItems.tenantId, tenantId)
+      );
+      // 해당 테넌트 항목만 삭제 후 재삽입
+      await db.delete(siteNavItems).where(
+        tenantId === null ? isNull(siteNavItems.tenantId) : eq(siteNavItems.tenantId, tenantId)
+      );
       if (input.length > 0) {
         await db.insert(siteNavItems).values(
           input.map((item, i) => ({
+            tenantId,
             label: item.label,
             href: item.href,
             sortOrder: item.sortOrder ?? i,
@@ -195,31 +216,33 @@ export const siteSettingsRouter = router({
         action: "update",
         oldValue: old,
         newValue: input,
-        changedBy: ctx.user.name ?? ctx.user.openId,
-        changedByUserId: ctx.user.id,
+        changedBy: getCallerName(ctx),
+        changedByUserId: getCallerUserId(ctx),
       });
       return { success: true };
     }),
 
   // ─── 히어로 슬라이드 ─────────────────────────────────────
-  getHeroSlides: publicProcedure.query(async () => {
-    const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    const slides = await db.select().from(siteHeroSlides).orderBy(asc(siteHeroSlides.sortOrder));
-    const now = new Date();
-    // startAt/endAt 기반 isActive 자동 계산:
-    // - startAt/endAt 둘 다 null이면 수동 isActive 토글 우선 적용
-    // - 하나라도 설정되어 있으면 날짜 범위 기준으로 자동 활성화/비활성화
-    return slides.map((slide) => {
-      const hasSchedule = slide.startAt != null || slide.endAt != null;
-      if (!hasSchedule) return slide;
-      const afterStart = slide.startAt == null || now >= new Date(slide.startAt as Date);
-      const beforeEnd = slide.endAt == null || now <= new Date(slide.endAt as Date);
-      return { ...slide, isActive: afterStart && beforeEnd };
-    });
-  }),
+  getHeroSlides: publicProcedure
+    .input(z.object({ tenantId: z.number().nullable().optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const tid = input?.tenantId ?? null;
+      const slides = await db.select().from(siteHeroSlides)
+        .where(tid === null ? isNull(siteHeroSlides.tenantId) : eq(siteHeroSlides.tenantId, tid))
+        .orderBy(asc(siteHeroSlides.sortOrder));
+      const now = new Date();
+      return slides.map((slide) => {
+        const hasSchedule = slide.startAt != null || slide.endAt != null;
+        if (!hasSchedule) return slide;
+        const afterStart = slide.startAt == null || now >= new Date(slide.startAt as Date);
+        const beforeEnd = slide.endAt == null || now <= new Date(slide.endAt as Date);
+        return { ...slide, isActive: afterStart && beforeEnd };
+      });
+    }),
 
-  createHeroSlide: protectedProcedure
+  createHeroSlide: partnerProcedure
     .input(z.object({
       title: z.string().optional(),
       subtitle: z.string().optional(),
@@ -235,11 +258,12 @@ export const siteSettingsRouter = router({
       endAt: z.date().optional().nullable(),
     }))
     .mutation(async ({ input, ctx }) => {
-      requireAdmin(ctx.user.role);
+      const tenantId = (ctx as any).tenantId as number | null;
       const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const [result] = await db.insert(siteHeroSlides).values({
         ...input,
+        tenantId,
         sortOrder: input.sortOrder ?? 0,
         isActive: input.isActive ?? true,
       });
@@ -248,13 +272,13 @@ export const siteSettingsRouter = router({
         recordId: String(result.insertId),
         action: "create",
         newValue: input,
-        changedBy: ctx.user.name ?? ctx.user.openId,
-        changedByUserId: ctx.user.id,
+        changedBy: getCallerName(ctx),
+        changedByUserId: getCallerUserId(ctx),
       });
       return { success: true, id: result.insertId };
     }),
 
-  updateHeroSlide: protectedProcedure
+  updateHeroSlide: partnerProcedure
     .input(z.object({
       id: z.number(),
       title: z.string().optional(),
@@ -271,49 +295,61 @@ export const siteSettingsRouter = router({
       endAt: z.date().optional().nullable(),
     }))
     .mutation(async ({ input, ctx }) => {
-      requireAdmin(ctx.user.role);
+      const tenantId = (ctx as any).tenantId as number | null;
       const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const { id, ...data } = input;
-      const [old] = await db.select().from(siteHeroSlides).where(eq(siteHeroSlides.id, id));
+      // 테넌트 소유 확인
+      const [slide] = await db.select().from(siteHeroSlides).where(
+        and(
+          eq(siteHeroSlides.id, id),
+          tenantId === null ? isNull(siteHeroSlides.tenantId) : eq(siteHeroSlides.tenantId, tenantId)
+        )
+      );
+      if (!slide) throw new TRPCError({ code: "NOT_FOUND", message: "슬라이드를 찾을 수 없습니다." });
       await db.update(siteHeroSlides).set(data).where(eq(siteHeroSlides.id, id));
       await writeAuditLog({
         tableName: "site_hero_slides",
         recordId: String(id),
         action: "update",
-        oldValue: old,
+        oldValue: slide,
         newValue: data,
-        changedBy: ctx.user.name ?? ctx.user.openId,
-        changedByUserId: ctx.user.id,
+        changedBy: getCallerName(ctx),
+        changedByUserId: getCallerUserId(ctx),
       });
       return { success: true };
     }),
 
-  deleteHeroSlide: protectedProcedure
+  deleteHeroSlide: partnerProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input, ctx }) => {
-      requireAdmin(ctx.user.role);
+      const tenantId = (ctx as any).tenantId as number | null;
       const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const [old] = await db.select().from(siteHeroSlides).where(eq(siteHeroSlides.id, input.id));
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [slide] = await db.select().from(siteHeroSlides).where(
+        and(
+          eq(siteHeroSlides.id, input.id),
+          tenantId === null ? isNull(siteHeroSlides.tenantId) : eq(siteHeroSlides.tenantId, tenantId)
+        )
+      );
+      if (!slide) throw new TRPCError({ code: "NOT_FOUND", message: "슬라이드를 찾을 수 없습니다." });
       await db.delete(siteHeroSlides).where(eq(siteHeroSlides.id, input.id));
       await writeAuditLog({
         tableName: "site_hero_slides",
         recordId: String(input.id),
         action: "delete",
-        oldValue: old,
-        changedBy: ctx.user.name ?? ctx.user.openId,
-        changedByUserId: ctx.user.id,
+        oldValue: slide,
+        changedBy: getCallerName(ctx),
+        changedByUserId: getCallerUserId(ctx),
       });
       return { success: true };
     }),
 
-  reorderHeroSlides: protectedProcedure
+  reorderHeroSlides: partnerProcedure
     .input(z.array(z.object({ id: z.number(), sortOrder: z.number() })))
-    .mutation(async ({ input, ctx }) => {
-      requireAdmin(ctx.user.role);
+    .mutation(async ({ input }) => {
       const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       for (const item of input) {
         await db.update(siteHeroSlides)
           .set({ sortOrder: item.sortOrder })
@@ -323,19 +359,26 @@ export const siteSettingsRouter = router({
     }),
 
   // ─── 푸터 관리 ───────────────────────────────────────────
-  getFooter: publicProcedure.query(async () => {
-    const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    const [row] = await db.select().from(siteFooter).limit(1);
-    if (!row) {
-      // 초기값 seed
-      await db.insert(siteFooter).values(DEFAULT_FOOTER);
-      return DEFAULT_FOOTER;
-    }
-    return row;
-  }),
+  getFooter: publicProcedure
+    .input(z.object({ tenantId: z.number().nullable().optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const tid = input?.tenantId ?? null;
+      const [row] = await db.select().from(siteFooter).where(
+        tid === null ? isNull(siteFooter.tenantId) : eq(siteFooter.tenantId, tid)
+      ).limit(1);
+      if (!row) {
+        if (tid === null) {
+          await db.insert(siteFooter).values(DEFAULT_FOOTER);
+          return DEFAULT_FOOTER;
+        }
+        return null;
+      }
+      return row;
+    }),
 
-  updateFooter: protectedProcedure
+  updateFooter: partnerProcedure
     .input(z.object({
       companyName: z.string().optional(),
       ceoName: z.string().optional(),
@@ -357,13 +400,15 @@ export const siteSettingsRouter = router({
       businessLicenseImageUrl: z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      requireAdmin(ctx.user.role);
+      const tenantId = (ctx as any).tenantId as number | null;
       const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const [existing] = await db.select().from(siteFooter).limit(1);
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [existing] = await db.select().from(siteFooter).where(
+        tenantId === null ? isNull(siteFooter.tenantId) : eq(siteFooter.tenantId, tenantId)
+      ).limit(1);
       if (existing) {
         await db.update(siteFooter)
-          .set({ ...input, updatedBy: ctx.user.name ?? ctx.user.openId })
+          .set({ ...input, updatedBy: getCallerName(ctx) })
           .where(eq(siteFooter.id, existing.id));
         await writeAuditLog({
           tableName: "site_footer",
@@ -371,41 +416,46 @@ export const siteSettingsRouter = router({
           action: "update",
           oldValue: existing,
           newValue: input,
-          changedBy: ctx.user.name ?? ctx.user.openId,
-          changedByUserId: ctx.user.id,
+          changedBy: getCallerName(ctx),
+          changedByUserId: getCallerUserId(ctx),
         });
       } else {
         await db.insert(siteFooter).values({
           ...input,
-          updatedBy: ctx.user.name ?? ctx.user.openId,
+          tenantId,
+          updatedBy: getCallerName(ctx),
         });
       }
       return { success: true };
     }),
 
   // ─── 노출 상품 구성 ──────────────────────────────────────
-  getFeaturedPackages: publicProcedure.query(async () => {
-    const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    const rows = await db
-      .select({
-        id: siteFeaturedPackages.id,
-        packageId: siteFeaturedPackages.packageId,
-        section: siteFeaturedPackages.section,
-        sortOrder: siteFeaturedPackages.sortOrder,
-        isActive: siteFeaturedPackages.isActive,
-        packageTitle: packages.title,
-        packageCountry: packages.country,
-        packageImageUrl: packages.imageUrl,
-        packageStatus: packages.status,
-      })
-      .from(siteFeaturedPackages)
-      .leftJoin(packages, eq(siteFeaturedPackages.packageId, packages.id))
-      .orderBy(asc(siteFeaturedPackages.section), asc(siteFeaturedPackages.sortOrder));
-    return rows;
-  }),
+  getFeaturedPackages: publicProcedure
+    .input(z.object({ tenantId: z.number().nullable().optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const tid = input?.tenantId ?? null;
+      const rows = await db
+        .select({
+          id: siteFeaturedPackages.id,
+          packageId: siteFeaturedPackages.packageId,
+          section: siteFeaturedPackages.section,
+          sortOrder: siteFeaturedPackages.sortOrder,
+          isActive: siteFeaturedPackages.isActive,
+          packageTitle: packages.title,
+          packageCountry: packages.country,
+          packageImageUrl: packages.imageUrl,
+          packageStatus: packages.status,
+        })
+        .from(siteFeaturedPackages)
+        .leftJoin(packages, eq(siteFeaturedPackages.packageId, packages.id))
+        .where(tid === null ? isNull(siteFeaturedPackages.tenantId) : eq(siteFeaturedPackages.tenantId, tid))
+        .orderBy(asc(siteFeaturedPackages.section), asc(siteFeaturedPackages.sortOrder));
+      return rows;
+    }),
 
-  setFeaturedPackages: protectedProcedure
+  setFeaturedPackages: partnerProcedure
     .input(z.array(z.object({
       packageId: z.number(),
       section: z.string(),
@@ -413,14 +463,19 @@ export const siteSettingsRouter = router({
       isActive: z.boolean().optional(),
     })))
     .mutation(async ({ input, ctx }) => {
-      requireAdmin(ctx.user.role);
+      const tenantId = (ctx as any).tenantId as number | null;
       const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const old = await db.select().from(siteFeaturedPackages);
-      await db.delete(siteFeaturedPackages);
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const old = await db.select().from(siteFeaturedPackages).where(
+        tenantId === null ? isNull(siteFeaturedPackages.tenantId) : eq(siteFeaturedPackages.tenantId, tenantId)
+      );
+      await db.delete(siteFeaturedPackages).where(
+        tenantId === null ? isNull(siteFeaturedPackages.tenantId) : eq(siteFeaturedPackages.tenantId, tenantId)
+      );
       if (input.length > 0) {
         await db.insert(siteFeaturedPackages).values(
           input.map((item) => ({
+            tenantId,
             packageId: item.packageId,
             section: item.section,
             sortOrder: item.sortOrder,
@@ -433,21 +488,19 @@ export const siteSettingsRouter = router({
         action: "update",
         oldValue: old,
         newValue: input,
-        changedBy: ctx.user.name ?? ctx.user.openId,
-        changedByUserId: ctx.user.id,
+        changedBy: getCallerName(ctx),
+        changedByUserId: getCallerUserId(ctx),
       });
       return { success: true };
     }),
 
   // ─── 사업자등록증 OCR ────────────────────────────────────
-  ocrBusinessLicense: protectedProcedure
+  ocrBusinessLicense: partnerProcedure
     .input(z.object({
-      imageUrl: z.string(),   // 업로드된 이미지 URL
-      imageBase64: z.string().optional(), // base64 인코딩된 이미지 (선택)
+      imageUrl: z.string(),
+      imageBase64: z.string().optional(),
     }))
-    .mutation(async ({ input, ctx }) => {
-      requireAdmin(ctx.user.role);
-
+    .mutation(async ({ input }) => {
       const prompt = `이 사업자등록증 이미지에서 다음 정보를 JSON 형식으로 추출해주세요.
 각 필드에 대해 추출된 값과 신뢰도(0.0~1.0)를 함께 반환해주세요.
 신뢰도가 0.7 미만인 경우 lowConfidence를 true로 설정해주세요.
@@ -465,7 +518,6 @@ export const siteSettingsRouter = router({
 
 이미지에서 해당 정보를 찾을 수 없는 경우 value를 빈 문자열로 설정하고 confidence를 0으로 설정하세요.`;
 
-      // Gemini Vision 호출 (기존 invokeLLM 재사용 — 비용 절감 경로)
       let result;
       let retries = 0;
       const maxRetries = 2;
@@ -503,7 +555,6 @@ export const siteSettingsRouter = router({
               message: `OCR 처리 실패: ${errMsg}`,
             });
           }
-          // 503 오류 시 잠시 대기 후 재시도
           await new Promise((resolve) => setTimeout(resolve, 1000 * retries));
         }
       }
@@ -523,23 +574,45 @@ export const siteSettingsRouter = router({
       };
     }),
 
-  // ─── 감사 로그 조회 ──────────────────────────────────────
-  getAuditLogs: protectedProcedure
+  // ─── 파트너 홈페이지 URL 조회 ───────────────────────────────────────
+  // 파트너 세션의 tenantId 기반으로 파트너 온보딩에서 websiteUrl 조회
+  getMyHomepageUrl: partnerProcedure.query(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const tenantId = (ctx as any).tenantId as number | null;
+    if (!tenantId) return { websiteUrl: null, hasHomepage: false };
+    const [tenant] = await db
+      .select({ onboardingId: tenants.onboardingId })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .limit(1);
+    if (!tenant?.onboardingId) return { websiteUrl: null, hasHomepage: false };
+    const [onboarding] = await db
+      .select({ websiteUrl: partnerOnboarding.websiteUrl })
+      .from(partnerOnboarding)
+      .where(eq(partnerOnboarding.id, tenant.onboardingId))
+      .limit(1);
+    const websiteUrl = onboarding?.websiteUrl ?? null;
+    return { websiteUrl, hasHomepage: !!websiteUrl };
+  }),
+
+  // ─── 감사 로그 조회 (마스터 전용) ───────────────────────
+  getAuditLogs: partnerProcedure
     .input(z.object({
       tableName: z.string().optional(),
       limit: z.number().min(1).max(100).default(50),
     }))
-    .query(async ({ input, ctx }) => {
-      requireAdmin(ctx.user.role);
+    .query(async ({ input }) => {
       const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const query = db.select().from(siteAuditLogs).orderBy(desc(siteAuditLogs.createdAt)).limit(input.limit);
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       if (input.tableName) {
         return db.select().from(siteAuditLogs)
           .where(eq(siteAuditLogs.tableName, input.tableName))
           .orderBy(desc(siteAuditLogs.createdAt))
           .limit(input.limit);
       }
-      return query;
+      return db.select().from(siteAuditLogs)
+        .orderBy(desc(siteAuditLogs.createdAt))
+        .limit(input.limit);
     }),
 });
