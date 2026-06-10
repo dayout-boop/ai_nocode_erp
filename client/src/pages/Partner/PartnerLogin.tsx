@@ -56,7 +56,7 @@ export default function PartnerLogin() {
       });
       const data = await res.json();
       if (data.success) {
-        window.location.href = data.redirectTo || '/partner/dashboard';
+        window.location.href = data.redirectTo || '/erp';
       } else {
         setLoginError(data.error || '로그인에 실패했습니다.');
       }
@@ -69,7 +69,7 @@ export default function PartnerLogin() {
 
   const handleGoogleLogin = () => {
     setGoogleLoading(true);
-    window.location.href = `/api/partner/auth/google?returnUrl=${encodeURIComponent('/partner/dashboard')}`;
+    window.location.href = `/api/partner/auth/google?returnUrl=${encodeURIComponent('/erp')}`;
   };
 
   return (

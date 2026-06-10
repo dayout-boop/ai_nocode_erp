@@ -36,3 +36,9 @@
 - [ ] npx tsc --noEmit
 - [ ] npx vitest run
 - [ ] 체크포인트 저장
+
+
+## #6 [긴급] 파트너 로그인 후 풀 ERP 화면이 아닌 간이 대시보드(/partner/dashboard)로 떨어짐
+- [ ] /partner/dashboard 간이화면 라우트와 ERPLayout(풀 ERP) 진입 조건 차이 추적
+- [ ] 파트너 세션도 ERPLayout(사이드바+상품/예약/정산 등 테넌트1 동일 화면)으로 진입하도록 수정
+- [ ] 파트너 모드에서 테넌트 데이터 정상 표시 확인

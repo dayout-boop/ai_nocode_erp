@@ -81,9 +81,9 @@ function Router() {
       {/* 기타 */}
       <Route path={"/estimate/:token"} component={EstimateView} />
 
-      {/* 파트너 센터 */}
-      <Route path={"/partner"} component={PartnerDashboard} />
-      <Route path={"/partner/dashboard"} component={PartnerDashboard} />
+      {/* 파트너 센터 — 승인 파트너는 풀 ERP(/erp)로 진입 (간이 대시보드 폐기) */}
+      <Route path={"/partner"} component={() => { window.location.replace("/erp"); return null; }} />
+      <Route path={"/partner/dashboard"} component={() => { window.location.replace("/erp"); return null; }} />
       <Route path={"/partner/login"} component={PartnerLogin} />
       <Route path={"/partner/chat"} component={PartnerChat} />
 

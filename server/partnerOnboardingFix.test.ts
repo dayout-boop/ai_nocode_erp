@@ -69,3 +69,44 @@ const hasDb = !!process.env.DATABASE_URL;
     }
   });
 });
+
+/**
+ * 파트너 로그인 후 도착지 검증: 승인된 파트너는 간이 대시보드(/partner/dashboard)가 아니라
+ * 테넌트1과 동일한 풀 ERP(/erp)로 진입해야 한다.
+ */
+describe("파트너 로그인 도착지(/erp)", () => {
+  const googleAuthSource = readFileSync(
+    path.resolve(__dirname, "./routers/partnerGoogleAuth.ts"),
+    "utf-8",
+  );
+  const loginPageSource = readFileSync(
+    path.resolve(__dirname, "../client/src/pages/Partner/PartnerLogin.tsx"),
+    "utf-8",
+  );
+  const appSource = readFileSync(
+    path.resolve(__dirname, "../client/src/App.tsx"),
+    "utf-8",
+  );
+
+  it("이메일 로그인 API는 redirectTo로 /erp를 반환한다", () => {
+    expect(googleAuthSource).toContain("redirectTo: '/erp'");
+  });
+
+  it("구글 콜백 활성 파트너 returnUrl 기본값이 /erp다", () => {
+    expect(googleAuthSource).toContain("let returnUrl = '/erp'");
+  });
+
+  it("활성 파트너가 가입/온보딩 경로로 돌아가지 않도록 /erp로 강제하는 가드가 있다", () => {
+    expect(googleAuthSource).toContain("returnUrl = '/erp'");
+    expect(googleAuthSource).toContain("/partner/onboarding-chat");
+  });
+
+  it("PartnerLogin은 로그인 성공 시 /erp로 이동(fallback 포함)한다", () => {
+    expect(loginPageSource).toContain("data.redirectTo || '/erp'");
+    expect(loginPageSource).toContain("encodeURIComponent('/erp')");
+  });
+
+  it("/partner/dashboard 라우트는 /erp로 리다이렉트된다", () => {
+    expect(appSource).toContain('window.location.replace("/erp")');
+  });
+});

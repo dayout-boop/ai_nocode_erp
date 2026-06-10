@@ -293,7 +293,7 @@ router.get('/google/callback', async (req, res) => {
             maxAge: 7 * 24 * 60 * 60 * 1000,
             path: '/',
           });
-          return res.redirect('/partner/dashboard');
+          return res.redirect('/erp');
         } catch (createErr: any) {
           console.error('[GoogleAuth] partners 행 생성 실패:', createErr?.message);
           // 실패 시 온보딩 채팅으로 fallback
@@ -397,7 +397,8 @@ router.get('/google/callback', async (req, res) => {
     });
 
     // returnUrl 결정: authProxy 위임값 우선, 없으면 state에서 복원
-    let returnUrl = '/partner/dashboard';
+    // 승인된 활성 파트너는 풀 ERP(/erp)로 진입 (간이 대시보드 /partner/dashboard 폐기)
+    let returnUrl = '/erp';
     if (returnUrlFromProxy && returnUrlFromProxy.startsWith('/')) {
       returnUrl = returnUrlFromProxy;
     } else {
@@ -409,6 +410,15 @@ router.get('/google/callback', async (req, res) => {
           }
         }
       } catch {}
+    }
+    // 이미 승인·활성 파트너가 가입/온보딩/간이대시보드 경로로 돌아가지 않도록 풀 ERP로 강제
+    if (
+      returnUrl.startsWith('/partner/onboarding-chat') ||
+      returnUrl.startsWith('/partner/dashboard') ||
+      returnUrl.startsWith('/partner/join') ||
+      returnUrl.startsWith('/partner/pending-verification')
+    ) {
+      returnUrl = '/erp';
     }
 
     console.log(`[GoogleAuth] 로그인 성공 - 파트너 ${partner.id}, 테넌트 ${partner.tenantId}, proxyVerified: ${isProxyVerified}`);
@@ -494,7 +504,7 @@ router.post('/email/login', async (req, res) => {
       path: '/',
     });
 
-    return res.json({ success: true, redirectTo: '/partner/dashboard' });
+    return res.json({ success: true, redirectTo: '/erp' });
   } catch (err) {
     console.error('[EmailLogin] 오류:', err);
     return res.status(500).json({ success: false, error: '서버 오류가 발생했습니다.' });

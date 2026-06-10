@@ -120,7 +120,7 @@ async function buildGoogleOAuthUrl(params: {
 // ============================================================
 router.post('/auth/oauth/google/initiate', async (req, res) => {
   try {
-    const returnUrl = (req.body?.returnUrl as string) || '/partner/dashboard';
+    const returnUrl = (req.body?.returnUrl as string) || '/erp';
 
     const nonce = issueNonce({ tenantId: null, purpose: 'signup', returnUrl });
     const callbackBaseUrl = `${req.protocol}://${req.get('host')}`;
@@ -153,7 +153,7 @@ router.post('/tenants/:tenantId/auth/oauth/google/session-token', async (req, re
   }
 
   try {
-    const returnUrl = (req.body?.returnUrl as string) || '/partner/dashboard';
+    const returnUrl = (req.body?.returnUrl as string) || '/erp';
 
     // 일회성 nonce 발급 (로그인용, 테넌트 ID 포함)
     const nonce = issueNonce({ tenantId, purpose: 'login', returnUrl });
