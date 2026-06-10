@@ -23,6 +23,7 @@ import {
 } from "../../drizzle/schema";
 import { eq, gte, lte, and, sql, desc, count, sum, isNull, countDistinct } from "drizzle-orm";
 import { maskPhone, maskEmail } from "./rag";
+import { searchCode, getFileContent, listDirectory, listBranches } from "../_core/github";
 
 // ─── Tool 정의 (OpenRouter Tool Calling 형식) ───────────────────
 
@@ -380,6 +381,56 @@ export const MASTER_TOOLS = [
       },
     },
   },
+  // ─── GitHub 코드 파악 도구 (승인 불필요) ────────────────────────────────────
+  {
+    type: "function",
+    function: {
+      name: "search_github_code",
+      description: "GitHub 저장소에서 코드를 검색합니다. 신규 개발 요청 시 유사한 기존 코드가 있는지 확인하거나, 특정 함수/컴포넌트의 구현 위치를 찾을 때 사용합니다. 중복 개발 방지 및 기존 패턴 파악에 활용하세요.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "검색어 (예: 'PackageCard', 'booking mutation', '예약 생성 함수')" },
+          language: { type: "string", description: "코드 언어 필터 (예: 'TypeScript', 'tsx', 'ts')" },
+          maxResults: { type: "number", description: "최대 반환 결과 수 (기본값: 5, 최대: 10)" },
+        },
+        required: ["query"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "read_github_file",
+      description: "GitHub 저장소의 특정 파일 내용을 읽습니다. 기능 수정 전 현재 코드 파악, 라우터 구조 확인, DB 스키마 확인 등에 사용합니다. 브랜치를 지정하면 main/dev-1/dev-2-integration 브랜치의 코드를 각각 확인할 수 있습니다.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "파일 경로 (예: 'server/routers/devAI.ts', 'drizzle/schema.ts')" },
+          branch: { type: "string", description: "브랜치명 (기본값: main, 선택: dev-1, dev-2-integration)" },
+        },
+        required: ["path"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_github_directory",
+      description: "GitHub 저장소의 특정 디렉토리 내 파일 목록을 조회합니다. 어떤 파일들이 있는지 파악하거나, 라우터/컴포넌트 구조를 확인할 때 사용합니다.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "디렉토리 경로 (예: 'server/routers', 'client/src/pages/erp')" },
+          branch: { type: "string", description: "브랜치명 (기본값: main, 선택: dev-1, dev-2-integration)" },
+        },
+        required: ["path"],
+        additionalProperties: false,
+      },
+    },
+  },
   // ─── 세션 상태 관리 도구 ────────────────────────────────────────────────────
   {
     type: "function",
@@ -519,6 +570,12 @@ export async function executeTool(
         return await setSessionState(db, args, start);
       case "get_session_state":
         return await getSessionState(db, args, start);
+      case "search_github_code":
+        return await searchGithubCode(args, start);
+      case "read_github_file":
+        return await readGithubFile(args, start);
+      case "list_github_directory":
+        return await listGithubDirectory(args, start);
       default:
         return { tool: toolName, success: false, error: `알 수 없는 도구: ${toolName}`, queryTime: Date.now() - start };
     }
@@ -1468,3 +1525,121 @@ async function getSessionState(
   };
 }
 
+
+/**
+ * GitHub 코드 검색 (중복 개발 방지)
+ */
+async function searchGithubCode(args: Record<string, unknown>, start: number): Promise<ToolCallResult> {
+  const query = String(args.query || "");
+  if (!query) {
+    return { tool: "search_github_code", success: false, error: "검색어가 필요합니다", queryTime: Date.now() - start };
+  }
+  const language = args.language ? String(args.language) : undefined;
+  const maxResults = Math.min(Number(args.maxResults || 5), 10);
+  try {
+    const results = await searchCode(query, { language, perPage: maxResults });
+    if (!results || results.items.length === 0) {
+      return {
+        tool: "search_github_code",
+        success: true,
+        data: {
+          query,
+          totalCount: 0,
+          items: [],
+          message: `'${query}'에 해당하는 코드를 찾지 못했습니다. 새로 개발이 필요합니다.`,
+        },
+        queryTime: Date.now() - start,
+      };
+    }
+    return {
+      tool: "search_github_code",
+      success: true,
+      data: {
+        query,
+        totalCount: results.totalCount,
+        items: results.items.slice(0, maxResults).map((item) => ({
+          name: item.name,
+          path: item.path,
+          htmlUrl: item.htmlUrl,
+          repository: item.repository,
+          textMatches: item.textMatches?.slice(0, 2).map((m) => ({
+            fragment: m.fragment?.substring(0, 200),
+          })),
+        })),
+        message: `'${query}' 관련 코드 ${results.totalCount}개 발견. 기존 코드를 재사용하거나 참고하세요.`,
+      },
+      queryTime: Date.now() - start,
+    };
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    return { tool: "search_github_code", success: false, error: errMsg, queryTime: Date.now() - start };
+  }
+}
+
+/**
+ * GitHub 파일 내용 읽기 (마스터 AI 코드 파악용)
+ */
+async function readGithubFile(args: Record<string, unknown>, start: number): Promise<ToolCallResult> {
+  const path = String(args.path || "");
+  if (!path) {
+    return { tool: "read_github_file", success: false, error: "파일 경로가 필요합니다", queryTime: Date.now() - start };
+  }
+  const branch = args.branch ? String(args.branch) : "main";
+  try {
+    const file = await getFileContent(path, branch);
+    // 파일이 너무 크면 앞 200줄만 반환
+    const lines = file.content.split("\n");
+    const truncated = lines.length > 200;
+    const content = truncated ? lines.slice(0, 200).join("\n") + `\n\n... (총 ${lines.length}줄 중 200줄만 표시)` : file.content;
+    return {
+      tool: "read_github_file",
+      success: true,
+      data: {
+        path: file.path,
+        branch,
+        content,
+        totalLines: lines.length,
+        truncated,
+        htmlUrl: file.htmlUrl,
+      },
+      queryTime: Date.now() - start,
+    };
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    return { tool: "read_github_file", success: false, error: errMsg, queryTime: Date.now() - start };
+  }
+}
+
+/**
+ * GitHub 디렉토리 파일 목록 조회
+ */
+async function listGithubDirectory(args: Record<string, unknown>, start: number): Promise<ToolCallResult> {
+  const path = String(args.path || "");
+  if (!path) {
+    return { tool: "list_github_directory", success: false, error: "디렉토리 경로가 필요합니다", queryTime: Date.now() - start };
+  }
+  const branch = args.branch ? String(args.branch) : "main";
+  try {
+    const items = await listDirectory(path, branch);
+    return {
+      tool: "list_github_directory",
+      success: true,
+      data: {
+        path,
+        branch,
+        items: items.map((item) => ({
+          name: item.name,
+          path: item.path,
+          type: item.type,
+          size: item.size,
+          htmlUrl: item.htmlUrl,
+        })),
+        total: items.length,
+      },
+      queryTime: Date.now() - start,
+    };
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    return { tool: "list_github_directory", success: false, error: errMsg, queryTime: Date.now() - start };
+  }
+}

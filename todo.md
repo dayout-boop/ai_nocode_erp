@@ -2280,3 +2280,10 @@ Detected
 - [x] MasterAI.tsx: 승인 버튼 onClick에서 /api/master-stream-resume SSE 재개 연결
 - [x] routers.ts: devAI.createRequest source: "manual" 추가
 - [x] routers.ts: devAI.createRequestFromNaturalLanguage source: "manual" 추가
+
+## devAIRouter 분리 + GitHub 도구 복원 (2026-06-11)
+- [x] server/_core/github.ts 복원 + read_github_file/list_github_directory 함수 추가
+- [x] masterTools.ts: GitHub 도구 3종 추가 (search_github_code, read_github_file, list_github_directory) — 승인 불필요
+- [x] devAIRouter → server/routers/devAI.ts 분리 (routers.ts 1,231줄 제거 + import 추가)
+- [x] MASTER_SYSTEM_PROMPT에 파일 맵 및 GitHub 도구 사용 가이드 추가
+- [x] TypeScript 검증 완료 (오류 0건) + 체크포인트 저장
