@@ -49,7 +49,11 @@ function Router() {
       path.startsWith('/partner/') ||
       path === '/partner' ||
       path === '/pricing' ||
-      path === '/partner-landing';
+      path === '/partner-landing' ||
+      path.startsWith('/erp') ||   // 파트너 ERP 진입 경로
+      path.startsWith('/estimate') || // 견적서
+      path.startsWith('/terms') ||
+      path.startsWith('/privacy');
     if (!isPartnerSubRoute) {
       return <PartnerLandingPage />;
     }

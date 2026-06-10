@@ -2252,3 +2252,7 @@ Detected
 ### 마무리
 - [x] vitest 테스트 작성·검증 (partnerSubdomain/requestRejection 신규 11개, 전체 428개 통과)
 - [x] 체크포인트 저장 및 결과 보고
+
+## 파트너 ERP 라우팅 수정 (2026-06-10)
+- [x] App.tsx: partner.dayoutgolf.com에서 /erp 경로를 홍보 페이지가 아닌 실제 ERP로 라우팅 (isPartnerSubRoute에 /erp 추가)
+- [x] 파트너 로그인(tourcm/dogolf1580!) 후 /erp 진입 확인 - API 정상 작동
