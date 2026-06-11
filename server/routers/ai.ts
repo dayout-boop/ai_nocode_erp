@@ -563,7 +563,142 @@ export const aiRouter = router({
         ])
         .catch((e) => console.error("[managerChat] 로그 저장 실패:", e));
 
-      return { response: responseText, model: modelUsed, tokensIn, tokensOut, costUsd, durationMs: Date.now() - startTime };
+      // ─── Generative UI 마커 파싱 ───────────────────────────────────────
+      type ManagerUiCard =
+        | { type: "product_cards"; packages: Array<{ id: number; title: string; country: string; duration: string | null; roundCount: number | null; imageUrl: string | null; isPopular: boolean; slots: Array<{ id: number; departureDate: string; returnDate: string | null; totalSlots: number; bookedSlots: number; adultPrice: string | null; depositPrice: string | null; affiliatePrice: string | null; status: string }> }> }
+        | { type: "booking_form"; packageId: number; packageTitle: string | null }
+        | { type: "reservation_status"; bookings: Array<{ id: number; bookingNumber: string; leaderName: string; leaderPhone: string; packageTitle: string | null; departureDate: string | null; adultCount: number; totalAmount: string | null; status: string; createdAt: Date }> };
+
+      let uiCard: ManagerUiCard | null = null;
+      let cleanResponse = responseText;
+
+      // [UI:PRODUCT_CARDS:id1,id2,id3]
+      const productMatch = responseText.match(/\[UI:PRODUCT_CARDS:([\d,]+)\]/);
+      if (productMatch) {
+        cleanResponse = responseText.replace(/\[UI:PRODUCT_CARDS:[\d,]+\]/, "").trim();
+        const ids = productMatch[1].split(",").map(Number).filter(Boolean).slice(0, 6);
+        if (ids.length > 0) {
+          try {
+            const pkgRows = await db.select({
+              id: packages.id,
+              title: packages.title,
+              country: packages.country,
+              duration: packages.duration,
+              roundCount: packages.roundCount,
+              imageUrl: packages.imageUrl,
+              isPopular: packages.isPopular,
+            }).from(packages).where(inArray(packages.id, ids)).limit(6);
+
+            const slotsRows = await db.select({
+              id: packageSlots.id,
+              packageId: packageSlots.packageId,
+              departureDate: packageSlots.departureDate,
+              returnDate: packageSlots.returnDate,
+              totalSlots: packageSlots.totalSlots,
+              bookedSlots: packageSlots.bookedSlots,
+              adultPrice: packageSlots.adultPrice,
+              adultDepositPrice: packageSlots.adultDepositPrice,
+              adultAffiliatePrice: packageSlots.adultAffiliatePrice,
+              status: packageSlots.status,
+            }).from(packageSlots)
+              .where(and(inArray(packageSlots.packageId, ids), eq(packageSlots.status, "open")))
+              .orderBy(packageSlots.departureDate)
+              .limit(30);
+
+            const slotsByPkg = slotsRows.reduce<Record<number, typeof slotsRows>>((acc, s) => {
+              if (!acc[s.packageId]) acc[s.packageId] = [];
+              acc[s.packageId].push(s);
+              return acc;
+            }, {});
+
+            uiCard = {
+              type: "product_cards",
+              packages: pkgRows.map((p) => ({
+                ...p,
+                isPopular: Boolean(p.isPopular),
+                slots: (slotsByPkg[p.id] ?? []).slice(0, 5).map((s) => ({
+                  id: s.id,
+                  departureDate: s.departureDate instanceof Date ? s.departureDate.toISOString() : String(s.departureDate),
+                  returnDate: s.returnDate instanceof Date ? s.returnDate.toISOString() : (s.returnDate ? String(s.returnDate) : null),
+                  totalSlots: s.totalSlots ?? 0,
+                  bookedSlots: s.bookedSlots ?? 0,
+                  adultPrice: s.adultPrice ?? null,
+                  depositPrice: s.adultDepositPrice ?? null,
+                  affiliatePrice: s.adultAffiliatePrice ?? null,
+                  status: s.status ?? "open",
+                })),
+              })),
+            };
+          } catch (e) {
+            console.error("[managerChat] product cards 조회 실패:", e);
+          }
+        }
+      }
+
+      // [UI:BOOKING_FORM:packageId]
+      const bookingFormMatch = responseText.match(/\[UI:BOOKING_FORM:(\d+)\]/);
+      if (!uiCard && bookingFormMatch) {
+        cleanResponse = responseText.replace(/\[UI:BOOKING_FORM:\d+\]/, "").trim();
+        const pkgId = Number(bookingFormMatch[1]);
+        let pkgTitle: string | null = null;
+        if (pkgId > 0) {
+          try {
+            const [p] = await db.select({ title: packages.title }).from(packages).where(eq(packages.id, pkgId)).limit(1);
+            pkgTitle = p?.title ?? null;
+          } catch {}
+        }
+        uiCard = { type: "booking_form", packageId: pkgId, packageTitle: pkgTitle };
+      }
+
+      // [UI:RESERVATION_STATUS]
+      if (!uiCard && responseText.includes("[UI:RESERVATION_STATUS]")) {
+        cleanResponse = responseText.replace("[UI:RESERVATION_STATUS]", "").trim();
+        try {
+          const recentBookings = await db.select({
+            id: bookings.id,
+            bookingNumber: bookings.bookingNumber,
+            leaderName: bookings.leaderName,
+            leaderPhone: bookings.leaderPhone,
+            packageId: bookings.packageId,
+            departureDate: bookings.departureDate,
+            adultCount: bookings.adultCount,
+            totalAmount: bookings.totalAmount,
+            status: bookings.status,
+            createdAt: bookings.createdAt,
+          }).from(bookings)
+            .where(tenantId ? eq(bookings.tenantId, tenantId) : undefined)
+            .orderBy(desc(bookings.createdAt))
+            .limit(10);
+
+          const pkgIds = Array.from(new Set(recentBookings.map((b) => b.packageId).filter(Boolean))) as number[];
+          const pkgTitles: Record<number, string> = {};
+          if (pkgIds.length > 0) {
+            const pkgRows = await db.select({ id: packages.id, title: packages.title })
+              .from(packages).where(inArray(packages.id, pkgIds));
+            pkgRows.forEach((p) => { pkgTitles[p.id] = p.title; });
+          }
+
+          uiCard = {
+            type: "reservation_status",
+            bookings: recentBookings.map((b) => ({
+              id: b.id,
+              bookingNumber: b.bookingNumber ?? `BK-${b.id}`,
+              leaderName: b.leaderName ? b.leaderName.slice(0, 1) + "**" : "미상",
+              leaderPhone: b.leaderPhone ? b.leaderPhone.slice(0, 3) + "-****-" + b.leaderPhone.slice(-4) : "",
+              packageTitle: b.packageId ? (pkgTitles[b.packageId] ?? null) : null,
+              departureDate: b.departureDate instanceof Date ? b.departureDate.toISOString() : (b.departureDate ? String(b.departureDate) : null),
+              adultCount: b.adultCount ?? 0,
+              totalAmount: b.totalAmount ?? null,
+              status: b.status ?? "pending",
+              createdAt: b.createdAt ?? new Date(),
+            })),
+          };
+        } catch (e) {
+          console.error("[managerChat] reservation status 조회 실패:", e);
+        }
+      }
+
+      return { response: cleanResponse, model: modelUsed, tokensIn, tokensOut, costUsd, durationMs: Date.now() - startTime, uiCard };
     }),
 
   /**

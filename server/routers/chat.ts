@@ -10,7 +10,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq, desc, and, count, sql, ne } from "drizzle-orm";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, protectedProcedure, partnerProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { chatSessions, aiLogs, masterSessionSummaries } from "../../drizzle/schema";
 import { orchestratorChat } from "../services/openrouter";
@@ -477,6 +477,115 @@ export const chatRouter = router({
       }
 
       return { success: true, reason: existing ? "updated" : "created", summary: result };
+    }),
+
+  /**
+   * 파트너 매니저 대화 세션 목록 조회 (세션 이어가기용)
+   * ai_logs 테이블에서 assistant="manager" 세션을 그룹화하여 반환
+   */
+  listManagerSessions: partnerProcedure
+    .input(
+      z.object({
+        limit: z.number().min(1).max(50).default(20),
+        offset: z.number().default(0),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const tenantUserId: number = ctx.user?.id ?? ctx.partnerStaff?.staffId ?? ctx.partnerOwner?.partnerId ?? 0;
+
+      // 세션별 최신 메시지 시각 + 메시지 수 집계
+      const sessionStats = await db
+        .select({
+          sessionId: aiLogs.sessionId,
+          messageCount: count(aiLogs.id),
+          lastMessageAt: sql<Date>`MAX(${aiLogs.createdAt})`,
+          firstMessageAt: sql<Date>`MIN(${aiLogs.createdAt})`,
+        })
+        .from(aiLogs)
+        .where(and(eq(aiLogs.assistant, "manager"), eq(aiLogs.userId, tenantUserId)))
+        .groupBy(aiLogs.sessionId)
+        .orderBy(desc(sql`MAX(${aiLogs.createdAt})`))
+        .limit(input.limit)
+        .offset(input.offset);
+
+      if (sessionStats.length === 0) {
+        return { sessions: [], total: 0 };
+      }
+
+      // 각 세션의 첫 번째 user 메시지 조회 (제목용)
+      const sessionIds = sessionStats.map((s) => s.sessionId);
+      const firstMessages = await Promise.all(
+        sessionIds.map(async (sid) => {
+          const [firstUserMsg] = await db
+            .select({ content: aiLogs.content })
+            .from(aiLogs)
+            .where(and(eq(aiLogs.sessionId, sid), eq(aiLogs.role, "user")))
+            .orderBy(aiLogs.createdAt)
+            .limit(1);
+          return { sessionId: sid, title: firstUserMsg?.content?.slice(0, 60) ?? "새 대화" };
+        })
+      );
+
+      const titleMap = new Map(firstMessages.map((m) => [m.sessionId, m.title]));
+
+      const [totalResult] = await db
+        .select({ count: sql<number>`COUNT(DISTINCT ${aiLogs.sessionId})` })
+        .from(aiLogs)
+        .where(and(eq(aiLogs.assistant, "manager"), eq(aiLogs.userId, tenantUserId)));
+
+      const sessions = sessionStats.map((s) => ({
+        sessionId: s.sessionId,
+        title: titleMap.get(s.sessionId) ?? "새 대화",
+        messageCount: Number(s.messageCount),
+        lastMessageAt: s.lastMessageAt,
+        firstMessageAt: s.firstMessageAt,
+      }));
+
+      return {
+        sessions,
+        total: Number(totalResult?.count ?? 0),
+      };
+    }),
+
+  /**
+   * 파트너 매니저 특정 세션 메시지 조회 (대화 이어가기용)
+   */
+  getManagerSessionMessages: partnerProcedure
+    .input(
+      z.object({
+        sessionId: z.string().min(1).max(100),
+        limit: z.number().min(1).max(200).default(100),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const tenantUserId: number = ctx.user?.id ?? ctx.partnerStaff?.staffId ?? ctx.partnerOwner?.partnerId ?? 0;
+
+      const messages = await db
+        .select({
+          id: aiLogs.id,
+          role: aiLogs.role,
+          content: aiLogs.content,
+          createdAt: aiLogs.createdAt,
+        })
+        .from(aiLogs)
+        .where(
+          and(
+            eq(aiLogs.sessionId, input.sessionId),
+            eq(aiLogs.assistant, "manager"),
+            eq(aiLogs.userId, tenantUserId),
+            ne(aiLogs.role, "system")
+          )
+        )
+        .orderBy(aiLogs.createdAt)
+        .limit(input.limit);
+
+      return { messages, sessionId: input.sessionId };
     }),
 
   /**

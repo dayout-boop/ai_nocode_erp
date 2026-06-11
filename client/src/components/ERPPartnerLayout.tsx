@@ -26,6 +26,7 @@ import { partnerTrpc, createPartnerTrpcClient, createPartnerQueryClient } from "
 import { QueryClientProvider } from "@tanstack/react-query";
 import PartnerCreditPage from "@/pages/Partner/PartnerCreditPage";
 import PartnerAIBlockPage from "@/pages/Partner/PartnerAIBlockPage";
+import PartnerAIManagerPage from "@/pages/Partner/PartnerAIManagerPage";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -488,7 +489,7 @@ export default function ERPPartnerLayout() {
             <Route path="/partner/staff/packages" component={() => <ComingSoon title="상품 관리" />} />
             <Route path="/partner/staff/bookings" component={() => <ComingSoon title="예약 관리" />} />
             <Route path="/partner/staff/inquiries" component={() => <ComingSoon title="문의 관리" />} />
-            <Route path="/partner/staff/ai" component={() => <ComingSoon title="AI 매니저" />} />
+            <Route path="/partner/staff/ai" component={() => <PartnerAIManagerPage />} />
             <Route path="/partner/staff/credit" component={() => <PartnerCreditPage />} />
             <Route path="/partner/staff/ai-block" component={() => <PartnerAIBlockPage />} />
             <Route path="/partner/staff/my" component={() => <PartnerStaffMyPage staff={staff} />} />

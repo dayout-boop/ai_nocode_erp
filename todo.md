@@ -2300,3 +2300,12 @@ Detected
 - [x] knowledgeBlock.ts: 마스터/파트너 구분 CRUD + 마스터용 업체별 규칙 조회 프로시저 추가
 - [x] KnowledgeBlockLog.tsx: 텍스트 전면 수정 + 마스터 통합 관리 UI(업체별 규칙 조회) + 파트너 자체 규칙 관리 UI
 - [x] tenantAi.ts: checkRequestForBlockedKeywords에 tenantId 전달 + TypeScript 검증 + 체크포인트
+
+## 두골프 매니저 Generative UI + 파트너 AI 매니저 완성 (2026-06-11)
+- [x] manager.ts 시스템 프롬프트에 Generative UI 마커 지시 추가 (SHOW_PRODUCT_CARDS, SHOW_BOOKING_FORM, SHOW_RESERVATION_STATUS)
+- [x] ai.ts managerChat: Generative UI 마커 파싱 + uiCard 반환 로직 추가 (상품 카드, 수기예약 폼, 예약현황 카드)
+- [x] chat.ts: listManagerSessions / getManagerSessionMessages 프로시저 추가 (파트너 세션 이어가기)
+- [x] PartnerChat.tsx 전면 개편: Generative UI 컴포넌트 + 세션 이어가기 드로어 + 새 대화 버튼
+- [x] PartnerAIManagerPage.tsx 신규 생성: ERPPartnerLayout 내 AI 매니저 채팅 페이지 (Generative UI 동일 기능)
+- [x] ERPPartnerLayout.tsx: AI 매니저 Coming Soon → PartnerAIManagerPage 연결
+- [x] TypeScript 검증 완료 (오류 0건)
