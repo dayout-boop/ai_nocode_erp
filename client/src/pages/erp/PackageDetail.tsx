@@ -16,6 +16,27 @@ import { toast } from "sonner";
 import { Plus, Trash2, ArrowLeft, Upload, Star, ImageIcon, X, ChevronUp, ChevronDown, Search, Wand2, Loader2, Video, Zap, CheckCircle, XCircle, Clock } from "lucide-react";
 import { Link } from "wouter";
 import ERPSlotCalendar from "@/components/ERPSlotCalendar";
+// duration 문자열에서 박수(nights) 파싱 (예: "1박2일" → 1, "3박4일" → 3, "당일" → 0)
+function parseDurationNights(duration: string | null | undefined): number {
+  if (!duration) return 1;
+  const m = duration.match(/(\d+)박/);
+  if (m) return parseInt(m[1], 10);
+  if (duration.includes('당일')) return 0;
+  return 1;
+}
+
+// 박수 기반 일차 안내 생성 (예: 1박2일 → ["1일차 (출발)", "2일차 (귀국)"])
+function buildDayLabels(nights: number): string[] {
+  if (nights === 0) return ['당일 (출발·귀국)'];
+  const labels: string[] = [];
+  for (let i = 1; i <= nights + 1; i++) {
+    if (i === 1) labels.push(`1일차 (출발)`);
+    else if (i === nights + 1) labels.push(`${i}일차 (귀국)`);
+    else labels.push(`${i}일차 (현지)`);
+  }
+  return labels;
+}
+
 const COUNTRY_MAP: Record<string, string> = {
   korea: "대한민국",
   thailand: "태국",
@@ -113,6 +134,7 @@ export default function PackageDetail() {
     notes: "",
   });
   const [editingSlotId, setEditingSlotId] = useState<number | null>(null);
+  const [showChildInfantCols, setShowChildInfantCols] = useState(false);
   const [editSlotForm, setEditSlotForm] = useState<any>(null);
 
   const addPriceMutation = trpc.packages.addPrice.useMutation({
@@ -1149,8 +1171,30 @@ export default function PackageDetail() {
                       <Input type="date" value={batchForm.endDate} onChange={(e) => setBatchForm({ ...batchForm, endDate: e.target.value })} className="mt-1 h-9" />
                     </div>
                     <div>
-                      <Label>박수</Label>
-                      <Input type="number" value={batchForm.nights} onChange={(e) => setBatchForm({ ...batchForm, nights: Number(e.target.value) })} className="mt-1 h-9" min={1} />
+                      <Label className="flex items-center gap-1.5">
+                        박수
+                        {data?.duration && (
+                          <button
+                            type="button"
+                            onClick={() => setBatchForm({ ...batchForm, nights: parseDurationNights(data.duration) })}
+                            className="text-[10px] text-indigo-500 hover:text-indigo-700 underline font-normal"
+                          >
+                            상품 기준({data.duration}) 적용
+                          </button>
+                        )}
+                      </Label>
+                      <Input type="number" value={batchForm.nights} onChange={(e) => setBatchForm({ ...batchForm, nights: Number(e.target.value) })} className="mt-1 h-9" min={0} />
+                      {batchForm.nights >= 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {buildDayLabels(batchForm.nights).map((label, i) => (
+                            <span key={i} className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                              i === 0 ? 'bg-blue-50 text-blue-600' :
+                              i === batchForm.nights ? 'bg-orange-50 text-orange-600' :
+                              'bg-slate-50 text-slate-500'
+                            }`}>{label}</span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <Label>총 정원</Label>
@@ -1306,7 +1350,25 @@ export default function PackageDetail() {
                           <th className="text-right px-3 py-3 text-slate-500 font-medium">성인 판매가</th>
                           <th className="text-right px-3 py-3 text-slate-500 font-medium">성인 입금가</th>
                           <th className="text-right px-3 py-3 text-slate-500 font-medium">성인 제휴가</th>
-                          <th className="text-right px-3 py-3 text-slate-500 font-medium">소인 판매가</th>
+                          <th className="text-right px-3 py-3 text-slate-500 font-medium">
+                            <button
+                              type="button"
+                              onClick={() => setShowChildInfantCols(v => !v)}
+                              className="text-slate-500 hover:text-indigo-600 text-xs font-medium"
+                              title="소인/유아 가격 커럼 토글"
+                            >
+                              소인/유아 {showChildInfantCols ? '▲' : '▼'}
+                            </button>
+                          </th>
+                          {showChildInfantCols && (
+                            <>
+                              <th className="text-right px-3 py-3 text-slate-500 font-medium text-xs">소인 입금가</th>
+                              <th className="text-right px-3 py-3 text-slate-500 font-medium text-xs">소인 제휴가</th>
+                              <th className="text-right px-3 py-3 text-slate-500 font-medium text-xs">유아 판매가</th>
+                              <th className="text-right px-3 py-3 text-slate-500 font-medium text-xs">유아 입금가</th>
+                              <th className="text-right px-3 py-3 text-slate-500 font-medium text-xs">유아 제휴가</th>
+                            </>
+                          )}
                           <th className="text-left px-3 py-3 text-slate-500 font-medium">상태</th>
                           <th className="text-right px-4 py-3 text-slate-500 font-medium">관리</th>
                         </tr>
@@ -1377,6 +1439,46 @@ export default function PackageDetail() {
                                   </span>
                                 )}
                               </td>
+                              {/* 소인/유아 입금가·제휴가 토글 커럼 */}
+                              {showChildInfantCols && (
+                                <>
+                                  <td className="px-3 py-3 text-right">
+                                    {isEditing ? (
+                                      <Input value={editSlotForm.childDepositPrice} onChange={(e) => setEditSlotForm({ ...editSlotForm, childDepositPrice: e.target.value })} className="h-7 w-24 text-right" placeholder="소인입금가" />
+                                    ) : (
+                                      <span className="text-slate-600 text-xs">{slot.childDepositPrice ? `${Number(slot.childDepositPrice).toLocaleString()}원` : <span className="text-slate-300">-</span>}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-3 text-right">
+                                    {isEditing ? (
+                                      <Input value={editSlotForm.childAffiliatePrice} onChange={(e) => setEditSlotForm({ ...editSlotForm, childAffiliatePrice: e.target.value })} className="h-7 w-24 text-right" placeholder="소인제휴가" />
+                                    ) : (
+                                      <span className="text-slate-600 text-xs">{slot.childAffiliatePrice ? `${Number(slot.childAffiliatePrice).toLocaleString()}원` : <span className="text-slate-300">-</span>}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-3 text-right">
+                                    {isEditing ? (
+                                      <Input value={editSlotForm.infantPrice} onChange={(e) => setEditSlotForm({ ...editSlotForm, infantPrice: e.target.value })} className="h-7 w-24 text-right" placeholder="유아판매가" />
+                                    ) : (
+                                      <span className="text-slate-700 text-xs">{slot.infantPrice ? `${Number(slot.infantPrice).toLocaleString()}원` : <span className="text-slate-300">-</span>}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-3 text-right">
+                                    {isEditing ? (
+                                      <Input value={editSlotForm.infantDepositPrice} onChange={(e) => setEditSlotForm({ ...editSlotForm, infantDepositPrice: e.target.value })} className="h-7 w-24 text-right" placeholder="유아입금가" />
+                                    ) : (
+                                      <span className="text-slate-600 text-xs">{slot.infantDepositPrice ? `${Number(slot.infantDepositPrice).toLocaleString()}원` : <span className="text-slate-300">-</span>}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-3 text-right">
+                                    {isEditing ? (
+                                      <Input value={editSlotForm.infantAffiliatePrice} onChange={(e) => setEditSlotForm({ ...editSlotForm, infantAffiliatePrice: e.target.value })} className="h-7 w-24 text-right" placeholder="유아제휴가" />
+                                    ) : (
+                                      <span className="text-slate-600 text-xs">{slot.infantAffiliatePrice ? `${Number(slot.infantAffiliatePrice).toLocaleString()}원` : <span className="text-slate-300">-</span>}</span>
+                                    )}
+                                  </td>
+                                </>
+                              )}
                               <td className="px-3 py-3">
                                 {isEditing ? (
                                   <Select value={editSlotForm.status} onValueChange={(v) => setEditSlotForm({ ...editSlotForm, status: v })}>

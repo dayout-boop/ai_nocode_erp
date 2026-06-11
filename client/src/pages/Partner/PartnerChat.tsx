@@ -248,7 +248,7 @@ function ManagerBookingFormCard({
   packageId: number;
   packageTitle: string | null;
   managerName: string;
-  onSubmit: (data: { customerName: string; customerPhone: string; pax: number; memo: string; managerName: string }) => void;
+  onSubmit: (data: { customerName: string; customerPhone: string; pax: number; memo: string; managerName: string; packageId?: number; packageTitle?: string }) => void;
 }) {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -259,7 +259,7 @@ function ManagerBookingFormCard({
   const handleSubmit = () => {
     if (!customerName.trim() || !customerPhone.trim()) return;
     setSubmitted(true);
-    onSubmit({ customerName: customerName.trim(), customerPhone: customerPhone.trim(), pax, memo: memo.trim(), managerName });
+    onSubmit({ customerName: customerName.trim(), customerPhone: customerPhone.trim(), pax, memo: memo.trim(), managerName, packageId, packageTitle: packageTitle ?? undefined });
   };
 
   if (submitted) {
@@ -513,6 +513,19 @@ function PartnerChatContent() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const chatMutation = partnerTrpc.aiAssistant.managerChat.useMutation();
+  const createReservationMutation = partnerTrpc.reservations.create.useMutation({
+    onError: (e) => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `e-${Date.now()}`,
+          role: 'assistant' as const,
+          content: `⚠️ 수기 예약 저장 중 오류가 발생했습니다: ${e.message}\n\n직접 ERP 예약 관리에서 등록해 주세요.`,
+          timestamp: new Date(),
+        },
+      ]);
+    },
+  });
 
   const { data: onboardingStatus, isLoading: onboardingLoading } =
     partnerTrpc.partnerOnboarding.getMyStatus.useQuery(undefined, {
@@ -595,8 +608,33 @@ function PartnerChatContent() {
 
   const handleNewChat = () => { setMessages([WELCOME_MESSAGE]); setSessionId(generateSessionId()); setInput(""); };
 
-  const handleBookingSubmit = (data: { customerName: string; customerPhone: string; pax: number; memo: string; managerName: string }) => {
-    sendMessage(`수기 예약을 접수했습니다. 고객: ${data.customerName}, 연락처: ${data.customerPhone}, 인원: ${data.pax}명, 담당자: ${data.managerName}${data.memo ? `, 메모: ${data.memo}` : ""}`);
+  const handleBookingSubmit = (data: { customerName: string; customerPhone: string; pax: number; memo: string; managerName: string; packageId?: number; packageTitle?: string }) => {
+    // DB 직접 저장 시도
+    createReservationMutation.mutate({
+      productName: data.packageTitle ?? '수기예약',
+      departureDate: new Date().toISOString().slice(0, 10), // 메모에 포함된 경우 나중에 수정 가능
+      headcount: data.pax,
+      customerName: data.customerName,
+      customerPhone: data.customerPhone,
+      managerName: data.managerName,
+      notes: data.memo || undefined,
+      packageId: data.packageId,
+      status: 'pending',
+      userType: 'partner',
+    }, {
+      onSuccess: (result) => {
+        const reservationNo = (result as { reservationNo?: string })?.reservationNo ?? '';
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `booking-ok-${Date.now()}`,
+            role: 'assistant' as const,
+            content: `✅ 수기 예약이 ERP에 저장되었습니다!\n\n포인트: **${reservationNo}**\n고객: ${data.customerName} (${data.customerPhone})\n인원: ${data.pax}명 · 담당: ${data.managerName}\n\n[ERP 예약 관리](/erp/reservations)에서 확인하실 수 있습니다.`,
+            timestamp: new Date(),
+          },
+        ]);
+      },
+    });
   };
 
   return (

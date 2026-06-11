@@ -2309,3 +2309,11 @@ Detected
 - [x] PartnerAIManagerPage.tsx 신규 생성: ERPPartnerLayout 내 AI 매니저 채팅 페이지 (Generative UI 동일 기능)
 - [x] ERPPartnerLayout.tsx: AI 매니저 Coming Soon → PartnerAIManagerPage 연결
 - [x] TypeScript 검증 완료 (오류 0건)
+
+## 슬롯/수기예약/파트너 AI 매니저 개선 (2026-06-11)
+- [x] 출발일 목록 테이블 — 소인/유아 입금가·제휴가 컬럼 토글 추가 (▼/▲ 버튼)
+- [x] 일괄 등록 폼 — 박수 입력에 "상품 기준(1박2일) 적용" 버튼 + 일차 안내 태그 표시
+- [x] parseDurationNights / buildDayLabels 헬퍼 함수 추가
+- [x] PartnerChat.tsx — reservations.create mutation 연결 (DB 직접 저장)
+- [x] PartnerChat.tsx — handleBookingSubmit → 성공 시 예약번호 포함 AI 메시지 표시
+- [x] PartnerAIManagerPage.tsx — 파트너 스태프 ERP 내 AI 매니저 페이지 확인 완료
