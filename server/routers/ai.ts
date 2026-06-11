@@ -16,6 +16,7 @@ import { orchestratorChat } from "../services/openrouter";
 import { buildDogolfDevContext } from "../services/devContext";
 import { MASTER_SYSTEM_PROMPT } from "../services/prompts/master";
 import { GOLFTALK_SYSTEM_PROMPT, GOLFTALK_FALLBACK_MESSAGE } from "../services/prompts/golftalk";
+import { checkRequestForBlockedKeywords, logRejectedRequest } from "../services/knowledgeFilter";
 
 // Manus OAuth 기반 관리자 전용 프로시저 (masterChat 등 Manus 로그인 필요 기능)
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -207,6 +208,19 @@ export const aiRouter = router({
           code: "TOO_MANY_REQUESTS",
           message: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
         });
+      }
+
+      // 차단 키워드 검사 (전역 규칙 적용 — 골프톡은 tenantId 없이 전역만)
+      const blockCheck = await checkRequestForBlockedKeywords(input.message);
+      if (blockCheck.rejected) {
+        await logRejectedRequest(blockCheck, { sessionId: input.sessionId, source: "golftalk" });
+        return {
+          response: "죄송합니다. 해당 요청은 처리할 수 없는 내용이 포함되어 있습니다. 골프 투어 관련 문의를 입력해 주세요.",
+          model: "blocked",
+          tokensIn: 0,
+          tokensOut: 0,
+          costUsd: 0,
+        };
       }
 
       const db = await getDb();

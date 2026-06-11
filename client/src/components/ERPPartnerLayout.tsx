@@ -19,11 +19,13 @@ import {
   ChevronRight,
   Building2,
   Zap,
+  Shield,
 } from "lucide-react";
 import { useMemo } from "react";
 import { partnerTrpc, createPartnerTrpcClient, createPartnerQueryClient } from "@/lib/partnerTrpc";
 import { QueryClientProvider } from "@tanstack/react-query";
 import PartnerCreditPage from "@/pages/Partner/PartnerCreditPage";
+import PartnerAIBlockPage from "@/pages/Partner/PartnerAIBlockPage";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -95,6 +97,13 @@ const navItems = [
     label: "AI 크레딧",
     icon: Zap,
     href: "/partner/staff/credit",
+    roles: ["manager"] as const,
+  },
+  {
+    id: "ai-block",
+    label: "AI 차단 키워드",
+    icon: Shield,
+    href: "/partner/staff/ai-block",
     roles: ["manager"] as const,
   },
   {
@@ -481,6 +490,7 @@ export default function ERPPartnerLayout() {
             <Route path="/partner/staff/inquiries" component={() => <ComingSoon title="문의 관리" />} />
             <Route path="/partner/staff/ai" component={() => <ComingSoon title="AI 매니저" />} />
             <Route path="/partner/staff/credit" component={() => <PartnerCreditPage />} />
+            <Route path="/partner/staff/ai-block" component={() => <PartnerAIBlockPage />} />
             <Route path="/partner/staff/my" component={() => <PartnerStaffMyPage staff={staff} />} />
           </Switch>
         </main>
