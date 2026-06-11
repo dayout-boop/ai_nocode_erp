@@ -10,7 +10,7 @@
 
 import { getDb } from "../db";
 import { knowledgeBlockLogs, knowledgeBlockRules } from "../../drizzle/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, or, isNull } from "drizzle-orm";
 
 // ============================================================
 // 기본 차단 규칙 (하드코딩 - DB 규칙과 병행 적용)
@@ -127,7 +127,8 @@ export function checkKnowledge(
  */
 export async function logBlockedKnowledge(
   result: KnowledgeCheckResult,
-  sessionId?: string
+  sessionId?: string,
+  tenantId?: number | null
 ): Promise<void> {
   if (!result.isBlocked) return;
 
@@ -140,6 +141,7 @@ export async function logBlockedKnowledge(
       blockType: "auto",
       sourceDeskHint: result.sourceDeskHint.substring(0, 200),
       sessionId: sessionId?.substring(0, 100),
+      tenantId: tenantId ?? null,
       isBlocked: true,
     });
   } catch (err) {
@@ -190,15 +192,38 @@ export async function getBlockLogs(limit = 50) {
 
 /**
  * DB에서 차단 규칙을 조회한다.
+ *
+ * @param tenantId 업체 ID (null 또는 undefined = 전역 규칙만, 숫자 = 전역+해당 업체 규칙)
  */
-export async function getBlockRules() {
+export async function getBlockRules(tenantId?: number | null) {
   const db = await getDb();
   if (!db) return [];
+
+  if (tenantId != null) {
+    // 전역(null) + 해당 업체 규칙 모두 반환
+    return db
+      .select()
+      .from(knowledgeBlockRules)
+      .where(
+        eq(knowledgeBlockRules.isActive, true)
+      )
+      .orderBy(desc(knowledgeBlockRules.createdAt))
+      .then((rows) =>
+        rows.filter(
+          (r) => r.tenantId === null || r.tenantId === tenantId
+        )
+      );
+  }
+
+  // tenantId 미지정: 전역 규칙만 반환
   return db
     .select()
     .from(knowledgeBlockRules)
-    .where(eq(knowledgeBlockRules.isActive, true))
-    .orderBy(desc(knowledgeBlockRules.createdAt));
+    .where(
+      eq(knowledgeBlockRules.isActive, true)
+    )
+    .orderBy(desc(knowledgeBlockRules.createdAt))
+    .then((rows) => rows.filter((r) => r.tenantId === null));
 }
 
 // ============================================================
@@ -226,7 +251,8 @@ export interface RequestRejectionResult {
  * @param requestText 검사할 요청 원문
  */
 export async function checkRequestForBlockedKeywords(
-  requestText: string
+  requestText: string,
+  tenantId?: number | null
 ): Promise<RequestRejectionResult> {
   const text = requestText || "";
   const matchedKeywords: string[] = [];
@@ -242,9 +268,9 @@ export async function checkRequestForBlockedKeywords(
     }
   }
 
-  // 2) DB 사용자 정의 규칙 검사 (활성화된 규칙만)
+  // 2) DB 사용자 정의 규칙 검사 (전역 + 해당 업체 규칙)
   try {
-    const dbRules = await getBlockRules();
+    const dbRules = await getBlockRules(tenantId);
     for (const rule of dbRules) {
       const keywords = rule.keywords
         .split(",")
@@ -285,7 +311,7 @@ export async function checkRequestForBlockedKeywords(
  */
 export async function logRejectedRequest(
   result: RequestRejectionResult,
-  context: { sessionId?: string; source?: string } = {}
+  context: { sessionId?: string; source?: string; tenantId?: number | null } = {}
 ): Promise<void> {
   if (!result.rejected) return;
   try {
@@ -297,6 +323,7 @@ export async function logRejectedRequest(
       blockType: "auto",
       sourceDeskHint: result.ruleNames.join(", ").substring(0, 200) || "타 데스크 (추정)",
       sessionId: context.sessionId?.substring(0, 100),
+      tenantId: context.tenantId ?? null,
       isBlocked: true,
     });
   } catch (err) {

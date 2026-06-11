@@ -421,6 +421,13 @@
       "when": 1781091300508,
       "tag": "0058_chubby_wallow",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "5",
+      "when": 1781142052491,
+      "tag": "0059_exotic_ink",
+      "breakpoints": true
     }
   ]
 }

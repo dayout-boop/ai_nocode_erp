@@ -801,9 +801,9 @@ async function analyzeApiConnectionAsync(
     if (!db) return;
 
     // 타 데스크 지식 차단 키워드 거절 검사 (업체 입력 serviceName/serviceLabel 우회 주입 차단)
-    const tenantRejection = await checkRequestForBlockedKeywords(`${serviceName} ${serviceLabel ?? ""}`);
+    const tenantRejection = await checkRequestForBlockedKeywords(`${serviceName} ${serviceLabel ?? ""}`, tenantId);
     if (tenantRejection.rejected) {
-      await logRejectedRequest(tenantRejection, { source: `tenant-ai:${tenantId}` });
+      await logRejectedRequest(tenantRejection, { source: `tenant-ai:${tenantId}`, tenantId });
       console.warn(`[tenantAi] 업체 API 분석 거절 - tenantId=${tenantId}, 키워드=${tenantRejection.matchedKeywords.join(", ")}`);
       return;
     }

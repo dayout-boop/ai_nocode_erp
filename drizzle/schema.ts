@@ -2109,10 +2109,12 @@ export const knowledgeBlockLogs = mysqlTable("knowledge_block_logs", {
   blockReason: text("blockReason"),
   /** 차단 유형: auto(자동감지) | manual(수동등록) */
   blockType: mysqlEnum("blockType", ["auto", "manual"]).default("auto").notNull(),
-  /** 차단 출처 데스크 (추정) */
+  /** 차단 출체 데스크 (추정) */
   sourceDeskHint: varchar("sourceDeskHint", { length: 200 }),
   /** 세션 ID (어느 세션에서 감지되었는지) */
   sessionId: varchar("sessionId", { length: 100 }),
+  /** 어느 업체에서 발생한 차단인지 (null = 마스터 레벨) */
+  tenantId: int("tenantId"),
   /** 차단 처리 여부 */
   isBlocked: boolean("isBlocked").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -2135,6 +2137,11 @@ export const knowledgeBlockRules = mysqlTable("knowledge_block_rules", {
   description: text("description"),
   /** 활성화 여부 */
   isActive: boolean("isActive").default(true).notNull(),
+  /**
+   * 테넌트 ID (null = 마스터 전역 규칙, 값 있음 = 해당 업체 전용 규칙)
+   * 전역 규칙은 모든 업체 LLM에 적용, 업체 규칙은 해당 업체 LLM에만 적용
+   */
+  tenantId: int("tenantId"),
   /** 등록자 */
   createdBy: varchar("createdBy", { length: 100 }).default("master"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

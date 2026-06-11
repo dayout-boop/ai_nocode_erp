@@ -2293,3 +2293,10 @@ Detected
 - [x] knowledgeFilter.ts: checkRequestForBlockedKeywords async 전환 + DB 사용자 정의 규칙도 LLM 차단에 적용
 - [x] KnowledgeBlockLog.tsx: 사용자 정의 규칙 수정 버튼 + 인라인 편집 UI 추가
 - [x] TypeScript 검증 완료 (오류 0건) + 체크포인트 저장
+
+## AI 차단 키워드 테넌트 계층 구조 개편 (2026-06-11)
+- [x] DB 스키마: knowledgeBlockRules에 tenantId 컬럼 추가 (null=마스터 전역) + knowledgeBlockLogs에 tenantId 추가 + db:push
+- [x] knowledgeFilter.ts: checkRequestForBlockedKeywords에 tenantId 파라미터 추가 (전역+해당업체 규칙 함께 적용)
+- [x] knowledgeBlock.ts: 마스터/파트너 구분 CRUD + 마스터용 업체별 규칙 조회 프로시저 추가
+- [x] KnowledgeBlockLog.tsx: 텍스트 전면 수정 + 마스터 통합 관리 UI(업체별 규칙 조회) + 파트너 자체 규칙 관리 UI
+- [x] tenantAi.ts: checkRequestForBlockedKeywords에 tenantId 전달 + TypeScript 검증 + 체크포인트
