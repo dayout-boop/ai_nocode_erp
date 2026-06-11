@@ -2354,3 +2354,11 @@ Detected
   - DB 어시스턴트 키 매핑 테이블
 - [x] ERPLayout.tsx AI 관리 카테고리에 "AI 채널 관리" 메뉴 추가 (/ai-channel-management)
 - [x] ERPLayout.tsx에 AIChannelManagement import 및 Route 추가
+
+## AI파트너매니저 우측 고정 패널 + 3단 레이아웃 (ERPPartnerLayout)
+- [x] AICreditManagement.tsx 신규 생성 (MasterCosts + CreditManagement + PartnerCreditPage 통합, 마스터/테넌트 분기)
+- [x] ERPPartnerLayout 3단 레이아웃 개편: 좌측 사이드바 / 메인 콘텐츠 / 우측 AI파트너매니저 패널
+- [x] 좌측 사이드바 3단계 너비 토글 아이콘 (펼침 → 아이콘만 → 숨김)
+- [x] 우측 AI파트너매니저 패널 3단계 너비 토글 아이콘 (넓게 → 좁게 → 아이콘만)
+- [x] 모바일: 우측 상단 고정 아이콘 → 클릭시 패널 오픈 → 닫기버튼으로 아이콘 복귀
+- [x] 어떤 메뉴를 선택해도 AI파트너매니저 패널이 우측에 항상 고정

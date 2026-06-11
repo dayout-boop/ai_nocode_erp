@@ -86,6 +86,8 @@ import ImageArchive from "@/pages/erp/ImageArchive";
 import CreditManagement from "@/pages/erp/CreditManagement";
 import PartnerIntegrations from "@/pages/erp/PartnerIntegrations";
 import AIChannelManagement from "@/pages/erp/AIChannelManagement";
+import AIUnifiedLogs from "@/pages/erp/AIUnifiedLogs";
+import AICreditManagement from "@/pages/erp/AICreditManagement";
 import { Loader2, Plug } from "lucide-react";
 import TenantSelector from "@/components/TenantSelector";
 
@@ -110,7 +112,6 @@ const navItems: NavItem[] = [
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   {
     label: "AI 챗봇",
-    // masterOnly 제거: AI파트너매니저/매니저로그/골프톡은 파트너도 사용
     icon: <MessageSquare size={18} />,
     children: [
       { label: "마스터AI 🤖", href: "/master-ai", icon: <BrainCircuit size={14} />, masterOnly: true },
@@ -118,6 +119,11 @@ const navItems: NavItem[] = [
       { label: "AI파트너매니저 💼", href: "/manager-chat", icon: <MessageSquare size={14} /> },
       { label: "AI파트너매니저 로그", href: "/manager-admin", icon: <History size={14} /> },
       { label: "AI상담톡 로그", href: "/golftalk-admin", icon: <Sparkles size={14} /> },
+      { label: "AI 통합 로그", href: "/ai-unified-logs", icon: <History size={14} /> },
+      { label: "파트너자동화AI", href: "/gemini", icon: <Wrench size={14} /> },
+      { label: "파트너자동화AI 로그", href: "/ai-logs", icon: <History size={14} /> },
+      { label: "AI 채널 관리", href: "/ai-channel-management", icon: <Bot size={14} />, masterOnly: true },
+      { label: "AI 크레딧 관리 💰", href: "/ai-credit-management", icon: <Coins size={14} />, masterOnly: true },
       { label: "OpenRouter 에이전트 ⚡", href: "/openrouter-agent", icon: <Zap size={14} />, masterOnly: true },
     ],
   },
@@ -138,11 +144,7 @@ const navItems: NavItem[] = [
       { label: "오류 로그", href: "/ai-dev-engine", icon: <AlertTriangle size={14} /> },
       { label: "관리 프로젝트", href: "/managed-projects", icon: <FolderOpen size={14} /> },
       { label: "파일 분석 이력", href: "/ai-engine/file-analysis", icon: <FileText size={14} /> },
-      { label: "AI 채널 관리", href: "/ai-channel-management", icon: <Bot size={14} />, masterOnly: true },
-      { label: "파트너자동화AI", href: "/gemini", icon: <Wrench size={14} /> },
-      { label: "파트너자동화AI 로그", href: "/ai-logs", icon: <History size={14} /> },
       { label: "오케스트레이터", href: "/orchestrator", icon: <Zap size={14} /> },
-      { label: "AI 비용 현황", href: "/master-ai/costs", icon: <DollarSign size={14} /> },
     ],
   },
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -158,7 +160,6 @@ const navItems: NavItem[] = [
       { label: "③ 제휴사 통합코드", href: "/crm/affiliates", icon: <Building2 size={14} />, masterOnly: true },
       { label: "④ 구독 관리", href: "/subscriptions", icon: <CreditCard size={14} />, masterOnly: true },
       { label: "⑤ 분양 AI 콘솔 🏢", href: "/tenant-ai-console", icon: <Shield size={14} />, masterOnly: true },
-      { label: "⑥ 크레디트 관리 💰", href: "/credit-management", icon: <Coins size={14} />, masterOnly: true },
     ],
   },
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -377,6 +378,8 @@ function ERPContent() {
           <Route path="/ai-dev-pipeline" component={AIDevPipeline} />
           <Route path="/partner-integrations" component={PartnerIntegrations} />
           <Route path="/ai-channel-management" component={AIChannelManagement} />
+          <Route path="/ai-unified-logs" component={AIUnifiedLogs} />
+          <Route path="/ai-credit-management" component={AICreditManagement} />
           <Route component={ERPDashboard} />
         </Switch>
       </Suspense>
