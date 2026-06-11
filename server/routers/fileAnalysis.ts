@@ -5,18 +5,20 @@
  * - listBySession: 세션별 업로드 파일 목록
  * - getById: 파일 분석 결과 상세 조회
  * - deleteFile: 파일 삭제
+ *
+ * [Phase 2] partnerProcedure 적용: 파트너 담당자도 접근 가능 + tenantId 격리
  */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq, desc, and } from "drizzle-orm";
-import { protectedProcedure, router } from "../_core/trpc";
+import { partnerProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { fileAnalysis } from "../../drizzle/schema";
 import { storagePut } from "../storage";
 import { extractTextFromBuffer, buildFileContext } from "../services/fileExtractor";
 import { invokeLLM } from "../_core/llm";
 
-// 관리자 전용 프로시저
+// 관리자 전용 프로시저 (devRequest 트리거 등 내부 기능용)
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "admin") {
     throw new TRPCError({ code: "FORBIDDEN", message: "관리자만 접근 가능합니다." });
@@ -45,8 +47,9 @@ export const fileAnalysisRouter = router({
   /**
    * 파일 업로드 → S3 저장 → 텍스트 추출 → DB 저장
    * 입력: base64 인코딩된 파일 데이터
+   * [Phase 2] partnerProcedure: 파트너 담당자도 업로드 가능 + tenantId 자동 주입
    */
-  uploadAndExtract: adminProcedure
+  uploadAndExtract: partnerProcedure
     .input(
       z.object({
         fileName: z.string().min(1).max(500),
@@ -76,18 +79,24 @@ export const fileAnalysisRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
 
+      // 업로더 ID 결정: 마스터(admin) → user.id, 파트너대표 → partnerId, 파트너담당자 → staffId
+      const uploaderId: number =
+        ctx.user?.id ?? ctx.partnerOwner?.partnerId ?? ctx.partnerStaff?.staffId ?? 0;
+      const tenantId: number | null = ctx.tenantId ?? null;
+
       // base64 → Buffer 변환
       const buffer = Buffer.from(input.base64Data, "base64");
 
-      // S3 업로드
-      const fileKey = `file-analysis/${ctx.user.id}/${Date.now()}-${input.fileName}`;
+      // S3 업로드 (테넌트별 경로 격리)
+      const tenantPath = tenantId ? `tenant-${tenantId}` : `admin-${uploaderId}`;
+      const fileKey = `file-analysis/${tenantPath}/${Date.now()}-${input.fileName}`;
       const { url: fileUrl } = await storagePut(fileKey, buffer, input.mimeType);
 
       // DB에 초기 레코드 저장 (processing 상태)
       const [inserted] = await db
         .insert(fileAnalysis)
         .values({
-          userId: ctx.user.id,
+          userId: uploaderId,
           fileName: input.fileName,
           fileKey,
           fileUrl,
@@ -95,6 +104,7 @@ export const fileAnalysisRouter = router({
           fileSize: input.fileSize,
           extractStatus: "processing",
           sessionId: input.sessionId,
+          tenantId,
         })
         .$returningId();
 
@@ -189,8 +199,9 @@ export const fileAnalysisRouter = router({
 
   /**
    * 파일 컨텍스트 + 사용자 질문 → LLM 응답 (RAG)
+   * [Phase 2] partnerProcedure: 파트너 담당자도 분석 가능 + tenantId 격리
    */
-  analyzeWithAI: adminProcedure
+  analyzeWithAI: partnerProcedure
     .input(
       z.object({
         fileId: z.number().int().positive(),
@@ -206,14 +217,21 @@ export const fileAnalysisRouter = router({
           .default([]),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const tenantId: number | null = ctx.tenantId ?? null;
+
+      // 테넌트 격리: 본인 테넌트 파일만 조회
+      const whereClause = tenantId !== null
+        ? and(eq(fileAnalysis.id, input.fileId), eq(fileAnalysis.tenantId, tenantId))
+        : eq(fileAnalysis.id, input.fileId);
 
       const [record] = await db
         .select()
         .from(fileAnalysis)
-        .where(eq(fileAnalysis.id, input.fileId))
+        .where(whereClause)
         .limit(1);
 
       if (!record) {
@@ -260,8 +278,9 @@ export const fileAnalysisRouter = router({
 
   /**
    * 세션별 업로드 파일 목록
+   * [Phase 2] partnerProcedure: 파트너는 본인 테넌트 파일만 조회
    */
-  listBySession: adminProcedure
+  listBySession: partnerProcedure
     .input(
       z.object({
         sessionId: z.string().optional(),
@@ -272,7 +291,13 @@ export const fileAnalysisRouter = router({
       const db = await getDb();
       if (!db) return { files: [] };
 
-      const conditions = [eq(fileAnalysis.userId, ctx.user.id)];
+      const tenantId: number | null = ctx.tenantId ?? null;
+
+      // 테넌트 격리: 파트너는 tenantId로 필터, 마스터는 전체(tenantId=null이면 전체)
+      const conditions: ReturnType<typeof eq>[] = [];
+      if (tenantId !== null) {
+        conditions.push(eq(fileAnalysis.tenantId, tenantId));
+      }
       if (input.sessionId) {
         conditions.push(eq(fileAnalysis.sessionId, input.sessionId));
       }
@@ -287,10 +312,11 @@ export const fileAnalysisRouter = router({
           extractStatus: fileAnalysis.extractStatus,
           summary: fileAnalysis.summary,
           analyzed: fileAnalysis.analyzed,
+          tenantId: fileAnalysis.tenantId,
           createdAt: fileAnalysis.createdAt,
         })
         .from(fileAnalysis)
-        .where(and(...conditions))
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(desc(fileAnalysis.createdAt))
         .limit(input.limit);
 
@@ -299,17 +325,24 @@ export const fileAnalysisRouter = router({
 
   /**
    * 파일 분석 결과 상세 조회
+   * [Phase 2] partnerProcedure: 파트너는 본인 테넌트 파일만 조회
    */
-  getById: adminProcedure
+  getById: partnerProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
+      const tenantId: number | null = ctx.tenantId ?? null;
+
+      const whereClause = tenantId !== null
+        ? and(eq(fileAnalysis.id, input.id), eq(fileAnalysis.tenantId, tenantId))
+        : eq(fileAnalysis.id, input.id);
+
       const [record] = await db
         .select()
         .from(fileAnalysis)
-        .where(and(eq(fileAnalysis.id, input.id), eq(fileAnalysis.userId, ctx.user.id)))
+        .where(whereClause)
         .limit(1);
 
       if (!record) throw new TRPCError({ code: "NOT_FOUND" });
@@ -318,17 +351,24 @@ export const fileAnalysisRouter = router({
 
   /**
    * S3 다운로드 URL 반환 (외부 공유 가능)
+   * [Phase 2] partnerProcedure: 파트너는 본인 테넌트 파일만 접근
    */
-  getDownloadUrl: adminProcedure
+  getDownloadUrl: partnerProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
+      const tenantId: number | null = ctx.tenantId ?? null;
+
+      const whereClause = tenantId !== null
+        ? and(eq(fileAnalysis.id, input.id), eq(fileAnalysis.tenantId, tenantId))
+        : eq(fileAnalysis.id, input.id);
+
       const [record] = await db
-        .select({ id: fileAnalysis.id, fileUrl: fileAnalysis.fileUrl, fileName: fileAnalysis.fileName, userId: fileAnalysis.userId })
+        .select({ id: fileAnalysis.id, fileUrl: fileAnalysis.fileUrl, fileName: fileAnalysis.fileName })
         .from(fileAnalysis)
-        .where(and(eq(fileAnalysis.id, input.id), eq(fileAnalysis.userId, ctx.user.id)))
+        .where(whereClause)
         .limit(1);
 
       if (!record) throw new TRPCError({ code: "NOT_FOUND" });
@@ -343,6 +383,7 @@ export const fileAnalysisRouter = router({
   /**
    * 파일 분석 결과 기반 자동수행 에이전트 트리거
    * - 분석 결과에 개발 요청 키워드가 포함된 경우 devRequest 자동 생성
+   * [Phase 2] 관리자 전용 유지 (devRequest는 내부 기능)
    */
   analyzeAndTriggerAgent: adminProcedure
     .input(
@@ -447,16 +488,23 @@ export const fileAnalysisRouter = router({
 
   /**
    * 파일 삭제 (DB 레코드만 삭제, S3 키는 참조 제거로 사실상 삭제)
+   * [Phase 2] partnerProcedure: 파트너는 본인 테넌트 파일만 삭제
    */
-  deleteFile: adminProcedure
+  deleteFile: partnerProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
+      const tenantId: number | null = ctx.tenantId ?? null;
+
+      const whereClause = tenantId !== null
+        ? and(eq(fileAnalysis.id, input.id), eq(fileAnalysis.tenantId, tenantId))
+        : eq(fileAnalysis.id, input.id);
+
       await db
         .delete(fileAnalysis)
-        .where(and(eq(fileAnalysis.id, input.id), eq(fileAnalysis.userId, ctx.user.id)));
+        .where(whereClause);
 
       return { success: true };
     }),

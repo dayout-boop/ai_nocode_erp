@@ -1997,7 +1997,7 @@ const aiLogsRouter = router({
   /**
    * 상품 설명 초안 생성
    */
-  generatePackageDesc: adminProcedure.input(z.object({
+  generatePackageDesc: partnerProcedure.input(z.object({
     title: z.string().min(1).max(100),
     country: z.string().min(1).max(50),
     duration: z.string().optional(),
@@ -2007,10 +2007,13 @@ const aiLogsRouter = router({
   })).mutation(async ({ input, ctx }) => {
     const result = await generatePackageDescription(input);
     const db = await getDb();
+    const _uid = ctx.user?.id ?? ctx.partnerOwner?.partnerId ?? ctx.partnerStaff?.staffId ?? 0;
+    const _uname = ctx.user?.name ?? ctx.partnerOwner?.name ?? ctx.partnerStaff?.name ?? "";
+    const _tid: number | null = ctx.tenantId ?? null;
     if (db) {
       await db.insert(aiInteractionLogs).values({
-        userId: ctx.user.id,
-        userName: ctx.user.name ?? "",
+        userId: _uid,
+        userName: _uname,
         query: anonymizeText(`상품설명 초안: ${input.title} (${input.country})`),
         response: result.description.slice(0, 500),
         modelName: "gemini-2.5-flash",
@@ -2018,6 +2021,7 @@ const aiLogsRouter = router({
         taskType: "packageDesc",
         cacheHit: result.cacheHit,
         responseTimeMs: result.durationMs,
+        tenantId: _tid,
       });
     }
     return result;
@@ -2025,7 +2029,7 @@ const aiLogsRouter = router({
   /**
    * 마케팅 문구 생성
    */
-  generateMarketingCopy: adminProcedure.input(z.object({
+  generateMarketingCopy: partnerProcedure.input(z.object({
     title: z.string().min(1).max(100),
     country: z.string().min(1).max(50),
     highlights: z.array(z.string()).max(5),
@@ -2033,10 +2037,13 @@ const aiLogsRouter = router({
   })).mutation(async ({ input, ctx }) => {
     const result = await generateMarketingCopy(input);
     const db = await getDb();
+    const _uid2 = ctx.user?.id ?? ctx.partnerOwner?.partnerId ?? ctx.partnerStaff?.staffId ?? 0;
+    const _uname2 = ctx.user?.name ?? ctx.partnerOwner?.name ?? ctx.partnerStaff?.name ?? "";
+    const _tid2: number | null = ctx.tenantId ?? null;
     if (db) {
       await db.insert(aiInteractionLogs).values({
-        userId: ctx.user.id,
-        userName: ctx.user.name ?? "",
+        userId: _uid2,
+        userName: _uname2,
         query: anonymizeText(`마케팅 문구: ${input.title}`),
         response: result.sns.slice(0, 500),
         modelName: "gemini-2.5-flash",
@@ -2044,6 +2051,7 @@ const aiLogsRouter = router({
         taskType: "marketingCopy",
         cacheHit: result.cacheHit,
         responseTimeMs: result.durationMs,
+        tenantId: _tid2,
       });
     }
     return result;
@@ -2051,12 +2059,19 @@ const aiLogsRouter = router({
   /**
    * 1:1 문의 답변 초안 생성
    */
-  generateInquiryReply: adminProcedure.input(z.object({
+  generateInquiryReply: partnerProcedure.input(z.object({
     inquiryId: z.number(),
   })).mutation(async ({ input, ctx }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-    const [inquiry] = await db.select().from(inquiries).where(eq(inquiries.id, input.inquiryId));
+    const _uid3 = ctx.user?.id ?? ctx.partnerOwner?.partnerId ?? ctx.partnerStaff?.staffId ?? 0;
+    const _uname3 = ctx.user?.name ?? ctx.partnerOwner?.name ?? ctx.partnerStaff?.name ?? "";
+    const _tid3: number | null = ctx.tenantId ?? null;
+    // 테넌트 격리: 파트너는 본인 테넌트 문의만 조회
+    const inquiryWhere = _tid3 !== null
+      ? and(eq(inquiries.id, input.inquiryId), eq(inquiries.tenantId, _tid3))
+      : eq(inquiries.id, input.inquiryId);
+    const [inquiry] = await db.select().from(inquiries).where(inquiryWhere);
     if (!inquiry) throw new TRPCError({ code: "NOT_FOUND", message: "문의를 찾을 수 없습니다." });
     const result = await generateInquiryReply({
       inquiryName: inquiry.name,
@@ -2066,51 +2081,62 @@ const aiLogsRouter = router({
       peopleCount: inquiry.peopleCount ?? undefined,
     });
     await db.insert(aiInteractionLogs).values({
-      userId: ctx.user.id,
-      userName: ctx.user.name ?? "",
+      userId: _uid3,
+      userName: _uname3,
       query: anonymizeText(`문의답변 초안: ${inquiry.name}님 문의`),
       response: result.reply.slice(0, 500),
       modelName: "gemini-2.5-flash",
       isSuccess: true,
       taskType: "inquiryReply",
       responseTimeMs: result.durationMs,
+      tenantId: _tid3,
     });
     return result;
   }),
   /**
    * ERP 데이터 기반 Function Calling AI 분석
    */
-  analyzeErpData: adminProcedure.input(z.object({
+  analyzeErpData: partnerProcedure.input(z.object({
     question: z.string().min(1).max(500),
     dataType: z.enum(["packages", "bookings", "inquiries", "revenue"]),
   })).mutation(async ({ input, ctx }) => {
     const db = await getDb();
     if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    const _uid4 = ctx.user?.id ?? ctx.partnerOwner?.partnerId ?? ctx.partnerStaff?.staffId ?? 0;
+    const _uname4 = ctx.user?.name ?? ctx.partnerOwner?.name ?? ctx.partnerStaff?.name ?? "";
+    const _tid4: number | null = ctx.tenantId ?? null;
     let data: unknown;
     let functionName = "";
     if (input.dataType === "packages") {
-      data = await db.select({ id: packages.id, title: packages.title, country: packages.country, status: packages.status, isPopular: packages.isPopular, viewCount: packages.viewCount }).from(packages).orderBy(desc(packages.viewCount)).limit(20);
+      const pkgWhere = _tid4 !== null ? eq(packages.tenantId, _tid4) : undefined;
+      data = await db.select({ id: packages.id, title: packages.title, country: packages.country, status: packages.status, isPopular: packages.isPopular, viewCount: packages.viewCount }).from(packages).where(pkgWhere).orderBy(desc(packages.viewCount)).limit(20);
       functionName = "packages.list";
     } else if (input.dataType === "bookings") {
-      data = await db.select({ count: sql<number>`count(*)`, status: bookings.status }).from(bookings).groupBy(bookings.status);
+      const bkWhere = _tid4 !== null ? eq(bookings.tenantId, _tid4) : undefined;
+      data = await db.select({ count: sql<number>`count(*)`, status: bookings.status }).from(bookings).where(bkWhere).groupBy(bookings.status);
       functionName = "bookings.statusSummary";
     } else if (input.dataType === "inquiries") {
-      data = await db.select({ count: sql<number>`count(*)`, status: inquiries.status }).from(inquiries).groupBy(inquiries.status);
+      const inqWhere = _tid4 !== null ? eq(inquiries.tenantId, _tid4) : undefined;
+      data = await db.select({ count: sql<number>`count(*)`, status: inquiries.status }).from(inquiries).where(inqWhere).groupBy(inquiries.status);
       functionName = "inquiries.statusSummary";
     } else {
-      data = await db.select({ month: sql<string>`DATE_FORMAT(createdAt, '%Y-%m')`, revenue: sql<string>`COALESCE(SUM(totalAmount), 0)` }).from(bookings).where(eq(bookings.paymentStatus, "paid")).groupBy(sql`DATE_FORMAT(createdAt, '%Y-%m')`).orderBy(sql`DATE_FORMAT(createdAt, '%Y-%m') DESC`).limit(6);
+      const revWhere = _tid4 !== null
+        ? and(eq(bookings.paymentStatus, "paid"), eq(bookings.tenantId, _tid4))
+        : eq(bookings.paymentStatus, "paid");
+      data = await db.select({ month: sql<string>`DATE_FORMAT(createdAt, '%Y-%m')`, revenue: sql<string>`COALESCE(SUM(totalAmount), 0)` }).from(bookings).where(revWhere).groupBy(sql`DATE_FORMAT(createdAt, '%Y-%m')`).orderBy(sql`DATE_FORMAT(createdAt, '%Y-%m') DESC`).limit(6);
       functionName = "bookings.monthlyRevenue";
     }
     const result = await analyzeErpDataWithAI({ question: input.question, functionName, data });
     await db.insert(aiInteractionLogs).values({
-      userId: ctx.user.id,
-      userName: ctx.user.name ?? "",
+      userId: _uid4,
+      userName: _uname4,
       query: anonymizeText(input.question),
       response: result.answer.slice(0, 500),
       modelName: "gemini-2.5-flash",
       isSuccess: true,
       taskType: "devAnalysis",
       responseTimeMs: result.durationMs,
+      tenantId: _tid4,
     });
     return result;
   }),
@@ -2870,6 +2896,8 @@ import { imageArchiveRouter } from "./routers/imageArchive";
 import { aiDevPipelineRouter } from "./routers/aiDevPipeline";
 import { tenantAffiliatesRouter } from "./routers/tenantAffiliates";
 import { tenantPartnersRouter } from "./routers/tenantPartners";
+import { aiPackagePipelineRouter } from "./routers/aiPackagePipeline";
+import { partnerStaffPermissionsRouter } from "./routers/partnerStaffPermissions";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -2934,5 +2962,7 @@ export const appRouter = router({
   aiDevPipeline: aiDevPipelineRouter,
   tenantAffiliates: tenantAffiliatesRouter,
   tenantPartners: tenantPartnersRouter,
+  aiPackagePipeline: aiPackagePipelineRouter,
+  partnerStaffPermissions: partnerStaffPermissionsRouter,
 });
 export type AppRouter = typeof appRouter;

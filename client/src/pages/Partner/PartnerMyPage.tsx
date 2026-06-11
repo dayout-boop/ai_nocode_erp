@@ -23,8 +23,9 @@ import {
 import { toast } from "sonner";
 import {
   Building2, User, Users, Plus, Pencil, Loader2, ChevronLeft,
-  ShieldCheck, Mail, Hash, Eye, EyeOff, Trash2,
+  ShieldCheck, Mail, Hash, Eye, EyeOff, Trash2, Settings2,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Link } from "wouter";
 
 // ─── 타입 ────────────────────────────────────────────────────────────────────
@@ -43,6 +44,109 @@ const defaultStaffForm: StaffForm = {
 };
 
 // ─── 업체 정보 수정 폼 ────────────────────────────────────────────────────────
+// ─── 담당자 기능 권한 관리 다이얼로그 ─────────────────────────────────────────────
+function StaffPermissionsDialog({
+  staffId,
+  staffName,
+  open,
+  onClose,
+}: {
+  staffId: number;
+  staffName: string;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [localPerms, setLocalPerms] = useState<Record<string, boolean>>({});
+  const [initialized, setInitialized] = useState(false);
+
+  const { data: featuresData } = partnerTrpc.partnerStaffPermissions.listFeatureKeys.useQuery(
+    undefined,
+    { enabled: open }
+  );
+  const { data: permsData, isLoading: permsLoading } = partnerTrpc.partnerStaffPermissions.listForStaff.useQuery(
+    { staffId },
+    { enabled: open && staffId > 0 }
+  );
+
+  if (open && permsData && !initialized) {
+    const map: Record<string, boolean> = {};
+    permsData.permissions.forEach((p) => { map[p.feature] = p.enabled; });
+    setLocalPerms(map);
+    setInitialized(true);
+  }
+  if (!open && initialized) {
+    setInitialized(false);
+  }
+
+  const bulkSetMutation = partnerTrpc.partnerStaffPermissions.bulkSet.useMutation({
+    onSuccess: () => {
+      toast.success(`${staffName} 담당자 권한이 저장되었습니다.`);
+      onClose();
+    },
+    onError: (e) => toast.error(`권한 저장 실패: ${e.message}`),
+  });
+
+  const handleSave = () => {
+    const permissions = Object.entries(localPerms).map(([feature, enabled]) => ({ feature, enabled }));
+    bulkSetMutation.mutate({ staffId, permissions });
+  };
+
+  const categories = featuresData?.features
+    ? Array.from(new Set(featuresData.features.map((f) => f.category)))
+    : [];
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Settings2 size={18} className="text-indigo-600" />
+            {staffName} 기능 권한 관리
+          </DialogTitle>
+        </DialogHeader>
+        {permsLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="animate-spin text-indigo-600" size={24} />
+          </div>
+        ) : (
+          <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto pr-1">
+            {categories.map((category) => (
+              <div key={category}>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  {category}
+                </p>
+                <div className="space-y-2">
+                  {(featuresData?.features ?? []).filter((f) => f.category === category).map((f) => (
+                    <div key={f.key} className="flex items-center justify-between p-2.5 rounded-lg border bg-white">
+                      <span className="text-sm">{f.label}</span>
+                      <Switch
+                        checked={localPerms[f.key] ?? true}
+                        onCheckedChange={(v) => setLocalPerms((prev) => ({ ...prev, [f.key]: v }))}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}>취소</Button>
+          <Button
+            size="sm"
+            className="bg-indigo-600 hover:bg-indigo-700"
+            onClick={handleSave}
+            disabled={bulkSetMutation.isPending || permsLoading}
+          >
+            {bulkSetMutation.isPending ? <Loader2 size={13} className="animate-spin mr-1" /> : null}
+            권한 저장
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function CompanyInfoCard() {
   const utils = partnerTrpc.useUtils();
   const { data: status, isLoading } = partnerTrpc.partnerOnboarding.getMyStatus.useQuery();
@@ -233,6 +337,7 @@ function StaffManagementCard() {
   const utils = partnerTrpc.useUtils();
   const { data: staffList, isLoading } = partnerTrpc.partnerStaff.list.useQuery();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [permStaff, setPermStaff] = useState<{ id: number; name: string } | null>(null);
   const [editingStaff, setEditingStaff] = useState<{
     id: number; name: string; email?: string; phone?: string; role: string; memo?: string;
   } | null>(null);
@@ -345,6 +450,15 @@ function StaffManagementCard() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-indigo-500 hover:text-indigo-700"
+                    title="기능 권한 관리"
+                    onClick={() => setPermStaff({ id: s.id, name: s.name })}
+                  >
+                    <Settings2 size={13} />
+                  </Button>
                   <Button
                     size="sm"
                     variant="ghost"
@@ -568,11 +682,20 @@ function StaffManagementCard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* 담당자 기능 권한 다이얼로그 */}
+      {permStaff && (
+        <StaffPermissionsDialog
+          staffId={permStaff.id}
+          staffName={permStaff.name}
+          open={!!permStaff}
+          onClose={() => setPermStaff(null)}
+        />
+      )}
     </Card>
   );
 }
 
-// ─── 메인 컴포넌트 내부 (partnerTrpc Provider 안에서 실행) ─────────────────────
+// ─── 메인 컴포넌트 내부 (partnerTrpc Provider 안에서 실행) ─────────────────────────
 function PartnerMyPageContent() {
   const { user, loading, isAuthenticated } = usePartnerAuth();
 

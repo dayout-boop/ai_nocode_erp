@@ -72,10 +72,13 @@ export const packages = mysqlTable("packages", {
   // 취소/환불 정책 (텍스트)
   cancellationPolicy: text("cancellationPolicy"),
   tenantId: int("tenantId"),  // null = 두골프 본사, 1~N = 파트너사
+  /** AI 자동생성 출처 fileAnalysis.id (AI 생성 상품인 경우) */
+  aiGeneratedFrom: int("aiGeneratedFrom"),
+  /** AI 생성 상품 승인 상태 (파트너 내부 완결) */
+  approvalStatus: mysqlEnum("approvalStatus", ["pending", "approved", "rejected"]),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
 export type Package = typeof packages.$inferSelect;
 export type InsertPackage = typeof packages.$inferInsert;
 
@@ -355,6 +358,8 @@ export const aiInteractionLogs = mysqlTable("ai_interaction_logs", {
   inputTokens: int("inputTokens"),
   /** 출력 토큰 수 */
   outputTokens: int("outputTokens"),
+  /** 파트너 테넌트 ID (파트너 크레딧 측정용) */
+  tenantId: int("tenantId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type AiInteractionLog = typeof aiInteractionLogs.$inferSelect;
@@ -1830,10 +1835,11 @@ export const fileAnalysis = mysqlTable("file_analysis", {
   summary: text("summary"),
   /** 분석 완료 여부 */
   analyzed: boolean("analyzed").default(false).notNull(),
+  /** 파트너 테넌트 ID (파트너 파일 격리용) */
+  tenantId: int("tenantId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
 export type FileAnalysis = typeof fileAnalysis.$inferSelect;
 export type InsertFileAnalysis = typeof fileAnalysis.$inferInsert;
 
@@ -2547,3 +2553,39 @@ export const partnerEmailLogs = mysqlTable("partner_email_logs", {
 });
 export type PartnerEmailLog = typeof partnerEmailLogs.$inferSelect;
 export type InsertPartnerEmailLog = typeof partnerEmailLogs.$inferInsert;
+
+// ============================================================
+// PARTNER_STAFF_PERMISSIONS - 담당자별 기능 권한 관리
+// ============================================================
+/**
+ * 파트너사 담당자(partnerStaff)별 기능 권한 관리 테이블
+ * - 파트너대표(manager)가 담당자별 기능 ON/OFF 설정 가능
+ * - 기본값: 모든 담당자 모든 기능 enabled=true
+ * - 기능 추가 시 이 테이블에 행 추가 (없으면 enabled=true로 간주)
+ *
+ * 기능 목록:
+ * - 'package_auto_create' : 상품 자동생성 (파일업로드→AI분석→초안생성)
+ * - 'package_approve'     : 상품 승인/배포 (초안→활성화)
+ * - 'marketing_auto'      : 마케팅 문구 자동화
+ * - 'inquiry_auto'        : 문의 자동 답변
+ * - 'ai_chat'             : AI 채팅 (AI파트너매니저)
+ * - 'data_analysis'       : 데이터 분석
+ * - 'file_analysis'       : 파일 분석 이력 조회
+ */
+export const partnerStaffPermissions = mysqlTable("partner_staff_permissions", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 소속 파트너 테넌트 ID */
+  tenantId: int("tenantId").notNull(),
+  /** 담당자 ID (partner_staff.id 참조) */
+  staffId: int("staffId").notNull(),
+  /** 기능 식별자 */
+  feature: varchar("feature", { length: 100 }).notNull(),
+  /** 기능 활성화 여부 (기본값 true) */
+  enabled: boolean("enabled").notNull().default(true),
+  /** 설정 변경한 담당자 ID (파트너대표 또는 위임된 담당자) */
+  updatedBy: int("updatedBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type PartnerStaffPermission = typeof partnerStaffPermissions.$inferSelect;
+export type InsertPartnerStaffPermission = typeof partnerStaffPermissions.$inferInsert;

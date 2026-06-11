@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { AIChatBox, type Message } from "@/components/AIChatBox";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import {
   Sparkles, Info, Zap, Code2, Database, Globe, AlertTriangle, RefreshCw,
   Package, Megaphone, MessageSquare, BarChart3, Loader2,
   ThumbsUp, ThumbsDown, CheckCircle2, Copy,
+  Workflow, Upload, FileText, Clock, CheckSquare, XSquare, ChevronRight,
 } from "lucide-react";
 
 type GeminiRole = "user" | "model";
@@ -408,6 +409,246 @@ function ErpAnalysisTab() {
   );
 }
 
+// ─── 상품 자동생성 파이프라인 탭 ─────────────────────────────────────────────
+function PipelineTab() {
+  const [selectedFileId, setSelectedFileId] = useState<number | null>(null);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [pollingEnabled, setPollingEnabled] = useState(false);
+
+  // 파일 목록 조회 (분석 완료된 파일만)
+  const { data: filesData, isLoading: filesLoading } = trpc.fileAnalysis.listBySession.useQuery(
+    { limit: 30 },
+    { refetchOnWindowFocus: false }
+  );
+
+  // 잡 상태 폴링 (1.5초 간격)
+  const { data: jobStatus, isLoading: jobPolling } = trpc.aiPackagePipeline.getJobStatus.useQuery(
+    { jobId: activeJobId! },
+    {
+      enabled: pollingEnabled && !!activeJobId,
+      refetchInterval: (query) => {
+        const status = query.state.data?.status;
+        if (status === "done" || status === "failed") return false;
+        return 1500;
+      },
+    }
+  );
+
+  // 잡 완료 시 폴링 중지
+  useEffect(() => {
+    if (jobStatus?.status === "done" || jobStatus?.status === "failed") {
+      setPollingEnabled(false);
+      if (jobStatus.status === "done") {
+        toast.success("상품 초안이 생성되었습니다! 파트너 대표의 승인을 기다립니다.");
+      } else {
+        toast.error(`생성 실패: ${jobStatus.error}`);
+      }
+    }
+  }, [jobStatus?.status]);
+
+  // 승인 대기 상품 목록
+  const { data: pendingData, refetch: refetchPending } = trpc.aiPackagePipeline.listPendingPackages.useQuery(
+    { limit: 20 },
+    { refetchOnWindowFocus: false }
+  );
+
+  // 잡 시작
+  const startJobMutation = trpc.aiPackagePipeline.startJob.useMutation({
+    onSuccess: (data) => {
+      setActiveJobId(data.jobId);
+      setPollingEnabled(true);
+      toast.success("상품 자동생성 잡이 시작되었습니다.");
+    },
+    onError: (e) => toast.error(`잡 시작 실패: ${e.message}`),
+  });
+
+  // 승인
+  const approveMutation = trpc.aiPackagePipeline.approvePackage.useMutation({
+    onSuccess: () => { toast.success("상품 초안이 승인되었습니다."); refetchPending(); },
+    onError: (e) => toast.error(`승인 실패: ${e.message}`),
+  });
+
+  // 거부
+  const rejectMutation = trpc.aiPackagePipeline.rejectPackage.useMutation({
+    onSuccess: () => { toast.success("상품 초안이 거부되었습니다."); refetchPending(); },
+    onError: (e) => toast.error(`거부 실패: ${e.message}`),
+  });
+
+  const donePkgs = pendingData?.packages ?? [];
+  const analyzedFiles = (filesData?.files ?? []).filter(f => f.extractStatus === "done");
+
+  const statusColor: Record<string, string> = {
+    queued: "bg-slate-100 text-slate-600",
+    extracting: "bg-blue-100 text-blue-700",
+    generating: "bg-indigo-100 text-indigo-700",
+    saving: "bg-teal-100 text-teal-700",
+    done: "bg-green-100 text-green-700",
+    failed: "bg-red-100 text-red-700",
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Step 1: 파일 선택 */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center font-bold">1</div>
+          <span className="text-sm font-semibold text-slate-700">분석 완료된 파일 선택</span>
+        </div>
+        {filesLoading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 size={14} className="animate-spin" />파일 목록 로딩 중...
+          </div>
+        ) : analyzedFiles.length === 0 ? (
+          <div className="flex items-center gap-3 p-4 rounded-lg border border-dashed border-slate-200 bg-slate-50">
+            <FileText size={20} className="text-slate-400" />
+            <div>
+              <p className="text-sm text-slate-600">분석 완료된 파일이 없습니다.</p>
+              <p className="text-xs text-slate-400">파일 분석 메뉴에서 견적서나 일정표를 먼저 업로드해 주세요.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+            {analyzedFiles.map(file => (
+              <button
+                key={file.id}
+                onClick={() => setSelectedFileId(file.id)}
+                className={`w-full text-left flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                  selectedFileId === file.id
+                    ? "border-teal-500 bg-teal-50"
+                    : "border-slate-200 hover:border-teal-300 hover:bg-slate-50"
+                }`}
+              >
+                <FileText size={16} className={selectedFileId === file.id ? "text-teal-600" : "text-slate-400"} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{file.fileName}</p>
+                  <p className="text-xs text-muted-foreground">{new Date(file.createdAt).toLocaleDateString("ko-KR")}</p>
+                </div>
+                {selectedFileId === file.id && <CheckSquare size={16} className="text-teal-600 shrink-0" />}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Step 2: 잡 시작 버튼 */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center font-bold">2</div>
+          <span className="text-sm font-semibold text-slate-700">AI 상품 초안 자동생성</span>
+        </div>
+        <Button
+          onClick={() => { if (selectedFileId) startJobMutation.mutate({ fileAnalysisId: selectedFileId }); }}
+          disabled={!selectedFileId || startJobMutation.isPending || pollingEnabled}
+          className="w-full bg-teal-600 hover:bg-teal-700 text-white"
+        >
+          {startJobMutation.isPending || pollingEnabled
+            ? <><Loader2 size={14} className="animate-spin mr-2" />생성 중...</>
+            : <><Workflow size={14} className="mr-2" />선택한 파일로 상품 초안 자동생성</>}
+        </Button>
+
+        {/* 잡 진행 상태 */}
+        {activeJobId && jobStatus && (
+          <div className="border rounded-xl p-4 bg-teal-50/50 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-teal-800">잡 진행 상태</span>
+              <Badge className={`text-xs ${statusColor[jobStatus.status] ?? "bg-slate-100 text-slate-600"}`}>
+                {jobStatus.status}
+              </Badge>
+            </div>
+            {/* 프로그레스 바 */}
+            <div className="w-full bg-slate-200 rounded-full h-2">
+              <div
+                className="bg-teal-500 h-2 rounded-full transition-all duration-500"
+                style={{ width: `${jobStatus.progress}%` }}
+              />
+            </div>
+            <p className="text-xs text-teal-700">{jobStatus.message}</p>
+            {jobStatus.status === "done" && jobStatus.result && (
+              <div className="bg-white rounded-lg border p-3 space-y-2">
+                <p className="text-xs font-semibold text-slate-700">생성된 상품 초안</p>
+                <p className="text-sm font-bold">{jobStatus.result.title}</p>
+                <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+                  <span>🌏 {jobStatus.result.country}</span>
+                  <span>📍 {jobStatus.result.region}</span>
+                  <span>📅 {jobStatus.result.duration}</span>
+                </div>
+                <p className="text-xs leading-relaxed text-slate-600">{jobStatus.result.description}</p>
+                {jobStatus.result.packageId && (
+                  <Badge className="bg-green-100 text-green-700 text-xs">
+                    상품 ID #{jobStatus.result.packageId} 저장됨 — 승인 대기 중
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Step 3: 승인 대기 목록 */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center font-bold">3</div>
+            <span className="text-sm font-semibold text-slate-700">승인 대기 상품 초안</span>
+          </div>
+          <button onClick={() => refetchPending()} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+            <RefreshCw size={11} />새로고침
+          </button>
+        </div>
+        {donePkgs.length === 0 ? (
+          <div className="flex items-center gap-3 p-4 rounded-lg border border-dashed border-slate-200 bg-slate-50">
+            <Clock size={20} className="text-slate-400" />
+            <p className="text-sm text-slate-500">승인 대기 중인 상품 초안이 없습니다.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {donePkgs.map(pkg => (
+              <div key={pkg.id} className="border rounded-xl p-4 bg-white space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate">{pkg.title}</p>
+                    <div className="flex flex-wrap gap-2 mt-1 text-xs text-muted-foreground">
+                      <span>🌏 {pkg.country}</span>
+                      {pkg.region && <span>📍 {pkg.region}</span>}
+                      {pkg.duration && <span>📅 {pkg.duration}</span>}
+                      {pkg.roundCount && <span>⛳ {pkg.roundCount}라운드</span>}
+                    </div>
+                  </div>
+                  <Badge className="bg-amber-100 text-amber-700 text-xs shrink-0">
+                    <Clock size={10} className="mr-1" />승인 대기
+                  </Badge>
+                </div>
+                {pkg.description && (
+                  <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">{pkg.description}</p>
+                )}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => approveMutation.mutate({ packageId: pkg.id })}
+                    disabled={approveMutation.isPending}
+                    className="flex-1 h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <CheckSquare size={12} className="mr-1" />승인
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => rejectMutation.mutate({ packageId: pkg.id })}
+                    disabled={rejectMutation.isPending}
+                    className="flex-1 h-8 text-xs border-red-300 text-red-600 hover:bg-red-50"
+                  >
+                    <XSquare size={12} className="mr-1" />거부
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── 채팅 탭 상수 ─────────────────────────────────────────────────────────────
 const SUGGESTED_PROMPTS = [
   "현재 등록된 상품 목록과 각 상품의 이미지 현황을 알려줘",
@@ -540,12 +781,13 @@ export default function GeminiAssistant() {
 
         {/* 탭 */}
         <Tabs defaultValue="chat" className="w-full">
-          <TabsList className="grid grid-cols-5 w-full">
+          <TabsList className="grid grid-cols-6 w-full">
             <TabsTrigger value="chat" className="text-xs"><Sparkles size={12} className="mr-1" />AI 채팅</TabsTrigger>
             <TabsTrigger value="package" className="text-xs"><Package size={12} className="mr-1" />상품 설명</TabsTrigger>
             <TabsTrigger value="marketing" className="text-xs"><Megaphone size={12} className="mr-1" />마케팅</TabsTrigger>
             <TabsTrigger value="inquiry" className="text-xs"><MessageSquare size={12} className="mr-1" />문의 답변</TabsTrigger>
             <TabsTrigger value="analysis" className="text-xs"><BarChart3 size={12} className="mr-1" />데이터 분석</TabsTrigger>
+            <TabsTrigger value="pipeline" className="text-xs"><Workflow size={12} className="mr-1" />파이프라인</TabsTrigger>
           </TabsList>
 
           {/* AI 채팅 탭 */}
@@ -642,6 +884,19 @@ export default function GeminiAssistant() {
                 <p className="text-xs text-muted-foreground">AI가 ERP 데이터를 직접 조회하고 분석하여 인사이트를 제공합니다.</p>
               </CardHeader>
               <CardContent><ErpAnalysisTab /></CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 파이프라인 탭 */}
+          <TabsContent value="pipeline" className="mt-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Workflow size={16} className="text-teal-600" />상품 자동생성 파이프라인
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">견적서·일정표 파일을 업로드하면 AI가 자동으로 상품 초안을 생성합니다. 파트너 대표가 승인하면 상품으로 등록됩니다.</p>
+              </CardHeader>
+              <CardContent><PipelineTab /></CardContent>
             </Card>
           </TabsContent>
         </Tabs>

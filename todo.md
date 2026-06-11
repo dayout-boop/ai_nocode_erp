@@ -2389,3 +2389,16 @@ Detected
 - [x] AI파트너매니저 💼, 파트너자동화AI 메뉴에서 masterOnly 제거 (파트너 접근 가능)
 - [x] AI파트너매니저 로그, AI상담톡 로그, 파트너자동화AI 로그 메뉴 제거 (AI 통합 로그로 통합)
 - [x] gemini.ask, gemini.getSystemContext 프로시저를 adminProcedure → partnerProcedure로 변경
+
+## 파트너자동화AI 상품 자동생성 파이프라인 (2026-06-12)
+- [x] DB 스키마: packages.aiGeneratedFrom, packages.approvalStatus 컬럼 추가
+- [x] DB 스키마: aiInteractionLogs.tenantId, fileAnalysis.tenantId 컬럼 추가
+- [x] DB 스키마: partnerStaffPermissions 테이블 신규 생성
+- [x] pnpm db:push 마이그레이션 완료
+- [x] fileAnalysis.ts 라우터: partnerProcedure 변경 + tenantId 격리 적용
+- [x] aiLogsRouter: generatePackageDesc 등 partnerProcedure 변경 + tenantId 주입
+- [x] server/services/aiJobWorker.ts: 큐 기반 비동기 워커 구현
+- [x] server/routers/aiPackagePipeline.ts: 파이프라인 tRPC 라우터 구현
+- [x] GeminiAssistant.tsx: 파이프라인 탭 추가 (파일선택→잡시작→폴링→승인대기)
+- [x] server/routers/partnerStaffPermissions.ts: 담당자 기능 권한 관리 라우터
+- [x] PartnerMyPage.tsx: StaffPermissionsDialog 컴포넌트 + 권한 관리 버튼 추가
