@@ -139,6 +139,41 @@ export const knowledgeBlockRouter = router({
     }),
 
   /**
+   * 사용자 정의 차단 규칙 수정
+   */
+  updateRule: erpLoginProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        ruleName: z.string().min(1).max(300).optional(),
+        keywords: z.string().min(1).optional(),
+        description: z.string().optional(),
+        isActive: z.boolean().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("DB 연결 실패");
+
+      const updateData: Record<string, unknown> = {};
+      if (input.ruleName !== undefined) updateData.ruleName = input.ruleName;
+      if (input.keywords !== undefined) updateData.keywords = input.keywords;
+      if (input.description !== undefined) updateData.description = input.description;
+      if (input.isActive !== undefined) updateData.isActive = input.isActive;
+
+      if (Object.keys(updateData).length === 0) {
+        throw new Error("수정할 항목이 없습니다");
+      }
+
+      await db
+        .update(knowledgeBlockRules)
+        .set(updateData as any)
+        .where(eq(knowledgeBlockRules.id, input.id));
+
+      return { success: true };
+    }),
+
+  /**
    * 지식 이름/내용을 실시간으로 검사 (마스터가 직접 테스트용)
    */
   checkKnowledge: erpLoginProcedure

@@ -390,7 +390,7 @@ export function registerMasterStreamRoute(app: Express) {
     const input = parsed.data;
 
     // 2-1. 타 데스크 지식 차단 키워드 거절 검사
-    const rejection = checkRequestForBlockedKeywords(input.message);
+    const rejection = await checkRequestForBlockedKeywords(input.message);
     if (rejection.rejected) {
       await logRejectedRequest(rejection, { sessionId: input.sessionId, source: "master-stream" });
       try {

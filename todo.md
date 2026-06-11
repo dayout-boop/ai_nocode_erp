@@ -2287,3 +2287,9 @@ Detected
 - [x] devAIRouter → server/routers/devAI.ts 분리 (routers.ts 1,231줄 제거 + import 추가)
 - [x] MASTER_SYSTEM_PROMPT에 파일 맵 및 GitHub 도구 사용 가이드 추가
 - [x] TypeScript 검증 완료 (오류 0건) + 체크포인트 저장
+
+## 지식 차단 관리 개선 (2026-06-11)
+- [x] knowledgeBlock.ts: updateRule 프로시저 추가 (규칙명/키워드/설명 수정)
+- [x] knowledgeFilter.ts: checkRequestForBlockedKeywords async 전환 + DB 사용자 정의 규칙도 LLM 차단에 적용
+- [x] KnowledgeBlockLog.tsx: 사용자 정의 규칙 수정 버튼 + 인라인 편집 UI 추가
+- [x] TypeScript 검증 완료 (오류 0건) + 체크포인트 저장

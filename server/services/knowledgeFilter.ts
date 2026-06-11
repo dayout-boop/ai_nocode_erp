@@ -221,15 +221,18 @@ export interface RequestRejectionResult {
  * 사용자/업체 요청 텍스트를 검사하여, 타 데스크 지식 차단 키워드가
  * 포함되어 있으면 거절 결과를 반환한다.
  *
+ * DEFAULT_BLOCK_RULES(하드코딩) + DB에 등록된 사용자 정의 규칙을 모두 적용한다.
+ *
  * @param requestText 검사할 요청 원문
  */
-export function checkRequestForBlockedKeywords(
+export async function checkRequestForBlockedKeywords(
   requestText: string
-): RequestRejectionResult {
+): Promise<RequestRejectionResult> {
   const text = requestText || "";
   const matchedKeywords: string[] = [];
   const ruleNames = new Set<string>();
 
+  // 1) 기본 하드코딩 규칙 검사
   for (const rule of DEFAULT_BLOCK_RULES) {
     for (const keyword of rule.keywords) {
       if (text.includes(keyword)) {
@@ -237,6 +240,25 @@ export function checkRequestForBlockedKeywords(
         ruleNames.add(rule.ruleName);
       }
     }
+  }
+
+  // 2) DB 사용자 정의 규칙 검사 (활성화된 규칙만)
+  try {
+    const dbRules = await getBlockRules();
+    for (const rule of dbRules) {
+      const keywords = rule.keywords
+        .split(",")
+        .map((k) => k.trim())
+        .filter(Boolean);
+      for (const keyword of keywords) {
+        if (keyword && text.includes(keyword)) {
+          matchedKeywords.push(keyword);
+          ruleNames.add(rule.ruleName);
+        }
+      }
+    }
+  } catch {
+    // DB 조회 실패 시 기본 규칙만으로 진행
   }
 
   const rejected = matchedKeywords.length > 0;

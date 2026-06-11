@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, ShieldAlert, ShieldCheck, Plus, Trash2, Search, RefreshCw } from "lucide-react";
+import { Shield, ShieldAlert, ShieldCheck, Plus, Trash2, Search, RefreshCw, Pencil, Check, X } from "lucide-react";
 import { toast } from "sonner";
 
 export default function KnowledgeBlockLog() {
@@ -23,6 +23,11 @@ export default function KnowledgeBlockLog() {
   const [newRuleName, setNewRuleName] = useState("");
   const [newKeywords, setNewKeywords] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  // 수정 상태
+  const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
+  const [editRuleName, setEditRuleName] = useState("");
+  const [editKeywords, setEditKeywords] = useState("");
+  const [editDescription, setEditDescription] = useState("");
 
   const { data: logsData, refetch: refetchLogs, isLoading: logsLoading } =
     trpc.knowledgeBlock.getLogs.useQuery({ limit: 100 });
@@ -61,6 +66,36 @@ export default function KnowledgeBlockLog() {
       refetchRules();
     },
   });
+
+  const updateRuleMutation = trpc.knowledgeBlock.updateRule.useMutation({
+    onSuccess: () => {
+      toast.success("차단 규칙 수정 완료");
+      setEditingRuleId(null);
+      refetchRules();
+    },
+    onError: (err) => {
+      toast.error(`수정 실패: ${err.message}`);
+    },
+  });
+
+  const startEdit = (rule: { id: number; ruleName: string; keywords: string; description?: string | null }) => {
+    setEditingRuleId(rule.id);
+    setEditRuleName(rule.ruleName);
+    setEditKeywords(rule.keywords);
+    setEditDescription(rule.description ?? "");
+  };
+
+  const cancelEdit = () => setEditingRuleId(null);
+
+  const saveEdit = () => {
+    if (!editingRuleId || !editRuleName.trim() || !editKeywords.trim()) return;
+    updateRuleMutation.mutate({
+      id: editingRuleId,
+      ruleName: editRuleName,
+      keywords: editKeywords,
+      description: editDescription,
+    });
+  };
 
   const handleCheck = () => {
     if (!checkName.trim()) return;
@@ -346,25 +381,84 @@ export default function KnowledgeBlockLog() {
                 <CardContent>
                   <div className="space-y-2">
                     {rulesData?.customRules?.map((rule) => (
-                      <div key={rule.id} className="p-3 bg-orange-50 rounded-lg border border-orange-100 flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <ShieldAlert size={14} className="text-orange-500 shrink-0" />
-                            <span className="font-medium text-sm">{rule.ruleName}</span>
+                      <div key={rule.id} className="p-3 bg-orange-50 rounded-lg border border-orange-100">
+                        {editingRuleId === rule.id ? (
+                          /* 수정 모드 */
+                          <div className="space-y-2">
+                            <Input
+                              value={editRuleName}
+                              onChange={(e) => setEditRuleName(e.target.value)}
+                              placeholder="규칙 이름"
+                              className="text-sm h-8"
+                            />
+                            <Input
+                              value={editKeywords}
+                              onChange={(e) => setEditKeywords(e.target.value)}
+                              placeholder="차단 키워드 (쉼표로 구분)"
+                              className="text-sm h-8"
+                            />
+                            <Input
+                              value={editDescription}
+                              onChange={(e) => setEditDescription(e.target.value)}
+                              placeholder="설명 (선택)"
+                              className="text-sm h-8"
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                className="flex-1 h-7 text-xs"
+                                onClick={saveEdit}
+                                disabled={!editRuleName.trim() || !editKeywords.trim() || updateRuleMutation.isPending}
+                              >
+                                <Check size={12} className="mr-1" />
+                                저장
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 h-7 text-xs"
+                                onClick={cancelEdit}
+                              >
+                                <X size={12} className="mr-1" />
+                                취소
+                              </Button>
+                            </div>
                           </div>
-                          {rule.description && (
-                            <p className="text-xs text-gray-500 mt-0.5">{rule.description}</p>
-                          )}
-                          <p className="text-xs text-orange-600 mt-0.5 truncate">{rule.keywords}</p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-500 hover:text-red-700 shrink-0"
-                          onClick={() => deleteRuleMutation.mutate({ id: rule.id })}
-                        >
-                          <Trash2 size={14} />
-                        </Button>
+                        ) : (
+                          /* 보기 모드 */
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <ShieldAlert size={14} className="text-orange-500 shrink-0" />
+                                <span className="font-medium text-sm">{rule.ruleName}</span>
+                              </div>
+                              {rule.description && (
+                                <p className="text-xs text-gray-500 mt-0.5">{rule.description}</p>
+                              )}
+                              <p className="text-xs text-orange-600 mt-0.5 truncate">{rule.keywords}</p>
+                            </div>
+                            <div className="flex gap-1 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-blue-500 hover:text-blue-700 h-7 w-7 p-0"
+                                onClick={() => startEdit(rule)}
+                                title="수정"
+                              >
+                                <Pencil size={13} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-700 h-7 w-7 p-0"
+                                onClick={() => deleteRuleMutation.mutate({ id: rule.id })}
+                                title="삭제"
+                              >
+                                <Trash2 size={13} />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
