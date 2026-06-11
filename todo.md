@@ -2437,3 +2437,10 @@ Detected
 - [x] 클라이언트: CompanyManagePage.tsx - 업체정보 뷰에 loginId/관광사업자번호/통신판매업번호/계좌정보 표시
 - [x] 클라이언트: CRMPartners.tsx - PartnerDetailModal에 직원 목록 탭 추가 (crm.getPartnerStaff 연동)
 - [x] 클라이언트: PartnerLanding/Navbar.tsx - 고객센터 링크(/partner/support) 네비게이션에 추가
+
+## 2026-06-12 대표아이디 교체 + 고객센터AI 고도화
+- [x] 서버: crm.transferPartnerOwnership 프로시저 구현 (마스터 ERP에서 파트너사 대표 변경)
+- [x] 클라이언트: CRMPartners.tsx PartnerDetailModal에 대표 변경 버튼 및 TransferOwnershipDialog 추가
+- [x] 서버: rag.ts fetchManagerContext에 파트너별 개발요청 현황 컨텍스트 주입
+- [x] 서버: devRequest.ts에 listByPartner 프로시저 추가 (파트너가 자신의 개발요청 현황 조회)
+- [x] 클라이언트: PartnerSupportPage.tsx 3탭 구조로 개편 (FAQ / 개발요청 접수 / 요청 현황)

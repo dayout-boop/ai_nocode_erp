@@ -13,7 +13,7 @@ import { TRPCError } from "@trpc/server";
 import { eq, desc, and, count, isNotNull } from "drizzle-orm";
 import { protectedProcedure, partnerProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { devRequests, systemSettings } from "../../drizzle/schema";
+import { devRequests, systemSettings, tenantApiDevRequests } from "../../drizzle/schema";
 import {
   sendSingleRequestToManus,
   sendPendingRequestsToManus,
@@ -770,5 +770,40 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
       }
 
       return { success: true, id: inserted.id, message: "개발 요청이 접수되었습니다. 검토 후 안내드리겠습니다." };
+    }),
+
+  /**
+   * 파트너가 자신의 개발요청 목록 조회 (tenantApiDevRequests)
+   */
+  listByPartner: partnerProcedure
+    .input(
+      z.object({
+        limit: z.number().min(1).max(50).default(20),
+        offset: z.number().min(0).default(0),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const partner = (ctx as unknown as { partner?: { id: number } }).partner;
+      if (!partner?.id) throw new TRPCError({ code: "UNAUTHORIZED" });
+      const rows = await db
+        .select({
+          id: tenantApiDevRequests.id,
+          title: tenantApiDevRequests.title,
+          requestContent: tenantApiDevRequests.requestContent,
+          approvalStatus: tenantApiDevRequests.approvalStatus,
+          feasibility: tenantApiDevRequests.feasibility,
+          approvalMemo: tenantApiDevRequests.approvalMemo,
+          isGlobalImprovement: tenantApiDevRequests.isGlobalImprovement,
+          createdAt: tenantApiDevRequests.createdAt,
+          completedAt: tenantApiDevRequests.completedAt,
+        })
+        .from(tenantApiDevRequests)
+        .where(eq(tenantApiDevRequests.tenantId, partner.id))
+        .orderBy(desc(tenantApiDevRequests.createdAt))
+        .limit(input.limit)
+        .offset(input.offset);
+      return rows;
     }),
 });

@@ -1,7 +1,7 @@
 // ============================================================
 // PartnerSupportPage — partner.dayoutgolf.com 고객센터 2차 페이지
 // 파트너 포털에서 /partner/support 경로로 접근
-// 좌측: FAQ + 개발요청 탭 / 우측: 고객센터AI 실시간 LLM
+// 좌측: FAQ + 개발요청 접수 + 개발요청 현황 탭 / 우측: 고객센터AI 실시간 LLM
 // ============================================================
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
@@ -9,6 +9,7 @@ import { partnerTrpc } from "@/lib/partnerTrpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   MessageCircle,
   Code2,
@@ -22,6 +23,8 @@ import {
   TrendingUp,
   Plus,
   ArrowLeft,
+  ClipboardList,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -59,7 +62,7 @@ const FAQ_ITEMS = [
       },
       {
         q: "직원 계정을 추가하려면 어떻게 하나요?",
-        a: "ERP → 파트너 스태프 로그인 → 내 정보 → 직원 관리에서 직원 이메일을 입력하고 권한을 설정하면 초대 이메일이 발송됩니다.",
+        a: "ERP → 내 정보 → 직원 관리에서 직원 정보를 입력하고 권한을 설정하면 됩니다.",
       },
     ],
   },
@@ -96,6 +99,22 @@ interface ChatMessage {
   ts: number;
 }
 
+// 개발요청 상태 레이블/색상
+const APPROVAL_STATUS_MAP: Record<string, { label: string; color: string }> = {
+  pending:     { label: "검토중",  color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
+  approved:    { label: "승인",    color: "bg-blue-100 text-blue-700 border-blue-200" },
+  rejected:    { label: "거부",    color: "bg-red-100 text-red-700 border-red-200" },
+  in_progress: { label: "개발중",  color: "bg-purple-100 text-purple-700 border-purple-200" },
+  completed:   { label: "완료",    color: "bg-green-100 text-green-700 border-green-200" },
+};
+
+const FEASIBILITY_MAP: Record<string, { label: string; color: string }> = {
+  possible:    { label: "구현가능",    color: "text-green-600" },
+  conditional: { label: "조건부가능",  color: "text-yellow-600" },
+  impossible:  { label: "구현불가",    color: "text-red-600" },
+  global:      { label: "전체개선",    color: "text-blue-600" },
+};
+
 // ─── AI 채팅 패널 ─────────────────────────────────────────
 function AIChatPanel() {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -103,7 +122,7 @@ function AIChatPanel() {
       id: "welcome",
       role: "assistant",
       content:
-        "안녕하세요! 고객센터AI입니다. 🎯\n\nERP 사용 방법, 가입 절차, 정산 문의, 기능 개선 요청 등 무엇이든 질문해 주세요. 왼쪽 FAQ에서 자주 묻는 질문을 먼저 확인하시면 더 빠르게 해결할 수 있습니다.",
+        "안녕하세요! 고객센터AI입니다. 🎯\n\nERP 사용 방법, 가입 절차, 정산 문의, 기능 개선 요청 등 무엇이든 질문해 주세요.\n\n왼쪽 탭에서 FAQ, 개발요청 접수, 개발요청 현황을 확인하실 수 있습니다.",
       ts: Date.now(),
     },
   ]);
@@ -253,7 +272,7 @@ function FAQPanel() {
   );
 }
 
-// ─── 개발요청 패널 ────────────────────────────────────────
+// ─── 개발요청 접수 패널 ────────────────────────────────────
 function DevRequestPanel() {
   const [category, setCategory] = useState<DevCategory>("feature");
   const [title, setTitle] = useState("");
@@ -289,7 +308,7 @@ function DevRequestPanel() {
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <CheckCircle2 size={48} className="text-green-500 mb-4" />
         <h3 className="font-bold text-gray-800 text-lg mb-2">요청이 접수되었습니다!</h3>
-        <p className="text-gray-500 text-sm mb-6">운영팀이 검토 후 연락드리겠습니다.</p>
+        <p className="text-gray-500 text-sm mb-6">운영팀이 검토 후 연락드리겠습니다.<br />왼쪽 탭에서 처리 현황을 확인하세요.</p>
         <Button variant="outline" size="sm" onClick={() => setSubmitted(false)}>
           추가 요청하기
         </Button>
@@ -353,9 +372,81 @@ function DevRequestPanel() {
   );
 }
 
+// ─── 개발요청 현황 패널 ────────────────────────────────────
+function DevStatusPanel() {
+  const { data: requests = [], isLoading, refetch, isFetching } = partnerTrpc.devRequest.listByPartner.useQuery(
+    { limit: 30, offset: 0 },
+    { refetchOnWindowFocus: false }
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-500">고객센터AI를 통해 접수된 개발요청 현황입니다.</p>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 transition-colors"
+        >
+          <RefreshCw size={11} className={isFetching ? "animate-spin" : ""} />
+          새로고침
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-10">
+          <Loader2 size={24} className="animate-spin text-indigo-400" />
+        </div>
+      ) : requests.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center text-gray-400">
+          <ClipboardList size={36} className="mb-3 opacity-30" />
+          <p className="text-sm font-medium">접수된 개발요청이 없습니다.</p>
+          <p className="text-xs mt-1">개발요청 탭에서 새 요청을 접수해 보세요.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {requests.map((req) => {
+            const status = APPROVAL_STATUS_MAP[req.approvalStatus] ?? { label: req.approvalStatus, color: "bg-gray-100 text-gray-600 border-gray-200" };
+            const feasibility = req.feasibility ? FEASIBILITY_MAP[req.feasibility] : null;
+            const when = req.createdAt ? new Date(req.createdAt).toLocaleDateString("ko-KR") : "-";
+            const completedWhen = req.completedAt ? new Date(req.completedAt).toLocaleDateString("ko-KR") : null;
+            return (
+              <div key={req.id} className="border border-gray-200 rounded-lg bg-white p-3 space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-medium text-gray-800 leading-snug flex-1">{req.title}</p>
+                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${status.color}`}>
+                    {status.label}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {feasibility && (
+                    <span className={`text-[10px] font-medium ${feasibility.color}`}>{feasibility.label}</span>
+                  )}
+                  {req.isGlobalImprovement && (
+                    <span className="text-[10px] text-blue-500 font-medium">🌐 전체 업체 공통 개선</span>
+                  )}
+                  <span className="text-[10px] text-gray-400 ml-auto">접수: {when}</span>
+                  {completedWhen && (
+                    <span className="text-[10px] text-green-600">완료: {completedWhen}</span>
+                  )}
+                </div>
+                {req.approvalMemo && (
+                  <div className="bg-indigo-50 border border-indigo-100 rounded px-2.5 py-1.5 text-xs text-indigo-700">
+                    💬 {req.approvalMemo}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── 메인 페이지 ──────────────────────────────────────────
 export default function PartnerSupportPage() {
-  const [leftTab, setLeftTab] = useState<"faq" | "devrequest">("faq");
+  const [leftTab, setLeftTab] = useState<"faq" | "devrequest" | "devstatus">("faq");
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -375,7 +466,7 @@ export default function PartnerSupportPage() {
             </div>
             <div>
               <h1 className="font-bold text-gray-900 text-lg leading-tight">고객센터</h1>
-              <p className="text-xs text-gray-500">FAQ · 개발요청 · AI 실시간 상담</p>
+              <p className="text-xs text-gray-500">FAQ · 개발요청 접수 · 개발요청 현황 · AI 실시간 상담</p>
             </div>
           </div>
         </div>
@@ -389,25 +480,36 @@ export default function PartnerSupportPage() {
             <div className="flex border-b border-gray-200">
               <button
                 onClick={() => setLeftTab("faq")}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium transition-colors ${
+                className={`flex-1 flex items-center justify-center gap-1 py-3 text-xs font-medium transition-colors ${
                   leftTab === "faq" ? "text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50" : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                <HelpCircle size={14} />
+                <HelpCircle size={12} />
                 자주 묻는 질문
               </button>
               <button
                 onClick={() => setLeftTab("devrequest")}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium transition-colors ${
+                className={`flex-1 flex items-center justify-center gap-1 py-3 text-xs font-medium transition-colors ${
                   leftTab === "devrequest" ? "text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50" : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                <Code2 size={14} />
+                <Code2 size={12} />
                 개발 요청
+              </button>
+              <button
+                onClick={() => setLeftTab("devstatus")}
+                className={`flex-1 flex items-center justify-center gap-1 py-3 text-xs font-medium transition-colors ${
+                  leftTab === "devstatus" ? "text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50" : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <ClipboardList size={12} />
+                요청 현황
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
-              {leftTab === "faq" ? <FAQPanel /> : <DevRequestPanel />}
+              {leftTab === "faq" && <FAQPanel />}
+              {leftTab === "devrequest" && <DevRequestPanel />}
+              {leftTab === "devstatus" && <DevStatusPanel />}
             </div>
           </div>
 

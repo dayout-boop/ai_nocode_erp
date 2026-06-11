@@ -1726,6 +1726,98 @@ const crmRouter = router({
       return staffList;
     }),
 
+  /**
+   * 파트너사 대표아이디 교체 (마스터 ERP 전용)
+   * - 선택된 직원을 새 오너로 승격
+   * - 기존 오너는 비활성화 또는 유지 선택 가능
+   */
+  transferPartnerOwnership: adminProcedure
+    .input(
+      z.object({
+        partnerId: z.number().int().positive(),
+        newOwnerStaffId: z.number().int().positive(),
+        newLoginId: z.string().min(3).max(100).optional(),
+        newPassword: z.string().min(6).max(100).optional(),
+        oldOwnerAction: z.enum(["deactivate", "keep"]).default("keep"),
+        oldOwnerStaffName: z.string().max(100).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
+      const bcrypt = await import("bcryptjs");
+
+      const [partner] = await db.select().from(partners).where(eq(partners.id, input.partnerId)).limit(1);
+      if (!partner) throw new TRPCError({ code: "NOT_FOUND", message: "파트너사를 찾을 수 없습니다." });
+
+      const [staff] = await db.select().from(partnerStaff).where(eq(partnerStaff.id, input.newOwnerStaffId)).limit(1);
+      if (!staff) throw new TRPCError({ code: "NOT_FOUND", message: "해당 직원을 찾을 수 없습니다." });
+      if (staff.partnerId !== input.partnerId)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "해당 직원은 이 파트너사 소속이 아닙니다." });
+
+      const newLoginId = input.newLoginId ?? staff.loginId;
+
+      // loginId 중복 검사 (기존 오너와 다를 때만)
+      if (newLoginId !== partner.loginId) {
+        const [dupP] = await db.select({ id: partners.id }).from(partners).where(eq(partners.loginId, newLoginId)).limit(1);
+        const [dupS] = await db.select({ id: partnerStaff.id }).from(partnerStaff).where(eq(partnerStaff.loginId, newLoginId)).limit(1);
+        if (dupP || dupS)
+          throw new TRPCError({ code: "CONFLICT", message: `loginId '${newLoginId}'는 이미 사용 중입니다.` });
+      }
+
+      const newPwHash = input.newPassword
+        ? await bcrypt.default.hash(input.newPassword, 10)
+        : staff.loginPwHash;
+
+      // partners 테이블 업데이트 (새 오너 정보로 교체)
+      await db
+        .update(partners)
+        .set({
+          loginId: newLoginId,
+          loginPwHash: newPwHash,
+          contactName: staff.name,
+          contactEmail: staff.email ?? partner.contactEmail,
+          contactPhone: staff.phone ?? partner.contactPhone,
+          updatedAt: new Date(),
+        })
+        .where(eq(partners.id, input.partnerId));
+
+      // 기존 오너 처리
+      if (input.oldOwnerAction === "deactivate" && partner.loginId) {
+        const oldOwnerName = input.oldOwnerStaffName ?? partner.contactName ?? "전임 대표";
+        const [existingOldStaff] = await db
+          .select({ id: partnerStaff.id })
+          .from(partnerStaff)
+          .where(eq(partnerStaff.loginId, partner.loginId))
+          .limit(1);
+        if (!existingOldStaff && partner.loginPwHash) {
+          await db.insert(partnerStaff).values({
+            partnerId: input.partnerId,
+            name: oldOwnerName,
+            loginId: partner.loginId,
+            loginPwHash: partner.loginPwHash,
+            role: "staff",
+            isActive: false,
+            memo: `[전임 대표 - ${new Date().toLocaleDateString("ko-KR")} 교체]`,
+          });
+        } else if (existingOldStaff) {
+          await db.update(partnerStaff).set({ isActive: false }).where(eq(partnerStaff.id, existingOldStaff.id));
+        }
+      }
+
+      // 승격된 직원은 직원 테이블에서 비활성화 (오너로 이전됨)
+      await db
+        .update(partnerStaff)
+        .set({ isActive: false, memo: `[오너로 승격 - ${new Date().toLocaleDateString("ko-KR")}]` })
+        .where(eq(partnerStaff.id, input.newOwnerStaffId));
+
+      return {
+        success: true,
+        message: `${staff.name}님이 ${partner.companyName}의 새 대표로 설정되었습니다.`,
+        newLoginId,
+      };
+    }),
+
   getPartnerDetail: protectedProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .query(async ({ input }) => {

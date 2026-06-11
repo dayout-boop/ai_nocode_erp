@@ -14,12 +14,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import DeployButton from "@/components/DeployButton";
 import { toast } from "sonner";
 import {
   Building2, Phone, Mail, User, Plus, Search, Eye, CalendarPlus,
   ChevronLeft, ChevronRight, Calendar, Clock, Pencil, Trash2,
-  Lock, CreditCard, FileText, X, RefreshCw, CheckCircle2, Ban, RotateCcw, AlertTriangle, Users
+  Lock, CreditCard, FileText, X, RefreshCw, CheckCircle2, Ban, RotateCcw, AlertTriangle, Users, ArrowRightLeft
 } from "lucide-react";
 
 // ── 타입 ──────────────────────────────────────────────────────
@@ -744,11 +745,35 @@ function PartnerDetailModal({
     { partnerId: partner?.id ?? 0 },
     { enabled: open && !!partner }
   );
+  const utils = trpc.useUtils();
   const onboarding = detailQuery.data?.onboarding ?? null;
   const staffList = staffQuery.data ?? [];
+  const activeStaff = staffList.filter((s: any) => s.isActive);
+
+  // 대표 변경 다이얼로그 상태
+  const [showTransfer, setShowTransfer] = useState(false);
+  const [transferForm, setTransferForm] = useState({
+    newOwnerStaffId: "",
+    newLoginId: "",
+    newPassword: "",
+    oldOwnerAction: "keep" as "keep" | "deactivate",
+    oldOwnerStaffName: "",
+  });
+  const transferMut = trpc.crm.transferPartnerOwnership.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.message);
+      setShowTransfer(false);
+      setTransferForm({ newOwnerStaffId: "", newLoginId: "", newPassword: "", oldOwnerAction: "keep", oldOwnerStaffName: "" });
+      utils.crm.getPartnerDetail.invalidate({ id: partner?.id });
+      utils.crm.getPartnerStaff.invalidate({ partnerId: partner?.id });
+      utils.crm.getPartners.invalidate();
+    },
+    onError: (err) => toast.error(err.message),
+  });
 
   if (!partner) return null;
   return (
+    <>
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
@@ -984,6 +1009,16 @@ function PartnerDetailModal({
           <Button variant="outline" size="sm" onClick={onEdit} className="flex items-center gap-1">
             <Pencil size={14} /> 수정
           </Button>
+          {activeStaff.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowTransfer(true)}
+              className="flex items-center gap-1 text-purple-600 border-purple-200 hover:bg-purple-50"
+            >
+              <ArrowRightLeft size={14} /> 대표 변경
+            </Button>
+          )}
           {partner.isActive ? (
             <Button
               variant="outline"
@@ -1007,6 +1042,113 @@ function PartnerDetailModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* 대표 변경 다이얼로그 */}
+    <Dialog open={showTransfer} onOpenChange={setShowTransfer}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ArrowRightLeft size={16} className="text-purple-600" />
+            대표아이디 교체 — {partner.companyName}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 text-sm">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
+            ⚠️ 선택한 직원이 새 대표(오너)로 승격됩니다. 기존 대표의 loginId/비밀번호는 새 대표에게 이전되거나 새로 지정할 수 있습니다.
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold">새 대표로 승격할 직원 *</Label>
+            <Select
+              value={transferForm.newOwnerStaffId}
+              onValueChange={(v) => setTransferForm(f => ({ ...f, newOwnerStaffId: v }))}
+            >
+              <SelectTrigger className="text-sm">
+                <SelectValue placeholder="직원 선택..." />
+              </SelectTrigger>
+              <SelectContent>
+                {activeStaff.map((s: any) => (
+                  <SelectItem key={s.id} value={String(s.id)}>
+                    {s.name} ({s.loginId}){s.position ? ` · ${s.position}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold">새 대표 loginId (미입력 시 직원의 기존 ID 사용)</Label>
+            <Input
+              value={transferForm.newLoginId}
+              onChange={(e) => setTransferForm(f => ({ ...f, newLoginId: e.target.value }))}
+              placeholder={activeStaff.find((s: any) => String(s.id) === transferForm.newOwnerStaffId)?.loginId ?? "loginId 입력 (선택)"}
+              className="text-sm font-mono"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold">새 대표 임시 비밀번호 (미입력 시 직원의 기존 비밀번호 유지)</Label>
+            <Input
+              type="password"
+              value={transferForm.newPassword}
+              onChange={(e) => setTransferForm(f => ({ ...f, newPassword: e.target.value }))}
+              placeholder="새 비밀번호 입력 (선택)"
+              className="text-sm"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold">기존 대표 처리</Label>
+            <Select
+              value={transferForm.oldOwnerAction}
+              onValueChange={(v) => setTransferForm(f => ({ ...f, oldOwnerAction: v as "keep" | "deactivate" }))}
+            >
+              <SelectTrigger className="text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="keep">유지 (loginId 변경 없음)</SelectItem>
+                <SelectItem value="deactivate">비활성화 (직원으로 강등 후 비활성)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {transferForm.oldOwnerAction === "deactivate" && (
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">기존 대표 이름 (직원으로 등록 시 사용)</Label>
+              <Input
+                value={transferForm.oldOwnerStaffName}
+                onChange={(e) => setTransferForm(f => ({ ...f, oldOwnerStaffName: e.target.value }))}
+                placeholder={partner.contactName ?? "전임 대표"}
+                className="text-sm"
+              />
+            </div>
+          )}
+        </div>
+        <DialogFooter className="gap-2 mt-2">
+          <Button variant="outline" size="sm" onClick={() => setShowTransfer(false)}>취소</Button>
+          <Button
+            size="sm"
+            disabled={!transferForm.newOwnerStaffId || transferMut.isPending}
+            onClick={() => {
+              if (!transferForm.newOwnerStaffId) return;
+              transferMut.mutate({
+                partnerId: partner.id,
+                newOwnerStaffId: Number(transferForm.newOwnerStaffId),
+                newLoginId: transferForm.newLoginId || undefined,
+                newPassword: transferForm.newPassword || undefined,
+                oldOwnerAction: transferForm.oldOwnerAction,
+                oldOwnerStaffName: transferForm.oldOwnerStaffName || undefined,
+              });
+            }}
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            {transferMut.isPending ? "처리 중..." : "대표 변경 확정"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

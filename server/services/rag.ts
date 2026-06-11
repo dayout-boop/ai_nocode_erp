@@ -235,7 +235,7 @@ export async function compressHistory(
 // ────────────────────────────────────────────────────────────────────────────
 
 import { eq as _eq, and as _and, desc as _desc, sql as _sql, isNull as _isNull } from "drizzle-orm";
-import { inquiries as _inquiries } from "../../drizzle/schema";
+import { inquiries as _inquiries, devRequests as _devRequests, tenantApiDevRequests as _tenantApiDevRequests } from "../../drizzle/schema";
 
 /**
  * tenantId 격리 조건 생성 헬퍼
@@ -386,6 +386,70 @@ export async function fetchManagerContext(opts: ManagerContextOptions): Promise<
               })
               .join("\n")
         );
+      }
+    }
+
+    // ── 개발요청 현황 (intent.needsDevRequest 또는 개발/요청 키워드) ──
+    if (intent.needsDevRequest || message.includes("개발요청") || message.includes("요청 현황") || message.includes("진행 현황")) {
+      if (tenantId !== null) {
+        // 파트너의 개발요청 (tenantApiDevRequests)
+        const tenantDevRows = await db
+          .select({
+            id: _tenantApiDevRequests.id,
+            title: _tenantApiDevRequests.title,
+            approvalStatus: _tenantApiDevRequests.approvalStatus,
+            feasibility: _tenantApiDevRequests.feasibility,
+            createdAt: _tenantApiDevRequests.createdAt,
+          })
+          .from(_tenantApiDevRequests)
+          .where(_eq(_tenantApiDevRequests.tenantId, tenantId))
+          .orderBy(_desc(_tenantApiDevRequests.createdAt))
+          .limit(limit);
+        if (tenantDevRows.length > 0) {
+          const statusLabel: Record<string, string> = {
+            pending: "검토중",
+            approved: "승인",
+            rejected: "거부",
+            in_progress: "개발중",
+            completed: "완료",
+          };
+          sections.push(
+            `[개발요청 현황 — ${scopeLabel}]\n` +
+              tenantDevRows
+                .map((d) => {
+                  const when = d.createdAt ? new Date(d.createdAt).toLocaleDateString("ko-KR") : "-";
+                  const st = statusLabel[d.approvalStatus] ?? d.approvalStatus;
+                  return `- [ID:${d.id}] ${d.title} | 상태:${st} | ${when}`;
+                })
+                .join("\n")
+          );
+        } else {
+          sections.push(`[개발요청 현황 — ${scopeLabel}] 접수된 개발요청이 없습니다.`);
+        }
+      } else {
+        // 마스터 전체보기: devRequests 테이블 요약
+        const devRows = await db
+          .select({
+            id: _devRequests.id,
+            title: _devRequests.title,
+            status: _devRequests.status,
+            priority: _devRequests.priority,
+            createdAt: _devRequests.createdAt,
+          })
+          .from(_devRequests)
+          .orderBy(_desc(_devRequests.createdAt))
+          .limit(limit);
+        if (devRows.length > 0) {
+          sections.push(
+            `[개발요청 현황 — 전체]\n` +
+              devRows
+                .map((d) => {
+                  const when = d.createdAt ? new Date(d.createdAt).toLocaleDateString("ko-KR") : "-";
+                  return `- [ID:${d.id}] ${d.title} | 상태:${d.status} | 우선순위:${d.priority} | ${when}`;
+                })
+                .join("\n")
+          );
+        }
       }
     }
 
