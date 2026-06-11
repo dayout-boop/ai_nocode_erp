@@ -4,7 +4,7 @@
 // ============================================================
 import { Link, useLocation } from "wouter";
 import { usePartnerAuth } from "@/_core/hooks/usePartnerAuth";
-import { trpc } from "@/lib/trpc";
+import { partnerTrpc } from "@/lib/partnerTrpc";
 import {
   Package,
   CalendarDays,
@@ -23,7 +23,7 @@ export default function PartnerDashboard() {
   const [, navigate] = useLocation();
 
   // 온보딩 상태 조회 (이메일 기반 - 공개 API 사용)
-  const myStatusQuery = trpc.partnerOnboarding.getStatusByEmail.useQuery(
+  const myStatusQuery = partnerTrpc.partnerOnboarding.getStatusByEmail.useQuery(
     { email: user?.email ?? "" },
     { enabled: !!user?.email }
   );
