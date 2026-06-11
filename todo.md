@@ -2383,3 +2383,9 @@ Detected
 - [x] 파트너 모드에서 AI파트너매니저 패널 모바일/PC에서 안 보이는 버그 수정 (ERPLayout.tsx showAIPanel 조건 + AIManagerPanel 분기 렌더링)
 - [x] AI챗봇 하위 메뉴 클릭 시 마스터 로그인 강제 이동 버그 수정 (adminProcedure 사용 메뉴에 masterOnly: true 추가)
 - [x] ERPPartnerLayout.tsx AIManagerPanel named export 추가 (ERPLayout에서 재사용 가능)
+
+## 버그 수정 - AI챗봇 메뉴 파트너 접근 권한 재수정
+
+- [x] AI파트너매니저 💼, 파트너자동화AI 메뉴에서 masterOnly 제거 (파트너 접근 가능)
+- [x] AI파트너매니저 로그, AI상담톡 로그, 파트너자동화AI 로그 메뉴 제거 (AI 통합 로그로 통합)
+- [x] gemini.ask, gemini.getSystemContext 프로시저를 adminProcedure → partnerProcedure로 변경

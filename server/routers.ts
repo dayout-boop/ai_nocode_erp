@@ -1744,7 +1744,7 @@ const geminiRouter = router({
    * 관리자가 명령을 입력하면 Gemini가 실행 계획을 제안하고,
    * 관리자가 승인/거절을 결정한다.
    */
-  ask: adminProcedure.input(z.object({
+  ask: partnerProcedure.input(z.object({
     messages: z.array(z.object({
       role: z.enum(["user", "model"]),
       content: z.string(),
@@ -1772,7 +1772,7 @@ const geminiRouter = router({
   /**
    * 시스템 구조 요약을 반환한다 (Gemini가 현재 시스템을 파악하는 데 사용)
    */
-  getSystemContext: adminProcedure.query(() => {
+  getSystemContext: partnerProcedure.query(() => {
     return { context: DOGOLF_SYSTEM_CONTEXT };
   }),
 });
