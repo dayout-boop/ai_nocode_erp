@@ -1,12 +1,13 @@
 // ============================================================
 // DOGOLF Partner Chat — 두골프 매니저 AI 채팅 페이지
-// 개선: 비로그인 시 구글 간편가입 화면, 온보딩 상태별 UI 분기
+// 개선: 비로그인 시 파트너 로그인 화면, 온보딩 상태별 UI 분기
+// ※ Manus OAuth 독립 — partner_session 쿠키 기반 자체 인증
 // ============================================================
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
-import { trpc } from "@/lib/trpc";
+import { usePartnerAuth } from "@/_core/hooks/usePartnerAuth";
+import { partnerTrpc, createPartnerTrpcClient, createPartnerQueryClient } from "@/lib/partnerTrpc";
+import { QueryClientProvider } from "@tanstack/react-query";
 import {
   Send,
   Loader2,
@@ -17,12 +18,8 @@ import {
   Clock,
   XCircle,
   ArrowRight,
-  Building2,
-  FileText,
-  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 
 interface Message {
   id: string;
@@ -50,13 +47,15 @@ const WELCOME_MESSAGE: Message = {
 function generateSessionId() {
   return `mgr-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
+
 // ─── 비로그인 화면 ────────────────────────────────────────────────────────────────────
 function NotLoggedInView() {
-  // 커스텀 로그인 페이지로 리다이렉트 (마누스/메타 브랜드 노옵 방지)
-  if (typeof window !== 'undefined') {
-    window.location.replace('/partner/login');
+  // 파트너 로그인 페이지로 리다이렉트 (Manus/외부 브랜드 없음)
+  if (typeof window !== "undefined") {
+    window.location.replace("/partner/login");
   }
-  return (<div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center">
+  return (
+    <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center">
       <div className="text-center">
         <div className="w-10 h-10 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4" />
         <p className="text-white/50 text-sm">로그인 페이지로 이동 중...</p>
@@ -66,7 +65,11 @@ function NotLoggedInView() {
 }
 
 // ─── 온보딩 신청 대기 화면 ─────────────────────────────────────────────────────
-function OnboardingPendingView({ status, companyName, adminNote }: {
+function OnboardingPendingView({
+  status,
+  companyName,
+  adminNote,
+}: {
   status: string;
   companyName: string;
   adminNote?: string | null;
@@ -131,7 +134,11 @@ function OnboardingPendingView({ status, companyName, adminNote }: {
 
         <div className="text-center mt-4">
           <p className="text-xs text-gray-400 font-body">
-            문의: <a href="tel:1668-1739" className="text-indigo-500 hover:underline">1668-1739</a> (평일 09:00~17:30)
+            문의:{" "}
+            <a href="tel:1668-1739" className="text-indigo-500 hover:underline">
+              1668-1739
+            </a>{" "}
+            (평일 09:00~17:30)
           </p>
         </div>
       </div>
@@ -140,7 +147,13 @@ function OnboardingPendingView({ status, companyName, adminNote }: {
 }
 
 // ─── 온보딩 미신청 화면 ───────────────────────────────────────────────────────
-function OnboardingStartView({ userName, userEmail }: { userName: string; userEmail: string }) {
+function OnboardingStartView({
+  userName,
+  userEmail,
+}: {
+  userName: string;
+  userEmail: string;
+}) {
   const [, navigate] = useLocation();
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-green-50 flex flex-col items-center justify-center px-4">
@@ -152,9 +165,7 @@ function OnboardingStartView({ userName, userEmail }: { userName: string; userEm
           <h1 className="text-2xl font-bold text-gray-900 font-display-ko mb-2">
             {userName} 님, 환영합니다!
           </h1>
-          <p className="text-gray-500 text-sm font-body">
-            {userEmail} · 로그인 완료
-          </p>
+          <p className="text-gray-500 text-sm font-body">{userEmail} · 로그인 완료</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -195,20 +206,22 @@ function OnboardingStartView({ userName, userEmail }: { userName: string; userEm
   );
 }
 
-// ─── 메인 채팅 컴포넌트 ───────────────────────────────────────────────────────
-export default function PartnerChat() {
-  const { user, loading, isAuthenticated } = useAuth();
+// ─── 메인 채팅 컴포넌트 (내부 — partnerTrpc Provider 안에서 실행) ──────────────
+function PartnerChatContent() {
+  const { user, loading, isAuthenticated } = usePartnerAuth();
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [sessionId] = useState(() => generateSessionId());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const chatMutation = trpc.aiAssistant.managerChat.useMutation();
+
+  // partnerTrpc 사용 — Manus OAuth 불필요
+  const chatMutation = partnerTrpc.aiAssistant.managerChat.useMutation();
 
   // 온보딩 상태 조회 (로그인된 경우에만)
   const { data: onboardingStatus, isLoading: onboardingLoading } =
-    trpc.partnerOnboarding.getMyStatus.useQuery(undefined, {
+    partnerTrpc.partnerOnboarding.getMyStatus.useQuery(undefined, {
       enabled: isAuthenticated,
       retry: false,
     });
@@ -222,7 +235,10 @@ export default function PartnerChat() {
   }, [messages, isTyping, scrollToBottom]);
 
   useEffect(() => {
-    if (isAuthenticated && onboardingStatus?.status === "approved" || onboardingStatus?.status === "active") {
+    if (
+      isAuthenticated &&
+      (onboardingStatus?.status === "approved" || onboardingStatus?.status === "active")
+    ) {
       inputRef.current?.focus();
     }
   }, [isAuthenticated, onboardingStatus]);
@@ -236,7 +252,7 @@ export default function PartnerChat() {
     );
   }
 
-  // 비로그인 → 구글 간편가입 화면
+  // 비로그인 → 파트너 로그인 화면
   if (!isAuthenticated) {
     return <NotLoggedInView />;
   }
@@ -253,7 +269,11 @@ export default function PartnerChat() {
 
   // 온보딩 신청 중 (pending/reviewing/rejected)
   const activeStatus = onboardingStatus.status;
-  if (activeStatus === "pending" || activeStatus === "reviewing" || activeStatus === "rejected") {
+  if (
+    activeStatus === "pending" ||
+    activeStatus === "reviewing" ||
+    activeStatus === "rejected"
+  ) {
     return (
       <OnboardingPendingView
         status={activeStatus}
@@ -296,7 +316,8 @@ export default function PartnerChat() {
       const errMsg: Message = {
         id: `e-${Date.now()}`,
         role: "assistant",
-        content: "죄송합니다. 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.\n\n📞 파트너 지원: 1668-1739 (평일 09:00~17:30)",
+        content:
+          "죄송합니다. 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.\n\n📞 파트너 지원: 1668-1739 (평일 09:00~17:30)",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errMsg]);
@@ -378,8 +399,15 @@ export default function PartnerChat() {
                 }`}
               >
                 {msg.content}
-                <p className={`text-xs mt-1.5 ${msg.role === "user" ? "text-indigo-200" : "text-gray-400"}`}>
-                  {msg.timestamp.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+                <p
+                  className={`text-xs mt-1.5 ${
+                    msg.role === "user" ? "text-indigo-200" : "text-gray-400"
+                  }`}
+                >
+                  {msg.timestamp.toLocaleTimeString("ko-KR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </p>
               </div>
             </div>
@@ -431,5 +459,19 @@ export default function PartnerChat() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── 래퍼 (partnerTrpc Provider) ─────────────────────────────────────────────
+export default function PartnerChat() {
+  const queryClient = useMemo(() => createPartnerQueryClient(), []);
+  const trpcClient = useMemo(() => createPartnerTrpcClient(), []);
+
+  return (
+    <partnerTrpc.Provider client={trpcClient} queryClient={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <PartnerChatContent />
+      </QueryClientProvider>
+    </partnerTrpc.Provider>
   );
 }
