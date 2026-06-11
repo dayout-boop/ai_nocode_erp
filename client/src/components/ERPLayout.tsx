@@ -90,6 +90,7 @@ import TenantAiConsole from "@/pages/erp/TenantAiConsole";
 import ImageArchive from "@/pages/erp/ImageArchive";
 import CreditManagement from "@/pages/erp/CreditManagement";
 import PartnerIntegrations from "@/pages/erp/PartnerIntegrations";
+import CompanyManagePage from "@/pages/erp/CompanyManagePage";
 import AIChannelManagement from "@/pages/erp/AIChannelManagement";
 import AIUnifiedLogs from "@/pages/erp/AIUnifiedLogs";
 import AICreditManagement from "@/pages/erp/AICreditManagement";
@@ -542,6 +543,7 @@ const navItems: NavItem[] = [
     label: "연동 설정",
     icon: <Settings size={18} />,
     children: [
+      { label: "업체·직원 관리", href: "/company-manage", icon: <Users size={14} /> },
       { label: "ERP 설정", href: "/settings", icon: <Settings size={14} /> },
       { label: "업체 API 연동", href: "/partner-integrations", icon: <Plug size={14} /> },
       { label: "시스템 설정", href: "/settings/system", icon: <Cpu size={14} />, masterOnly: true },
@@ -694,6 +696,7 @@ function ERPContent() {
           <Route path="/image-archive" component={ImageArchive} />
           <Route path="/credit-management" component={CreditManagement} />
           <Route path="/ai-dev-pipeline" component={AIDevPipeline} />
+          <Route path="/company-manage" component={CompanyManagePage} />
           <Route path="/partner-integrations" component={PartnerIntegrations} />
           <Route path="/ai-channel-management" component={AIChannelManagement} />
           <Route path="/ai-unified-logs" component={AIUnifiedLogs} />

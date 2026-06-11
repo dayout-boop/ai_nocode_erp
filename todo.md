@@ -2402,3 +2402,23 @@ Detected
 - [x] GeminiAssistant.tsx: 파이프라인 탭 추가 (파일선택→잡시작→폴링→승인대기)
 - [x] server/routers/partnerStaffPermissions.ts: 담당자 기능 권한 관리 라우터
 - [x] PartnerMyPage.tsx: StaffPermissionsDialog 컴포넌트 + 권한 관리 버튼 추가
+
+## 파트너 로그인 통합 + 업체·직원 관리 권한 시스템 (2026-06-12)
+- [ ] DB: companyManagePermissions 테이블 추가 (tenantId, staffId, canEdit, grantedBy, grantedAt)
+- [ ] 서버: /api/partner/auth/unified-login 통합 로그인 API (오너/직원 자동 판별, 쿠키 세션 통일)
+- [ ] 서버: companyManage tRPC 라우터 (getInfo, listStaff, getPermissions, setPermissions, updateStaff)
+- [ ] 클라이언트: /partner/login 통합 로그인 페이지 (ID+PW, 오너/직원 자동 판별)
+- [ ] 클라이언트: /partner/staff/login → /partner/login 리다이렉트
+- [ ] 클라이언트: ERPLayout 사이드바 '업체·직원 관리' 메뉴 추가
+- [ ] 클라이언트: 업체·직원 관리 페이지 (뷰어 기본, 수정권한자 지정, 중복권한 허용)
+
+## 파트너 로그인 통합 + 업체·직원 관리 권한 시스템 (2026-06-12)
+- [x] DB: companyManagePermissions 테이블 추가 (tenantId, staffId, canEdit, grantedBy)
+- [x] 서버: /api/partner/auth/email/login - 오너/직원 자동 판별 통합 로그인 (쿠키 세션 통일)
+- [x] 서버: context.ts - partner_session 쿠키에서 staffId 있으면 partnerStaff, 없으면 partnerOwner로 처리
+- [x] 서버: companyManage.ts 라우터 - 업체정보 조회/수정, 직원 CRUD, 수정권한 지정/해제, checkCanEdit
+- [x] 클라이언트: /partner/login 통합 로그인 페이지 (오너/직원 구분 없이 동일 URL)
+- [x] 클라이언트: /partner/staff/login → /partner/login 리다이렉트
+- [x] 클라이언트: usePartnerAuth.ts - staffId, isOwner, isStaff 헬퍼 추가
+- [x] 클라이언트: ERPLayout.tsx - 연동설정 그룹에 업체·직원 관리 메뉴 추가
+- [x] 클라이언트: CompanyManagePage.tsx - 업체정보 뷰어/수정 + 직원목록 + 수정권한 지정 UI

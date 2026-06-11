@@ -7,7 +7,7 @@
 import express from 'express';
 import { getGoogleOAuthCredentials } from '../_core/googleSecretManager';
 import { getDb } from '../db';
-import { partners, partnerOnboarding, adminAccounts, tenants } from '../../drizzle/schema';
+import { partners, partnerOnboarding, adminAccounts, tenants, partnerStaff } from '../../drizzle/schema';
 import { eq, or, desc } from 'drizzle-orm';
 import { SignJWT, jwtVerify } from 'jose';
 import { ENV } from '../_core/env';
@@ -446,9 +446,10 @@ router.get('/google/callback', async (req, res) => {
 
 /**
  * POST /api/partner/auth/email/login
- * 파트너 이메일/비밀번호 직접 로그인
- * - loginId(이메일) + loginPw(비밀번호) 기반
- * - partner_session 쿠키 발급
+ * 통합 로그인: 오너/직원 자동 판별
+ * 1. partners 테이블에서 loginId 또는 contactEmail 조회 → 오너
+ * 2. 없으면 partnerStaff 테이블에서 loginId 조회 → 직원
+ * 모두 partner_session 쿠키로 통일 발급
  */
 router.post('/email/login', async (req, res) => {
   try {
@@ -462,66 +463,110 @@ router.post('/email/login', async (req, res) => {
       return res.status(500).json({ success: false, error: '서버 오류가 발생했습니다.' });
     }
 
-    // loginId 또는 contactEmail로 파트너 조회
+    const bcrypt = await import('bcryptjs');
+
+    // ── 1단계: 파트너 오너 조회 ──
     const matchedPartners = await db
       .select()
       .from(partners)
-      .where(
-        or(
-          eq(partners.loginId, loginId),
-          eq(partners.contactEmail, loginId),
-        )
-      )
+      .where(or(eq(partners.loginId, loginId), eq(partners.contactEmail, loginId)))
+      .limit(1);
+    const partner = matchedPartners[0];
+
+    if (partner) {
+      // 오너 비밀번호 검증
+      let isValid = false;
+      if (partner.loginPwHash) {
+        try {
+          isValid = await bcrypt.compare(loginPw, partner.loginPwHash);
+        } catch {
+          isValid = partner.loginPwHash === loginPw;
+        }
+      }
+      if (!isValid) {
+        return res.status(401).json({ success: false, error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
+      }
+      if (!partner.isActive) {
+        return res.status(403).json({ success: false, error: '승인 대기 중인 계정입니다. 관리자 승인 후 이용 가능합니다.' });
+      }
+      const sessionPayload = {
+        partnerId: partner.id,
+        tenantId: partner.tenantId,
+        email: partner.contactEmail || partner.loginId,
+        name: partner.contactName || partner.companyName,
+        picture: null,
+        loginType: 'email' as const,
+        role: 'partner_owner' as const,
+        staffId: null,
+      };
+      const jwt = await signPartnerJwt(sessionPayload as unknown as Record<string, unknown>);
+      res.cookie('partner_session', jwt, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/',
+      });
+      return res.json({ success: true, redirectTo: '/erp', userType: 'owner' });
+    }
+
+    // ── 2단계: 파트너 직원 조회 ──
+    const matchedStaff = await db
+      .select()
+      .from(partnerStaff)
+      .where(eq(partnerStaff.loginId, loginId))
+      .limit(1);
+    const staff = matchedStaff[0];
+
+    if (!staff) {
+      return res.status(401).json({ success: false, error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
+    }
+
+    // 직원 비밀번호 검증
+    let staffValid = false;
+    try {
+      staffValid = await bcrypt.compare(loginPw, staff.loginPwHash);
+    } catch {
+      staffValid = staff.loginPwHash === loginPw;
+    }
+    if (!staffValid) {
+      return res.status(401).json({ success: false, error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
+    }
+    if (!staff.isActive) {
+      return res.status(403).json({ success: false, error: '비활성화된 계정입니다. 관리자에게 문의하세요.' });
+    }
+
+    // 직원의 파트너(오너) 정보 조회하여 tenantId 확보
+    const [ownerPartner] = await db
+      .select({ id: partners.id, tenantId: partners.tenantId, companyName: partners.companyName })
+      .from(partners)
+      .where(eq(partners.id, staff.partnerId))
       .limit(1);
 
-    const partner = matchedPartners[0];
-    if (!partner) {
-      return res.status(401).json({ success: false, error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
-    }
+    // 마지막 로그인 시각 업데이트
+    await db.update(partnerStaff).set({ lastLoginAt: new Date() }).where(eq(partnerStaff.id, staff.id));
 
-    // 비밀번호 검증 (bcryptjs 또는 단순 해시)
-    let isValid = false;
-    if (partner.loginPwHash) {
-      try {
-        const bcrypt = await import('bcryptjs');
-        isValid = await bcrypt.compare(loginPw, partner.loginPwHash);
-      } catch {
-        // bcrypt 실패 시 단순 비교 (임시 계정용)
-        isValid = partner.loginPwHash === loginPw;
-      }
-    }
-
-    if (!isValid) {
-      return res.status(401).json({ success: false, error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
-    }
-
-    if (!partner.isActive) {
-      return res.status(403).json({ success: false, error: '승인 대기 중인 계정입니다. 관리자 승인 후 이용 가능합니다.' });
-    }
-
-    // 세션 JWT 발급
-    const sessionPayload = {
-      partnerId: partner.id,
-      tenantId: partner.tenantId,
-      email: partner.contactEmail || partner.loginId,
-      name: partner.contactName || partner.companyName,
+    const staffSessionPayload = {
+      partnerId: staff.partnerId,
+      tenantId: ownerPartner?.tenantId ?? null,
+      email: staff.email || staff.loginId,
+      name: staff.name,
       picture: null,
       loginType: 'email' as const,
-      role: 'partner_owner' as const,
+      role: staff.role === 'manager' ? 'partner_manager' : 'partner_staff',
+      staffId: staff.id,
     };
-
-    const jwt = await signPartnerJwt(sessionPayload as unknown as Record<string, unknown>);
-    res.cookie('partner_session', jwt, {
+    const staffJwt = await signPartnerJwt(staffSessionPayload as unknown as Record<string, unknown>);
+    res.cookie('partner_session', staffJwt, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: 24 * 60 * 60 * 1000, // 직원은 24시간
       path: '/',
     });
-
-    return res.json({ success: true, redirectTo: '/erp' });
+    return res.json({ success: true, redirectTo: '/erp', userType: 'staff' });
   } catch (err) {
-    console.error('[EmailLogin] 오류:', err);
+    console.error('[UnifiedLogin] 오류:', err);
     return res.status(500).json({ success: false, error: '서버 오류가 발생했습니다.' });
   }
 });
@@ -561,6 +606,7 @@ router.get('/google/me', async (req, res) => {
         picture: payload.picture,
         loginType: payload.loginType,
         role: payload.role,
+        staffId: payload.staffId ?? null,
       },
     });
   } catch {

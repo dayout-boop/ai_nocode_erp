@@ -1,12 +1,13 @@
 /**
- * 두골프 파트너 ERP 로그인 페이지
- * - 아이디/비밀번호 로그인이 기본 (메인)
- * - 구글 로그인은 보조 옵션
+ * 두골프 파트너 ERP 통합 로그인 페이지
+ * - 오너(업체 대표) / 직원(담당자) 모두 이 페이지에서 로그인
+ * - 서버가 자동으로 오너/직원 판별 후 동일한 쿠키 세션 발급
+ * - 구글 로그인은 오너 전용 보조 옵션
  */
 
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, Users } from "lucide-react";
 
 // 구글 로고 SVG
 function GoogleIcon() {
@@ -42,6 +43,7 @@ export default function PartnerLogin() {
   const [loginError, setLoginError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [loginResult, setLoginResult] = useState<{ role?: string; name?: string } | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,7 +58,11 @@ export default function PartnerLogin() {
       });
       const data = await res.json();
       if (data.success) {
-        window.location.href = data.redirectTo || '/erp';
+        setLoginResult({ role: data.role, name: data.name });
+        // 잠깐 환영 메시지 표시 후 ERP로 이동
+        setTimeout(() => {
+          window.location.href = data.redirectTo || '/erp';
+        }, 600);
       } else {
         setLoginError(data.error || '로그인에 실패했습니다.');
       }
@@ -80,7 +86,17 @@ export default function PartnerLogin() {
           <span className="text-white font-bold text-xl">⛳</span>
         </div>
         <h1 className="text-xl font-bold text-gray-900">두골프 파트너 ERP</h1>
-        <p className="text-sm text-gray-500 mt-1">파트너 전용 로그인</p>
+        <p className="text-sm text-gray-500 mt-1">업체 대표 · 담당자 통합 로그인</p>
+      </div>
+
+      {/* 통합 안내 배너 */}
+      <div className="w-full max-w-sm mb-4">
+        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5">
+          <Users size={14} className="text-emerald-600 flex-shrink-0" />
+          <p className="text-emerald-700 text-xs">
+            <strong>업체 대표</strong>와 <strong>담당자</strong> 모두 동일한 로그인 페이지를 사용합니다.
+          </p>
+        </div>
       </div>
 
       {/* 로그인 카드 */}
@@ -90,6 +106,16 @@ export default function PartnerLogin() {
           <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-3 mb-5">
             <AlertCircle size={15} className="text-red-500 mt-0.5 flex-shrink-0" />
             <p className="text-red-600 text-sm">구글 로그인 오류가 발생했습니다. 아이디/비밀번호로 로그인해주세요.</p>
+          </div>
+        )}
+
+        {/* 로그인 성공 메시지 */}
+        {loginResult && (
+          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5 mb-5">
+            <span className="text-emerald-600 text-sm">✓</span>
+            <p className="text-emerald-700 text-sm">
+              <strong>{loginResult.name}</strong>님, 환영합니다! ERP로 이동 중...
+            </p>
           </div>
         )}
 
@@ -143,21 +169,21 @@ export default function PartnerLogin() {
           {/* 로그인 버튼 */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !!loginResult}
             className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-semibold py-2.5 rounded-lg transition-all duration-200 text-sm mt-1"
           >
-            {loading ? '로그인 중...' : '로그인'}
+            {loading ? '로그인 중...' : loginResult ? 'ERP로 이동 중...' : '로그인'}
           </button>
         </form>
 
         {/* 구분선 */}
         <div className="flex items-center gap-3 my-5">
           <div className="flex-1 h-px bg-gray-200" />
-          <span className="text-gray-400 text-xs">또는</span>
+          <span className="text-gray-400 text-xs">업체 대표 전용</span>
           <div className="flex-1 h-px bg-gray-200" />
         </div>
 
-        {/* 구글 로그인 */}
+        {/* 구글 로그인 (오너 전용) */}
         <button
           onClick={handleGoogleLogin}
           disabled={googleLoading}
@@ -178,20 +204,12 @@ export default function PartnerLogin() {
       </div>
 
       {/* 하단 링크 */}
-      <div className="mt-6 text-center space-y-2">
+      <div className="mt-6 text-center">
         <p className="text-sm text-gray-500">
           아직 파트너가 아니신가요?{' '}
           <Link href="/partner/onboarding-chat">
             <span className="text-emerald-600 hover:text-emerald-700 font-medium cursor-pointer">
               무료로 시작하기
-            </span>
-          </Link>
-        </p>
-        <p className="text-xs text-gray-400">
-          직원 계정으로 로그인하시려면{' '}
-          <Link href="/partner/staff/login">
-            <span className="text-gray-500 hover:text-gray-700 cursor-pointer underline">
-              담당자 로그인
             </span>
           </Link>
         </p>

@@ -178,8 +178,9 @@ export async function createContext(
     }
   }
 
-  // 4. 파트너 대표 세션 쿠키 검증 (partner_session 쿠키)
-  // 파트너 스태프 세션이 없을 때만 확인
+  // 4. 파트너 세션 쿠키 검증 (partner_session 쿠키)
+  // - staffId 있음 → 직원(partnerStaff) 세션
+  // - staffId 없음 → 오너(partnerOwner) 세션
   if (!partnerStaff) {
     const partnerSessionToken = opts.req.cookies?.partner_session;
     if (partnerSessionToken) {
@@ -187,15 +188,30 @@ export async function createContext(
         const secret = await getJwtSecret();
         const { payload } = await jwtVerify(partnerSessionToken, secret);
         if (payload.partnerId) {
-          partnerOwner = {
-            partnerId: payload.partnerId as number,
-            tenantId: (payload.tenantId as number | null) ?? null,
-            email: (payload.email as string | null) ?? null,
-            name: (payload.name as string | null) ?? null,
-            loginType: (payload.loginType as string) || "unknown",
-            role: "partner_owner",
-          };
-          tenantId = partnerOwner.tenantId;
+          const cookieStaffId = payload.staffId as number | null | undefined;
+          if (cookieStaffId) {
+            // 직원 쿠키 세션 → partnerStaff로 처리
+            partnerStaff = {
+              staffId: cookieStaffId,
+              partnerId: payload.partnerId as number,
+              onboardingId: null,
+              name: (payload.name as string) || "",
+              role: payload.role === "partner_manager" ? "manager" : "staff",
+              tenantId: (payload.tenantId as number | null) ?? null,
+            };
+            tenantId = partnerStaff.tenantId;
+          } else {
+            // 오너 쿠키 세션 → partnerOwner로 처리
+            partnerOwner = {
+              partnerId: payload.partnerId as number,
+              tenantId: (payload.tenantId as number | null) ?? null,
+              email: (payload.email as string | null) ?? null,
+              name: (payload.name as string | null) ?? null,
+              loginType: (payload.loginType as string) || "unknown",
+              role: "partner_owner",
+            };
+            tenantId = partnerOwner.tenantId;
+          }
         }
       } catch {
         // partner_session 쿠키 검증 실패 시 무시

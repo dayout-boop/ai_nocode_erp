@@ -2589,3 +2589,30 @@ export const partnerStaffPermissions = mysqlTable("partner_staff_permissions", {
 });
 export type PartnerStaffPermission = typeof partnerStaffPermissions.$inferSelect;
 export type InsertPartnerStaffPermission = typeof partnerStaffPermissions.$inferInsert;
+
+// ============================================================
+// 업체·직원 관리 수정권한 테이블
+// ============================================================
+/**
+ * company_manage_permissions
+ * - 업체·직원 관리 페이지의 수정권한자 지정
+ * - 기본: 모든 직원 뷰어(조회만 가능)
+ * - 수정권한자 지정 시 해당 직원만 수정 가능 (중복 지정 허용)
+ * - 오너(partner_owner)는 항상 수정 가능 (이 테이블과 무관)
+ * - grantedBy: 권한을 부여한 담당자 ID (null이면 오너가 직접 부여)
+ */
+export const companyManagePermissions = mysqlTable("company_manage_permissions", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 소속 테넌트 ID */
+  tenantId: int("tenantId").notNull(),
+  /** 수정권한을 부여받은 담당자 ID (partner_staff.id) */
+  staffId: int("staffId").notNull(),
+  /** 수정권한 활성화 여부 */
+  canEdit: boolean("canEdit").notNull().default(true),
+  /** 권한을 부여한 담당자 ID (null이면 오너가 직접 부여) */
+  grantedBy: int("grantedBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type CompanyManagePermission = typeof companyManagePermissions.$inferSelect;
+export type InsertCompanyManagePermission = typeof companyManagePermissions.$inferInsert;

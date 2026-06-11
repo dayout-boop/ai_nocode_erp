@@ -1,8 +1,8 @@
 /**
  * 하위 담당자 로그인 페이지
- * - 로그인 ID + 비밀번호로 로그인
- * - 비밀번호 분실 시 이메일로 재설정 링크 발송
- * - 로그인 성공 시 JWT 토큰을 로컬스토리지에 저장 + 파트너 대시보드로 이동
+ * - 통합 로그인: /partner/login 에서 오너/직원 모두 처리
+ * - 이 페이지는 /partner/login 으로 자동 리다이렉트
+ * - 비밀번호 재설정 기능은 유지 (직접 접근 시 사용 가능)
  */
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
@@ -30,20 +30,12 @@ export default function PartnerStaffLogin() {
   const [confirmPw, setConfirmPw] = useState("");
   const [showNewPw, setShowNewPw] = useState(false);
 
-  // ─── 로그인 뮤테이션 ────────────────────────────────────────────────────────
+  // ─── 로그인 뮤테이션 (통합 로그인 /partner/login 으로 리다이렉트) ──────────
   const loginMutation = trpc.partnerStaff.login.useMutation({
     onSuccess: (data) => {
-      // JWT 토큰 저장
-      localStorage.setItem("partner_staff_token", data.token);
-      localStorage.setItem("partner_staff_info", JSON.stringify({
-        id: data.staff.id,
-        name: data.staff.name,
-        loginId: data.staff.loginId,
-        role: data.staff.role,
-      }));
       toast.success(`${data.staff.name}님, 환영합니다!`);
-      // 파트너 대시보드로 이동
-      window.location.href = "/partner";
+      // 통합 로그인 페이지로 이동 (쿠키 세션 방식 통일)
+      window.location.href = "/partner/login";
     },
     onError: (err) => {
       toast.error(err.message || "로그인에 실패했습니다.");

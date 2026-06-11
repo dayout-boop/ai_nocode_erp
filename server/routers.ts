@@ -2898,6 +2898,7 @@ import { tenantAffiliatesRouter } from "./routers/tenantAffiliates";
 import { tenantPartnersRouter } from "./routers/tenantPartners";
 import { aiPackagePipelineRouter } from "./routers/aiPackagePipeline";
 import { partnerStaffPermissionsRouter } from "./routers/partnerStaffPermissions";
+import { companyManageRouter } from "./routers/companyManage";
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -2964,5 +2965,6 @@ export const appRouter = router({
   tenantPartners: tenantPartnersRouter,
   aiPackagePipeline: aiPackagePipelineRouter,
   partnerStaffPermissions: partnerStaffPermissionsRouter,
+  companyManage: companyManageRouter,
 });
 export type AppRouter = typeof appRouter;
