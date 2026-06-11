@@ -93,6 +93,7 @@ import PartnerIntegrations from "@/pages/erp/PartnerIntegrations";
 import AIChannelManagement from "@/pages/erp/AIChannelManagement";
 import AIUnifiedLogs from "@/pages/erp/AIUnifiedLogs";
 import AICreditManagement from "@/pages/erp/AICreditManagement";
+import { AIManagerPanel } from "@/components/ERPPartnerLayout";
 import { Loader2, Plug } from "lucide-react";
 import TenantSelector from "@/components/TenantSelector";
 
@@ -436,12 +437,12 @@ const navItems: NavItem[] = [
     children: [
       { label: "마스터AI 🤖", href: "/master-ai", icon: <BrainCircuit size={14} />, masterOnly: true },
       { label: "마스터AI 로그", href: "/master-ai/logs", icon: <History size={14} />, masterOnly: true },
-      { label: "AI파트너매니저 💼", href: "/manager-chat", icon: <MessageSquare size={14} /> },
-      { label: "AI파트너매니저 로그", href: "/manager-admin", icon: <History size={14} /> },
-      { label: "AI상담톡 로그", href: "/golftalk-admin", icon: <Sparkles size={14} /> },
+      { label: "AI파트너매니저 💼", href: "/manager-chat", icon: <MessageSquare size={14} />, masterOnly: true },
+      { label: "AI파트너매니저 로그", href: "/manager-admin", icon: <History size={14} />, masterOnly: true },
+      { label: "AI상담톡 로그", href: "/golftalk-admin", icon: <Sparkles size={14} />, masterOnly: true },
       { label: "AI 통합 로그", href: "/ai-unified-logs", icon: <History size={14} /> },
-      { label: "파트너자동화AI", href: "/gemini", icon: <Wrench size={14} /> },
-      { label: "파트너자동화AI 로그", href: "/ai-logs", icon: <History size={14} /> },
+      { label: "파트너자동화AI", href: "/gemini", icon: <Wrench size={14} />, masterOnly: true },
+      { label: "파트너자동화AI 로그", href: "/ai-logs", icon: <History size={14} />, masterOnly: true },
       { label: "AI 채널 관리", href: "/ai-channel-management", icon: <Bot size={14} />, masterOnly: true },
       { label: "AI 크레딧 관리 💰", href: "/ai-credit-management", icon: <Coins size={14} />, masterOnly: true },
       { label: "OpenRouter 에이전트 ⚡", href: "/openrouter-agent", icon: <Zap size={14} />, masterOnly: true },
@@ -833,8 +834,8 @@ export default function ERPLayout() {
   const newInquiriesCount = statsQuery.data?.newInquiries || 0;
   const pendingBookingsCount = statsQuery.data?.pendingBookings || 0;
 
-  // 마스터 모드에서만 AI 패널 표시 (파트너 모드는 ERPPartnerLayout에서 처리)
-  const showAIPanel = !isPartnerMode;
+  // 마스터/파트너 모두 AI 패널 표시 (마스터: MasterAIPanelContent, 파트너: AIManagerPanel)
+  const showAIPanel = true;
 
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden">
@@ -1017,23 +1018,26 @@ export default function ERPLayout() {
             </div>
           )}
 
-          {/* 데스크탑: AI 패널 토글 (마스터 모드만) */}
+          {/* 데스크탑: AI 패널 토글 */}
           {showAIPanel && (
             <button
               onClick={cycleAIPanel}
-              title={`마스터AI 패널: ${aiPanelMode === "wide" ? "좁게" : aiPanelMode === "narrow" ? "아이콘만" : "넓게"}`}
+              title={isPartnerMode
+                ? `AI파트너매니저: ${aiPanelMode === "wide" ? "좊게" : aiPanelMode === "narrow" ? "아이콘만" : "넓게"}`
+                : `마스터AI 패널: ${aiPanelMode === "wide" ? "좊게" : aiPanelMode === "narrow" ? "아이콘만" : "넓게"}`
+              }
               className="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-100 transition-colors text-indigo-500"
             >
               {aiPanelMode === "icon" ? <PanelRightOpen size={16} /> : <PanelRightClose size={16} />}
             </button>
           )}
-          {/* 모바일: AI 아이콘 (마스터 모드만) */}
+          {/* 모바일: AI 아이콘 */}
           {showAIPanel && (
             <button
               onClick={() => setMobileAIOpen(true)}
               className="lg:hidden flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-600 text-white shadow-md"
             >
-              <BrainCircuit size={18} />
+              {isPartnerMode ? <Bot size={18} /> : <BrainCircuit size={18} />}
             </button>
           )}
 
@@ -1058,7 +1062,7 @@ export default function ERPLayout() {
         <ERPContent />
       </div>
 
-      {/* ── 우측 마스터AI 고정 패널 (데스크탑, 마스터 모드만) ── */}
+      {/* ── 우측 AI 고정 패널 (데스크탑) ── */}
       {showAIPanel && (
         <aside
           className={`
@@ -1072,29 +1076,33 @@ export default function ERPLayout() {
             <div className="flex flex-col items-center py-4 gap-3">
               <button
                 onClick={cycleAIPanel}
-                title="마스터AI 패널 펼치기"
+                title={isPartnerMode ? "AI파트너매니저 펼치기" : "마스터AI 패널 펼치기"}
                 className="w-8 h-8 bg-indigo-100 rounded-xl flex items-center justify-center hover:bg-indigo-200 transition-colors"
               >
-                <BrainCircuit size={16} className="text-indigo-600" />
+                {isPartnerMode ? <Bot size={16} className="text-indigo-600" /> : <BrainCircuit size={16} className="text-indigo-600" />}
               </button>
               <div className="w-0.5 flex-1 bg-gray-100 rounded-full" />
             </div>
+          ) : isPartnerMode ? (
+            /* 파트너 모드: AI파트너매니저 */
+            <AIManagerPanel compact={aiPanelMode === "narrow"} />
           ) : (
+            /* 마스터 모드: 마스터AI */
             <MasterAIPanelContent compact={aiPanelMode === "narrow"} currentPage={location} />
           )}
         </aside>
       )}
 
-      {/* ── 모바일 AI 패널 (플로팅 오버레이, 마스터 모드만) ── */}
+      {/* ── 모바일 AI 패널 (플로팅 오버레이) ── */}
       {showAIPanel && mobileAIOpen && (
         <>
           <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMobileAIOpen(false)} />
           <div className="fixed top-0 right-0 h-full w-[90vw] max-w-sm bg-white z-50 flex flex-col shadow-2xl lg:hidden">
             {/* 모바일 AI 패널 헤더 */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-indigo-600 flex-shrink-0">
+            <div className={`flex items-center justify-between px-4 py-3 border-b border-gray-200 flex-shrink-0 ${isPartnerMode ? 'bg-indigo-600' : 'bg-indigo-600'}`}>
               <div className="flex items-center gap-2">
-                <BrainCircuit size={18} className="text-white" />
-                <span className="font-bold text-white text-sm">마스터AI 🤖</span>
+                {isPartnerMode ? <Bot size={18} className="text-white" /> : <BrainCircuit size={18} className="text-white" />}
+                <span className="font-bold text-white text-sm">{isPartnerMode ? 'AI파트너매니저' : '마스터AI 🤖'}</span>
                 <div className="w-1.5 h-1.5 bg-green-300 rounded-full animate-pulse" />
               </div>
               <button onClick={() => setMobileAIOpen(false)} className="text-white/80 hover:text-white">
@@ -1102,7 +1110,11 @@ export default function ERPLayout() {
               </button>
             </div>
             <div className="flex-1 overflow-hidden">
-              <MasterAIPanelContent currentPage={location} />
+              {isPartnerMode ? (
+                <AIManagerPanel />
+              ) : (
+                <MasterAIPanelContent currentPage={location} />
+              )}
             </div>
           </div>
         </>

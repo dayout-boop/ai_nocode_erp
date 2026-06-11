@@ -345,7 +345,7 @@ function AIPanelContent({ compact }: { compact?: boolean }) {
 }
 
 // ─── AI 패널 래퍼 (partnerTrpc Provider) ──────────────────
-function AIManagerPanel({ compact }: { compact?: boolean }) {
+export function AIManagerPanel({ compact }: { compact?: boolean }) {
   const queryClient = useMemo(() => createPartnerQueryClient(), []);
   const trpcClient = useMemo(() => createPartnerTrpcClient(), []);
   return (

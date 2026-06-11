@@ -2377,3 +2377,9 @@ Detected
 - [x] AIUnifiedLogs.tsx - listMasterSessions 파라미터를 서버 스펙(limit/offset)에 맞게 수정
 - [x] AIUnifiedLogs.tsx - aiLogs 필드명 수정 (prompt→query, modelUsed→modelName, errorMessage→isSuccess 기반)
 - [x] AICreditManagement.tsx 마스터/파트너 분기 구조 확인 (기존 구현 완료 상태)
+
+## 버그 수정 - 파트너 AI 패널 및 메뉴 권한
+
+- [x] 파트너 모드에서 AI파트너매니저 패널 모바일/PC에서 안 보이는 버그 수정 (ERPLayout.tsx showAIPanel 조건 + AIManagerPanel 분기 렌더링)
+- [x] AI챗봇 하위 메뉴 클릭 시 마스터 로그인 강제 이동 버그 수정 (adminProcedure 사용 메뉴에 masterOnly: true 추가)
+- [x] ERPPartnerLayout.tsx AIManagerPanel named export 추가 (ERPLayout에서 재사용 가능)
