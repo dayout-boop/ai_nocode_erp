@@ -55,7 +55,7 @@ describe("systemSettings - 태스크 후보 유효성 검사", () => {
   it("유효한 태스크 후보 데이터는 통과해야 한다", () => {
     const result = addTaskCandidateSchema.safeParse({
       taskId: "hNUzrtQfkbnQkVX9BUZeeM",
-      taskName: "두골프 ERP 개발",
+      taskName: "AI ERP 개발",
       taskType: "erp",
       isDefault: true,
     });

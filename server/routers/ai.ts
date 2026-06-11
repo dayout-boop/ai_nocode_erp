@@ -1,6 +1,6 @@
 /**
  * AI 어시스턴트 tRPC 라우터
- * - masterChat: 두골프 마스터 (관리자 전용)
+ * - masterChat: 마스터AI (관리자 전용)
  * - golfTalkChat: 골프톡 (공개 API, rate limit 적용)
  * - getLogs: AI 사용 로그 조회 (관리자 전용)
  * - getCostSummary: 일별/월별 AI 비용 집계 (관리자 전용)
@@ -54,7 +54,7 @@ function checkRateLimit(ip: string, maxPerMinute = 20): boolean {
 
 export const aiRouter = router({
   /**
-   * 두골프 마스터 채팅 (관리자 인증 필수)
+   * 마스터AI 채팅 (관리자 인증 필수)
    * RAG 방식으로 DB 데이터를 컨텍스트에 주입하여 정확한 답변 제공
    */
   masterChat: adminProcedure
@@ -185,7 +185,7 @@ export const aiRouter = router({
     }),
 
   /**
-   * 골프톡 채팅 (인증 불필요, rate limit 적용)
+   * AI상담톡 채팅 (인증 불필요, rate limit 적용)
    * 고객 상담 AI - 상품 정보 컨텍스트 자동 주입
    */
   golfTalkChat: publicProcedure
@@ -465,7 +465,7 @@ export const aiRouter = router({
     }),
 
   /**
-   * 두골프 매니저 채팅 (파트너 인증 필수)
+   * AI파트너매니저 채팅 (파트너 인증 필수)
    * 입점사 파트너 전용 AI 상담
    */
   managerChat: partnerProcedure

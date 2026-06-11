@@ -119,7 +119,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   cms: "CMS",
   finance: "재무",
   system: "시스템",
-  manager_talk: "두골프 매니저톡",
+  manager_talk: "AI파트너매니저톡",
   ui_ux: "UI/UX",
   erp: "ERP",
 };

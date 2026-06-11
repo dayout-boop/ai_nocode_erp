@@ -5,13 +5,13 @@
  * - updateStatus: 상태 변경
  * - sendToManus: 단일 요청 Manus 스마트 전송 (라우팅 결과 반환)
  * - sendPending: pending 전체 Manus 전송
- * - autoRegisterAndSend: 두골프 마스터 AI → 자동 등록 + 스마트 전송
+ * - autoRegisterAndSend: 마스터AI AI → 자동 등록 + 스마트 전송
  * - classifyRequest: AI 엔진으로 요청 유형/우선순위/모듈 자동 분류
  */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { eq, desc, and, count, isNotNull } from "drizzle-orm";
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, partnerProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import { devRequests, systemSettings } from "../../drizzle/schema";
 import {
@@ -214,7 +214,7 @@ export const devRequestRouter = router({
 
   /**
    * AI 분류 엔진 - 요청 유형/우선순위/모듈 자동 분류
-   * 두골프 마스터 AI가 채팅에서 개발 요청을 감지하면 이 프로시저로 분류합니다.
+   * 마스터AI AI가 채팅에서 개발 요청을 감지하면 이 프로시저로 분류합니다.
    */
   classifyRequest: adminProcedure
     .input(
@@ -225,7 +225,7 @@ export const devRequestRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const systemPrompt = `당신은 두골프 ERP/홈페이지 개발 요청을 분류하는 AI 엔진입니다.
+      const systemPrompt = `당신은 AI ERP/홈페이지 개발 요청을 분류하는 AI 엔진입니다.
 다음 기준으로 개발 요청을 분석하고 JSON으로 반환하세요.
 
 모듈 목록:
@@ -237,8 +237,8 @@ export const devRequestRouter = router({
 - CMS: 콘텐츠 관리 (배너, 공지)
 - Auth: 로그인/회원
 - Payment: 결제
-- GolfTalk: 골프톡 채팅
-- MasterAI: 두골프 마스터 AI
+- GolfTalk: AI상담톡 채팅
+- MasterAI: 마스터AI AI
 - AIDevEngine: AI 개발 엔진
 - System: 시스템/인프라
 
@@ -336,7 +336,7 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
     }),
 
   /**
-   * 두골프 마스터 AI → 자동 등록 + 스마트 Manus 전송
+   * 마스터AI AI → 자동 등록 + 스마트 Manus 전송
    * AI가 채팅에서 개발 요청을 감지하면 이 프로시저로 자동 처리합니다.
    *
    * 플로우:
@@ -373,7 +373,7 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
 
       if (!category || !analysis) {
         try {
-          const systemPrompt = `두골프 ERP 개발 요청 분류 AI. JSON만 반환.`;
+          const systemPrompt = `AI ERP 개발 요청 분류 AI. JSON만 반환.`;
           const userPrompt = `제목: ${input.title}\n설명: ${input.description}\n${input.chatContext ? `컨텍스트: ${input.chatContext}` : ""}\n\n{"aiCategory":"BUG|FEATURE|IMPROVEMENT|REFACTOR","priority":"critical|high|medium|low","module":"모듈명","estimatedHours":숫자,"aiAnalysis":"분석요약"}`;
 
           const response = await invokeLLM({
@@ -541,7 +541,7 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
 
   /**
    * Manus 응답 텍스트에서 완료 키워드를 감지하여 in_progress 요청을 자동 completed 전환
-   * 두골프 마스터 채팅에서 AI 응답 후 자동으로 호출됩니다.
+   * 마스터AI 채팅에서 AI 응답 후 자동으로 호출됩니다.
    */
   detectAndCompleteFromResponse: adminProcedure
     .input(
@@ -714,5 +714,61 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
         inProgressWithTask,
         message: `${orphanFixed}개 고아 요청을 pending으로 복구. ${inProgressWithTask.length}개 진행 중 요청 확인 필요.`,
       };
+    }),
+
+  /**
+   * 파트너가 고객센터AI를 통해 개발 요청 접수
+   * - partnerProcedure: 파트너 JWT 인증 필수
+   * - Slack 알림 자동 발송
+   */
+  submitByPartner: partnerProcedure
+    .input(
+      z.object({
+        title: z.string().min(5).max(200),
+        description: z.string().min(10).max(2000),
+        category: z.enum(["feature", "bug", "improvement", "question"]).default("feature"),
+        tenantName: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const partner = (ctx as unknown as { partner?: { id: number; companyName?: string } }).partner;
+      const tenantName = input.tenantName ?? partner?.companyName ?? "파트너";
+
+      const categoryLabel = { feature: "신규기능", bug: "버그수정", improvement: "개선", question: "문의" }[input.category];
+
+      const [inserted] = await db
+        .insert(devRequests)
+        .values({
+          title: `[파트너요청:${tenantName}] ${input.title}`,
+          description: `**요청 업체:** ${tenantName}\n**카테고리:** ${categoryLabel}\n\n${input.description}`,
+          priority: "medium",
+          status: "pending",
+          source: "manual",
+          createdBy: 0,
+        })
+        .$returningId();
+
+      publish("dev_request_created", { id: inserted.id, title: input.title, priority: "medium", status: "pending" });
+
+      // Slack 알림
+      try {
+        const slackUrl = process.env.SLACK_WEBHOOK_URL;
+        if (slackUrl) {
+          await fetch(slackUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              text: `🏢 *파트너 개발요청 접수*\n업체: ${tenantName}\n제목: ${input.title}\n카테고리: ${categoryLabel}`,
+            }),
+          });
+        }
+      } catch (e) {
+        console.error("[submitByPartner] Slack 알림 실패:", e);
+      }
+
+      return { success: true, id: inserted.id, message: "개발 요청이 접수되었습니다. 검토 후 안내드리겠습니다." };
     }),
 });

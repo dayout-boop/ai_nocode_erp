@@ -1,5 +1,5 @@
 /**
- * 두골프 ERP 구독 플랜 선택 페이지 (홈페이지용)
+ * AI ERP 구독 플랜 선택 페이지 (홈페이지용)
  * - 스타터(무료) / 스탠다드(월 99,000원) / 프리미엄(월 299,000원)
  * - 연간 결제 시 2개월 무료 혜택
  */
@@ -135,13 +135,13 @@ export default function Pricing() {
       <section className="py-16 bg-gradient-to-b from-gray-50 to-white">
         <div className="container text-center">
           <Badge className="mb-4 bg-dogolf-green/10 text-dogolf-green border-dogolf-green/20">
-            두골프 ERP 파트너 플랜
+            AI ERP 파트너 플랜
           </Badge>
           <h1 className="font-display-ko text-4xl md:text-5xl font-bold text-gray-900 mb-4">
             비즈니스에 맞는 플랜을 선택하세요
           </h1>
           <p className="text-gray-500 text-lg max-w-2xl mx-auto mb-8">
-            소규모 여행사부터 대형 투어 운영사까지, 두골프 ERP로 골프투어 비즈니스를 스마트하게 운영하세요.
+            소규모 여행사부터 대형 투어 운영사까지, AI ERP로 골프투어 비즈니스를 스마트하게 운영하세요.
           </p>
 
           {/* 월간/연간 토글 */}
@@ -319,7 +319,7 @@ export default function Pricing() {
               },
               {
                 q: "데이터 이전이 가능한가요?",
-                a: "기존 시스템에서 두골프 ERP로 데이터 이전을 지원합니다. 스탠다드 이상 플랜에서 이전 지원 서비스를 제공합니다.",
+                a: "기존 시스템에서 AI ERP로 데이터 이전을 지원합니다. 스탠다드 이상 플랜에서 이전 지원 서비스를 제공합니다.",
               },
             ].map((faq) => (
               <div key={faq.q} className="bg-white rounded-xl p-6 border border-gray-200">

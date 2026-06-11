@@ -1,7 +1,7 @@
 /**
- * 두골프 매니저 LLM 채팅 페이지
+ * AI파트너매니저 LLM 채팅 페이지
  * - trpc.ai.managerChat mutation 사용
- * - 입점사 파트너 전용 AI 어시스턴트 "두골프 매니저"와 대화
+ * - 입점사 파트너 전용 AI 어시스턴트 "AI파트너매니저"와 대화
  * - 대화 이력 유지, 세션 초기화, 빠른 질문 버튼 제공
  */
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -199,7 +199,7 @@ export default function ManagerChat() {
             </div>
             <div>
               <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                두골프 매니저
+                AI파트너매니저
                 <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px] h-4">
                   AI
                 </Badge>
@@ -228,7 +228,7 @@ export default function ManagerChat() {
               <Sparkles size={28} className="text-emerald-600" />
             </div>
             <div className="text-center">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">두골프 매니저에게 물어보세요</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">AI파트너매니저에게 물어보세요</h2>
               <p className="text-sm text-gray-500 max-w-sm leading-relaxed">
                 정산 내역, 예약 현황, 수수료율, 상품 등록 방법 등<br />
                 파트너 운영에 필요한 모든 것을 안내해 드립니다.
@@ -268,7 +268,7 @@ export default function ManagerChat() {
             <div className="bg-white border border-gray-200 shadow-sm rounded-2xl rounded-tl-sm px-4 py-3">
               <div className="flex items-center gap-2 text-gray-500 text-sm">
                 <Loader2 size={14} className="animate-spin text-emerald-600" />
-                <span>두골프 매니저가 답변을 준비 중입니다...</span>
+                <span>AI파트너매니저가 답변을 준비 중입니다...</span>
               </div>
             </div>
           </div>
@@ -303,7 +303,7 @@ export default function ManagerChat() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="두골프 매니저에게 질문하세요... (Enter: 전송, Shift+Enter: 줄바꿈)"
+            placeholder="AI파트너매니저에게 질문하세요... (Enter: 전송, Shift+Enter: 줄바꿈)"
             className="flex-1 min-h-[44px] max-h-[120px] resize-none text-sm border-gray-200 focus:border-emerald-400 focus:ring-emerald-400"
             disabled={chatMutation.isPending}
             rows={1}
@@ -321,7 +321,7 @@ export default function ManagerChat() {
           </Button>
         </div>
         <p className="text-[10px] text-gray-400 mt-1.5 text-center">
-          두골프 매니저는 파트너 운영 지원 목적으로만 사용됩니다.
+          AI파트너매니저는 파트너 운영 지원 목적으로만 사용됩니다.
         </p>
       </div>
     </div>

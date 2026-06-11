@@ -8,6 +8,7 @@ import SampleSiteSection from './SampleSiteSection'
 import JoinFlowSection from './JoinFlowSection'
 import CTASection from './CTASection'
 import Footer from './Footer'
+import PartnerSupportWidget from '@/components/PartnerSupportWidget'
 
 export default function PartnerLandingPage() {
   return (
@@ -24,6 +25,8 @@ export default function PartnerLandingPage() {
         <CTASection />
       </main>
       <Footer />
+      {/* 고객센터AI 위젯 — 우측 하단 고정 */}
+      <PartnerSupportWidget />
     </div>
   )
 }

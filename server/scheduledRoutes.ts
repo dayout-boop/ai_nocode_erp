@@ -1,8 +1,8 @@
 /**
- * 스케줄드 태스크 / 두골프마스터 → 개발 에이전트 파이프라인 엔드포인트
+ * 스케줄드 태스크 / 마스터AI → 개발 에이전트 파이프라인 엔드포인트
  *
  * POST /api/scheduled/dev-request
- *   - 두골프마스터(LLM채팅)에서 개발 요청을 이 태스크로 직접 전달
+ *   - 마스터AI(LLM채팅)에서 개발 요청을 이 태스크로 직접 전달
  *   - 인증: app_session_id 쿠키 (user role 이상)
  *   - 요청 내용을 DB에 등록 + Manus API로 현재 태스크에 sendMessage
  *
@@ -109,21 +109,21 @@ function formatDevRequestMessage(req: {
   };
   const emoji = priorityEmoji[req.priority] ?? "🔵";
 
-  return `[두골프마스터 → 개발 에이전트 자동 전달]
+  return `[마스터AI → 개발 에이전트 자동 전달]
 
 ${emoji} **개발 요청: ${req.title}**
 
 **우선순위:** ${req.priority.toUpperCase()}
 **모듈:** ${req.module ?? "미지정"}
 **예상 소요:** ${req.estimatedHours ?? "?"}시간
-**요청자:** ${req.requestedBy ?? "두골프마스터"}
+**요청자:** ${req.requestedBy ?? "마스터AI"}
 **출처:** ${req.source ?? "master_ai"}
 
 **상세 내용:**
 ${req.description}
 
 ---
-이 메시지는 두골프마스터 AI가 자동으로 분석하여 전달한 개발 요청입니다.
+이 메시지는 마스터AI AI가 자동으로 분석하여 전달한 개발 요청입니다.
 즉시 검토하고 구현을 시작해 주세요.`;
 }
 
@@ -131,7 +131,7 @@ ${req.description}
 export function registerScheduledRoutes(app: Express): void {
   /**
    * POST /api/scheduled/dev-request
-   * 두골프마스터 → 개발 에이전트 직접 전달
+   * 마스터AI → 개발 에이전트 직접 전달
    */
   app.post("/api/scheduled/dev-request", async (req: Request, res: Response) => {
     const user = await requireAuth(req, res);
@@ -193,7 +193,7 @@ export function registerScheduledRoutes(app: Express): void {
         await db.update(devRequests).set({
           manusTaskId: manusResult.taskId,
           manusRoutingType: "send_message",
-          manusRoutingReason: "두골프마스터 → 현재 태스크 직접 전달",
+          manusRoutingReason: "마스터AI → 현재 태스크 직접 전달",
           status: "in_progress",
           updatedAt: new Date(),
         }).where(eq(devRequests.id, devRequestId));
@@ -207,7 +207,7 @@ export function registerScheduledRoutes(app: Express): void {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            text: `${emoji} *[두골프 개발요청 #${devRequestId}]* 두골프마스터 → 개발 에이전트 전달 완료\n*제목:* ${title}\n*우선순위:* ${normalizedPriority.toUpperCase()}`,
+            text: `${emoji} *[두골프 개발요청 #${devRequestId}]* 마스터AI → 개발 에이전트 전달 완료\n*제목:* ${title}\n*우선순위:* ${normalizedPriority.toUpperCase()}`,
           }),
         }).catch(() => {});
       }

@@ -417,7 +417,7 @@ const SUGGESTED_PROMPTS = [
 ];
 
 const CAPABILITY_CARDS = [
-  { icon: <Database size={16} />, title: "시스템 이해", desc: "두골프 ERP의 DB 구조, API, 기능을 이미 파악하고 있습니다.", color: "bg-blue-50 text-blue-700 border-blue-200" },
+  { icon: <Database size={16} />, title: "시스템 이해", desc: "AI ERP의 DB 구조, API, 기능을 이미 파악하고 있습니다.", color: "bg-blue-50 text-blue-700 border-blue-200" },
   { icon: <Code2 size={16} />, title: "개발 지원", desc: "새 기능 추가, 버그 수정, 코드 구조 개선을 제안합니다.", color: "bg-purple-50 text-purple-700 border-purple-200" },
   { icon: <Globe size={16} />, title: "운영 도움", desc: "상품 등록, 예약 처리, 정산 등 운영 업무를 안내합니다.", color: "bg-green-50 text-green-700 border-green-200" },
   { icon: <Zap size={16} />, title: "자동화 제안", desc: "반복 작업을 자동화하는 방법을 제안하고 구현을 도웁니다.", color: "bg-amber-50 text-amber-700 border-amber-200" },
@@ -578,7 +578,7 @@ export default function GeminiAssistant() {
                   messages={chatMessages}
                   onSendMessage={sendMessage}
                   isLoading={isLoading}
-                  placeholder="두골프 ERP에 대해 무엇이든 물어보세요..."
+                  placeholder="AI ERP에 대해 무엇이든 물어보세요..."
                   height={hasErrorAtEnd ? 460 : 520}
                   emptyStateMessage="아래 제안된 질문을 클릭하거나 직접 입력해 보세요."
                   suggestedPrompts={SUGGESTED_PROMPTS}

@@ -100,7 +100,7 @@ const SERVICE_CATALOG = [
     id: "custom",
     label: "커스텀 API",
     icon: <Plug size={20} className="text-gray-500" />,
-    description: "두골프 매니저에게 개발 요청할 커스텀 API 연동",
+    description: "AI파트너매니저에게 개발 요청할 커스텀 API 연동",
     placeholder_key: "API 키 또는 토큰",
     placeholder_config: '{"endpoint": "https://api.example.com"}',
     category: "기타",
@@ -146,7 +146,7 @@ function UpsertDialog({
 
   const upsertMutation = trpc.tenantAi.upsertMyApiConnection.useMutation({
     onSuccess: () => {
-      toast.success(editItem?.id ? "연동 정보가 수정되었습니다." : "연동이 등록되었습니다. 두골프 매니저 AI가 분석 후 안내드립니다.");
+      toast.success(editItem?.id ? "연동 정보가 수정되었습니다." : "연동이 등록되었습니다. AI파트너매니저 AI가 분석 후 안내드립니다.");
       onSuccess();
       onClose();
     },
@@ -238,7 +238,7 @@ function UpsertDialog({
             />
           </div>
           <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-700">
-            <strong>안내:</strong> 연동 등록 후 두골프 매니저 AI가 자동으로 분석하여 활용 방안을 제안합니다. 개발이 필요한 경우 마스터 승인 후 진행됩니다.
+            <strong>안내:</strong> 연동 등록 후 AI파트너매니저 AI가 자동으로 분석하여 활용 방안을 제안합니다. 개발이 필요한 경우 마스터 승인 후 진행됩니다.
           </div>
         </div>
         <DialogFooter>
@@ -382,7 +382,7 @@ export default function PartnerIntegrations() {
             <Plug size={24} className="text-dogolf-green" />
             <div>
               <h1 className="text-2xl font-bold text-gray-900">연동 설정</h1>
-              <p className="text-gray-500 text-sm mt-0.5">구글 드라이브, 슬랙, 이메일 등 외부 서비스를 두골프 ERP와 연동합니다.</p>
+              <p className="text-gray-500 text-sm mt-0.5">구글 드라이브, 슬랙, 이메일 등 외부 서비스를 AI ERP와 연동합니다.</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -409,7 +409,7 @@ export default function PartnerIntegrations() {
           <div>
             <p className="text-sm font-semibold text-gray-800 mb-1">API 연동 안내</p>
             <p className="text-xs text-gray-600">
-              연동 등록 시 두골프 매니저 AI가 자동으로 활용 방안을 분석합니다.
+              연동 등록 시 AI파트너매니저 AI가 자동으로 활용 방안을 분석합니다.
               개발이 필요한 기능은 마스터 승인 후 업체 맞춤 개발로 진행됩니다.
               API 키는 암호화되어 안전하게 저장됩니다.
             </p>

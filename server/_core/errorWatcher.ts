@@ -122,7 +122,7 @@ ${report.context ? `**추가 컨텍스트:** ${report.context}` : ""}
 
     const aiResult = await orchestrate(analysisPrompt, {
       taskType: "code_review",
-      systemPrompt: "당신은 두골프 ERP 시스템의 시니어 개발자입니다. 오류를 분석하고 간결하고 실용적인 수정 방법을 제안합니다. 반드시 JSON 형식으로만 응답하세요.",
+      systemPrompt: "당신은 AI ERP 시스템의 시니어 개발자입니다. 오류를 분석하고 간결하고 실용적인 수정 방법을 제안합니다. 반드시 JSON 형식으로만 응답하세요.",
       maxTokens: 1024,
       temperature: 0.3,
     });

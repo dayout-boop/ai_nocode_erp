@@ -107,7 +107,7 @@ describe('AgentTool 도구 정의', () => {
 });
 
 describe('dogolfTools', () => {
-  it('두골프 ERP 도구들이 올바르게 정의되어 있다', async () => {
+  it('AI ERP 도구들이 올바르게 정의되어 있다', async () => {
     const { dogolfTools } = await import('./tools.js');
 
     expect(Array.isArray(dogolfTools)).toBe(true);

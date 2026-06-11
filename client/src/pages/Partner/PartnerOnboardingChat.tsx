@@ -1,7 +1,7 @@
 /**
  * 파트너 AI 온보딩 채팅 페이지 (전면 재구현 2026-06-08)
  * - 구글 로그인 후 신규 파트너 전용
- * - PC: 좌측 수기 입력 패널 + 우측 두골프 매니저 AI 채팅
+ * - PC: 좌측 수기 입력 패널 + 우측 AI파트너매니저 AI 채팅
  * - 모바일: AI 채팅 메인 + 하단 수기 입력 토글 패널
  * - AI 대화로 수집한 정보가 수기 입력 필드에 실시간 자동 채움
  * - Step 완료 감지 → 좌측 패널 자동 전환
@@ -1464,7 +1464,7 @@ export default function PartnerOnboardingChat() {
             <Bot size={16} className="text-white" />
           </div>
           <div>
-            <p className="font-bold text-sm text-gray-900">두골프 매니저</p>
+            <p className="font-bold text-sm text-gray-900">AI파트너매니저</p>
             <p className="text-[10px] text-green-600 flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-green-500 rounded-full inline-block" /> 온라인
             </p>

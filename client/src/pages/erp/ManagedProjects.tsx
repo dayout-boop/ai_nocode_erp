@@ -1,6 +1,6 @@
 /**
  * ManagedProjects.tsx
- * 두골프 마스터 AI 오케스트라 - 관리 프로젝트 목록 및 CRUD UI
+ * 마스터AI AI 오케스트라 - 관리 프로젝트 목록 및 CRUD UI
  * 1000개 이상의 Manus WebDev 프로젝트를 중앙에서 관리
  * v2: AI 엔진 성능 비교 대시보드 + 프로젝트 간 컨텍스트 공유
  */
@@ -833,7 +833,7 @@ export default function ManagedProjects() {
                 </Label>
                 <Input
                   id="name"
-                  placeholder="예: 두골프 ERP"
+                  placeholder="예: AI ERP"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />

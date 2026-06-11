@@ -31,7 +31,7 @@ interface StageReviewResult {
 // ─── 단계별 검토 프롬프트 ─────────────────────────────────────────────────────
 const STAGE_PROMPTS: Record<ReviewStage, (code: string, context: string) => string> = {
   syntax: (code, context) => `
-두골프 ERP 코드의 **문법 검토**를 수행하세요.
+AI ERP 코드의 **문법 검토**를 수행하세요.
 
 **수정 컨텍스트:** ${context}
 **수정 코드:**
@@ -49,7 +49,7 @@ ${code.slice(0, 2000)}
 {"result": "pass|fail|warning", "details": "검토 요약", "issues": [{"severity": "error|warning|info", "message": "이슈 설명"}]}`,
 
   logic: (code, context) => `
-두골프 ERP 코드의 **로직 검토**를 수행하세요.
+AI ERP 코드의 **로직 검토**를 수행하세요.
 
 **수정 컨텍스트:** ${context}
 **수정 코드:**
@@ -67,7 +67,7 @@ ${code.slice(0, 2000)}
 {"result": "pass|fail|warning", "details": "검토 요약", "issues": [{"severity": "error|warning|info", "message": "이슈 설명"}]}`,
 
   security: (code, context) => `
-두골프 ERP 코드의 **보안 검토**를 수행하세요.
+AI ERP 코드의 **보안 검토**를 수행하세요.
 
 **수정 컨텍스트:** ${context}
 **수정 코드:**
@@ -86,7 +86,7 @@ ${code.slice(0, 2000)}
 {"result": "pass|fail|warning", "details": "검토 요약", "issues": [{"severity": "error|warning|info", "message": "이슈 설명"}]}`,
 
   test: (code, context) => `
-두골프 ERP 코드의 **테스트 가능성 검토**를 수행하세요.
+AI ERP 코드의 **테스트 가능성 검토**를 수행하세요.
 
 **수정 컨텍스트:** ${context}
 **수정 코드:**
@@ -103,7 +103,7 @@ ${code.slice(0, 2000)}
 {"result": "pass|fail|warning", "details": "검토 요약", "issues": [{"severity": "error|warning|info", "message": "이슈 설명"}]}`,
 
   final: (code, context) => `
-두골프 ERP 코드의 **최종 종합 검토**를 수행하세요.
+AI ERP 코드의 **최종 종합 검토**를 수행하세요.
 
 **수정 컨텍스트:** ${context}
 **수정 코드:**
@@ -130,7 +130,7 @@ async function runStageReview(
   try {
     const aiResult = await orchestrate(prompt, {
       taskType: "code_review",
-      systemPrompt: "당신은 두골프 ERP 시스템의 코드 리뷰 전문가입니다. 반드시 JSON 형식으로만 응답하세요.",
+      systemPrompt: "당신은 AI ERP 시스템의 코드 리뷰 전문가입니다. 반드시 JSON 형식으로만 응답하세요.",
       maxTokens: 1024,
       temperature: 0.1,
     });

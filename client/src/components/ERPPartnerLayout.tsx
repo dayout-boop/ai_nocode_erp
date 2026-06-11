@@ -20,6 +20,7 @@ import {
   Building2,
   Zap,
   Shield,
+  LifeBuoy,
 } from "lucide-react";
 import { useMemo } from "react";
 import { partnerTrpc, createPartnerTrpcClient, createPartnerQueryClient } from "@/lib/partnerTrpc";
@@ -27,6 +28,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import PartnerCreditPage from "@/pages/Partner/PartnerCreditPage";
 import PartnerAIBlockPage from "@/pages/Partner/PartnerAIBlockPage";
 import PartnerAIManagerPage from "@/pages/Partner/PartnerAIManagerPage";
+import PartnerSupportCenter from "@/pages/Partner/PartnerSupportCenter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -87,8 +89,15 @@ const navItems = [
     roles: ["manager", "staff"] as const,
   },
   {
+    id: "support",
+    label: "고객센터",
+    icon: LifeBuoy,
+    href: "/partner/staff/support",
+    roles: ["manager", "staff"] as const,
+  },
+  {
     id: "ai-manager",
-    label: "AI 매니저",
+    label: "AI파트너매니저",
     icon: Bot,
     href: "/partner/staff/ai",
     roles: ["manager", "staff"] as const,
@@ -165,7 +174,7 @@ function Sidebar({
               ⛳
             </div>
             <div>
-              <p className="font-bold text-sm text-white">파트너 ERP</p>
+              <p className="font-bold text-sm text-white">AI ERP (파트너)</p>
               <p className="text-xs text-white/50">직원 포털</p>
             </div>
           </div>
@@ -479,7 +488,7 @@ export default function ERPPartnerLayout() {
           >
             <Menu size={20} />
           </button>
-          <span className="font-semibold text-gray-900 text-sm">파트너 ERP</span>
+          <span className="font-semibold text-gray-900 text-sm">AI ERP (파트너)</span>
         </header>
 
         {/* 페이지 콘텐츠 */}
@@ -489,6 +498,7 @@ export default function ERPPartnerLayout() {
             <Route path="/partner/staff/packages" component={() => <ComingSoon title="상품 관리" />} />
             <Route path="/partner/staff/bookings" component={() => <ComingSoon title="예약 관리" />} />
             <Route path="/partner/staff/inquiries" component={() => <ComingSoon title="문의 관리" />} />
+            <Route path="/partner/staff/support" component={() => <PartnerSupportCenter />} />
             <Route path="/partner/staff/ai" component={() => <PartnerAIManagerPage />} />
             <Route path="/partner/staff/credit" component={() => <PartnerCreditPage />} />
             <Route path="/partner/staff/ai-block" component={() => <PartnerAIBlockPage />} />

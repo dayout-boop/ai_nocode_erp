@@ -4,7 +4,7 @@
  * - getSession: 세션 조회
  * - closeSession: 세션 종료 + AI 요약 생성
  * - listSessions: 세션 목록 (관리자)
- * - listMasterSessions: 두골프 마스터 AI 대화 이력 목록 (300012)
+ * - listMasterSessions: 마스터AI AI 대화 이력 목록 (300012)
  * - getMasterSessionMessages: 특정 세션 메시지 조회 (300012)
  */
 import { z } from "zod";
@@ -163,7 +163,7 @@ export const chatRouter = router({
     }),
 
   /**
-   * [300012] 두골프 마스터 AI 대화 이력 목록 조회
+   * [300012] 마스터AI AI 대화 이력 목록 조회
    * ai_logs 테이블에서 assistant="master" 세션을 그룹화하여 반환
    * 각 세션의 첫 번째 user 메시지를 제목으로 사용
    */
@@ -426,7 +426,7 @@ export const chatRouter = router({
             {
               role: "user",
               content:
-                `다음은 두골프 ERP '마스터 AI' 관리자 대화입니다. 다음 세션에서 이어가기 위한 핵심 요약을 JSON으로 작성하세요.\n\n` +
+                `다음은 AI ERP '마스터 AI' 관리자 대화입니다. 다음 세션에서 이어가기 위한 핵심 요약을 JSON으로 작성하세요.\n\n` +
                 `대화:\n${conversationText.slice(0, 12000)}`,
             },
           ],

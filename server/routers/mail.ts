@@ -133,8 +133,8 @@ export const mailRouter = router({
       const res = await sendMail({
         to: input.to,
         subject: '[두골프] SMTP 테스트 메일',
-        html: '<div style="font-family:sans-serif;padding:20px;"><h2 style="color:#1a7a4c;">두골프 ERP SMTP 연동 테스트</h2><p>이 메일이 보이면 자립형 이메일 발송 엔진이 정상 작동하는 것입니다.</p></div>',
-        text: '두골프 ERP SMTP 연동 테스트 — 정상 작동합니다.',
+        html: '<div style="font-family:sans-serif;padding:20px;"><h2 style="color:#1a7a4c;">AI ERP SMTP 연동 테스트</h2><p>이 메일이 보이면 자립형 이메일 발송 엔진이 정상 작동하는 것입니다.</p></div>',
+        text: 'AI ERP SMTP 연동 테스트 — 정상 작동합니다.',
       });
       if (!res.success) {
         throw new TRPCError({ code: 'BAD_REQUEST', message: `발송 실패: ${res.error}` });

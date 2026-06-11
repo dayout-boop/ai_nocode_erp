@@ -483,7 +483,7 @@ export default function PartnerOnboarding() {
             <span className="text-white font-bold text-sm">⛳</span>
           </div>
           <div>
-            <h1 className="font-bold text-gray-900">두골프 ERP 파트너 신청</h1>
+            <h1 className="font-bold text-gray-900">AI ERP 파트너 신청</h1>
             <p className="text-xs text-muted-foreground">골프투어 여행사 전용 ERP 시스템</p>
           </div>
         </div>
@@ -846,7 +846,7 @@ export default function PartnerOnboarding() {
                 <p className="text-muted-foreground">
                   {autoApproved
                     ? "두 등록증 OCR 인식이 완료되어 즉시 ERP 이용이 가능합니다."
-                    : `${form.contactName}님의 두골프 ERP 파트너 신청을 접수했습니다.`
+                    : `${form.contactName}님의 AI ERP 파트너 신청을 접수했습니다.`
                   }
                 </p>
               </div>

@@ -49,7 +49,7 @@ export default function ManagerAdmin() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Briefcase className="text-blue-600" size={24} />
-            두골프 매니저 관리
+            AI파트너매니저 관리
           </h1>
           <p className="text-gray-500 text-sm mt-1">입점사 파트너 전용 AI 상담 이력 및 통계</p>
         </div>
@@ -104,7 +104,7 @@ export default function ManagerAdmin() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Bot size={16} className="text-blue-600" />
-              두골프 매니저 대화 이력 ({sessions.length}개 세션)
+              AI파트너매니저 대화 이력 ({sessions.length}개 세션)
             </CardTitle>
           </CardHeader>
           <CardContent>

@@ -85,7 +85,7 @@ export async function analyzeDevRequest(description: string): Promise<AIRequestA
       messages: [
         {
           role: "system",
-          content: `당신은 두골프 ERP 시스템의 개발 요청을 분석하는 AI입니다.
+          content: `당신은 AI ERP 시스템의 개발 요청을 분석하는 AI입니다.
 반드시 다음 JSON 형식으로만 응답하세요. 다른 텍스트는 포함하지 마세요:
 {
   "category": "BUG" | "FEATURE" | "IMPROVEMENT" | "REFACTOR",
@@ -157,7 +157,7 @@ export async function processNaturalLanguageRequest(userInput: string): Promise<
       messages: [
         {
           role: "system",
-          content: `당신은 두골프 ERP 시스템의 개발 요청 생성 AI입니다.
+          content: `당신은 AI ERP 시스템의 개발 요청 생성 AI입니다.
 사용자의 자연어 요청을 분석하여 반드시 다음 JSON 형식으로만 응답하세요:
 {
   "title": "<간결하고 명확한 제목, 최대 100자>",
@@ -224,7 +224,7 @@ export async function generateReleaseNotes(
   try {
     const startMs = Date.now();
     const result = await orchestrate(
-      `다음 정보를 바탕으로 두골프 ERP 릴리즈 노트를 작성해주세요.
+      `다음 정보를 바탕으로 AI ERP 릴리즈 노트를 작성해주세요.
 
 버전: ${safeVersion}
 버전 설명: ${safeDesc}
@@ -241,7 +241,7 @@ ${requestsText}
 전문적이고 명확한 한국어로 작성해주세요.`,
       {
         taskType: "report_gen",
-        systemPrompt: "당신은 두골프 ERP 시스템의 릴리즈 노트를 작성하는 기술 문서 전문가입니다.",
+        systemPrompt: "당신은 AI ERP 시스템의 릴리즈 노트를 작성하는 기술 문서 전문가입니다.",
       }
     );
     return {
@@ -270,7 +270,7 @@ export async function generateFeatureDocumentation(
   try {
     const startMs = Date.now();
     const result = await orchestrate(
-      `다음 기능에 대한 두골프 ERP 기술 문서 초안을 작성해주세요.
+      `다음 기능에 대한 AI ERP 기술 문서 초안을 작성해주세요.
 
 기능 제목: ${safeTitle}
 기능 설명: ${safeDesc}
@@ -282,10 +282,10 @@ export async function generateFeatureDocumentation(
 4. ## 기술적 고려사항
 5. ## 관련 기능 및 의존성
 
-두골프 ERP 시스템에 적합한 전문적인 한국어로 작성해주세요.`,
+AI ERP 시스템에 적합한 전문적인 한국어로 작성해주세요.`,
       {
         taskType: "content_create",
-        systemPrompt: "당신은 두골프 ERP 시스템의 기술 문서를 작성하는 전문 기술 작가입니다.",
+        systemPrompt: "당신은 AI ERP 시스템의 기술 문서를 작성하는 전문 기술 작가입니다.",
       }
     );
     return {
@@ -341,7 +341,7 @@ export async function generatePipelineRecommendation(
       messages: [
         {
           role: "system",
-          content: `당신은 두골프 ERP 시스템의 AI 개발 파이프라인 최적화 전문가입니다.
+          content: `당신은 AI ERP 시스템의 AI 개발 파이프라인 최적화 전문가입니다.
 반드시 다음 JSON 형식으로만 응답하세요:
 {
   "steps": [{"order": 1, "action": "...", "tool": "...", "estimatedMinutes": 5, "priority": "required"}],
@@ -777,7 +777,7 @@ export async function analyzeErpDataWithAI(params: {
       messages: [
         {
           role: "system",
-          content: `당신은 두골프 ERP 시스템의 데이터 분석 AI입니다.
+          content: `당신은 AI ERP 시스템의 데이터 분석 AI입니다.
 제공된 ERP 데이터를 분석하여 관리자의 질문에 명확하고 간결하게 답변합니다.
 숫자는 한국어 단위(개, 건, 원 등)로 표현하고, 핵심 인사이트를 강조하세요.`,
         },

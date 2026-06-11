@@ -461,7 +461,7 @@ export default function GolfTalkWidget({ packageId }: { packageId?: number }) {
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-xl">⛳</div>
                 <div>
-                  <p className="text-white font-bold text-base font-body">골프톡</p>
+                  <p className="text-white font-bold text-base font-body">AI상담톡</p>
                   <div className="flex items-center gap-1.5">
                     <div className="w-1.5 h-1.5 bg-green-300 rounded-full animate-pulse" />
                     <p className="text-green-100 text-xs font-body">AI 골프 여행 전문 상담사 · 24시간 운영</p>
@@ -607,7 +607,7 @@ export default function GolfTalkWidget({ packageId }: { packageId?: number }) {
           className="fixed bottom-6 right-4 sm:right-6 z-[9998] flex items-center gap-2 px-4 py-3 rounded-full shadow-lg transition-all duration-300 font-body font-semibold text-sm bg-green-600 text-white hover:bg-green-700 hover:shadow-xl hover:scale-105"
         >
           <MessageCircle size={18} />
-          <span>골프톡</span>
+          <span>AI상담톡</span>
         </button>
       )}
     </>

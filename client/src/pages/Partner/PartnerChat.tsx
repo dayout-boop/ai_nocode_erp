@@ -1,5 +1,5 @@
 // ============================================================
-// DOGOLF Partner Chat — 두골프 매니저 AI 채팅 페이지 v3.0
+// DOGOLF Partner Chat — AI파트너매니저 AI 채팅 페이지 v3.0
 // Generative UI: 상품 카드, 수기예약 폼, 예약현황 카드
 // 세션 이어가기: 이전 대화 목록 + 복원
 // ※ Manus OAuth 독립 — partner_session 쿠키 기반 자체 인증
@@ -94,7 +94,7 @@ const WELCOME_MESSAGE: Message = {
   id: "welcome",
   role: "assistant",
   content:
-    "안녕하세요! 🤖 두골프 매니저입니다.\n\n파트너 운영에 필요한 모든 것을 도와드립니다.\n상품 조회, 예약 현황, 수기 예약 접수, 정산 안내 등 무엇이든 물어보세요!",
+    "안녕하세요! 🤖 AI파트너매니저입니다.\n\n파트너 운영에 필요한 모든 것을 도와드립니다.\n상품 조회, 예약 현황, 수기 예약 접수, 정산 안내 등 무엇이든 물어보세요!",
   timestamp: new Date(),
 };
 
@@ -651,7 +651,7 @@ function PartnerChatContent() {
               <Bot size={18} className="text-indigo-600" />
             </div>
             <div>
-              <p className="font-bold text-gray-900 text-sm font-body">두골프 매니저</p>
+              <p className="font-bold text-gray-900 text-sm font-body">AI파트너매니저</p>
               <div className="flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
                 <p className="text-xs text-gray-500 font-body">AI 파트너 지원</p>

@@ -14,7 +14,7 @@
  * 환경변수:
  *   MANUS_API_KEY        - Manus API 인증 키
  *   MANUS_PROJECT_ID     - 두골프 전용 Manus 프로젝트 ID (task.create 시 사용)
- *   MANUS_DOGOLF_TASK_ID - 두골프 ERP 기본 Task ID (설정 시 항상 이 Task로 sendMessage)
+ *   MANUS_DOGOLF_TASK_ID - AI ERP 기본 Task ID (설정 시 항상 이 Task로 sendMessage)
  */
 import { eq, and, isNotNull, desc } from "drizzle-orm";
 import { getDb } from "../db";
@@ -44,7 +44,7 @@ function getManusProjectId(): string {
   return process.env.MANUS_PROJECT_ID ?? process.env.MANUS_DOGOLF_TASK_ID ?? "";
 }
 /**
- * 두골프 ERP 전용 기본 Task ID를 반환합니다.
+ * AI ERP 전용 기본 Task ID를 반환합니다.
  * MANUS_DOGOLF_TASK_ID 환경변수에 설정된 Task ID가 있으면 해당 Task로 모든 개발 요청을 전달합니다.
  * 이 방식으로 신규 Task 생성 없이 기존 프로젝트 내에서 작업을 이어갑니다.
  */
@@ -303,7 +303,7 @@ ${project.customContext ? '\n**추가 컨텍스트:**\n' + project.customContext
 
 **주의:** 이 프로젝트의 Manus WebDev 세션에서 직접 작업하세요. 신규 프로젝트 생성 불필요.`;
 
-  // [통합 일원화] 마누스가 두골프 ERP 데스크에서 작업할 때도 기존 구조/카탈로그를 인지해
+  // [통합 일원화] 마누스가 AI ERP 데스크에서 작업할 때도 기존 구조/카탈로그를 인지해
   //   중복 DB/테이블을 만들지 않도록 통합 규칙 요약을 동봉한다.
   const existingTables = getExistingTableNames();
   const unifiedRulesBlock = `---
@@ -317,7 +317,7 @@ ${project.customContext ? '\n**추가 컨텍스트:**\n' + project.customContext
 ${existingTables.join(", ")}
 `;
 
-  return `# 두골프 ERP 개발 요청 [ID: ${req.id}]
+  return `# AI ERP 개발 요청 [ID: ${req.id}]
 ${followUpNote}
 **제목:** ${req.title}
 **유형:** ${req.aiCategory ?? "미분류"}
@@ -406,7 +406,7 @@ export async function smartSendToManus(req: {
     };
   }
 
-  // 0.5. MANUS_DOGOLF_TASK_ID가 설정된 경우 → 기존 두골프 ERP Task에 sendMessage (신규 Task 생성 방지)
+  // 0.5. MANUS_DOGOLF_TASK_ID가 설정된 경우 → 기존 AI ERP Task에 sendMessage (신규 Task 생성 방지)
   const defaultTaskId = getDefaultTaskId();
   if (defaultTaskId && !req.forceNewTask) {
     const message = await formatDevRequestMessage({ ...req, isFollowUp: false });
@@ -416,7 +416,7 @@ export async function smartSendToManus(req: {
       return {
         success: true,
         routingType: "send_message",
-        routingReason: `두골프 ERP 기본 Task로 전달 (MANUS_DOGOLF_TASK_ID: ${defaultTaskId})`,
+        routingReason: `AI ERP 기본 Task로 전달 (MANUS_DOGOLF_TASK_ID: ${defaultTaskId})`,
         taskId: defaultTaskId,
       };
     }
@@ -590,7 +590,7 @@ export async function sendPendingRequestsToManus(): Promise<{
 
   return { sent, failed, results };
 }
-// ─── 자동 등록 + 스마트 전송 (두골프 마스터 AI 연동) ─────────────────────────
+// ─── 자동 등록 + 스마트 전송 (마스터AI AI 연동) ─────────────────────────
 export async function autoRegisterAndSend(devRequest: {
   title: string;
   description: string;

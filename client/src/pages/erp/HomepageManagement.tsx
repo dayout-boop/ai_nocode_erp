@@ -83,7 +83,7 @@ function GlobalSettingsTab({ isPartnerMode, tenantId }: { isPartnerMode?: boolea
                 <Globe size={32} className="text-dogolf-green" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">홈페이지 만들기 템플릿</h3>
-              <p className="text-gray-500 text-sm">아직 등록된 홈페이지가 없습니다. 두골프 매니저에게 문의하시면 업체 전용 홈페이지를 개설해 드립니다.</p>
+              <p className="text-gray-500 text-sm">아직 등록된 홈페이지가 없습니다. AI파트너매니저에게 문의하시면 업체 전용 홈페이지를 개설해 드립니다.</p>
             </div>
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => setShowNoHomepageModal(false)}>닫기</Button>

@@ -238,7 +238,7 @@ export const fileAnalysisRouter = router({
       const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
         {
           role: "system",
-          content: `당신은 두골프 ERP의 AI 파일 분석 어시스턴트입니다. 첨부된 파일 내용을 분석하여 사용자의 질문에 정확하고 상세하게 답변해 주세요.\n\n${fileContext}`,
+          content: `당신은 AI ERP의 AI 파일 분석 어시스턴트입니다. 첨부된 파일 내용을 분석하여 사용자의 질문에 정확하고 상세하게 답변해 주세요.\n\n${fileContext}`,
         },
         ...input.history.map((h) => ({
           role: h.role as "user" | "assistant",
@@ -370,7 +370,7 @@ export const fileAnalysisRouter = router({
         messages: [
           {
             role: "system",
-            content: `당신은 두골프 ERP의 AI 에이전트입니다. 주어진 파일 내용을 분석하여 개발 요청이 필요한지 판단하세요.
+            content: `당신은 AI ERP의 AI 에이전트입니다. 주어진 파일 내용을 분석하여 개발 요청이 필요한지 판단하세요.
 
 파일명: ${record.fileName}
 파일 요약: ${record.summary ?? "요약 없음"}

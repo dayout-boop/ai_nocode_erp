@@ -109,7 +109,7 @@ export default function Dashboard() {
         <QuickAction label="예약 등록" href="/bookings" icon={<Plus size={14} />} color="bg-indigo-600 text-white" />
         <QuickAction label="상품 등록" href="/packages/new" icon={<Package size={14} />} color="bg-emerald-600 text-white" />
         <QuickAction label="문의 확인" href="/inquiries" icon={<MessageSquare size={14} />} color="bg-amber-500 text-white" />
-        <QuickAction label="두골프 마스터" href="/master-ai" icon={<Zap size={14} />} color="bg-purple-600 text-white" />
+        <QuickAction label="마스터AI" href="/master-ai" icon={<Zap size={14} />} color="bg-purple-600 text-white" />
       </div>
 
       {/* 알림 배너 */}

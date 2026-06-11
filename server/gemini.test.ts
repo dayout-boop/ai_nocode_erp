@@ -169,7 +169,7 @@ describe("Gemini API 통합 테스트", () => {
       messages: [
         {
           role: "user",
-          content: "두골프 ERP에서 상품을 등록하려면 어떤 API를 사용해야 하나요? 한 문장으로 답해주세요.",
+          content: "AI ERP에서 상품을 등록하려면 어떤 API를 사용해야 하나요? 한 문장으로 답해주세요.",
         },
       ],
     });

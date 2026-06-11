@@ -46,7 +46,7 @@ const API_SERVICES = [
   // ── 미디어/자동화 ────────────────────────────────────────────────────────────
   { key: "runway", name: "Runway ML", description: "AI 영상 생성 API", category: "미디어" },
   { key: "pixabay", name: "Pixabay", description: "이미지 검색 API", category: "미디어" },
-  { key: "serper", name: "Serper (검색 폴백)", description: "두골프마스터 웹검색 폴백. 마누스 forge 검색이 없는 서버에서 등록 시 google.serper.dev로 자립 검색.", category: "자동화" },
+  { key: "serper", name: "Serper (검색 폴백)", description: "마스터AI 웹검색 폴백. 마누스 forge 검색이 없는 서버에서 등록 시 google.serper.dev로 자립 검색.", category: "자동화" },
   // ── v3 엔진 (Git·Heartbeat·Changeset) ─────────────────────────────────────
   { key: "github_token", name: "GitHub Token (Git 엔진)", description: "서버 내장 Git 엔진용 Fine-grained PAT. Contents: Write 권한 필요. 미설정 시 커밋 없이 DB 메타만 기록(안전모드).", category: "v3 엔진" },
   { key: "heartbeat_secret_key", name: "Heartbeat Secret Key", description: "POST /api/scheduled/run-due 무단호출 차단 토큰. 설정 후 crontab 한 줄로 자립 오딧 가동.", category: "v3 엔진" },
@@ -500,7 +500,7 @@ function IntegrationStatusTab() {
       name: "Manus API",
       key: "manus",
       status: integrationStatus?.manus ? "ok" : "missing",
-      description: "Manus AI 에이전트 자동 실행 API - 두골프 마스터의 개발 요청 자동화에 사용됩니다.",
+      description: "Manus AI 에이전트 자동 실행 API - 마스터AI의 개발 요청 자동화에 사용됩니다.",
       guideUrl: "https://dayoutgolf.com/erp",
       guideSteps: [
         "Manus 계정 설정에서 API 키 발급",
@@ -790,7 +790,7 @@ function IntegrationStatusTab() {
             Manus 스마트 라우팅 설정 현황
           </CardTitle>
           <CardDescription className="text-xs">
-            두골프 마스터에서 개발 요청 시 기존 태스크 재사용 여부를 자동 판단하여 크레딧을 절약합니다.
+            마스터AI에서 개발 요청 시 기존 태스크 재사용 여부를 자동 판단하여 크레딧을 절약합니다.
           </CardDescription>
         </CardHeader>
         <CardContent className="pb-4 space-y-3">
@@ -1400,7 +1400,7 @@ function LlmProviderCard({
         </CardTitle>
         <CardDescription className="text-xs">
           ERP의 AI 기능(OCR·개발요청·파일분석 등)이 어떤 LLM 경로를 1순위로 쓸지 결정합니다.
-          채팅(두골프마스터·매니저·골프톡)은 별도 OpenRouter 직결이라 이 설정과 무관하게 동작합니다.
+          채팅(마스터AI·매니저·골프톡)은 별도 OpenRouter 직결이라 이 설정과 무관하게 동작합니다.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">

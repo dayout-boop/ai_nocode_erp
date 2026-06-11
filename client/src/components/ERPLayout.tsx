@@ -104,18 +104,18 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // AI 챗봇 카테고리 (최상단 고정) — 두골프마스터 / 두골프매니저 대화 이력
+  // AI 챗봇 카테고리 (최상단 고정) — 마스터AI / AI파트너매니저 대화 이력
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   {
     label: "AI 챗봇",
-    // masterOnly 제거: 두골프 매니저/매니저로그/골프톡은 파트너도 사용
+    // masterOnly 제거: AI파트너매니저/매니저로그/골프톡은 파트너도 사용
     icon: <MessageSquare size={18} />,
     children: [
-      { label: "두골프 마스터 🤖", href: "/master-ai", icon: <BrainCircuit size={14} />, masterOnly: true },
+      { label: "마스터AI 🤖", href: "/master-ai", icon: <BrainCircuit size={14} />, masterOnly: true },
       { label: "마스터 대화 이력", href: "/master-ai/logs", icon: <History size={14} />, masterOnly: true },
-      { label: "두골프 매니저 💼", href: "/manager-chat", icon: <MessageSquare size={14} /> },
+      { label: "AI파트너매니저 💼", href: "/manager-chat", icon: <MessageSquare size={14} /> },
       { label: "매니저 로그", href: "/manager-admin", icon: <History size={14} /> },
-      { label: "골프톡", href: "/golftalk-admin", icon: <Settings2 size={14} /> },
+      { label: "AI상담톡", href: "/golftalk-admin", icon: <Settings2 size={14} /> },
       { label: "OpenRouter 에이전트 ⚡", href: "/openrouter-agent", icon: <Zap size={14} />, masterOnly: true },
     ],
   },
@@ -523,7 +523,7 @@ export default function ERPLayout() {
           </div>
           {!sidebarCollapsed && (
             <div>
-              <div className="text-white font-bold text-sm leading-tight">두골프 ERP</div>
+              <div className="text-white font-bold text-sm leading-tight">AI ERP</div>
               <div className="text-slate-400 text-xs">관리자 시스템</div>
             </div>
           )}

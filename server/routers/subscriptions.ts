@@ -173,7 +173,7 @@ export const subscriptionsRouter = router({
           isFree: true,
           paymentId: null,
           amount: 0,
-          orderName: `두골프 ERP ${plan.name} 플랜 (무료)`,
+          orderName: `AI ERP ${plan.name} 플랜 (무료)`,
           storeId: ENV.portoneStoreId,
           channelKey: ENV.portoneChannelKey,
         };
@@ -184,7 +184,7 @@ export const subscriptionsRouter = router({
 
       // 고유 결제 ID 생성 (타임스탬프 + 랜덤)
       const paymentId = `dogolf-sub-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const orderName = `두골프 ERP ${plan.name} 플랜 (${input.billingCycle === "yearly" ? "연간" : "월간"})`;
+      const orderName = `AI ERP ${plan.name} 플랜 (${input.billingCycle === "yearly" ? "연간" : "월간"})`;
 
       return {
         isFree: false,

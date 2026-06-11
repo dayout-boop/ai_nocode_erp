@@ -1,5 +1,5 @@
 /**
- * 두골프 ERP - AI 차단 키워드 관리 페이지
+ * AI ERP - AI 차단 키워드 관리 페이지
  *
  * 마스터: 전역 차단 규칙 + 모든 업체 규칙 통합 관리
  * 파트너: 자기 업체 차단 규칙 관리 (전역 규칙 열람 포함)
@@ -202,7 +202,7 @@ export default function KnowledgeBlockLog() {
           <p className="text-sm text-gray-500 mt-1">
             {isMaster
               ? "전역 차단 규칙과 업체별 차단 규칙을 통합 관리합니다. 등록된 키워드는 LLM 요청 시 실시간으로 차단됩니다."
-              : "우리 업체 AI(골프톡·두골프 매니저)에 적용할 차단 키워드를 등록합니다. 등록된 키워드가 포함된 요청은 LLM에서 자동으로 차단됩니다."}
+              : "우리 업체 AI(골프톡·AI파트너매니저)에 적용할 차단 키워드를 등록합니다. 등록된 키워드가 포함된 요청은 LLM에서 자동으로 차단됩니다."}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={handleRefreshAll}>

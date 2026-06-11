@@ -3,7 +3,7 @@
  *
  * 개선된 UX 흐름 (2026-06-10):
  *  1. 사용자가 "무료로 시작하기" 클릭
- *  2. → /partner/onboarding-chat (두골프 매니저 소개 페이지)
+ *  2. → /partner/onboarding-chat (AI파트너매니저 소개 페이지)
  *  3. → 사용자가 "시작하기" 클릭
  *  4. → 구글 로그인 (returnUrl=/partner/onboarding-chat)
  *  5. → 콜백이 상태별 분기

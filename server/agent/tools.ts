@@ -1,5 +1,5 @@
 /**
- * 두골프 ERP 에이전트 도구 정의
+ * AI ERP 에이전트 도구 정의
  * 예약 조회, 재무 요약, 공지사항 등 ERP 핵심 기능을 도구로 제공
  */
 import { z } from 'zod';
@@ -28,7 +28,7 @@ export const timeTool: AgentTool = {
 
 export const reservationSummaryTool: AgentTool = {
   name: 'get_reservation_summary',
-  description: '두골프 ERP의 예약 현황 요약을 조회합니다. 오늘/이번 주/이번 달 예약 건수와 상태별 통계를 반환합니다.',
+  description: 'AI ERP의 예약 현황 요약을 조회합니다. 오늘/이번 주/이번 달 예약 건수와 상태별 통계를 반환합니다.',
   inputSchema: z.object({
     period: z.enum(['today', 'week', 'month', 'all']).optional().describe('조회 기간'),
   }),
@@ -47,7 +47,7 @@ export const reservationSummaryTool: AgentTool = {
 
 export const financeSummaryTool: AgentTool = {
   name: 'get_finance_summary',
-  description: '두골프 ERP의 재무 현황을 요약합니다. 입금/송금/예치금/충전카드 사용 현황을 반환합니다.',
+  description: 'AI ERP의 재무 현황을 요약합니다. 입금/송금/예치금/충전카드 사용 현황을 반환합니다.',
   inputSchema: z.object({
     type: z.enum(['income', 'remittance', 'deposit', 'charge', 'all']).optional().describe('조회 유형'),
   }),
@@ -106,7 +106,7 @@ export const noticeTool: AgentTool = {
 
 export const erpGuideTool: AgentTool = {
   name: 'get_erp_guide',
-  description: '두골프 ERP의 기능 목록과 사용 방법을 안내합니다.',
+  description: 'AI ERP의 기능 목록과 사용 방법을 안내합니다.',
   inputSchema: z.object({
     feature: z.string().optional().describe('안내받을 기능명 (예: 예약관리, 재무관리, AI, 상품관리)'),
   }),
@@ -127,7 +127,7 @@ export const erpGuideTool: AgentTool = {
     }
 
     return {
-      message: '두골프 ERP 주요 기능 목록',
+      message: 'AI ERP 주요 기능 목록',
       features: guide,
       adminUrl: 'https://dayoutgolf.com/erp',
     };

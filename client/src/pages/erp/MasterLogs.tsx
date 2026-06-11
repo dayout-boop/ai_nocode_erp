@@ -47,7 +47,7 @@ export default function MasterLogs() {
    */
   const handleContinueSession = (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // 세션 펼치기 이벤트 차단
-    toast.info("두골프 마스터 채팅창으로 이동합니다...");
+    toast.info("마스터AI 채팅창으로 이동합니다...");
     navigate(`/master-ai?continueSession=${encodeURIComponent(sessionId)}`);
   };
 
@@ -56,7 +56,7 @@ export default function MasterLogs() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Bot className="text-purple-600" size={24} />
-            두골프 마스터 대화 이력
+            마스터AI 대화 이력
           </h1>
           <p className="text-gray-500 text-sm mt-1">관리자 AI 마스터의 모든 대화 세션 이력</p>
         </div>

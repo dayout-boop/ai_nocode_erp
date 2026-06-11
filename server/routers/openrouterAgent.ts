@@ -1,5 +1,5 @@
 /**
- * 두골프 ERP OpenRouter 에이전트 tRPC 라우터
+ * AI ERP OpenRouter 에이전트 tRPC 라우터
  * SKILL: https://openrouter.ai/skills/create-agent/SKILL.md
  *
  * 엔드포인트:
@@ -32,7 +32,7 @@ function getOrCreateAgent(userId: string): ReturnType<typeof createAgent> {
     const agent = createAgent({
       apiKey,
       model: 'openrouter/auto',
-      instructions: `당신은 두골프 ERP 전문 AI 어시스턴트입니다.
+      instructions: `당신은 AI ERP 전문 AI 어시스턴트입니다.
 두골프는 국내외 골프투어 전문 여행사로, 태국/베트남/필리핀/한국/중국/일본 등 다양한 골프 패키지를 제공합니다.
 ERP 시스템에서 예약관리, 재무관리, 상품관리, AI 기능 등을 담당합니다.
 항상 한국어로 응답하며, 정확하고 친절하게 안내합니다.
@@ -86,7 +86,7 @@ export const openrouterAgentRouter = router({
         const newAgent = createAgent({
           apiKey,
           model: input.model,
-          instructions: `당신은 두골프 ERP 전문 AI 어시스턴트입니다.
+          instructions: `당신은 AI ERP 전문 AI 어시스턴트입니다.
 두골프는 국내외 골프투어 전문 여행사로, 태국/베트남/필리핀/한국/중국/일본 등 다양한 골프 패키지를 제공합니다.
 항상 한국어로 응답하며, 정확하고 친절하게 안내합니다.`,
           tools: dogolfTools,

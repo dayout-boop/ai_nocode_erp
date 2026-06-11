@@ -1,6 +1,6 @@
 /**
  * FeatureCatalog.tsx
- * 두골프 ERP 기능 카탈로그 — /erp/ai-engine/features
+ * AI ERP 기능 카탈로그 — /erp/ai-engine/features
  * - 카테고리별 그룹핑 테이블
  * - 검색 / 카테고리 필터 / 상태 필터
  * - 보고서 보기 (마크다운 렌더) + MD 다운로드
@@ -253,7 +253,7 @@ export default function FeatureCatalog() {
               기능 카탈로그
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              두골프 ERP 전체 기능 목록 — 소스 코드 자동 집계
+              AI ERP 전체 기능 목록 — 소스 코드 자동 집계
               {data?.generatedAt && (
                 <span className="ml-2 text-xs text-amber-600">
                   (마지막 스캔: {new Date(data.generatedAt).toLocaleString("ko-KR")} · 최신 반영은 소스 재스캔 버튼을 눌러주세요)
@@ -377,7 +377,7 @@ export default function FeatureCatalog() {
           <TabsContent value="report" className="mt-4">
             <Card>
               <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                <CardTitle className="text-base">두골프 ERP 현황 보고서</CardTitle>
+                <CardTitle className="text-base">AI ERP 현황 보고서</CardTitle>
                 <Button
                   size="sm"
                   variant="outline"

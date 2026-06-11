@@ -60,7 +60,7 @@ interface GeneratedChangeset {
   }>;
 }
 
-const CODEGEN_SYSTEM_PROMPT = `당신은 두골프 ERP의 자체 코드생성 엔진입니다(탈마누스 자립 모드).
+const CODEGEN_SYSTEM_PROMPT = `당신은 AI ERP의 자체 코드생성 엔진입니다(탈마누스 자립 모드).
 스택: React 19 + Tailwind 4 + Express 4 + tRPC 11 + MySQL(Drizzle ORM).
 
 [엄격한 출력 규칙]

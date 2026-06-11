@@ -267,7 +267,7 @@ export const manusWebhookRouter = router({
 
   /**
    * Manus API에 등록된 웹훅 상태 조회
-   * - 두골프 ERP URL이 이미 등록되어 있는지 확인
+   * - AI ERP URL이 이미 등록되어 있는지 확인
    */
   getWebhookStatus: adminProcedure.query(async () => {
     const apiKey = getManusApiKey();
@@ -292,7 +292,7 @@ export const manusWebhookRouter = router({
   }),
 
   /**
-   * Manus API에 두골프 ERP 웹훅 등록
+   * Manus API에 AI ERP 웹훅 등록
    */
   registerWebhook: adminProcedure.mutation(async () => {
     const apiKey = getManusApiKey();
@@ -334,7 +334,7 @@ export const manusWebhookRouter = router({
   }),
 
   /**
-   * Manus API에서 두골프 ERP 웹훅 해제
+   * Manus API에서 AI ERP 웹훅 해제
    */
   unregisterWebhook: adminProcedure
     .input(z.object({ webhookId: z.string() }))

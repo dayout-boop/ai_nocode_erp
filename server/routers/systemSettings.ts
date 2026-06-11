@@ -123,7 +123,7 @@ export const systemSettingsRouter = router({
         await db.insert(systemSettings).values({
           settingKey: "MANUS_DOGOLF_TASK_ID",
           settingValue: input.taskId,
-          description: "두골프 ERP 개발 Manus 태스크 ID (기본 라우팅 대상)',",
+          description: "AI ERP 개발 Manus 태스크 ID (기본 라우팅 대상)',",
           updatedBy: ctx.user.name ?? ctx.user.id.toString(),
         });
       }
@@ -278,7 +278,7 @@ export const systemSettingsRouter = router({
           messages: [
             {
               role: "system",
-              content: `당신은 두골프 ERP 개발 요청을 분석하여 가장 적합한 Manus 태스크를 추천하는 AI입니다.
+              content: `당신은 AI ERP 개발 요청을 분석하여 가장 적합한 Manus 태스크를 추천하는 AI입니다.
 다음 태스크 후보 목록에서 개발 요청에 가장 적합한 태스크를 선택하고 JSON으로 반환하세요.
 
 태스크 후보 목록:

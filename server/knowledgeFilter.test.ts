@@ -1,5 +1,5 @@
 /**
- * 두골프 ERP - 타 데스크 지식 차단 필터 테스트
+ * AI ERP - 타 데스크 지식 차단 필터 테스트
  */
 import { describe, it, expect } from "vitest";
 import { checkKnowledge, DEFAULT_BLOCK_RULES } from "./services/knowledgeFilter";
@@ -51,7 +51,7 @@ describe("knowledgeFilter - 타 데스크 지식 차단 필터", () => {
       expect(result.isBlocked).toBe(true);
     });
 
-    it("두골프 ERP 관련 지식은 차단되지 않아야 한다", () => {
+    it("AI ERP 관련 지식은 차단되지 않아야 한다", () => {
       const result = checkKnowledge("두골프 골프투어 패키지 예약 관리 원칙");
       expect(result.isBlocked).toBe(false);
     });

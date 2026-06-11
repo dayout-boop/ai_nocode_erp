@@ -1,5 +1,5 @@
 /**
- * 두골프 ERP OpenRouter 에이전트 코어
+ * AI ERP OpenRouter 에이전트 코어
  * SKILL: https://openrouter.ai/skills/create-agent/SKILL.md
  *
  * 모듈형 AI 에이전트 - 독립 실행 가능하며 훅(hooks)으로 확장 가능
@@ -128,7 +128,7 @@ export class Agent extends EventEmitter<AgentEvents> {
       apiKey: config.apiKey,
       baseURL,
       model: config.model ?? 'openrouter/auto',
-      instructions: config.instructions ?? '당신은 두골프 ERP 전문 AI 어시스턴트입니다.',
+      instructions: config.instructions ?? '당신은 AI ERP 전문 AI 어시스턴트입니다.',
       tools: config.tools ?? [],
       maxSteps: config.maxSteps ?? 5,
       temperature: config.temperature ?? 0.7,

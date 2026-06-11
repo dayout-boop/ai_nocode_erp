@@ -282,7 +282,7 @@ export default function FileAnalysisHistory() {
         <div className="text-center py-16 text-gray-400">
           <FileText size={40} className="mx-auto mb-3 opacity-30" />
           <p className="text-sm">파일 분석 이력이 없습니다.</p>
-          <p className="text-xs mt-1">두골프 마스터에서 파일을 첨부하여 분석을 시작하세요.</p>
+          <p className="text-xs mt-1">마스터AI에서 파일을 첨부하여 분석을 시작하세요.</p>
         </div>
       ) : (
         <div className="space-y-2">

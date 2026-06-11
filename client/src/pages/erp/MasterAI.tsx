@@ -1,5 +1,5 @@
 /**
- * 두골프 마스터 AI 채팅 페이지 (v4)
+ * 마스터AI AI 채팅 페이지 (v4)
  * - SSE 스트리밍 실시간 응답
  * - Tool Calling 시각화 (DB 조회 과정 표시)
  * - 추론 → 분석 → 결과도출 → Manus 전송 파이프라인
@@ -652,7 +652,7 @@ function RightPanel({
                   <WifiOff size={13} className="text-gray-400" />
                 )}
                 <span className={`text-xs font-semibold ${pipelineStatus.connected ? "text-emerald-700" : "text-gray-500"}`}>
-                  {pipelineStatus.connected ? "두골프마스터 파이프라인 연결됨" : "파이프라인 미연결"}
+                  {pipelineStatus.connected ? "마스터AI 파이프라인 연결됨" : "파이프라인 미연결"}
                 </span>
               </div>
               {pipelineStatus.recentCount !== undefined && (
@@ -749,9 +749,9 @@ function RightPanel({
               </p>
               <div className="space-y-1">
                 {[
-                  { name: "두골프 마스터", role: "관리자 전용 · 전체 DB", active: true },
+                  { name: "마스터AI", role: "관리자 전용 · 전체 DB", active: true },
                   { name: "골프톡", role: "고객 상담 · 프로젝트별", active: false },
-                  { name: "두골프 매니저", role: "파트너 관리 · 프로젝트별", active: false },
+                  { name: "AI파트너매니저", role: "파트너 관리 · 프로젝트별", active: false },
                 ].map((ai) => (
                   <div key={ai.name} className={`flex items-center justify-between rounded-lg px-3 py-2 border text-xs ${
                     ai.active ? "bg-indigo-50 border-indigo-200" : "bg-gray-50 border-gray-100"
@@ -771,7 +771,7 @@ function RightPanel({
 
           {/* 연동 서비스 탭 */}
           <TabsContent value="services" className="flex-1 overflow-y-auto px-3 pb-3 mt-2 space-y-3" style={{ minHeight: 0 }}>
-            {/* 처리 가능 영역 (두골프 마스터 역량) */}
+            {/* 처리 가능 영역 (마스터AI 역량) */}
             <div>
               <p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1">
                 <ShieldCheck size={11} className="text-emerald-500" />
@@ -811,7 +811,7 @@ function RightPanel({
               </div>
               <p className="text-[10px] text-gray-400 mt-1.5 leading-tight">
                 ※ 외부 검색·URL 분석은 마스터 승인 후 실행됩니다(승인 후 외부 검색 가능).
-                예약 현황·고객 문의는 두골프 매니저(파트너용)로 이관되었습니다.
+                예약 현황·고객 문의는 AI파트너매니저(파트너용)로 이관되었습니다.
               </p>
             </div>
 
@@ -965,7 +965,7 @@ function ChatHistoryTab({ open, onContinueSession }: { open: boolean; onContinue
                     <span className={`font-semibold ${
                       msg.role === 'user' ? 'text-indigo-600' : 'text-gray-600'
                     }`}>
-                      {msg.role === 'user' ? '나' : '두골프마스터'}
+                      {msg.role === 'user' ? '나' : '마스터AI'}
                     </span>
                     <span className="text-[10px] text-gray-400">{formatTime(msg.createdAt)}</span>
                   </div>
@@ -1020,7 +1020,7 @@ function ChatHistoryTab({ open, onContinueSession }: { open: boolean; onContinue
               <div className="text-center py-8 text-gray-400">
                 <History size={28} className="mx-auto mb-2 opacity-30" />
                 <p className="text-xs">대화 이력이 없습니다.</p>
-                <p className="text-[10px] mt-1">두골프 마스터와 대화를 시작하세요.</p>
+                <p className="text-[10px] mt-1">마스터AI와 대화를 시작하세요.</p>
               </div>
             ) : (
               sessions.map((session) => (
@@ -1900,7 +1900,7 @@ export default function MasterAI() {
               <Bot size={18} className="text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-gray-900 text-base leading-tight">두골프 마스터 🤖</h1>
+              <h1 className="font-bold text-gray-900 text-base leading-tight">마스터AI 🤖</h1>
               <p className="text-xs text-gray-500">추론 · DB조회 · 분석 · 결과도출 · Manus 개발 요청</p>
             </div>
           </div>
@@ -2033,7 +2033,7 @@ export default function MasterAI() {
               <div className="w-16 h-16 rounded-2xl bg-indigo-100 flex items-center justify-center mb-4">
                 <Bot size={28} className="text-indigo-500" />
               </div>
-              <p className="text-lg font-semibold text-gray-600 mb-1">두골프 마스터에게 물어보세요</p>
+              <p className="text-lg font-semibold text-gray-600 mb-1">마스터AI에게 물어보세요</p>
               <p className="text-sm text-gray-400 max-w-sm leading-relaxed">
                 ERP 데이터 직접 조회 · 정산 분석 · 개발 요청 자동화<br />
                 <span className="text-xs text-indigo-400 font-medium">추론 → DB조회 → 분석 → 결과도출 → Manus 전송</span>
@@ -2333,7 +2333,7 @@ export default function MasterAI() {
                 ? "이전 대화 로드 중..."
                 : attachedFiles.length > 0
                 ? `첸부 파일 ${attachedFiles.length}개 · 메시지를 입력하세요... (Enter 전송)`
-                : "두골프 마스터에게 질문하세요... (Enter 전송, Shift+Enter 줄바꿼)"
+                : "마스터AI에게 질문하세요... (Enter 전송, Shift+Enter 줄바꿼)"
               }
               className="flex-1 min-h-[44px] max-h-40 resize-none text-sm border-gray-200 focus:border-indigo-400 rounded-xl"
               disabled={isStreaming || isContinuingSession}

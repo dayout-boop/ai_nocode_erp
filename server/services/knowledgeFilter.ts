@@ -1,11 +1,11 @@
 /**
- * 두골프 ERP - 타 데스크 지식 차단 필터 서비스
+ * AI ERP - 타 데스크 지식 차단 필터 서비스
  *
  * Manus 플랫폼이 related_knowledge로 타 데스크 지식을 주입할 때
  * ERP 서버 레벨에서 직접 감지하고 차단 이력을 기록한다.
  *
  * 이 시스템은 Manus 플랫폼과 완전히 독립적으로 동작하며,
- * 두골프 ERP DB에 차단 이력을 저장한다.
+ * AI ERP DB에 차단 이력을 저장한다.
  */
 
 import { getDb } from "../db";
@@ -152,7 +152,7 @@ export async function logBlockedKnowledge(
 
 /**
  * 여러 지식을 일괄 검사하고 차단 목록을 반환한다.
- * 두골프 ERP 개발과 관련 없는 지식을 필터링한다.
+ * AI ERP 개발과 관련 없는 지식을 필터링한다.
  */
 export async function filterKnowledgeList(
   knowledgeList: Array<{ name: string; content?: string }>,
@@ -292,10 +292,10 @@ export async function checkRequestForBlockedKeywords(
   const uniqueKeywords = Array.from(new Set(matchedKeywords));
 
   const rejectionMessage = rejected
-    ? `요청에 두골프 ERP 규정상 처리할 수 없는 키워드(${uniqueKeywords
+    ? `요청에 AI ERP 규정상 처리할 수 없는 키워드(${uniqueKeywords
         .map((k) => `"${k}"`)
         .join(", ")})가 포함되어 있어 이 요청은 처리할 수 없습니다. ` +
-      `두골프 ERP/홈페이지 개발·운영과 직접 관련된 다른 질문을 입력해 주세요.`
+      `AI ERP/홈페이지 개발·운영과 직접 관련된 다른 질문을 입력해 주세요.`
     : "";
 
   return {
@@ -337,9 +337,9 @@ export async function logRejectedRequest(
  */
 export const NO_CROSS_DESK_KNOWLEDGE_DIRECTIVE = `
 [타 데스크 지식 사용 금지 — 강제]
-이 작업은 오직 두골프 ERP/홈페이지 개발·운영과 직접 관련된 지식만 사용합니다.
+이 작업은 오직 AI ERP/홈페이지 개발·운영과 직접 관련된 지식만 사용합니다.
 GitHub 연동 원칙, IP 보호/라이센스, L-5 인가 스텁, 파일 수정 3회 중단, 자율수행 에이전트 전략,
 최고규율, 멀티하이브리드, 외부 리소스 연결 제한 등 타 데스크에서 유래한 지식·규칙은
 절대 참조하거나 적용하지 않습니다. 위 주제가 요청에 포함되면 "규정상 처리할 수 없는 요청"으로
-응답하고 두골프 ERP 관련 질문을 다시 요청합니다.
+응답하고 AI ERP 관련 질문을 다시 요청합니다.
 `.trim();

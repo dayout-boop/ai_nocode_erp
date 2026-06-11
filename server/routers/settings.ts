@@ -48,13 +48,13 @@ export const settingsRouter = router({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        text: "✅ 두골프 ERP - Slack 연동 테스트 성공!",
+        text: "✅ AI ERP - Slack 연동 테스트 성공!",
         blocks: [
           {
             type: "section",
             text: {
               type: "mrkdwn",
-              text: "✅ *두골프 ERP Slack 연동 테스트*\n연동이 정상적으로 작동합니다.",
+              text: "✅ *AI ERP Slack 연동 테스트*\n연동이 정상적으로 작동합니다.",
             },
           },
         ],
@@ -92,7 +92,7 @@ export const settingsRouter = router({
         content: [
           {
             type: "text",
-            text: "두골프 ERP - Manus API 연동 테스트 (스마트 라우팅 활성화)",
+            text: "AI ERP - Manus API 연동 테스트 (스마트 라우팅 활성화)",
           },
         ],
       },

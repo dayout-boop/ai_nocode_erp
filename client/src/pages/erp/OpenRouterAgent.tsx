@@ -1,5 +1,5 @@
 /**
- * 두골프 ERP - OpenRouter 에이전트 페이지
+ * AI ERP - OpenRouter 에이전트 페이지
  * OpenRouter SDK 기반 모듈형 AI 에이전트 인터페이스
  * 요청/응답 양방향 4,000자 자동 분할 기능 포함
  */
@@ -253,7 +253,7 @@ export default function OpenRouterAgent() {
                   <Bot className="w-8 h-8 text-violet-500" />
                 </div>
                 <div>
-                  <p className="font-semibold text-foreground">두골프 ERP 에이전트</p>
+                  <p className="font-semibold text-foreground">AI ERP 에이전트</p>
                   <p className="text-sm text-muted-foreground mt-1">
                     예약 현황, 재무 요약, ERP 기능 안내 등을 물어보세요.
                   </p>

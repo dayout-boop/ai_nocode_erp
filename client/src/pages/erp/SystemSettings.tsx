@@ -170,7 +170,7 @@ function TaskCandidateDialog({
             <Input
               value={form.taskName}
               onChange={(e) => setForm((f) => ({ ...f, taskName: e.target.value }))}
-              placeholder="예: 두골프 ERP 개발 (메인)"
+              placeholder="예: AI ERP 개발 (메인)"
             />
           </div>
 
@@ -704,7 +704,7 @@ export default function SystemSettings() {
           <ol className="space-y-1.5 text-xs text-blue-700">
             <li className="flex items-start gap-2">
               <span className="font-bold text-blue-500 shrink-0">0.</span>
-              <span><strong>UI 선택 우선</strong> — 두골프 마스터 채팅에서 사용자가 직접 태스크를 선택하면 해당 태스크로 즉시 전송</span>
+              <span><strong>UI 선택 우선</strong> — 마스터AI 채팅에서 사용자가 직접 태스크를 선택하면 해당 태스크로 즉시 전송</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="font-bold text-blue-500 shrink-0">1.</span>

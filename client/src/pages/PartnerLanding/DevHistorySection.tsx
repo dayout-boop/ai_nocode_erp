@@ -102,7 +102,7 @@ export default function DevHistorySection() {
             <span className="gradient-text">개발 이력</span>
           </h2>
           <p className="text-lg max-w-2xl mx-auto mb-4" style={{ color: 'oklch(0.65 0.03 240)' }}>
-            두골프 ERP에서 실시간으로 가져오는 최신 개발 현황입니다.
+            AI ERP에서 실시간으로 가져오는 최신 개발 현황입니다.
             <br />
             플랫폼이 얼마나 빠르게 발전하는지 직접 확인하세요.
           </p>
@@ -217,7 +217,7 @@ export default function DevHistorySection() {
 
             {/* 마지막 업데이트 시간 */}
             <p className="text-center text-xs mt-6" style={{ color: 'oklch(0.45 0.03 240)' }}>
-              마지막 업데이트: {lastRefresh.toLocaleTimeString('ko-KR')} · 두골프 ERP API 실시간 연동
+              마지막 업데이트: {lastRefresh.toLocaleTimeString('ko-KR')} · AI ERP API 실시간 연동
             </p>
           </>
         ) : null}

@@ -1715,7 +1715,7 @@ function AutomationTab({ packageId, packageData }: { packageId: number; packageD
         <CardContent className="space-y-3">
           <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
             <p className="font-medium mb-1">내부 파이프라인 운영 중</p>
-            <p>두골프 ERP는 자체 오케스트레이터 파이프라인으로 자동화를 처리합니다.</p>
+            <p>AI ERP는 자체 오케스트레이터 파이프라인으로 자동화를 처리합니다.</p>
             <p className="mt-1">카카오 알림톡 발송, D-1 출발 알림, 예약 확정 알림 등이 스케줄러를 통해 자동 실행됩니다.</p>
           </div>
           <div className="grid grid-cols-1 gap-2 text-sm">

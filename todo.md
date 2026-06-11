@@ -2317,3 +2317,20 @@ Detected
 - [x] PartnerChat.tsx — reservations.create mutation 연결 (DB 직접 저장)
 - [x] PartnerChat.tsx — handleBookingSubmit → 성공 시 예약번호 포함 AI 메시지 표시
 - [x] PartnerAIManagerPage.tsx — 파트너 스태프 ERP 내 AI 매니저 페이지 확인 완료
+
+## 명칭 체계 정리 및 고객센터AI 구현 (2026-06-11)
+
+- [ ] 명칭 일괄 변경: 마스터AI🤖, AI파트너매니저💼, AI상담톡, ERP 타이틀 "AI ERP"로 변경
+- [ ] 파트너 전용 AI 채팅 1개로 통합: /partner/chat + /partner/staff/ai → 고객센터AI 단일 채널
+- [ ] 파트너 ERP 좌측 카테고리 '고객센터' 추가 + 우측 Q&A/개발요청 + AI 실시간 LLM 레이아웃
+- [ ] partner.dayoutgolf.com 우하단 고객센터AI 위젯 + 고객센터 2차 페이지 추가
+
+## 명칭 체계 정리 + 고객센터AI 구현 (2026-06-11)
+- [x] 마스터AI🤖 / AI파트너매니저💼 / AI상담톡 명칭 일괄 변경
+- [x] ERP 타이틀 "AI ERP" 변경
+- [x] 파트너 ERP 고객센터 카테고리 추가 (/partner/staff/support)
+- [x] PartnerSupportCenter.tsx — FAQ + 개발요청 + AI LLM 레이아웃
+- [x] devRequest.submitByPartner 파트너용 프로시저 추가
+- [x] PartnerSupportPage.tsx — /partner/support 2차 페이지 생성
+- [x] PartnerSupportWidget.tsx — partner.dayoutgolf.com 우측 하단 위젯
+- [x] App.tsx /partner/support 라우팅 추가

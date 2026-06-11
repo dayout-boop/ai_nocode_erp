@@ -1,5 +1,5 @@
 /**
- * 두골프 마스터 AI 스트리밍 엔드포인트
+ * 마스터AI AI 스트리밍 엔드포인트
  * POST /api/master-stream
  * POST /api/master-stream-resume  (Human-in-the-Loop 승인 후 재개)
  * 인증: JWT 세션 쿠키 (관리자 전용)

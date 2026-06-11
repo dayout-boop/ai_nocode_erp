@@ -1,5 +1,5 @@
 /**
- * featuresRouter — 두골프 ERP 기능 카탈로그
+ * featuresRouter — AI ERP 기능 카탈로그
  * - list: features.json 읽기 (공개 — 관리자만 접근하는 ERP 페이지에서 호출)
  * - refresh: generate-features 스크립트 즉시 실행 (관리자 전용)
  * - getReport: 마크다운 보고서 텍스트 반환

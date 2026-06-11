@@ -6,7 +6,7 @@
  *  medium → google/gemini-2.5-flash       (생성·요약·상담)
  *  low    → google/gemini-2.5-flash-lite  (분류·태깅·단순응답)
  *
- * Tool Calling 지원 (두골프 마스터 전용)
+ * Tool Calling 지원 (마스터AI 전용)
  */
 import { ENV } from "../_core/env";
 

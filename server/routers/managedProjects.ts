@@ -1,6 +1,6 @@
 /**
  * managedProjects.ts
- * 두골프 마스터 AI 오케스트라 - 관리 프로젝트 CRUD API
+ * 마스터AI AI 오케스트라 - 관리 프로젝트 CRUD API
  * 1000개 이상의 Manus WebDev 프로젝트를 중앙에서 관리
  */
 import { z } from "zod";

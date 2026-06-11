@@ -1,5 +1,5 @@
 /**
- * 두골프 ERP 구독 플랜 상품 정의
+ * AI ERP 구독 플랜 상품 정의
  * Stripe Price ID는 환경변수 또는 DB에서 관리
  */
 

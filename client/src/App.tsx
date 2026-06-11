@@ -34,6 +34,7 @@ import PartnerResetPassword from "./pages/Partner/PartnerResetPassword";
 import PartnerCustomLogin from "./pages/Partner/PartnerCustomLogin";
 import PartnerOnboardingChat from "./pages/Partner/PartnerOnboardingChat";
 import PartnerPendingVerification from "./pages/Partner/PartnerPendingVerification";
+import PartnerSupportPage from "./pages/Partner/PartnerSupportPage";
 import Pricing from "./pages/Pricing";
 
 // 투어커뮤니케이션 파트너 랜딩페이지
@@ -90,6 +91,8 @@ function Router() {
       <Route path={"/partner/dashboard"} component={() => { window.location.replace("/erp"); return null; }} />
       <Route path={"/partner/login"} component={PartnerLogin} />
       <Route path={"/partner/chat"} component={PartnerChat} />
+      {/* 고객센터 페이지 (파트너 포털 + partner.dayoutgolf.com) */}
+      <Route path={"/partner/support"} component={PartnerSupportPage} />
 
       {/* 파트너 신규 가입 신청 (공개) */}
       <Route path={"/partner/join"} component={PartnerOnboarding} />

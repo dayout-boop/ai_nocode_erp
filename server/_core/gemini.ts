@@ -1,6 +1,6 @@
 /**
  * Gemini AI 어시스턴트 헬퍼
- * - 두골프 ERP 시스템 컨텍스트를 자동으로 주입
+ * - AI ERP 시스템 컨텍스트를 자동으로 주입
  *
  * ## 인증 전략 (우선순위)
  * 1. Vertex AI (공식 리전 엔드포인트) - GOOGLE_SERVICE_ACCOUNT_JSON + GOOGLE_CLOUD_PROJECT_ID 필요

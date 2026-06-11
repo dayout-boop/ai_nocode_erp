@@ -23,9 +23,9 @@ export default function MasterCosts() {
 
   // 어시스턴트 레이블/색상 매핑
   const assistantLabels: Record<string, string> = {
-    master: "두골프 마스터",
+    master: "마스터AI",
     golftalk: "골프톡",
-    manager: "두골프 매니저",
+    manager: "AI파트너매니저",
   };
   const assistantColors: Record<string, string> = {
     master: "bg-purple-50 text-purple-700 border-purple-200",
@@ -41,7 +41,7 @@ export default function MasterCosts() {
             <DollarSign className="text-green-600" size={24} />
             AI 비용 현황
           </h1>
-          <p className="text-gray-500 text-sm mt-1">두골프 마스터 AI 호출 비용 추적</p>
+          <p className="text-gray-500 text-sm mt-1">마스터AI AI 호출 비용 추적</p>
         </div>
         <div className="flex gap-2">
           {(["today", "week", "month"] as const).map((p) => (

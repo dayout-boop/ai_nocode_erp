@@ -1,5 +1,5 @@
 /**
- * 두골프 ERP 에이전트 모듈 진입점
+ * AI ERP 에이전트 모듈 진입점
  */
 export { Agent, createAgent } from './agent.js';
 export type { Message, AgentTool, AgentEvents, AgentConfig } from './agent.js';
