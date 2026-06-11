@@ -23,7 +23,7 @@ import { classifyIntent, fetchPackageContext, fetchReservationContext, compressH
 import { MASTER_SYSTEM_PROMPT } from "./services/prompts/master";
 import { MASTER_TOOLS, executeTool, APPROVAL_REQUIRED_TOOLS, type ToolCallResult, type CallerContext } from "./services/masterTools";
 import { publish } from "./services/realtimeEvents";
-import { checkRequestForBlockedKeywords, logRejectedRequest, NO_CROSS_DESK_KNOWLEDGE_DIRECTIVE } from "./services/knowledgeFilter";
+import { NO_CROSS_DESK_KNOWLEDGE_DIRECTIVE } from "./services/knowledgeFilter";
 import { z } from "zod";
 
 const inputSchema = z.object({
@@ -388,32 +388,6 @@ export function registerMasterStreamRoute(app: Express) {
       return;
     }
     const input = parsed.data;
-
-    // 2-1. 타 데스크 지식 차단 키워드 거절 검사
-    const rejection = await checkRequestForBlockedKeywords(input.message);
-    if (rejection.rejected) {
-      await logRejectedRequest(rejection, { sessionId: input.sessionId, source: "master-stream" });
-      try {
-        const dbForLog = await getDb();
-        if (dbForLog) {
-          await dbForLog.insert(aiLogs).values([
-            { sessionId: input.sessionId, userId, assistant: "master", role: "user", content: input.message, modelUsed: "", tokensIn: 0, tokensOut: 0, costUsd: "0", grounded: false },
-            { sessionId: input.sessionId, userId, assistant: "master", role: "assistant", content: rejection.rejectionMessage, modelUsed: "knowledge-filter", tokensIn: 0, tokensOut: 0, costUsd: "0", grounded: false },
-          ]);
-        }
-      } catch { /* 로그 실패 무시 */ }
-
-      res.setHeader("Content-Type", "text/event-stream");
-      res.setHeader("Cache-Control", "no-cache");
-      res.setHeader("Connection", "keep-alive");
-      res.setHeader("X-Accel-Buffering", "no");
-      res.setHeader("X-Transaction-ID", transactionId);
-      res.flushHeaders();
-      res.write(`event: chunk\ndata: ${JSON.stringify({ text: rejection.rejectionMessage })}\n\n`);
-      res.write(`event: done\ndata: ${JSON.stringify({ model: "knowledge-filter", tokensIn: 0, tokensOut: 0, costUsd: 0, durationMs: 0, devRequestSuggestion: null, toolsUsed: [], rejected: true, matchedKeywords: rejection.matchedKeywords })}\n\n`);
-      res.end();
-      return;
-    }
 
     // 3. SSE 헤더 설정
     res.setHeader("Content-Type", "text/event-stream");
