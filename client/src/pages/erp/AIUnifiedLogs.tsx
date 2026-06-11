@@ -1,7 +1,8 @@
 // ============================================================
-// AIUnifiedLogs — AI 통합 로그 페이지
-// AI파트너매니저 + AI상담톡 + 파트너자동화AI 3개 채널 통합
-// 마스터AI 로그는 별도 페이지(/master-ai/logs)에서 관리
+// AIUnifiedLogs — AI 통합 로그 페이지 (v2)
+// 카테고리 구조:
+//   [마스터 전용] 마스터AI 로그 / AI 비용·크레딧 / 파트너자동화AI
+//   [파트너 공개] AI파트너매니저 / AI상담톡
 // ============================================================
 import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
@@ -38,6 +39,12 @@ import {
   Globe,
   AlertTriangle,
   RefreshCw,
+  BrainCircuit,
+  DollarSign,
+  Shield,
+  Lock,
+  Coins,
+  History,
 } from "lucide-react";
 import {
   BarChart,
@@ -55,26 +62,34 @@ import {
   Cell,
 } from "recharts";
 import { toast } from "sonner";
+import { useAuth } from "@/_core/hooks/useAuth";
 
-// ─── 채널 정의 ────────────────────────────────────────────
-const CHANNELS = [
+// ─── 채널 카테고리 정의 ────────────────────────────────────
+type ChannelCategory = "master" | "partner";
+
+interface Channel {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  color: string;
+  bg: string;
+  category: ChannelCategory;
+  assistant?: "manager" | "golftalk" | null;
+  type: "session" | "ailog" | "masterlog" | "cost";
+  description: string;
+}
+
+const CHANNELS: Channel[] = [
+  // ── 마스터 전용 ──────────────────────────────────────────
   {
-    id: "manager",
-    label: "AI파트너매니저",
-    icon: Briefcase,
-    color: "text-blue-600",
-    bg: "bg-blue-100",
-    assistant: "manager" as const,
-    type: "session" as const,
-  },
-  {
-    id: "golftalk",
-    label: "AI상담톡",
-    icon: Sparkles,
-    color: "text-green-600",
-    bg: "bg-green-100",
-    assistant: "golftalk" as const,
-    type: "session" as const,
+    id: "master",
+    label: "마스터AI 로그",
+    icon: BrainCircuit,
+    color: "text-indigo-600",
+    bg: "bg-indigo-100",
+    category: "master",
+    type: "masterlog",
+    description: "마스터AI 대화 이력 및 개발 요청 로그",
   },
   {
     id: "gemini",
@@ -82,8 +97,33 @@ const CHANNELS = [
     icon: Zap,
     color: "text-purple-600",
     bg: "bg-purple-100",
+    category: "master",
     assistant: null,
-    type: "ailog" as const,
+    type: "ailog",
+    description: "Gemini 기반 파트너 자동화 AI 로그",
+  },
+  // ── 파트너 공개 ──────────────────────────────────────────
+  {
+    id: "manager",
+    label: "AI파트너매니저",
+    icon: Briefcase,
+    color: "text-blue-600",
+    bg: "bg-blue-100",
+    category: "partner",
+    assistant: "manager",
+    type: "session",
+    description: "파트너사 직원용 AI 매니저 대화 이력",
+  },
+  {
+    id: "golftalk",
+    label: "AI상담톡",
+    icon: Sparkles,
+    color: "text-green-600",
+    bg: "bg-green-100",
+    category: "partner",
+    assistant: "golftalk",
+    type: "session",
+    description: "고객 대상 AI 상담톡 대화 이력",
   },
 ];
 
@@ -97,8 +137,172 @@ const REGION_COLORS: Record<string, string> = {
   "none": "#ef4444",
 };
 
+// ─── 마스터AI 로그 패널 ────────────────────────────────────
+function MasterAILogPanel() {
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const { data, isLoading } = trpc.chat.listMasterSessions.useQuery(
+    { limit: LIMIT, offset: (page - 1) * LIMIT },
+    { staleTime: 10_000 }
+  );
+
+  const sessions = data?.sessions ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / LIMIT);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPage(1);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* 통계 카드 */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 bg-indigo-100 rounded-lg">
+              <History size={20} className="text-indigo-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">총 세션 수</p>
+              <p className="text-2xl font-bold text-gray-900">{total}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Bot size={20} className="text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">이번 페이지</p>
+              <p className="text-2xl font-bold text-gray-900">{sessions.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <TrendingUp size={20} className="text-purple-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">페이지</p>
+              <p className="text-2xl font-bold text-gray-900">{page}/{totalPages || 1}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 검색 */}
+      <form onSubmit={handleSearch} className="flex gap-2">
+        <div className="relative flex-1">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="세션 ID 또는 대화 내용으로 검색..."
+            className="pl-9 bg-white border-slate-200"
+          />
+        </div>
+        <Button type="submit" size="sm" variant="outline">검색</Button>
+        {search && (
+          <Button type="button" size="sm" variant="ghost" onClick={() => { setSearchInput(""); setSearch(""); setPage(1); }}>
+            초기화
+          </Button>
+        )}
+      </form>
+
+      {/* 세션 목록 */}
+      {isLoading ? (
+        <div className="text-center py-12 text-gray-400">로딩 중...</div>
+      ) : sessions.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">마스터AI 대화 이력이 없습니다.</div>
+      ) : (
+        <div className="space-y-3">
+          {sessions.map((session: any) => {
+            const isExpanded = expandedId === session.sessionId;
+            return (
+              <Card key={session.sessionId} className="border border-indigo-100 hover:shadow-sm transition-shadow">
+                <CardContent className="p-4">
+                  <div
+                    className="cursor-pointer"
+                    onClick={() => setExpandedId(isExpanded ? null : session.sessionId)}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs font-mono text-indigo-600 border-indigo-200">
+                          {session.sessionId?.slice(0, 16)}...
+                        </Badge>
+                        {session.messageCount && (
+                          <Badge variant="secondary" className="text-xs bg-indigo-50 text-indigo-700">
+                            {session.messageCount}개 메시지
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-gray-400">
+                        <Clock size={12} />
+                        {session.lastAt ? new Date(session.lastAt).toLocaleString("ko-KR") : "-"}
+                        {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      </div>
+                    </div>
+                    {session.firstUserMessage && (
+                      <p className="text-sm text-gray-700 line-clamp-2">
+                        <span className="font-medium text-gray-500">마스터:</span>{" "}
+                        {session.firstUserMessage}
+                      </p>
+                    )}
+                    {session.lastAssistantMessage && !isExpanded && (
+                      <p className="text-sm text-gray-500 line-clamp-1 mt-1">
+                        <span className="font-medium">AI:</span>{" "}
+                        {session.lastAssistantMessage}
+                      </p>
+                    )}
+                  </div>
+                  {isExpanded && session.messages && (
+                    <div className="mt-4 border-t border-gray-100 pt-4 space-y-3 max-h-96 overflow-y-auto">
+                      {session.messages.map((msg: any, idx: number) => (
+                        <div key={idx} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                          <div className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
+                            msg.role === "user" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-800"
+                          }`}>
+                            <p className="whitespace-pre-wrap">{msg.content}</p>
+                            <p className={`text-xs mt-1 ${msg.role === "user" ? "text-indigo-200" : "text-gray-400"}`}>
+                              {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString("ko-KR") : ""}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 페이지네이션 */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+            <ChevronLeft size={14} />
+          </Button>
+          <span className="text-sm text-slate-500">{page} / {totalPages}</span>
+          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+            <ChevronRight size={14} />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── 세션 기반 로그 패널 (manager / golftalk) ────────────────
-function SessionLogPanel({ assistant }: { assistant: "manager" | "golftalk" }) {
+function SessionLogPanel({ assistant, category }: { assistant: "manager" | "golftalk"; category: ChannelCategory }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
 
@@ -147,8 +351,19 @@ function SessionLogPanel({ assistant }: { assistant: "manager" | "golftalk" }) {
     return seen.size;
   }, [logsData]);
 
+  const channelLabel = assistant === "golftalk" ? "AI상담톡" : "AI파트너매니저";
+  const userLabel = assistant === "golftalk" ? "고객" : "파트너";
+
   return (
     <div className="space-y-4">
+      {/* 파트너 공개 채널 안내 */}
+      {category === "partner" && (
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 text-sm text-blue-700">
+          <Users size={14} />
+          <span>이 채널의 로그는 해당 파트너사 테넌트에서도 조회 가능합니다.</span>
+        </div>
+      )}
+
       {/* 통계 카드 */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
@@ -205,7 +420,7 @@ function SessionLogPanel({ assistant }: { assistant: "manager" | "golftalk" }) {
       ) : (
         <div className="space-y-3">
           <p className="text-sm text-slate-500 font-medium">
-            {assistant === "golftalk" ? "AI상담톡" : "AI파트너매니저"} 대화 이력 ({sessions.length}개 세션)
+            {channelLabel} 대화 이력 ({sessions.length}개 세션)
           </p>
           {sessions.map((session) => {
             const isExpanded = expandedSession === session.sessionId;
@@ -235,9 +450,7 @@ function SessionLogPanel({ assistant }: { assistant: "manager" | "golftalk" }) {
                     </div>
                     {session.firstMessage && (
                       <p className="text-sm text-gray-700 line-clamp-2 mb-1">
-                        <span className="font-medium text-gray-500">
-                          {assistant === "golftalk" ? "고객" : "파트너"}:
-                        </span>{" "}
+                        <span className="font-medium text-gray-500">{userLabel}:</span>{" "}
                         {session.firstMessage.content}
                       </p>
                     )}
@@ -254,7 +467,6 @@ function SessionLogPanel({ assistant }: { assistant: "manager" | "golftalk" }) {
                     </div>
                   </div>
 
-                  {/* 펼쳐진 전체 대화 */}
                   {isExpanded && (
                     <div className="mt-4 border-t border-gray-100 pt-4 space-y-3 max-h-96 overflow-y-auto">
                       {session.messages.map((msg, idx) => (
@@ -288,7 +500,7 @@ function SessionLogPanel({ assistant }: { assistant: "manager" | "golftalk" }) {
   );
 }
 
-// ─── 파트너자동화AI 로그 패널 (aiLogs 라우터 사용) ────────────
+// ─── 파트너자동화AI 로그 패널 ─────────────────────────────────
 function AutomationLogPanel() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -356,7 +568,7 @@ function AutomationLogPanel() {
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveSubTab(tab.id as any)}
+              onClick={() => setActiveSubTab(tab.id as "logs" | "stats")}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeSubTab === tab.id
                   ? "bg-white text-indigo-700 shadow-sm"
@@ -407,67 +619,75 @@ function AutomationLogPanel() {
                         className="cursor-pointer"
                         onClick={() => setExpandedId(isExpanded ? null : log.id)}
                       >
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant={isFailed ? "destructive" : "secondary"} className="text-xs">
+                              {isFailed ? "실패" : "성공"}
+                            </Badge>
                             {log.regionUsed && (
-                              <Badge variant="outline" className="text-xs" style={{ borderColor: REGION_COLORS[log.regionUsed] || "#64748b", color: REGION_COLORS[log.regionUsed] || "#64748b" }}>
-                                <Globe size={10} className="mr-1" />
+                              <Badge variant="outline" className="text-xs" style={{ color: REGION_COLORS[log.regionUsed] || "#64748b", borderColor: REGION_COLORS[log.regionUsed] || "#64748b" }}>
                                 {log.regionUsed}
                               </Badge>
                             )}
                             {log.modelName && (
-                              <Badge variant="secondary" className="text-xs bg-indigo-50 text-indigo-700">
+                              <Badge variant="outline" className="text-xs text-slate-500">
                                 {log.modelName}
                               </Badge>
                             )}
-                            {isFailed && (
-                              <Badge variant="destructive" className="text-xs">
-                                <AlertTriangle size={10} className="mr-1" />
-                                실패
-                              </Badge>
-                            )}
-                            {log.responseTimeMs && (
-                              <span className="text-xs text-slate-400">{log.responseTimeMs}ms</span>
-                            )}
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-xs text-slate-400">
-                              {new Date(log.createdAt).toLocaleString("ko-KR")}
-                            </span>
-                            {isExpanded ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
+                          <div className="flex items-center gap-2 text-xs text-gray-400">
+                            <Clock size={12} />
+                            {new Date(log.createdAt).toLocaleString("ko-KR")}
+                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                           </div>
                         </div>
-                        <p className="text-sm text-slate-700 line-clamp-2">{log.query}</p>
+                        <p className="text-sm text-gray-700 line-clamp-2">
+                          <span className="font-medium text-gray-500">질문:</span> {log.query}
+                        </p>
+                        {!isExpanded && log.response && (
+                          <p className="text-sm text-gray-500 line-clamp-1 mt-1">
+                            <span className="font-medium">응답:</span> {log.response}
+                          </p>
+                        )}
                       </div>
 
                       {isExpanded && (
-                        <div className="mt-3 pt-3 border-t border-slate-100 space-y-3">
-                          <div className="bg-slate-50 rounded-lg p-3">
-                            <p className="text-xs font-semibold text-slate-500 mb-1">질문</p>
-                            <p className="text-sm text-slate-700 whitespace-pre-wrap">{log.query}</p>
-                          </div>
-                          <div className="bg-indigo-50 rounded-lg p-3">
-                            <p className="text-xs font-semibold text-indigo-600 mb-1">응답</p>
-                            <p className="text-sm text-slate-700 whitespace-pre-wrap">{log.response}</p>
-                          </div>
-                          <div className="flex items-center justify-end">
+                        <div className="mt-3 border-t border-gray-100 pt-3 space-y-3">
+                          <div className="bg-gray-50 rounded-lg p-3">
+                              <p className="text-xs font-medium text-gray-500 mb-1">질문</p>
+                              <p className="text-sm text-gray-800 whitespace-pre-wrap">{log.query}</p>
+                            </div>
+                          {log.response && (
+                            <div className="bg-blue-50 rounded-lg p-3">
+                              <p className="text-xs font-medium text-blue-600 mb-1">응답</p>
+                              <p className="text-sm text-gray-800 whitespace-pre-wrap">{log.response}</p>
+                            </div>
+                          )}
+                          {log.isSuccess === false && (
+                            <div className="bg-red-50 rounded-lg p-3">
+                              <p className="text-xs font-medium text-red-600 mb-1 flex items-center gap-1">
+                                <AlertTriangle size={11} /> 실패 로그
+                              </p>
+                              <p className="text-sm text-red-700">AI 응답 실패</p>
+                            </div>
+                          )}
+                          <div className="flex justify-end">
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50 gap-1">
-                                  <Trash2 size={13} />
-                                  삭제
+                                  <Trash2 size={13} /> 삭제
                                 </Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>로그 삭제</AlertDialogTitle>
-                                  <AlertDialogDescription>이 로그를 삭제하시겠습니까? 되돌릴 수 없습니다.</AlertDialogDescription>
+                                  <AlertDialogDescription>이 로그를 삭제하시겠습니까? 복구할 수 없습니다.</AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>취소</AlertDialogCancel>
                                   <AlertDialogAction
-                                    className="bg-red-600 hover:bg-red-700"
                                     onClick={() => deleteMutation.mutate({ id: log.id })}
+                                    className="bg-red-600 hover:bg-red-700"
                                   >
                                     삭제
                                   </AlertDialogAction>
@@ -486,12 +706,12 @@ function AutomationLogPanel() {
 
           {/* 페이지네이션 */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-2">
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
                 <ChevronLeft size={14} />
               </Button>
-              <span className="text-sm text-slate-600">{page} / {totalPages}</span>
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+              <span className="text-sm text-slate-500">{page} / {totalPages}</span>
+              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
                 <ChevronRight size={14} />
               </Button>
             </div>
@@ -506,7 +726,6 @@ function AutomationLogPanel() {
             <div className="text-center py-12 text-slate-400">통계 로딩 중...</div>
           ) : (
             <>
-              {/* 리전별 분포 */}
               {regionData && regionData.stats && regionData.stats.length > 0 && (
                 <Card>
                   <CardContent className="p-5">
@@ -543,7 +762,6 @@ function AutomationLogPanel() {
                 </Card>
               )}
 
-              {/* 일별 추이 */}
               {dailyData && dailyData.length > 0 && (
                 <Card>
                   <CardContent className="p-5">
@@ -564,7 +782,6 @@ function AutomationLogPanel() {
                 </Card>
               )}
 
-              {/* 모델별 분포 */}
               {modelData && modelData.length > 0 && (
                 <Card>
                   <CardContent className="p-5">
@@ -572,7 +789,7 @@ function AutomationLogPanel() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <ResponsiveContainer width="100%" height={180}>
                         <PieChart>
-                          <Pie data={modelData} dataKey="count" nameKey="model" cx="50%" cy="50%" outerRadius={70} label={({ model, percent }) => `${model} ${(percent * 100).toFixed(0)}%`}>
+                          <Pie data={modelData} dataKey="count" nameKey="model" cx="50%" cy="50%" outerRadius={70} label={({ model, percent }: any) => `${model} ${(percent * 100).toFixed(0)}%`}>
                             {modelData.map((_: any, index: number) => (
                               <Cell key={index} fill={Object.values(REGION_COLORS)[index % 5]} />
                             ))}
@@ -605,9 +822,23 @@ function AutomationLogPanel() {
 
 // ─── 메인 페이지 ──────────────────────────────────────────
 export default function AIUnifiedLogs() {
-  const [activeChannel, setActiveChannel] = useState<string>("manager");
+  const { user } = useAuth();
+  const isMaster = user?.role === "admin";
 
-  const channel = CHANNELS.find((c) => c.id === activeChannel)!;
+  // 마스터 전용 채널은 admin만 볼 수 있음
+  const visibleChannels = CHANNELS.filter(ch =>
+    ch.category === "partner" || (ch.category === "master" && isMaster)
+  );
+
+  const [activeChannel, setActiveChannel] = useState<string>(() =>
+    isMaster ? "master" : "manager"
+  );
+
+  const channel = visibleChannels.find((c) => c.id === activeChannel) ?? visibleChannels[0];
+
+  // 카테고리별 분리
+  const masterChannels = visibleChannels.filter(c => c.category === "master");
+  const partnerChannels = visibleChannels.filter(c => c.category === "partner");
 
   return (
     <div className="p-6 space-y-6">
@@ -618,36 +849,101 @@ export default function AIUnifiedLogs() {
         </div>
         <div>
           <h1 className="text-xl font-bold text-slate-800">AI 통합 로그</h1>
-          <p className="text-sm text-slate-500">AI파트너매니저 · AI상담톡 · 파트너자동화AI 대화 이력 통합 관리</p>
+          <p className="text-sm text-slate-500">
+            {isMaster
+              ? "마스터AI · 파트너자동화AI · AI파트너매니저 · AI상담톡 전체 통합 관리"
+              : "AI파트너매니저 · AI상담톡 대화 이력 조회"}
+          </p>
         </div>
       </div>
 
-      {/* 채널 탭 */}
-      <div className="flex gap-2 border-b border-slate-200 pb-0">
-        {CHANNELS.map((ch) => {
-          const Icon = ch.icon;
-          const isActive = activeChannel === ch.id;
-          return (
-            <button
-              key={ch.id}
-              onClick={() => setActiveChannel(ch.id)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all -mb-px ${
-                isActive
-                  ? "border-indigo-600 text-indigo-700"
-                  : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-              }`}
-            >
-              <Icon size={15} className={isActive ? ch.color : ""} />
-              {ch.label}
-            </button>
-          );
-        })}
+      {/* 채널 탭 — 카테고리별 구분 */}
+      <div className="space-y-1">
+        {/* 마스터 전용 섹션 */}
+        {isMaster && masterChannels.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 px-1 mb-1">
+              <Shield size={12} className="text-amber-500" />
+              <span className="text-xs font-semibold text-amber-600 uppercase tracking-wider">마스터 전용</span>
+            </div>
+            <div className="flex gap-1 flex-wrap border-b border-slate-200 pb-0">
+              {masterChannels.map((ch) => {
+                const Icon = ch.icon;
+                const isActive = activeChannel === ch.id;
+                return (
+                  <button
+                    key={ch.id}
+                    onClick={() => setActiveChannel(ch.id)}
+                    className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all -mb-px ${
+                      isActive
+                        ? "border-amber-500 text-amber-700"
+                        : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                    }`}
+                  >
+                    <Icon size={15} className={isActive ? ch.color : ""} />
+                    {ch.label}
+                    <Lock size={11} className="text-amber-400 opacity-60" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 파트너 공개 섹션 */}
+        {partnerChannels.length > 0 && (
+          <div className="mt-3">
+            <div className="flex items-center gap-2 px-1 mb-1">
+              <Users size={12} className="text-blue-500" />
+              <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider">파트너 공개</span>
+            </div>
+            <div className="flex gap-1 flex-wrap border-b border-slate-200 pb-0">
+              {partnerChannels.map((ch) => {
+                const Icon = ch.icon;
+                const isActive = activeChannel === ch.id;
+                return (
+                  <button
+                    key={ch.id}
+                    onClick={() => setActiveChannel(ch.id)}
+                    className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all -mb-px ${
+                      isActive
+                        ? "border-indigo-600 text-indigo-700"
+                        : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                    }`}
+                  >
+                    <Icon size={15} className={isActive ? ch.color : ""} />
+                    {ch.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
+      {/* 채널 설명 */}
+      {channel && (
+        <div className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm ${
+          channel.category === "master"
+            ? "bg-amber-50 border border-amber-200 text-amber-700"
+            : "bg-blue-50 border border-blue-200 text-blue-700"
+        }`}>
+          {channel.category === "master" ? <Shield size={14} /> : <Users size={14} />}
+          <span>{channel.description}</span>
+          {channel.category === "master" && (
+            <Badge className="ml-auto text-xs bg-amber-100 text-amber-700 border-amber-300">마스터 전용</Badge>
+          )}
+          {channel.category === "partner" && (
+            <Badge className="ml-auto text-xs bg-blue-100 text-blue-700 border-blue-300">파트너 공개</Badge>
+          )}
+        </div>
+      )}
+
       {/* 채널별 콘텐츠 */}
-      {activeChannel === "manager" && <SessionLogPanel assistant="manager" />}
-      {activeChannel === "golftalk" && <SessionLogPanel assistant="golftalk" />}
+      {activeChannel === "master" && <MasterAILogPanel />}
       {activeChannel === "gemini" && <AutomationLogPanel />}
+      {activeChannel === "manager" && <SessionLogPanel assistant="manager" category="partner" />}
+      {activeChannel === "golftalk" && <SessionLogPanel assistant="golftalk" category="partner" />}
     </div>
   );
 }

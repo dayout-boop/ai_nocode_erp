@@ -2362,3 +2362,18 @@ Detected
 - [x] 우측 AI파트너매니저 패널 3단계 너비 토글 아이콘 (넓게 → 좁게 → 아이콘만)
 - [x] 모바일: 우측 상단 고정 아이콘 → 클릭시 패널 오픈 → 닫기버튼으로 아이콘 복귀
 - [x] 어떤 메뉴를 선택해도 AI파트너매니저 패널이 우측에 항상 고정
+
+## 마스터 ERP 3단 레이아웃 + 페이지 컨텍스트(방법A) + 로그/크레딧 통합 개선
+- [ ] masterChat 프로시저에 currentPage 파라미터 추가 (시스템 프롬프트 동적 변경)
+- [ ] managerChat 프로시저에 currentPage 파라미터 추가 (시스템 프롬프트 동적 변경)
+- [ ] ERPLayout 마스터 ERP 3단 레이아웃 개편 (우측 마스터AI 고정 패널 + 좌우 3단계 토글 + 모바일 플로팅)
+- [ ] ERPPartnerLayout AI 패널에 currentPath 주입 (useLocation 연동)
+- [ ] AIUnifiedLogs 마스터용 전체 채널 조회 + 테넌트용 자신 로그만 표시 분리
+- [ ] AICreditManagement 마스터/테넌트 분기 완성 (파트너별 크레딧 + 충전 요청 처리)
+
+## 마스터 ERP 3단 레이아웃 + AI 통합 로그 + AICreditManagement 개선 (2026-06-11)
+- [x] ERPLayout.tsx 3단 레이아웃 개편: 좌측 사이드바 3단계 (full/icon/hidden) + 우측 마스터AI 패널 3단계 (wide/narrow/icon)
+- [x] AIUnifiedLogs.tsx v2: 마스터 전용 채널(마스터AI로그, 파트너자동화AI) + 파트너 공개 채널(AI파트너매니저, AI상담톡) 카테고리 분리
+- [x] AIUnifiedLogs.tsx - listMasterSessions 파라미터를 서버 스펙(limit/offset)에 맞게 수정
+- [x] AIUnifiedLogs.tsx - aiLogs 필드명 수정 (prompt→query, modelUsed→modelName, errorMessage→isSuccess 기반)
+- [x] AICreditManagement.tsx 마스터/파트너 분기 구조 확인 (기존 구현 완료 상태)

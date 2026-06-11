@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, Suspense } from "react";
+import { useState, useRef, useEffect, Suspense, useCallback, useMemo } from "react";
 import { Link, useLocation, Switch, Route } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { usePartnerAuth } from "@/_core/hooks/usePartnerAuth";
@@ -30,11 +30,16 @@ import {
   Archive,
   // 크레딧 관리
   Coins,
+  // 3단 레이아웃 토글 아이콘
+  PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
+  // 채팅
+  Send, RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { trpc } from "@/lib/trpc";
+import { Streamdown } from "streamdown";
 import ERPDashboard from "@/pages/erp/Dashboard";
 import ERPPackages from "@/pages/erp/Packages";
 import ERPPackageDetail from "@/pages/erp/PackageDetail";
@@ -91,6 +96,321 @@ import AICreditManagement from "@/pages/erp/AICreditManagement";
 import { Loader2, Plug } from "lucide-react";
 import TenantSelector from "@/components/TenantSelector";
 
+// ─── 3단 레이아웃 너비 타입 ────────────────────────────────────────────────────
+type SidebarMode = "full" | "icon" | "hidden";
+type AIPanelMode = "wide" | "narrow" | "icon";
+
+const SIDEBAR_WIDTHS: Record<SidebarMode, string> = {
+  full: "w-64",
+  icon: "w-16",
+  hidden: "w-0",
+};
+
+const AI_PANEL_WIDTHS: Record<AIPanelMode, string> = {
+  wide: "w-96",
+  narrow: "w-72",
+  icon: "w-12",
+};
+
+// ─── 마스터AI 패널 채팅 타입 ──────────────────────────────────────────────────
+interface PanelMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+  streaming?: boolean;
+}
+
+function generatePanelSessionId() {
+  return `master-panel-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// ─── 마스터AI 패널 채팅 컴포넌트 ─────────────────────────────────────────────
+function MasterAIPanelContent({ compact, currentPage }: { compact?: boolean; currentPage: string }) {
+  const WELCOME: PanelMessage = {
+    id: "welcome",
+    role: "assistant",
+    content: "안녕하세요! 🤖\n마스터AI입니다. 무엇을 도와드릴까요?",
+    timestamp: new Date(),
+  };
+
+  const [messages, setMessages] = useState<PanelMessage[]>([WELCOME]);
+  const [input, setInput] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [sessionId, setSessionId] = useState(() => generatePanelSessionId());
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // devMode localStorage에서 읽기
+  const devMode = useMemo(() => {
+    if (typeof window === "undefined") return "manus";
+    const saved = window.localStorage.getItem("dogolf_dev_mode");
+    return saved === "self" ? "self" : "manus";
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  useEffect(() => { scrollToBottom(); }, [messages, isStreaming, scrollToBottom]);
+
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || isStreaming) return;
+
+    const userMsg: PanelMessage = {
+      id: `u-${Date.now()}`,
+      role: "user",
+      content: text.trim(),
+      timestamp: new Date(),
+    };
+    const assistantId = `a-${Date.now()}`;
+    const assistantMsg: PanelMessage = {
+      id: assistantId,
+      role: "assistant",
+      content: "",
+      streaming: true,
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, userMsg, assistantMsg]);
+    setInput("");
+    setIsStreaming(true);
+
+    const history = messages.filter(m => m.id !== "welcome").slice(-10).map(m => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const res = await fetch("/api/master-stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          message: text.trim(),
+          sessionId,
+          history,
+          fileContexts: [],
+          devMode,
+          currentPage,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "서버 오류" }));
+        setMessages(prev => prev.map(m =>
+          m.id === assistantId
+            ? { ...m, streaming: false, content: `❌ ${err.error ?? "서버 오류"}` }
+            : m
+        ));
+        return;
+      }
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let eventType = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            eventType = line.slice(7).trim();
+          } else if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (eventType === "chunk" && data.text !== undefined) {
+                setMessages(prev => prev.map(m =>
+                  m.id === assistantId ? { ...m, content: m.content + data.text } : m
+                ));
+                scrollToBottom();
+              } else if (eventType === "done") {
+                setMessages(prev => prev.map(m =>
+                  m.id === assistantId ? { ...m, streaming: false } : m
+                ));
+              } else if (eventType === "error") {
+                setMessages(prev => prev.map(m =>
+                  m.id === assistantId
+                    ? { ...m, streaming: false, content: m.content || `❌ ${data.message}` }
+                    : m
+                ));
+              }
+            } catch { /* JSON 파싱 실패 무시 */ }
+            eventType = "";
+          }
+        }
+      }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        setMessages(prev => prev.map(m =>
+          m.id === assistantId
+            ? { ...m, streaming: false, content: m.content || "❌ 연결이 끊어졌습니다." }
+            : m
+        ));
+      }
+    } finally {
+      setIsStreaming(false);
+      abortRef.current = null;
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
+  };
+
+  const handleNewChat = () => {
+    if (isStreaming) { abortRef.current?.abort(); }
+    setMessages([WELCOME]);
+    setSessionId(generatePanelSessionId());
+    setInput("");
+    setIsStreaming(false);
+  };
+
+  const QUICK_QUESTIONS = compact
+    ? ["오늘 예약 현황", "AI 비용 현황", "미처리 개발 요청"]
+    : ["오늘 예약 현황 알려줘", "이번 달 AI 비용 현황", "미처리 개발 요청 목록", "시스템 오류 로그 확인"];
+
+  return (
+    <div className="flex flex-col h-full bg-gray-50">
+      {/* 툴바 */}
+      <div className="bg-white border-b border-gray-200 px-3 py-2.5 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <BrainCircuit size={14} className="text-indigo-600" />
+          </div>
+          {!compact && (
+            <div>
+              <p className="font-bold text-gray-900 text-xs">마스터AI 🤖</p>
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                <p className="text-[10px] text-gray-500">온라인</p>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={handleNewChat} title="새 대화" className="p-1 rounded hover:bg-gray-100 transition-colors">
+            <RotateCcw size={13} className="text-gray-500" />
+          </button>
+          <Link href="/erp/master-ai">
+            <button title="전체 화면으로" className="p-1 rounded hover:bg-gray-100 transition-colors">
+              <ExternalLink size={13} className="text-gray-500" />
+            </button>
+          </Link>
+        </div>
+      </div>
+
+      {/* 메시지 영역 */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="px-3 py-3 space-y-3">
+          {/* 빠른 질문 */}
+          {messages.length === 1 && (
+            <div className="bg-indigo-50 rounded-xl p-3">
+              <p className="text-[10px] font-semibold text-indigo-700 mb-1.5">💡 빠른 질문</p>
+              <div className="flex flex-wrap gap-1.5">
+                {QUICK_QUESTIONS.map(q => (
+                  <button key={q} onClick={() => sendMessage(q)}
+                    className="text-[10px] bg-white border border-indigo-200 text-indigo-700 rounded-full px-2 py-1 hover:bg-indigo-50 transition-colors">
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 메시지 목록 */}
+          {messages.map(msg => (
+            <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              {msg.role === "assistant" && (
+                <div className="w-6 h-6 bg-indigo-100 rounded-lg flex items-center justify-center mr-1.5 mt-0.5 flex-shrink-0">
+                  <BrainCircuit size={12} className="text-indigo-600" />
+                </div>
+              )}
+              <div className={`max-w-[85%] ${msg.role === "user" ? "" : "w-full"}`}>
+                <div className={`rounded-xl px-3 py-2 text-xs leading-relaxed ${
+                  msg.role === "user"
+                    ? "bg-indigo-600 text-white rounded-br-sm"
+                    : "bg-white text-gray-800 shadow-sm border border-gray-100 rounded-bl-sm"
+                }`}>
+                  {msg.role === "assistant" ? (
+                    <div className="prose prose-xs max-w-none text-xs">
+                      <Streamdown>{msg.content}</Streamdown>
+                      {msg.streaming && (
+                        <span className="inline-flex gap-0.5 ml-1">
+                          <span className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                          <span className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                          <span className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="whitespace-pre-wrap">{msg.content}</span>
+                  )}
+                  <p className={`text-[10px] mt-1 ${msg.role === "user" ? "text-indigo-200" : "text-gray-400"}`}>
+                    {msg.timestamp.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* 타이핑 인디케이터 (스트리밍 중이지만 content 없을 때) */}
+          {isStreaming && messages[messages.length - 1]?.role === "assistant" && !messages[messages.length - 1]?.content && (
+            <div className="flex justify-start">
+              <div className="w-6 h-6 bg-indigo-100 rounded-lg flex items-center justify-center mr-1.5 mt-0.5 flex-shrink-0">
+                <BrainCircuit size={12} className="text-indigo-600" />
+              </div>
+              <div className="bg-white rounded-xl rounded-bl-sm px-3 py-2 shadow-sm border border-gray-100">
+                <div className="flex gap-1 items-center">
+                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      {/* 입력창 */}
+      <div className="bg-white border-t border-gray-200 flex-shrink-0 px-2 py-2">
+        <div className="flex items-end gap-1.5">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={compact ? "질문하세요..." : "마스터AI에게 질문하세요..."}
+            rows={1}
+            className="flex-1 resize-none rounded-lg border border-gray-200 px-2.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent max-h-24 overflow-y-auto"
+            style={{ lineHeight: "1.4" }}
+          />
+          <Button
+            onClick={() => sendMessage(input)}
+            disabled={!input.trim() || isStreaming}
+            className="w-8 h-8 bg-indigo-600 hover:bg-indigo-700 rounded-lg p-0 flex-shrink-0"
+          >
+            {isStreaming ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+          </Button>
+        </div>
+        <p className="text-[10px] text-gray-400 text-center mt-1">Enter 전송 · Shift+Enter 줄바꿈</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── NavItem 타입 ──────────────────────────────────────────────────────────────
 interface NavChild {
   label: string;
   href: string;
@@ -147,9 +467,9 @@ const navItems: NavItem[] = [
       { label: "오케스트레이터", href: "/orchestrator", icon: <Zap size={14} /> },
     ],
   },
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 신규 분양관리 — 파트너 가입 파이프라인 순서대로 통합 (마스터 전용)
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   {
     label: "신규 분양관리",
     masterOnly: true,
@@ -162,7 +482,7 @@ const navItems: NavItem[] = [
       { label: "⑤ 분양 AI 콘솔 🏢", href: "/tenant-ai-console", icon: <Shield size={14} />, masterOnly: true },
     ],
   },
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 운영 카테고리
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   { label: "대시보드", icon: <LayoutDashboard size={18} />, href: "/" },
@@ -220,21 +540,21 @@ const navItems: NavItem[] = [
       { label: "자동 치환 변수", href: "/cms/variables", icon: <Code2 size={14} /> },
     ],
   },
-    {
-      label: "연동 설정",
-      icon: <Settings size={18} />,
-      children: [
-        { label: "ERP 설정", href: "/settings", icon: <Settings size={14} /> },
-        { label: "업체 API 연동", href: "/partner-integrations", icon: <Plug size={14} /> },
-        { label: "시스템 설정", href: "/settings/system", icon: <Cpu size={14} />, masterOnly: true },
-        { label: "지식 차단 관리", href: "/knowledge-block", icon: <Shield size={14} />, masterOnly: true },
-        { label: "이미지 아카이브", href: "/image-archive", icon: <Archive size={14} />, masterOnly: true },
-      ],
-    },
-  ];
+  {
+    label: "연동 설정",
+    icon: <Settings size={18} />,
+    children: [
+      { label: "ERP 설정", href: "/settings", icon: <Settings size={14} /> },
+      { label: "업체 API 연동", href: "/partner-integrations", icon: <Plug size={14} /> },
+      { label: "시스템 설정", href: "/settings/system", icon: <Cpu size={14} />, masterOnly: true },
+      { label: "지식 차단 관리", href: "/knowledge-block", icon: <Shield size={14} />, masterOnly: true },
+      { label: "이미지 아카이브", href: "/image-archive", icon: <Archive size={14} />, masterOnly: true },
+    ],
+  },
+];
 
+// ─── NavItemComponent ─────────────────────────────────────────────────────────
 // ⚠️ ERP 내부 메뉴는 반드시 wouter <Link>를 사용하여 SPA 내부 라우팅으로 처리해야 합니다.
-// <a href>를 사용하면 새 탭/페이지 이동이 발생합니다.
 function NavItemComponent({ item, collapsed, onNavigate }: { item: NavItem; collapsed: boolean; onNavigate?: () => void }) {
   const [location] = useLocation();
   const [open, setOpen] = useState(() => {
@@ -305,11 +625,11 @@ function NavItemComponent({ item, collapsed, onNavigate }: { item: NavItem; coll
   );
 }
 
+// ─── ERPContent (라우팅) ──────────────────────────────────────────────────────
 function ERPContent() {
   const [location] = useLocation();
   const mainRef = useRef<HTMLElement>(null);
 
-  // 라우트 변경 시 스크롤 위치 초기화
   useEffect(() => {
     if (mainRef.current) {
       mainRef.current.scrollTop = 0;
@@ -387,34 +707,46 @@ function ERPContent() {
   );
 }
 
+// ─── 메인 ERPLayout ───────────────────────────────────────────────────────────
 export default function ERPLayout() {
   const { user, loading, isAuthenticated, logout } = useAuth();
-  // 파트너 대표 세션 확인 (partner_session 쿠키)
   const { user: partnerUser, loading: partnerLoading, isAuthenticated: isPartnerAuthenticated } = usePartnerAuth();
+  const [location] = useLocation();
   const [, setLocation] = useLocation();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // ── 3단 레이아웃 상태 ──
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>("full");
+  const [aiPanelMode, setAIPanelMode] = useState<AIPanelMode>("narrow");
   const [mobileOpen, setMobileOpen] = useState(false);
-  // 이번주 일정 위젯 상태태
+  const [mobileAIOpen, setMobileAIOpen] = useState(false);
+
+  // ── 이번주 일정 위젯 ──
   const [showWeeklyPopup, setShowWeeklyPopup] = useState(false);
   const weeklyPopupRef = useRef<HTMLDivElement>(null);
 
-  // 마스터 ERP 로그아웃 뮤테이션 (세션 파기 + localStorage 초기화 + 로그인 페이지 리디렉션)
+  // ── 3단계 토글 핸들러 ──
+  const cycleSidebar = () => {
+    setSidebarMode(prev => prev === "full" ? "icon" : prev === "icon" ? "hidden" : "full");
+  };
+  const cycleAIPanel = () => {
+    setAIPanelMode(prev => prev === "wide" ? "narrow" : prev === "narrow" ? "icon" : "wide");
+  };
+
+  // 마스터 ERP 로그아웃 뮤테이션
   const adminLogoutMutation = trpc.adminAuth.logout.useMutation({
     onSuccess: () => {
       localStorage.removeItem('adminLoginTime');
       window.location.href = `${window.location.origin}/erp/login`;
     },
     onError: () => {
-      // 오류가 발생해도 로컬 세션 초기화 후 리디렉션
       localStorage.removeItem('adminLoginTime');
       window.location.href = `${window.location.origin}/erp/login`;
     },
   });
 
-  // 마스터 ERP 세션 확인 (Manus 로그인과 별도)
   const adminSessionQuery = trpc.adminAuth.me.useQuery(undefined, {
-    refetchInterval: 5 * 60 * 1000, // 5분마다 확인
-    retry: 1, // 실패 시 1회만 재시도
+    refetchInterval: 5 * 60 * 1000,
+    retry: 1,
   });
 
   useEffect(() => {
@@ -434,24 +766,21 @@ export default function ERPLayout() {
 
   const weeklySchedulesQuery = trpc.crm.getWeeklySchedules.useQuery(undefined, {
     enabled: isAuthenticated && user?.role === "admin",
-    refetchInterval: 300000, // 5분마다 갱신
+    refetchInterval: 300000,
   });
 
-  // 마스터 ERP 세션 확인 (Manus 로그인 없이도 마스터 세션으로 접근 가능)
-  // adminSessionQuery 오류를 내성 처리 - localStorage로 대체
-    const adminLoginTime = typeof window !== 'undefined' ? localStorage.getItem('adminLoginTime') : null;
+  const adminLoginTime = typeof window !== 'undefined' ? localStorage.getItem('adminLoginTime') : null;
   const hasMasterSession = adminLoginTime !== null || (adminSessionQuery.data !== undefined && adminSessionQuery.data !== null);
   const isMausAuthenticated = isAuthenticated && user?.role === 'admin';
-  // 파트너 모드 여부: 파트너 세션이 있고 마스터 세션이 없을 때
   const isPartnerMode = isPartnerAuthenticated && !hasMasterSession && !isMausAuthenticated;
-  // 파트너 모드일 때 masterOnly 메뉴 필터링
+
   const filteredNavItems = navItems
     .filter(item => !isPartnerMode || !item.masterOnly)
     .map(item => ({
       ...item,
       children: item.children?.filter(child => !isPartnerMode || !child.masterOnly),
     }));
-  // 파트너 인증이 로딩 중이면 로딩 화면 유지 (마스터 로그인 화면으로 튕기지 않기)
+
   if ((loading || partnerLoading) && !hasMasterSession && !adminLoginTime) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -463,12 +792,6 @@ export default function ERPLayout() {
     );
   }
 
-  // 파트너 세션이 있으면 파트너 모드로 진입 허용
-  if (isPartnerMode) {
-    // 파트너 모드: 필터링된 메뉴로 ERP 진입 (아래 렌더링에서 filteredNavItems 사용)
-  } else if (!hasMasterSession && !isMausAuthenticated) {
-    // 마스터 세션도 없고 Manus 로그인도 없으면 마스터 로그인 페이지로
-  }
   if (!hasMasterSession && !isMausAuthenticated && !isPartnerMode) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -480,7 +803,6 @@ export default function ERPLayout() {
           <p className="text-slate-400 mb-6">마스터 관리자 계정으로 로그인이 필요합니다.</p>
           <Button
             onClick={() => {
-              // 절대 경로 사용 - wouter 상대 경로 문제 회피
               const baseUrl = window.location.origin;
               window.location.href = `${baseUrl}/erp/login`;
             }}
@@ -493,7 +815,6 @@ export default function ERPLayout() {
     );
   }
 
-  // Manus 로그인이 있는 경우만 역할 체크
   if (isMausAuthenticated && user?.role !== "admin") {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -512,23 +833,30 @@ export default function ERPLayout() {
   const newInquiriesCount = statsQuery.data?.newInquiries || 0;
   const pendingBookingsCount = statsQuery.data?.pendingBookings || 0;
 
+  // 마스터 모드에서만 AI 패널 표시 (파트너 모드는 ERPPartnerLayout에서 처리)
+  const showAIPanel = !isPartnerMode;
+
   return (
-    <div className="min-h-screen bg-slate-100 flex">
-      {/* Sidebar */}
+    <div className="flex h-screen bg-slate-100 overflow-hidden">
+      {/* ── 좌측 사이드바 ── */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 ${
-          sidebarCollapsed ? "w-16" : "w-64"
-        } transition-transform duration-200 ease-out will-change-transform ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        }`}
+        className={`
+          fixed top-0 left-0 h-full bg-slate-900 z-50 flex flex-col
+          transform transition-all duration-300 ease-in-out
+          ${mobileOpen ? "translate-x-0 w-64" : "-translate-x-full w-64"}
+          lg:translate-x-0 lg:static lg:z-auto
+          ${sidebarMode === "hidden" ? "lg:w-0 lg:overflow-hidden" : ""}
+          ${sidebarMode === "icon" ? "lg:w-16" : ""}
+          ${sidebarMode === "full" ? "lg:w-64" : ""}
+        `}
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {/* Logo */}
-        <div className="flex items-center gap-3 px-4 py-5 border-b border-slate-700/50">
+        <div className={`flex items-center border-b border-slate-700/50 flex-shrink-0 ${sidebarMode === "icon" ? "justify-center px-2 py-5" : "gap-3 px-4 py-5"}`}>
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0">
             <span className="text-white font-bold text-sm">D</span>
           </div>
-          {!sidebarCollapsed && (
+          {sidebarMode !== "icon" && (
             <div>
               <div className="text-white font-bold text-sm leading-tight">AI ERP</div>
               <div className="text-slate-400 text-xs">관리자 시스템</div>
@@ -542,7 +870,7 @@ export default function ERPLayout() {
             <NavItemComponent
               key={item.label}
               item={item}
-              collapsed={sidebarCollapsed}
+              collapsed={sidebarMode === "icon"}
               onNavigate={() => setMobileOpen(false)}
             />
           ))}
@@ -553,70 +881,61 @@ export default function ERPLayout() {
           <Link href="/dev-dashboard" onClick={() => setMobileOpen(false)}>
             <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-indigo-300 hover:bg-slate-700 cursor-pointer transition-colors">
               <ExternalLink size={16} className="shrink-0" />
-              {!sidebarCollapsed && <span className="text-xs">개발대시보드</span>}
+              {sidebarMode !== "icon" && <span className="text-xs">개발대시보드</span>}
             </div>
           </Link>
           <a href={window.location.origin} target="_blank" rel="noopener noreferrer">
             <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 cursor-pointer transition-colors">
               <ExternalLink size={16} className="shrink-0" />
-              {!sidebarCollapsed && <span className="text-xs">홈페이지 보기</span>}
+              {sidebarMode !== "icon" && <span className="text-xs">홈페이지 보기</span>}
             </div>
           </a>
           <div
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-700 cursor-pointer transition-colors"
             onClick={() => {
               if (isPartnerMode) {
-                // 파트너 모드: partner_session 쿠키 로그아웃 후 파트너 로그인 페이지로
                 fetch('/api/partner/auth/google/logout', { method: 'POST', credentials: 'include' })
                   .finally(() => { window.location.href = `${window.location.origin}/partner/login`; });
               } else {
-                // 마스터 모드: localStorage 즐시 초기화 후 서버 세션 파기
                 localStorage.removeItem('adminLoginTime');
                 adminLogoutMutation.mutate();
               }
             }}
           >
             <LogOut size={16} className="shrink-0" />
-            {!sidebarCollapsed && <span className="text-xs">{adminLogoutMutation.isPending ? '로그아웃 중...' : '로그아웃'}</span>}
+            {sidebarMode !== "icon" && <span className="text-xs">{adminLogoutMutation.isPending ? '로그아웃 중...' : '로그아웃'}</span>}
           </div>
         </div>
       </aside>
 
-      {/* Mobile overlay */}
-      <div
-        className={`fixed inset-0 z-40 bg-black/50 lg:hidden transition-opacity duration-200 ${
-          mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        }`}
-        onTouchStart={() => setMobileOpen(false)}
-        onClick={() => setMobileOpen(false)}
-      />
+      {/* 모바일 사이드바 오버레이 */}
+      {mobileOpen && (
+        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
+      )}
 
-      {/* Main content */}
-      <div className={`flex-1 flex flex-col min-h-screen transition-[margin] duration-200 ${sidebarCollapsed ? "lg:ml-16" : "lg:ml-64"}`}>
+      {/* ── 메인 콘텐츠 영역 ── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-4">
-          {/* 모바일: 사이드바 오버레이 토글 / 데스크탑: 사이드바 접기 */}
+        <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-4 flex-shrink-0">
+          {/* 모바일: 햄버거 / 데스크탑: 사이드바 토글 */}
           <button
-            className="text-slate-500 hover:text-slate-700 touch-manipulation"
-            onTouchEnd={(e) => {
-              // 모바일 터치: click 이벤트 지연(300ms) 없이 즉시 반응
-              e.preventDefault();
-              e.stopPropagation();
-              setMobileOpen((prev) => !prev);
-            }}
-            onClick={() => {
-              // 데스크탑(lg 이상): 사이드바 너비 토글
-              if (window.matchMedia('(min-width: 1024px)').matches) {
-                setSidebarCollapsed((prev) => !prev);
-              }
-            }}
+            className="text-slate-500 hover:text-slate-700 touch-manipulation lg:hidden"
+            onClick={() => setMobileOpen(prev => !prev)}
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+          {/* 데스크탑: 사이드바 3단계 토글 */}
+          <button
+            onClick={cycleSidebar}
+            title={`사이드바: ${sidebarMode === "full" ? "아이콘으로" : sidebarMode === "icon" ? "숨기기" : "펼치기"}`}
+            className="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-100 transition-colors text-slate-500"
+          >
+            {sidebarMode === "hidden" ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
           </button>
 
           <div className="flex-1" />
 
-          {/* 마스터 전용 테넌트 셀렉터 (파트너 모드에서는 숨김) */}
+          {/* 마스터 전용 테넌트 셀렉터 */}
           {!isPartnerMode && <TenantSelector />}
 
           {/* Notification badges */}
@@ -698,6 +1017,26 @@ export default function ERPLayout() {
             </div>
           )}
 
+          {/* 데스크탑: AI 패널 토글 (마스터 모드만) */}
+          {showAIPanel && (
+            <button
+              onClick={cycleAIPanel}
+              title={`마스터AI 패널: ${aiPanelMode === "wide" ? "좁게" : aiPanelMode === "narrow" ? "아이콘만" : "넓게"}`}
+              className="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-100 transition-colors text-indigo-500"
+            >
+              {aiPanelMode === "icon" ? <PanelRightOpen size={16} /> : <PanelRightClose size={16} />}
+            </button>
+          )}
+          {/* 모바일: AI 아이콘 (마스터 모드만) */}
+          {showAIPanel && (
+            <button
+              onClick={() => setMobileAIOpen(true)}
+              className="lg:hidden flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-600 text-white shadow-md"
+            >
+              <BrainCircuit size={18} />
+            </button>
+          )}
+
           <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
             <Avatar className="w-8 h-8">
               <AvatarFallback className={`text-xs font-bold ${isPartnerMode ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'}`}>
@@ -715,9 +1054,59 @@ export default function ERPLayout() {
           </div>
         </header>
 
-        {/* Page content - ERPContent handles internal routing */}
+        {/* 페이지 콘텐츠 */}
         <ERPContent />
       </div>
+
+      {/* ── 우측 마스터AI 고정 패널 (데스크탑, 마스터 모드만) ── */}
+      {showAIPanel && (
+        <aside
+          className={`
+            hidden lg:flex flex-col h-full bg-white border-l border-gray-200
+            transition-all duration-300 ease-in-out overflow-hidden flex-shrink-0
+            ${AI_PANEL_WIDTHS[aiPanelMode]}
+          `}
+        >
+          {aiPanelMode === "icon" ? (
+            /* 아이콘 모드: 세로 아이콘 버튼만 */
+            <div className="flex flex-col items-center py-4 gap-3">
+              <button
+                onClick={cycleAIPanel}
+                title="마스터AI 패널 펼치기"
+                className="w-8 h-8 bg-indigo-100 rounded-xl flex items-center justify-center hover:bg-indigo-200 transition-colors"
+              >
+                <BrainCircuit size={16} className="text-indigo-600" />
+              </button>
+              <div className="w-0.5 flex-1 bg-gray-100 rounded-full" />
+            </div>
+          ) : (
+            <MasterAIPanelContent compact={aiPanelMode === "narrow"} currentPage={location} />
+          )}
+        </aside>
+      )}
+
+      {/* ── 모바일 AI 패널 (플로팅 오버레이, 마스터 모드만) ── */}
+      {showAIPanel && mobileAIOpen && (
+        <>
+          <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMobileAIOpen(false)} />
+          <div className="fixed top-0 right-0 h-full w-[90vw] max-w-sm bg-white z-50 flex flex-col shadow-2xl lg:hidden">
+            {/* 모바일 AI 패널 헤더 */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-indigo-600 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <BrainCircuit size={18} className="text-white" />
+                <span className="font-bold text-white text-sm">마스터AI 🤖</span>
+                <div className="w-1.5 h-1.5 bg-green-300 rounded-full animate-pulse" />
+              </div>
+              <button onClick={() => setMobileAIOpen(false)} className="text-white/80 hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <MasterAIPanelContent currentPage={location} />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

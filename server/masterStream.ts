@@ -47,6 +47,8 @@ const inputSchema = z.object({
     .default([]),
   // 개발 모드: manus(마누스 태스크 전송) | self(탈마누스 자립 Git 엔진)
   devMode: z.enum(["manus", "self"]).optional().default("manus"),
+  // 현재 보고 있는 페이지 경로 (방법 A: 페이지 컨텍스트 주입)
+  currentPage: z.string().optional().default(""),
 });
 
 // ─── Tool Call 타입 ─────────────────────────────────────────────
@@ -84,6 +86,37 @@ interface PendingApprovalEntry {
 }
 
 const pendingApprovals = new Map<string, PendingApprovalEntry>();
+
+// ─── 페이지 컨텍스트 안내 헬퍼 (방법 A) ────────────────────────────────
+const PAGE_CONTEXT_MAP: Record<string, string> = {
+  "/": "대시보드",
+  "/dashboard": "대시보드",
+  "/packages": "상품 목록 관리",
+  "/packages/new": "상품 등록",
+  "/bookings": "예약 관리",
+  "/bookings/pending": "대기 예약 목록",
+  "/inquiries": "문의 관리",
+  "/settlements": "정산 관리",
+  "/partners": "파트너 관리",
+  "/partner-onboarding": "파트너 온보딩 관리",
+  "/crm": "CRM 고객 관리",
+  "/cms": "CMS 콘텐츠 관리",
+  "/ai-channel-management": "AI 채널 관리",
+  "/ai-credit-management": "AI 크레딧 관리",
+  "/ai-unified-logs": "AI 통합 로그",
+  "/master-ai": "마스터AI 채팅",
+  "/master-ai/logs": "마스터AI 대화 로그",
+};
+
+function buildPageContextGuide(currentPage: string): string {
+  if (!currentPage) return "";
+  // 정확한 매칭 먼저, 없으면 프리픽스 매칭
+  const label =
+    PAGE_CONTEXT_MAP[currentPage] ??
+    Object.entries(PAGE_CONTEXT_MAP).find(([k]) => currentPage.startsWith(k))?.[1] ??
+    currentPage;
+  return `\n\n[현재 페이지 컨텍스트]\n사용자가 현재 "${label}" 페이지를 보고 있습니다. 이 페이지와 관련된 질문이 들어오면 해당 페이지의 데이터를 중심으로 답변하세요. 다른 페이지의 데이터를 요청하는 경우도 정확하게 안내하세요.`;
+}
 
 // 5분 후 만료 정리
 setInterval(() => {
@@ -448,7 +481,9 @@ export function registerMasterStreamRoute(app: Express) {
           ? `\n\n[개발 모드: 탈마누스 자립 개발]\n현재 마스터는 "탈마누스 자립 개발" 모드를 선택했습니다. 개발 요청이 감지되면 Manus 태스크 전송이 아닌, 서버 내장 Git 엔진(Changeset → dev-1 → dev-2-integration → main)을 통한 자립 개발 파이프라인을 기준으로 안내하세요. "Manus"라는 표현 대신 "자립 개발 엔진"으로 안내합니다.`
           : `\n\n[개발 모드: 마누스 개발]\n현재 마스터는 "마누스 개발" 모드를 선택했습니다. 개발 요청이 감지되면 기존처럼 Manus 태스크로 전송하는 흐름으로 안내하세요.`;
 
-      const systemWithMode = MASTER_SYSTEM_PROMPT + devModeGuide + "\n\n" + NO_CROSS_DESK_KNOWLEDGE_DIRECTIVE;
+      // 현재 페이지 컨텍스트 (방법 A)
+      const pageContextGuide = buildPageContextGuide(input.currentPage);
+      const systemWithMode = MASTER_SYSTEM_PROMPT + devModeGuide + pageContextGuide + "\n\n" + NO_CROSS_DESK_KNOWLEDGE_DIRECTIVE;
       const systemWithContext =
         contextParts.length > 0
           ? `${systemWithMode}\n\n[현재 컨텍스트]\n${contextParts.join("\n\n")}`
