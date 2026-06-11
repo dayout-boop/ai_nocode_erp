@@ -133,8 +133,8 @@ export default function AILogs() {
               <MessageSquare size={18} className="text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-800">AI 대화 로그</h1>
-              <p className="text-sm text-slate-500">Gemini AI 대화 내역 및 리전별 성능 통계</p>
+              <h1 className="text-xl font-bold text-slate-800">파트너자동화AI 로그</h1>
+              <p className="text-sm text-slate-500">파트너자동화AI 대화 내역 및 리전별 성능 통계</p>
             </div>
           </div>
           {activeTab === "logs" && (
@@ -212,7 +212,7 @@ export default function AILogs() {
                   <p className="text-sm font-medium">
                     {search ? `"${search}" 검색 결과가 없습니다.` : "아직 AI 대화 로그가 없습니다."}
                   </p>
-                  <p className="text-xs">Gemini AI 어시스턴트와 대화하면 자동으로 저장됩니다.</p>
+                  <p className="text-xs">파트너자동화AI와 대화하면 자동으로 저장됩니다.</p>
                 </CardContent>
               </Card>
             ) : (
@@ -313,7 +313,7 @@ export default function AILogs() {
                                 <Sparkles size={12} className="text-white" />
                               </div>
                               <div className="flex-1 bg-indigo-50 rounded-xl p-3">
-                                <p className="text-xs font-semibold text-indigo-700 mb-1.5">Gemini 응답</p>
+                                <p className="text-xs font-semibold text-indigo-700 mb-1.5">파트너자동화AI 응답</p>
                                 <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
                                   {log.response}
                                 </p>

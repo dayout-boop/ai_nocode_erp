@@ -49,9 +49,9 @@ export default function ManagerAdmin() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Briefcase className="text-blue-600" size={24} />
-            AI파트너매니저 관리
+            AI파트너매니저 로그
           </h1>
-          <p className="text-gray-500 text-sm mt-1">입점사 파트너 전용 AI 상담 이력 및 통계</p>
+          <p className="text-gray-500 text-sm mt-1">AI파트너매니저의 모든 대화 세션 이력 및 통계</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -104,7 +104,7 @@ export default function ManagerAdmin() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Bot size={16} className="text-blue-600" />
-              AI파트너매니저 대화 이력 ({sessions.length}개 세션)
+              AI파트너매니저 로그 ({sessions.length}개 세션)
             </CardTitle>
           </CardHeader>
           <CardContent>

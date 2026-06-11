@@ -523,7 +523,7 @@ export default function GeminiAssistant() {
           </div>
           <div>
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <h1 className="text-2xl font-bold text-slate-800">Gemini AI 어시스턴트</h1>
+              <h1 className="text-2xl font-bold text-slate-800">파트너자동화AI</h1>
               {lastWasFallback ? (
                 <Badge className="bg-amber-100 text-amber-700 border-amber-300 text-xs flex items-center gap-1">
                   <AlertTriangle size={10} />{displayModel} (폴백)
@@ -534,7 +534,7 @@ export default function GeminiAssistant() {
               {regionLabel && <Badge className="bg-slate-100 text-slate-500 border-slate-200 text-xs">{regionLabel}</Badge>}
               {isLoading && <Badge className="bg-slate-100 text-slate-500 border-slate-200 text-xs animate-pulse">응답 중...</Badge>}
             </div>
-            <p className="text-slate-500 text-sm">상품 설명 초안, 마케팅 문구, 문의 답변, ERP 데이터 분석 — 두골프 AI 어시스턴트</p>
+            <p className="text-slate-500 text-sm">상품 설명 초안, 마케팅 문구, 문의 답변, ERP 데이터 분석 — 파트너 전용 자동화 AI</p>
           </div>
         </div>
 

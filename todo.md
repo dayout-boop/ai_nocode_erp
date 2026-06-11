@@ -2320,10 +2320,10 @@ Detected
 
 ## 명칭 체계 정리 및 고객센터AI 구현 (2026-06-11)
 
-- [ ] 명칭 일괄 변경: 마스터AI🤖, AI파트너매니저💼, AI상담톡, ERP 타이틀 "AI ERP"로 변경
-- [ ] 파트너 전용 AI 채팅 1개로 통합: /partner/chat + /partner/staff/ai → 고객센터AI 단일 채널
-- [ ] 파트너 ERP 좌측 카테고리 '고객센터' 추가 + 우측 Q&A/개발요청 + AI 실시간 LLM 레이아웃
-- [ ] partner.dayoutgolf.com 우하단 고객센터AI 위젯 + 고객센터 2차 페이지 추가
+- [x] 명칭 일괄 변경: 마스터AI🤖, AI파트너매니저💼, AI상담톡, ERP 타이틀 "AI ERP"로 변경
+- [x] 파트너 전용 AI 채팅 1개로 통합: /partner/chat + /partner/staff/ai → 고객센터AI 단일 채널
+- [x] 파트너 ERP 좌측 카테고리 '고객센터' 추가 + 우측 Q&A/개발요청 + AI 실시간 LLM 레이아웃
+- [x] partner.dayoutgolf.com 우하단 고객센터AI 위젯 + 고객센터 2차 페이지 추가
 
 ## 명칭 체계 정리 + 고객센터AI 구현 (2026-06-11)
 - [x] 마스터AI🤖 / AI파트너매니저💼 / AI상담톡 명칭 일괄 변경
@@ -2334,3 +2334,23 @@ Detected
 - [x] PartnerSupportPage.tsx — /partner/support 2차 페이지 생성
 - [x] PartnerSupportWidget.tsx — partner.dayoutgolf.com 우측 하단 위젯
 - [x] App.tsx /partner/support 라우팅 추가
+
+## AI 채널 명칭 전체 통일 + AI 채널 관리 페이지 추가 (2026-06-11)
+- [x] ERPLayout.tsx 사이드바 AI 챗봇/AI 관리 카테고리 명칭 통일
+  - "마스터 대화 이력" → "마스터AI 로그"
+  - "매니저 로그" → "AI파트너매니저 로그"
+  - "AI상담톡" → "AI상담톡 로그" (Sparkles 아이콘)
+  - "Gemini 어시스턴트" → "파트너자동화AI" (Wrench 아이콘)
+  - "AI 로그" → "파트너자동화AI 로그"
+- [x] MasterLogs.tsx — 페이지 제목 "마스터AI 로그"로 통일
+- [x] ManagerAdmin.tsx — 페이지 제목 "AI파트너매니저 로그"로 통일
+- [x] GolfTalkAdmin.tsx — 페이지 제목 "AI상담톡 로그"로 통일, Sparkles 아이콘 적용
+- [x] GeminiAssistant.tsx — 페이지 제목 "파트너자동화AI"로 변경
+- [x] AILogs.tsx — 페이지 제목 "파트너자동화AI 로그"로 통일
+- [x] ERPPartnerLayout.tsx — 대시보드 카드 "AI 매니저" → "AI파트너매니저" 통일
+- [x] AIChannelManagement.tsx — AI 채널 통합 관리 페이지 신규 생성
+  - 5개 AI 채널 카드 (마스터AI, AI파트너매니저, AI상담톡, 고객센터AI, 파트너자동화AI)
+  - DB 어시스턴트 키·프롬프트 파일·라우팅 경로·크레딧 정책 표시
+  - DB 어시스턴트 키 매핑 테이블
+- [x] ERPLayout.tsx AI 관리 카테고리에 "AI 채널 관리" 메뉴 추가 (/ai-channel-management)
+- [x] ERPLayout.tsx에 AIChannelManagement import 및 Route 추가

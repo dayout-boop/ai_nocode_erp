@@ -298,8 +298,8 @@ function PartnerStaffDashboard({ staff }: { staff: PartnerStaffInfo }) {
             color: "text-purple-600 bg-purple-50",
           },
           {
-            label: "AI 매니저",
-            desc: "AI 어시스턴트와 업무를 처리합니다",
+            label: "AI파트너매니저",
+            desc: "AI파트너매니저와 업무를 처리합니다",
             icon: Bot,
             href: "/partner/staff/ai",
             color: "text-orange-600 bg-orange-50",

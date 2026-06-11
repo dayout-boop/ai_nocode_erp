@@ -56,9 +56,9 @@ export default function MasterLogs() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Bot className="text-purple-600" size={24} />
-            마스터AI 대화 이력
+            마스터AI 로그
           </h1>
-          <p className="text-gray-500 text-sm mt-1">관리자 AI 마스터의 모든 대화 세션 이력</p>
+          <p className="text-gray-500 text-sm mt-1">마스터AI의 모든 대화 세션 이력</p>
         </div>
 
         <div className="relative">
@@ -75,7 +75,7 @@ export default function MasterLogs() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Bot size={16} className="text-purple-600" />
-              마스터 대화 이력 ({sessions.length}개 세션)
+              마스터AI 로그 ({sessions.length}개 세션)
             </CardTitle>
           </CardHeader>
           <CardContent>

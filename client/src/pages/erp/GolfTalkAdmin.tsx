@@ -3,7 +3,7 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { MessageCircle, Search, Clock, TrendingUp, Users, Bot } from "lucide-react";
+import { Sparkles, Search, Clock, TrendingUp, Users, Bot } from "lucide-react";
 
 export default function GolfTalkAdmin() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -54,10 +54,10 @@ export default function GolfTalkAdmin() {
         {/* 헤더 */}
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <MessageCircle className="text-green-600" size={24} />
-            골프톡 (GolfTalk) 관리
+            <Sparkles className="text-green-600" size={24} />
+            AI상담톡 로그
           </h1>
-          <p className="text-gray-500 text-sm mt-1">고객용 AI 상담 챗봇 대화 이력 및 통계</p>
+          <p className="text-gray-500 text-sm mt-1">AI상담톡의 모든 고객 대화 세션 이력</p>
         </div>
 
         {/* 통계 카드 */}
@@ -113,7 +113,7 @@ export default function GolfTalkAdmin() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Bot size={16} className="text-green-600" />
-              골프톡 대화 이력 ({sessions.length}개 세션)
+              AI상담톡 로그 ({sessions.length}개 세션)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -133,7 +133,7 @@ export default function GolfTalkAdmin() {
                       <div className="flex items-center justify-between gap-2 mb-3">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                            골프톡
+                            AI상담톡
                           </Badge>
                           <span className="text-xs text-gray-400 font-mono">{sessionId.slice(0, 12)}...</span>
                         </div>
@@ -150,7 +150,7 @@ export default function GolfTalkAdmin() {
                         )}
                         {lastAssistant && (
                           <div className="bg-green-50 rounded p-2 text-sm">
-                            <span className="font-medium text-green-700">골프톡: </span>
+                            <span className="font-medium text-green-700">AI상담톡: </span>
                             <span className="text-gray-700 line-clamp-2">{lastAssistant.content}</span>
                           </div>
                         )}
