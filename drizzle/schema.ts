@@ -127,9 +127,18 @@ export const packageSlots = mysqlTable("package_slots", {
   bookedSlots: int("bookedSlots").default(0),
   status: mysqlEnum("status", ["open", "closed", "sold_out"]).default("open"),
   priceOverride: decimal("priceOverride", { precision: 12, scale: 0 }),
-  adultPrice: decimal("adultPrice", { precision: 12, scale: 0 }),
-  childPrice: decimal("childPrice", { precision: 12, scale: 0 }),
-  infantPrice: decimal("infantPrice", { precision: 12, scale: 0 }),
+  // 성인 가격 (3종)
+  adultPrice: decimal("adultPrice", { precision: 12, scale: 0 }),           // 판매가 (고객 결제가)
+  adultDepositPrice: decimal("adultDepositPrice", { precision: 12, scale: 0 }), // 입금가 (원가/공급가)
+  adultAffiliatePrice: decimal("adultAffiliatePrice", { precision: 12, scale: 0 }), // 제휴가 (파트너 공급가)
+  // 소인 가격 (3종)
+  childPrice: decimal("childPrice", { precision: 12, scale: 0 }),            // 판매가
+  childDepositPrice: decimal("childDepositPrice", { precision: 12, scale: 0 }), // 입금가
+  childAffiliatePrice: decimal("childAffiliatePrice", { precision: 12, scale: 0 }), // 제휴가
+  // 유아 가격 (3종)
+  infantPrice: decimal("infantPrice", { precision: 12, scale: 0 }),          // 판매가
+  infantDepositPrice: decimal("infantDepositPrice", { precision: 12, scale: 0 }), // 입금가
+  infantAffiliatePrice: decimal("infantAffiliatePrice", { precision: 12, scale: 0 }), // 제휴가
   notes: varchar("notes", { length: 500 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });

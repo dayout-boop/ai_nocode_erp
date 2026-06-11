@@ -428,6 +428,13 @@
       "when": 1781142052491,
       "tag": "0059_exotic_ink",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "5",
+      "when": 1781152816534,
+      "tag": "0060_broken_ken_ellis",
+      "breakpoints": true
     }
   ]
 }

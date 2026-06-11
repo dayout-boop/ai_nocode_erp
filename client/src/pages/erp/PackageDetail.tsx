@@ -80,9 +80,18 @@ export default function PackageDetail() {
     minPax: 3,
     status: "open" as "open" | "closed" | "sold_out",
     priceOverride: "",
+    // 성인 가격 3종 (판매가/입금가/제휴가)
     adultPrice: "",
+    adultDepositPrice: "",
+    adultAffiliatePrice: "",
+    // 소인 가격 3종
     childPrice: "",
+    childDepositPrice: "",
+    childAffiliatePrice: "",
+    // 유아 가격 3종
     infantPrice: "",
+    infantDepositPrice: "",
+    infantAffiliatePrice: "",
     notes: "",
   });
   const [batchForm, setBatchForm] = useState({
@@ -93,8 +102,14 @@ export default function PackageDetail() {
     totalSlots: 20,
     minPax: 3,
     adultPrice: "",
+    adultDepositPrice: "",
+    adultAffiliatePrice: "",
     childPrice: "",
+    childDepositPrice: "",
+    childAffiliatePrice: "",
     infantPrice: "",
+    infantDepositPrice: "",
+    infantAffiliatePrice: "",
     notes: "",
   });
   const [editingSlotId, setEditingSlotId] = useState<number | null>(null);
@@ -119,12 +134,12 @@ export default function PackageDetail() {
   });
 
   const addSlotMutation = trpc.packages.addSlot.useMutation({
-    onSuccess: () => { toast.success("출발일이 추가되었습니다."); utils.packages.get.invalidate({ id }); setSlotForm({ departureDate: "", returnDate: "", totalSlots: 20, minPax: 3, status: "open", priceOverride: "", adultPrice: "", childPrice: "", infantPrice: "", notes: "" }); },
+    onSuccess: () => { toast.success("출발일이 추가되었습니다."); utils.packages.get.invalidate({ id }); setSlotForm({ departureDate: "", returnDate: "", totalSlots: 20, minPax: 3, status: "open", priceOverride: "", adultPrice: "", adultDepositPrice: "", adultAffiliatePrice: "", childPrice: "", childDepositPrice: "", childAffiliatePrice: "", infantPrice: "", infantDepositPrice: "", infantAffiliatePrice: "", notes: "" }); },
     onError: (e) => toast.error(e.message),
   });
 
   const addSlotBatchMutation = trpc.packages.addSlotBatch.useMutation({
-    onSuccess: (res) => { toast.success(`${res.count}개 출발일이 추가되었습니다.`); utils.packages.get.invalidate({ id }); setBatchForm({ startDate: "", endDate: "", weekdays: [], nights: 1, totalSlots: 20, minPax: 3, adultPrice: "", childPrice: "", infantPrice: "", notes: "" }); },
+    onSuccess: (res) => { toast.success(`${res.count}개 출발일이 추가되었습니다.`); utils.packages.get.invalidate({ id }); setBatchForm({ startDate: "", endDate: "", weekdays: [], nights: 1, totalSlots: 20, minPax: 3, adultPrice: "", adultDepositPrice: "", adultAffiliatePrice: "", childPrice: "", childDepositPrice: "", childAffiliatePrice: "", infantPrice: "", infantDepositPrice: "", infantAffiliatePrice: "", notes: "" }); },
     onError: (e) => toast.error(e.message),
   });
 
@@ -1016,17 +1031,59 @@ export default function PackageDetail() {
                       <Label>최소 출발 인원</Label>
                       <Input type="number" value={slotForm.minPax} onChange={(e) => setSlotForm({ ...slotForm, minPax: Number(e.target.value) })} className="mt-1 h-9" min={1} />
                     </div>
-                    <div>
-                      <Label>성인 요금 (원)</Label>
-                      <Input value={slotForm.adultPrice} onChange={(e) => setSlotForm({ ...slotForm, adultPrice: e.target.value })} placeholder="기본 요금 사용" className="mt-1 h-9" />
+                    {/* 성인 가격 3종 */}
+                    <div className="md:col-span-3">
+                      <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">성인 가격</Label>
+                      <div className="grid grid-cols-3 gap-2 mt-1">
+                        <div>
+                          <Label className="text-xs text-slate-400">판매가 (고객결제가)</Label>
+                          <Input value={slotForm.adultPrice} onChange={(e) => setSlotForm({ ...slotForm, adultPrice: e.target.value })} placeholder="기본 요금" className="mt-0.5 h-8 text-sm" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-400">입금가 (원가)</Label>
+                          <Input value={slotForm.adultDepositPrice} onChange={(e) => setSlotForm({ ...slotForm, adultDepositPrice: e.target.value })} placeholder="내부용" className="mt-0.5 h-8 text-sm" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-400">제휴가 (파트너)</Label>
+                          <Input value={slotForm.adultAffiliatePrice} onChange={(e) => setSlotForm({ ...slotForm, adultAffiliatePrice: e.target.value })} placeholder="파트너용" className="mt-0.5 h-8 text-sm" />
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <Label>아동 요금 (원)</Label>
-                      <Input value={slotForm.childPrice} onChange={(e) => setSlotForm({ ...slotForm, childPrice: e.target.value })} placeholder="성인과 동일" className="mt-1 h-9" />
+                    {/* 소인 가격 3종 */}
+                    <div className="md:col-span-3">
+                      <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">소인 가격</Label>
+                      <div className="grid grid-cols-3 gap-2 mt-1">
+                        <div>
+                          <Label className="text-xs text-slate-400">판매가</Label>
+                          <Input value={slotForm.childPrice} onChange={(e) => setSlotForm({ ...slotForm, childPrice: e.target.value })} placeholder="성인과 동일" className="mt-0.5 h-8 text-sm" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-400">입금가</Label>
+                          <Input value={slotForm.childDepositPrice} onChange={(e) => setSlotForm({ ...slotForm, childDepositPrice: e.target.value })} placeholder="내부용" className="mt-0.5 h-8 text-sm" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-400">제휴가</Label>
+                          <Input value={slotForm.childAffiliatePrice} onChange={(e) => setSlotForm({ ...slotForm, childAffiliatePrice: e.target.value })} placeholder="파트너용" className="mt-0.5 h-8 text-sm" />
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <Label>유아 요금 (원)</Label>
-                      <Input value={slotForm.infantPrice} onChange={(e) => setSlotForm({ ...slotForm, infantPrice: e.target.value })} placeholder="성인과 동일" className="mt-1 h-9" />
+                    {/* 유아 가격 3종 */}
+                    <div className="md:col-span-3">
+                      <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">유아 가격</Label>
+                      <div className="grid grid-cols-3 gap-2 mt-1">
+                        <div>
+                          <Label className="text-xs text-slate-400">판매가</Label>
+                          <Input value={slotForm.infantPrice} onChange={(e) => setSlotForm({ ...slotForm, infantPrice: e.target.value })} placeholder="성인과 동일" className="mt-0.5 h-8 text-sm" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-400">입금가</Label>
+                          <Input value={slotForm.infantDepositPrice} onChange={(e) => setSlotForm({ ...slotForm, infantDepositPrice: e.target.value })} placeholder="내부용" className="mt-0.5 h-8 text-sm" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-400">제휴가</Label>
+                          <Input value={slotForm.infantAffiliatePrice} onChange={(e) => setSlotForm({ ...slotForm, infantAffiliatePrice: e.target.value })} placeholder="파트너용" className="mt-0.5 h-8 text-sm" />
+                        </div>
+                      </div>
                     </div>
                     <div>
                       <Label>상태</Label>
@@ -1053,8 +1110,14 @@ export default function PackageDetail() {
                           minPax: slotForm.minPax,
                           status: slotForm.status,
                           adultPrice: slotForm.adultPrice || undefined,
+                          adultDepositPrice: slotForm.adultDepositPrice || undefined,
+                          adultAffiliatePrice: slotForm.adultAffiliatePrice || undefined,
                           childPrice: slotForm.childPrice || undefined,
+                          childDepositPrice: slotForm.childDepositPrice || undefined,
+                          childAffiliatePrice: slotForm.childAffiliatePrice || undefined,
                           infantPrice: slotForm.infantPrice || undefined,
+                          infantDepositPrice: slotForm.infantDepositPrice || undefined,
+                          infantAffiliatePrice: slotForm.infantAffiliatePrice || undefined,
                           notes: slotForm.notes || undefined,
                         })}
                         disabled={!slotForm.departureDate || addSlotMutation.isPending}
@@ -1115,17 +1178,59 @@ export default function PackageDetail() {
                         ))}
                       </div>
                     </div>
-                    <div>
-                      <Label>성인 요금 (원)</Label>
-                      <Input value={batchForm.adultPrice} onChange={(e) => setBatchForm({ ...batchForm, adultPrice: e.target.value })} placeholder="기본 요금 사용" className="mt-1 h-9" />
+                    {/* 성인 가격 3종 */}
+                    <div className="md:col-span-4">
+                      <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">성인 가격</Label>
+                      <div className="grid grid-cols-3 gap-2 mt-1">
+                        <div>
+                          <Label className="text-xs text-slate-400">판매가 (고객결제가)</Label>
+                          <Input value={batchForm.adultPrice} onChange={(e) => setBatchForm({ ...batchForm, adultPrice: e.target.value })} placeholder="기본 요금" className="mt-0.5 h-8 text-sm" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-400">입금가 (원가)</Label>
+                          <Input value={batchForm.adultDepositPrice} onChange={(e) => setBatchForm({ ...batchForm, adultDepositPrice: e.target.value })} placeholder="내부용" className="mt-0.5 h-8 text-sm" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-400">제휴가 (파트너)</Label>
+                          <Input value={batchForm.adultAffiliatePrice} onChange={(e) => setBatchForm({ ...batchForm, adultAffiliatePrice: e.target.value })} placeholder="파트너용" className="mt-0.5 h-8 text-sm" />
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <Label>아동 요금 (원)</Label>
-                      <Input value={batchForm.childPrice} onChange={(e) => setBatchForm({ ...batchForm, childPrice: e.target.value })} placeholder="성인과 동일" className="mt-1 h-9" />
+                    {/* 소인 가격 3종 */}
+                    <div className="md:col-span-4">
+                      <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">소인 가격</Label>
+                      <div className="grid grid-cols-3 gap-2 mt-1">
+                        <div>
+                          <Label className="text-xs text-slate-400">판매가</Label>
+                          <Input value={batchForm.childPrice} onChange={(e) => setBatchForm({ ...batchForm, childPrice: e.target.value })} placeholder="성인과 동일" className="mt-0.5 h-8 text-sm" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-400">입금가</Label>
+                          <Input value={batchForm.childDepositPrice} onChange={(e) => setBatchForm({ ...batchForm, childDepositPrice: e.target.value })} placeholder="내부용" className="mt-0.5 h-8 text-sm" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-400">제휴가</Label>
+                          <Input value={batchForm.childAffiliatePrice} onChange={(e) => setBatchForm({ ...batchForm, childAffiliatePrice: e.target.value })} placeholder="파트너용" className="mt-0.5 h-8 text-sm" />
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <Label>유아 요금 (원)</Label>
-                      <Input value={batchForm.infantPrice} onChange={(e) => setBatchForm({ ...batchForm, infantPrice: e.target.value })} placeholder="성인과 동일" className="mt-1 h-9" />
+                    {/* 유아 가격 3종 */}
+                    <div className="md:col-span-4">
+                      <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">유아 가격</Label>
+                      <div className="grid grid-cols-3 gap-2 mt-1">
+                        <div>
+                          <Label className="text-xs text-slate-400">판매가</Label>
+                          <Input value={batchForm.infantPrice} onChange={(e) => setBatchForm({ ...batchForm, infantPrice: e.target.value })} placeholder="성인과 동일" className="mt-0.5 h-8 text-sm" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-400">입금가</Label>
+                          <Input value={batchForm.infantDepositPrice} onChange={(e) => setBatchForm({ ...batchForm, infantDepositPrice: e.target.value })} placeholder="내부용" className="mt-0.5 h-8 text-sm" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-400">제휴가</Label>
+                          <Input value={batchForm.infantAffiliatePrice} onChange={(e) => setBatchForm({ ...batchForm, infantAffiliatePrice: e.target.value })} placeholder="파트너용" className="mt-0.5 h-8 text-sm" />
+                        </div>
+                      </div>
                     </div>
                     <div>
                       <Label>최소 출발 인원</Label>
@@ -1146,8 +1251,14 @@ export default function PackageDetail() {
                           totalSlots: batchForm.totalSlots,
                           minPax: batchForm.minPax,
                           adultPrice: batchForm.adultPrice || undefined,
+                          adultDepositPrice: batchForm.adultDepositPrice || undefined,
+                          adultAffiliatePrice: batchForm.adultAffiliatePrice || undefined,
                           childPrice: batchForm.childPrice || undefined,
+                          childDepositPrice: batchForm.childDepositPrice || undefined,
+                          childAffiliatePrice: batchForm.childAffiliatePrice || undefined,
                           infantPrice: batchForm.infantPrice || undefined,
+                          infantDepositPrice: batchForm.infantDepositPrice || undefined,
+                          infantAffiliatePrice: batchForm.infantAffiliatePrice || undefined,
                           notes: batchForm.notes || undefined,
                         })}
                         disabled={!batchForm.startDate || !batchForm.endDate || addSlotBatchMutation.isPending}
@@ -1192,8 +1303,10 @@ export default function PackageDetail() {
                           <th className="text-left px-3 py-3 text-slate-500 font-medium">귀국일</th>
                           <th className="text-center px-3 py-3 text-slate-500 font-medium">정원/예약</th>
                           <th className="text-center px-3 py-3 text-slate-500 font-medium">최소인원</th>
-                          <th className="text-right px-3 py-3 text-slate-500 font-medium">성인요금</th>
-                          <th className="text-right px-3 py-3 text-slate-500 font-medium">아동요금</th>
+                          <th className="text-right px-3 py-3 text-slate-500 font-medium">성인 판매가</th>
+                          <th className="text-right px-3 py-3 text-slate-500 font-medium">성인 입금가</th>
+                          <th className="text-right px-3 py-3 text-slate-500 font-medium">성인 제휴가</th>
+                          <th className="text-right px-3 py-3 text-slate-500 font-medium">소인 판매가</th>
                           <th className="text-left px-3 py-3 text-slate-500 font-medium">상태</th>
                           <th className="text-right px-4 py-3 text-slate-500 font-medium">관리</th>
                         </tr>
@@ -1230,19 +1343,37 @@ export default function PackageDetail() {
                               </td>
                               <td className="px-3 py-3 text-right">
                                 {isEditing ? (
-                                  <Input value={editSlotForm.adultPrice} onChange={(e) => setEditSlotForm({ ...editSlotForm, adultPrice: e.target.value })} className="h-7 w-28 text-right" placeholder="기본요금" />
+                                  <Input value={editSlotForm.adultPrice} onChange={(e) => setEditSlotForm({ ...editSlotForm, adultPrice: e.target.value })} className="h-7 w-24 text-right" placeholder="판매가" />
                                 ) : (
                                   <span className="text-slate-700">
-                                    {slot.adultPrice ? `${Number(slot.adultPrice).toLocaleString()}원` : <span className="text-slate-400 text-xs">기본요금</span>}
+                                    {slot.adultPrice ? `${Number(slot.adultPrice).toLocaleString()}원` : <span className="text-slate-400 text-xs">-</span>}
                                   </span>
                                 )}
                               </td>
                               <td className="px-3 py-3 text-right">
                                 {isEditing ? (
-                                  <Input value={editSlotForm.childPrice} onChange={(e) => setEditSlotForm({ ...editSlotForm, childPrice: e.target.value })} className="h-7 w-28 text-right" placeholder="성인동일" />
+                                  <Input value={editSlotForm.adultDepositPrice} onChange={(e) => setEditSlotForm({ ...editSlotForm, adultDepositPrice: e.target.value })} className="h-7 w-24 text-right" placeholder="입금가" />
+                                ) : (
+                                  <span className="text-slate-600 text-xs">
+                                    {slot.adultDepositPrice ? `${Number(slot.adultDepositPrice).toLocaleString()}원` : <span className="text-slate-300">-</span>}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-3 text-right">
+                                {isEditing ? (
+                                  <Input value={editSlotForm.adultAffiliatePrice} onChange={(e) => setEditSlotForm({ ...editSlotForm, adultAffiliatePrice: e.target.value })} className="h-7 w-24 text-right" placeholder="제휴가" />
+                                ) : (
+                                  <span className="text-slate-600 text-xs">
+                                    {slot.adultAffiliatePrice ? `${Number(slot.adultAffiliatePrice).toLocaleString()}원` : <span className="text-slate-300">-</span>}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-3 text-right">
+                                {isEditing ? (
+                                  <Input value={editSlotForm.childPrice} onChange={(e) => setEditSlotForm({ ...editSlotForm, childPrice: e.target.value })} className="h-7 w-24 text-right" placeholder="소인판매가" />
                                 ) : (
                                   <span className="text-slate-700">
-                                    {slot.childPrice ? `${Number(slot.childPrice).toLocaleString()}원` : <span className="text-slate-400 text-xs">성인동일</span>}
+                                    {slot.childPrice ? `${Number(slot.childPrice).toLocaleString()}원` : <span className="text-slate-400 text-xs">-</span>}
                                   </span>
                                 )}
                               </td>
@@ -1266,12 +1397,12 @@ export default function PackageDetail() {
                                 <div className="flex items-center justify-end gap-1">
                                   {isEditing ? (
                                     <>
-                                      <Button size="sm" className="h-7 px-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => updateSlotMutation.mutate({ id: slot.id, totalSlots: editSlotForm.totalSlots, minPax: editSlotForm.minPax, status: editSlotForm.status, adultPrice: editSlotForm.adultPrice || undefined, childPrice: editSlotForm.childPrice || undefined, infantPrice: editSlotForm.infantPrice || undefined })} disabled={updateSlotMutation.isPending}>저장</Button>
+                                      <Button size="sm" className="h-7 px-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => updateSlotMutation.mutate({ id: slot.id, totalSlots: editSlotForm.totalSlots, minPax: editSlotForm.minPax, status: editSlotForm.status, adultPrice: editSlotForm.adultPrice || undefined, adultDepositPrice: editSlotForm.adultDepositPrice || undefined, adultAffiliatePrice: editSlotForm.adultAffiliatePrice || undefined, childPrice: editSlotForm.childPrice || undefined, childDepositPrice: editSlotForm.childDepositPrice || undefined, childAffiliatePrice: editSlotForm.childAffiliatePrice || undefined, infantPrice: editSlotForm.infantPrice || undefined, infantDepositPrice: editSlotForm.infantDepositPrice || undefined, infantAffiliatePrice: editSlotForm.infantAffiliatePrice || undefined })} disabled={updateSlotMutation.isPending}>저장</Button>
                                       <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-slate-500" onClick={() => { setEditingSlotId(null); setEditSlotForm(null); }}>취소</Button>
                                     </>
                                   ) : (
                                     <>
-                                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-indigo-600" onClick={() => { setEditingSlotId(slot.id); setEditSlotForm({ totalSlots: slot.totalSlots, minPax: slot.minPax ?? 3, status: slot.status, adultPrice: slot.adultPrice ?? "", childPrice: slot.childPrice ?? "", infantPrice: slot.infantPrice ?? "" }); }}>
+                                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-indigo-600" onClick={() => { setEditingSlotId(slot.id); setEditSlotForm({ totalSlots: slot.totalSlots, minPax: slot.minPax ?? 3, status: slot.status, adultPrice: slot.adultPrice ?? "", adultDepositPrice: slot.adultDepositPrice ?? "", adultAffiliatePrice: slot.adultAffiliatePrice ?? "", childPrice: slot.childPrice ?? "", childDepositPrice: slot.childDepositPrice ?? "", childAffiliatePrice: slot.childAffiliatePrice ?? "", infantPrice: slot.infantPrice ?? "", infantDepositPrice: slot.infantDepositPrice ?? "", infantAffiliatePrice: slot.infantAffiliatePrice ?? "" }); }}>
                                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                       </Button>
                                       <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-400 hover:text-red-600" onClick={() => deleteSlotMutation.mutate({ id: slot.id })}>

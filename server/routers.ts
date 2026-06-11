@@ -304,8 +304,14 @@ const packagesRouter = router({
     status: z.enum(["open", "closed", "sold_out"]).default("open"),
     priceOverride: z.string().optional(),
     adultPrice: z.string().optional(),
+    adultDepositPrice: z.string().optional(),
+    adultAffiliatePrice: z.string().optional(),
     childPrice: z.string().optional(),
+    childDepositPrice: z.string().optional(),
+    childAffiliatePrice: z.string().optional(),
     infantPrice: z.string().optional(),
+    infantDepositPrice: z.string().optional(),
+    infantAffiliatePrice: z.string().optional(),
     notes: z.string().optional(),
   })).mutation(async ({ input }) => {
     const db = await getDb();
@@ -323,8 +329,14 @@ const packagesRouter = router({
     totalSlots: z.number().default(20),
     minPax: z.number().default(3),
     adultPrice: z.string().optional(),
+    adultDepositPrice: z.string().optional(),
+    adultAffiliatePrice: z.string().optional(),
     childPrice: z.string().optional(),
+    childDepositPrice: z.string().optional(),
+    childAffiliatePrice: z.string().optional(),
     infantPrice: z.string().optional(),
+    infantDepositPrice: z.string().optional(),
+    infantAffiliatePrice: z.string().optional(),
     notes: z.string().optional(),
   })).mutation(async ({ input }) => {
     const db = await getDb();
@@ -360,8 +372,14 @@ const packagesRouter = router({
     status: z.enum(["open", "closed", "sold_out"]).optional(),
     priceOverride: z.string().optional(),
     adultPrice: z.string().optional(),
+    adultDepositPrice: z.string().optional(),
+    adultAffiliatePrice: z.string().optional(),
     childPrice: z.string().optional(),
+    childDepositPrice: z.string().optional(),
+    childAffiliatePrice: z.string().optional(),
     infantPrice: z.string().optional(),
+    infantDepositPrice: z.string().optional(),
+    infantAffiliatePrice: z.string().optional(),
     notes: z.string().optional(),
   })).mutation(async ({ input }) => {
     const db = await getDb();

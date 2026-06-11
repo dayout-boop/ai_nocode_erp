@@ -7,10 +7,10 @@
  */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq, desc, and, gte, sql, count, sum } from "drizzle-orm";
+import { eq, desc, and, gte, sql, count, sum, inArray } from "drizzle-orm";
 import { publicProcedure, protectedProcedure, partnerProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { aiLogs, packages, bookings, devRequests, chatSessions } from "../../drizzle/schema";
+import { aiLogs, packages, packageSlots, bookings, devRequests, chatSessions } from "../../drizzle/schema";
 import { classifyIntent, fetchPackageContext, fetchReservationContext, compressHistory, fetchManagerContext } from "../services/rag";
 import { orchestratorChat } from "../services/openrouter";
 import { buildDogolfDevContext } from "../services/devContext";
@@ -299,7 +299,96 @@ export const aiRouter = router({
         ])
         .catch((e) => console.error("[golfTalkChat] 로그 저장 실패:", e));
 
-      return { response: responseText, model: modelUsed, tokensIn, tokensOut, costUsd };
+      // Generative UI 마커 파싱
+      type UiCard =
+        | { type: "product_cards"; packages: Array<{ id: number; title: string; country: string; duration: string | null; roundCount: number | null; imageUrl: string | null; isPopular: boolean; slots: Array<{ id: number; departureDate: string; returnDate: string | null; totalSlots: number; bookedSlots: number; adultPrice: string | null; status: string }> }> }
+        | { type: "booking_form"; packageId: number; packageTitle: string | null }
+        | { type: "booking_lookup" };
+
+      let uiCard: UiCard | null = null;
+      let cleanResponse = responseText;
+
+      // [UI:PRODUCT_CARDS:id1,id2,id3]
+      const productMatch = responseText.match(/\[UI:PRODUCT_CARDS:([\d,]+)\]/);
+      if (productMatch) {
+        cleanResponse = responseText.replace(/\[UI:PRODUCT_CARDS:[\d,]+\]/, "").trim();
+        const ids = productMatch[1].split(",").map(Number).filter(Boolean).slice(0, 6);
+        if (ids.length > 0) {
+          try {
+            const pkgRows = await db.select({
+              id: packages.id,
+              title: packages.title,
+              country: packages.country,
+              duration: packages.duration,
+              roundCount: packages.roundCount,
+              imageUrl: packages.imageUrl,
+              isPopular: packages.isPopular,
+            }).from(packages).where(inArray(packages.id, ids)).limit(6);
+
+            const slotsRows = await db.select({
+              id: packageSlots.id,
+              packageId: packageSlots.packageId,
+              departureDate: packageSlots.departureDate,
+              returnDate: packageSlots.returnDate,
+              totalSlots: packageSlots.totalSlots,
+              bookedSlots: packageSlots.bookedSlots,
+              adultPrice: packageSlots.adultPrice,
+              status: packageSlots.status,
+            }).from(packageSlots)
+              .where(and(inArray(packageSlots.packageId, ids), eq(packageSlots.status, "open")))
+              .orderBy(packageSlots.departureDate)
+              .limit(30);
+
+            const slotsByPkg = slotsRows.reduce<Record<number, typeof slotsRows>>((acc, s) => {
+              if (!acc[s.packageId]) acc[s.packageId] = [];
+              acc[s.packageId].push(s);
+              return acc;
+            }, {});
+
+            uiCard = {
+              type: "product_cards",
+              packages: pkgRows.map((p) => ({
+                ...p,
+                isPopular: Boolean(p.isPopular),
+                slots: (slotsByPkg[p.id] ?? []).slice(0, 5).map((s) => ({
+                  id: s.id,
+                  departureDate: s.departureDate instanceof Date ? s.departureDate.toISOString() : String(s.departureDate),
+                  returnDate: s.returnDate instanceof Date ? s.returnDate.toISOString() : (s.returnDate ? String(s.returnDate) : null),
+                  totalSlots: s.totalSlots ?? 0,
+                  bookedSlots: s.bookedSlots ?? 0,
+                  adultPrice: s.adultPrice ?? null,
+                  status: s.status ?? "open",
+                })),
+              })),
+            };
+          } catch (e) {
+            console.error("[golfTalkChat] product cards 조회 실패:", e);
+          }
+        }
+      }
+
+      // [UI:BOOKING_FORM:packageId]
+      const bookingFormMatch = responseText.match(/\[UI:BOOKING_FORM:(\d+)\]/);
+      if (!uiCard && bookingFormMatch) {
+        cleanResponse = responseText.replace(/\[UI:BOOKING_FORM:\d+\]/, "").trim();
+        const pkgId = Number(bookingFormMatch[1]);
+        let pkgTitle: string | null = null;
+        if (pkgId > 0) {
+          try {
+            const [p] = await db.select({ title: packages.title }).from(packages).where(eq(packages.id, pkgId)).limit(1);
+            pkgTitle = p?.title ?? null;
+          } catch {}
+        }
+        uiCard = { type: "booking_form", packageId: pkgId, packageTitle: pkgTitle };
+      }
+
+      // [UI:BOOKING_LOOKUP]
+      if (!uiCard && responseText.includes("[UI:BOOKING_LOOKUP]")) {
+        cleanResponse = responseText.replace("[UI:BOOKING_LOOKUP]", "").trim();
+        uiCard = { type: "booking_lookup" };
+      }
+
+      return { response: cleanResponse, model: modelUsed, tokensIn, tokensOut, costUsd, uiCard };
     }),
 
   /**
