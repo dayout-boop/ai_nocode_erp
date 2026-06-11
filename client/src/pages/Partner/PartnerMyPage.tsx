@@ -2,11 +2,12 @@
  * 파트너 마이페이지
  * - 내 업체 정보 조회 및 수정 (OCR 결과 수정 가능)
  * - 하위 담당자 목록 조회 / 등록 / 수정 / 비활성화
+ * ※ Manus OAuth 독립 — partner_session 쿠키 기반 자체 인증
  */
-import { useState } from "react";
-import { trpc } from "@/lib/trpc";
-import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
+import { useState, useMemo } from "react";
+import { usePartnerAuth } from "@/_core/hooks/usePartnerAuth";
+import { partnerTrpc, createPartnerTrpcClient, createPartnerQueryClient } from "@/lib/partnerTrpc";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +23,7 @@ import {
 import { toast } from "sonner";
 import {
   Building2, User, Users, Plus, Pencil, Loader2, ChevronLeft,
-  ShieldCheck, Phone, Mail, Hash, Calendar, Eye, EyeOff, Trash2,
+  ShieldCheck, Mail, Hash, Eye, EyeOff, Trash2,
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -43,12 +44,12 @@ const defaultStaffForm: StaffForm = {
 
 // ─── 업체 정보 수정 폼 ────────────────────────────────────────────────────────
 function CompanyInfoCard() {
-  const utils = trpc.useUtils();
-  const { data: status, isLoading } = trpc.partnerOnboarding.getMyStatus.useQuery();
+  const utils = partnerTrpc.useUtils();
+  const { data: status, isLoading } = partnerTrpc.partnerOnboarding.getMyStatus.useQuery();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
 
-  const updateMutation = trpc.partnerOnboarding.updateMyInfo.useMutation({
+  const updateMutation = partnerTrpc.partnerOnboarding.updateMyInfo.useMutation({
     onSuccess: () => {
       toast.success("업체 정보가 수정되었습니다.");
       setEditing(false);
@@ -172,7 +173,9 @@ function CompanyInfoCard() {
             ].map(({ label, value }) => (
               <div key={label} className="flex flex-col gap-0.5">
                 <span className="text-xs text-muted-foreground">{label}</span>
-                <span className="text-sm font-medium text-gray-800">{value || <span className="text-gray-300 italic">미입력</span>}</span>
+                <span className="text-sm font-medium text-gray-800">
+                  {value || <span className="text-gray-300 italic">미입력</span>}
+                </span>
               </div>
             ))}
           </div>
@@ -227,14 +230,16 @@ function CompanyInfoCard() {
 
 // ─── 하위 담당자 관리 ─────────────────────────────────────────────────────────
 function StaffManagementCard() {
-  const utils = trpc.useUtils();
-  const { data: staffList, isLoading } = trpc.partnerStaff.list.useQuery();
+  const utils = partnerTrpc.useUtils();
+  const { data: staffList, isLoading } = partnerTrpc.partnerStaff.list.useQuery();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [editingStaff, setEditingStaff] = useState<{ id: number; name: string; email?: string; phone?: string; role: string; memo?: string } | null>(null);
+  const [editingStaff, setEditingStaff] = useState<{
+    id: number; name: string; email?: string; phone?: string; role: string; memo?: string;
+  } | null>(null);
   const [staffForm, setStaffForm] = useState<StaffForm>(defaultStaffForm);
   const [showPw, setShowPw] = useState(false);
 
-  const createMutation = trpc.partnerStaff.create.useMutation({
+  const createMutation = partnerTrpc.partnerStaff.create.useMutation({
     onSuccess: () => {
       toast.success("담당자가 등록되었습니다.");
       setShowCreateDialog(false);
@@ -244,7 +249,7 @@ function StaffManagementCard() {
     onError: (err) => toast.error(`등록 실패: ${err.message}`),
   });
 
-  const updateMutation = trpc.partnerStaff.update.useMutation({
+  const updateMutation = partnerTrpc.partnerStaff.update.useMutation({
     onSuccess: () => {
       toast.success("담당자 정보가 수정되었습니다.");
       setEditingStaff(null);
@@ -253,7 +258,7 @@ function StaffManagementCard() {
     onError: (err) => toast.error(`수정 실패: ${err.message}`),
   });
 
-  const deactivateMutation = trpc.partnerStaff.deactivate.useMutation({
+  const deactivateMutation = partnerTrpc.partnerStaff.deactivate.useMutation({
     onSuccess: () => {
       toast.success("담당자가 비활성화되었습니다.");
       utils.partnerStaff.list.invalidate();
@@ -344,7 +349,14 @@ function StaffManagementCard() {
                     size="sm"
                     variant="ghost"
                     className="h-7 px-2"
-                    onClick={() => setEditingStaff({ id: s.id, name: s.name, email: s.email ?? undefined, phone: s.phone ?? undefined, role: s.role, memo: s.memo ?? undefined })}
+                    onClick={() => setEditingStaff({
+                      id: s.id,
+                      name: s.name,
+                      email: s.email ?? undefined,
+                      phone: s.phone ?? undefined,
+                      role: s.role,
+                      memo: s.memo ?? undefined,
+                    })}
                   >
                     <Pencil size={13} />
                   </Button>
@@ -560,9 +572,9 @@ function StaffManagementCard() {
   );
 }
 
-// ─── 메인 컴포넌트 ───────────────────────────────────────────────────────────
-export default function PartnerMyPage() {
-  const { user, loading, isAuthenticated } = useAuth();
+// ─── 메인 컴포넌트 내부 (partnerTrpc Provider 안에서 실행) ─────────────────────
+function PartnerMyPageContent() {
+  const { user, loading, isAuthenticated } = usePartnerAuth();
 
   if (loading) {
     return (
@@ -573,7 +585,9 @@ export default function PartnerMyPage() {
   }
 
   if (!isAuthenticated) {
-    window.location.href = getLoginUrl();
+    if (typeof window !== "undefined") {
+      window.location.replace("/partner/login");
+    }
     return null;
   }
 
@@ -634,5 +648,19 @@ export default function PartnerMyPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+// ─── 래퍼 (partnerTrpc Provider) ─────────────────────────────────────────────
+export default function PartnerMyPage() {
+  const queryClient = useMemo(() => createPartnerQueryClient(), []);
+  const trpcClient = useMemo(() => createPartnerTrpcClient(), []);
+
+  return (
+    <partnerTrpc.Provider client={trpcClient} queryClient={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <PartnerMyPageContent />
+      </QueryClientProvider>
+    </partnerTrpc.Provider>
   );
 }
