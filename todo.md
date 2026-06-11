@@ -2404,13 +2404,13 @@ Detected
 - [x] PartnerMyPage.tsx: StaffPermissionsDialog 컴포넌트 + 권한 관리 버튼 추가
 
 ## 파트너 로그인 통합 + 업체·직원 관리 권한 시스템 (2026-06-12)
-- [ ] DB: companyManagePermissions 테이블 추가 (tenantId, staffId, canEdit, grantedBy, grantedAt)
-- [ ] 서버: /api/partner/auth/unified-login 통합 로그인 API (오너/직원 자동 판별, 쿠키 세션 통일)
-- [ ] 서버: companyManage tRPC 라우터 (getInfo, listStaff, getPermissions, setPermissions, updateStaff)
-- [ ] 클라이언트: /partner/login 통합 로그인 페이지 (ID+PW, 오너/직원 자동 판별)
-- [ ] 클라이언트: /partner/staff/login → /partner/login 리다이렉트
-- [ ] 클라이언트: ERPLayout 사이드바 '업체·직원 관리' 메뉴 추가
-- [ ] 클라이언트: 업체·직원 관리 페이지 (뷰어 기본, 수정권한자 지정, 중복권한 허용)
+- [x] DB: companyManagePermissions 테이블 추가 (tenantId, staffId, canEdit, grantedBy, grantedAt)
+- [x] 서버: /api/partner/auth/unified-login 통합 로그인 API (오너/직원 자동 판별, 쿠키 세션 통일)
+- [x] 서버: companyManage tRPC 라우터 (getInfo, listStaff, getPermissions, setPermissions, updateStaff)
+- [x] 클라이언트: /partner/login 통합 로그인 페이지 (ID+PW, 오너/직원 자동 판별)
+- [x] 클라이언트: /partner/staff/login → /partner/login 리다이렉트
+- [x] 클라이언트: ERPLayout 사이드바 '업체·직원 관리' 메뉴 추가
+- [x] 클라이언트: 업체·직원 관리 페이지 (뷰어 기본, 수정권한자 지정, 중복권한 허용)
 
 ## 파트너 로그인 통합 + 업체·직원 관리 권한 시스템 (2026-06-12)
 - [x] DB: companyManagePermissions 테이블 추가 (tenantId, staffId, canEdit, grantedBy)
@@ -2422,3 +2422,18 @@ Detected
 - [x] 클라이언트: usePartnerAuth.ts - staffId, isOwner, isStaff 헬퍼 추가
 - [x] 클라이언트: ERPLayout.tsx - 연동설정 그룹에 업체·직원 관리 메뉴 추가
 - [x] 클라이언트: CompanyManagePage.tsx - 업체정보 뷰어/수정 + 직원목록 + 수정권한 지정 UI
+
+## 2026-06-12 파트너사 관리 개선 (Q1~Q6)
+- [x] DB: partnerStaff 테이블에 position(직책) 컬럼 추가 + pnpm db:push 마이그레이션
+- [x] 서버: companyManage.ts - position 필드 addStaff/updateStaff/listStaff에 반영
+- [x] 서버: companyManage.ts - changeOwnerPassword 프로시저 추가 (현재PW 검증 후 변경)
+- [x] 서버: companyManage.ts - deleteStaff 시 해당 직원 생성 기능/상품/예약 대표아이디로 귀속
+- [x] 서버: companyManage.ts - addStaff/updateStaff 전체 아이디 중복 방지 (partners + partnerStaff 통합 검사)
+- [x] 서버: routers.ts - crm.getPartnerStaff 프로시저 추가 (마스터용 파트너사별 직원 목록 조회)
+- [x] 클라이언트: CompanyManagePage.tsx - 탭 구조 개편 (업체정보/직원목록/수정권한현황)
+- [x] 클라이언트: CompanyManagePage.tsx - 오너 비밀번호 변경 다이얼로그 (isOwner만 표시)
+- [x] 클라이언트: CompanyManagePage.tsx - 직원 추가/수정 다이얼로그에 직책(position) 필드 추가
+- [x] 클라이언트: CompanyManagePage.tsx - 직원별 기능권한 ON/OFF 다이얼로그 (isOwner만 접근)
+- [x] 클라이언트: CompanyManagePage.tsx - 업체정보 뷰에 loginId/관광사업자번호/통신판매업번호/계좌정보 표시
+- [x] 클라이언트: CRMPartners.tsx - PartnerDetailModal에 직원 목록 탭 추가 (crm.getPartnerStaff 연동)
+- [x] 클라이언트: PartnerLanding/Navbar.tsx - 고객센터 링크(/partner/support) 네비게이션에 추가

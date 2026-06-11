@@ -18,6 +18,7 @@ export default function Navbar() {
     { label: '요금제', href: '#pricing' },
     { label: '샘플 사이트', href: '#sample' },
     { label: '가입 방법', href: '#joinflow' },
+    { label: '고객센터', href: '/partner/support', external: true },
   ]
 
   return (
@@ -55,6 +56,8 @@ export default function Navbar() {
               <a
                 key={link.href}
                 href={link.href}
+                target={(link as any).external ? '_blank' : undefined}
+                rel={(link as any).external ? 'noopener noreferrer' : undefined}
                 className="text-sm transition-colors duration-200"
                 style={{ color: 'oklch(0.65 0.03 240)' }}
                 onMouseEnter={(e) => {
@@ -128,6 +131,8 @@ export default function Navbar() {
               <a
                 key={link.href}
                 href={link.href}
+                target={(link as any).external ? '_blank' : undefined}
+                rel={(link as any).external ? 'noopener noreferrer' : undefined}
                 className="block text-sm py-2 transition-colors"
                 style={{ color: 'oklch(0.65 0.03 240)' }}
                 onClick={() => setIsMobileOpen(false)}

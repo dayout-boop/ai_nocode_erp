@@ -29,6 +29,7 @@ import {
   adminAccounts,
   partners,
   partnerOnboarding,
+  partnerStaff,
   tenants,
 } from "../drizzle/schema";
 import { SUBSCRIPTION_PLANS } from "./products";
@@ -1697,6 +1698,34 @@ const crmRouter = router({
     }),
 
   // 파트너 상세 (온보딩 URL/adminNote 포함)
+  /**
+   * 마스터용: 특정 파트너사의 직원(담당자) 목록 조회
+   */
+  getPartnerStaff: protectedProcedure
+    .input(z.object({ partnerId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
+      const staffList = await db
+        .select({
+          id: partnerStaff.id,
+          name: partnerStaff.name,
+          loginId: partnerStaff.loginId,
+          email: partnerStaff.email,
+          phone: partnerStaff.phone,
+          position: partnerStaff.position,
+          role: partnerStaff.role,
+          isActive: partnerStaff.isActive,
+          memo: partnerStaff.memo,
+          lastLoginAt: partnerStaff.lastLoginAt,
+          createdAt: partnerStaff.createdAt,
+        })
+        .from(partnerStaff)
+        .where(eq(partnerStaff.partnerId, input.partnerId))
+        .orderBy(desc(partnerStaff.createdAt));
+      return staffList;
+    }),
+
   getPartnerDetail: protectedProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .query(async ({ input }) => {

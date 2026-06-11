@@ -1,0 +1,1 @@
+ALTER TABLE `partner_staff` ADD `position` varchar(50);

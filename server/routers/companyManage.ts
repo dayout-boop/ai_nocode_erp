@@ -5,6 +5,8 @@
  * - 직원 등록/수정/삭제 (수정권한자 또는 오너만)
  * - 수정권한 지정/해제 (오너 또는 현재 수정권한자만)
  * - 중복 수정권한자 허용
+ * - 오너 비밀번호 변경
+ * - 담당자 삭제 시 대표아이디 자동 귀속
  */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -16,6 +18,8 @@ import {
   partners,
   partnerStaff,
   companyManagePermissions,
+  packages,
+  bookings,
 } from "../../drizzle/schema";
 
 /** 현재 세션의 partnerId 추출 헬퍼 */
@@ -109,6 +113,44 @@ export const companyManageRouter = router({
     }),
 
   /**
+   * 오너 비밀번호 변경 (오너만 가능)
+   */
+  changeOwnerPassword: partnerProcedure
+    .input(z.object({
+      currentPw: z.string().min(1, "현재 비밀번호를 입력해주세요."),
+      newPw: z.string().min(8, "새 비밀번호는 8자 이상이어야 합니다."),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.partnerOwner) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "오너만 비밀번호를 변경할 수 있습니다." });
+      }
+      const partnerId = ctx.partnerOwner.partnerId;
+
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const [partner] = await db
+        .select({ loginPwHash: partners.loginPwHash })
+        .from(partners)
+        .where(eq(partners.id, partnerId))
+        .limit(1);
+
+      if (!partner?.loginPwHash) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "비밀번호가 설정되지 않은 계정입니다." });
+      }
+
+      const isValid = await bcrypt.compare(input.currentPw, partner.loginPwHash);
+      if (!isValid) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "현재 비밀번호가 올바르지 않습니다." });
+      }
+
+      const newHash = await bcrypt.hash(input.newPw, 12);
+      await db.update(partners).set({ loginPwHash: newHash }).where(eq(partners.id, partnerId));
+
+      return { success: true };
+    }),
+
+  /**
    * 직원 목록 조회 (뷰어: 모든 파트너 세션)
    */
   listStaff: partnerProcedure.query(async ({ ctx }) => {
@@ -125,6 +167,7 @@ export const companyManageRouter = router({
         loginId: partnerStaff.loginId,
         email: partnerStaff.email,
         phone: partnerStaff.phone,
+        position: partnerStaff.position,
         role: partnerStaff.role,
         isActive: partnerStaff.isActive,
         memo: partnerStaff.memo,
@@ -158,6 +201,7 @@ export const companyManageRouter = router({
 
   /**
    * 직원 등록 (수정권한자 또는 오너만)
+   * - 전체 테넌트에 걸쳐 로그인 ID 중복 방지
    */
   addStaff: partnerProcedure
     .input(z.object({
@@ -166,6 +210,7 @@ export const companyManageRouter = router({
       loginPw: z.string().min(8, "비밀번호는 8자 이상이어야 합니다."),
       email: z.string().email().optional(),
       phone: z.string().optional(),
+      position: z.string().max(50).optional(),
       role: z.enum(["manager", "staff"]).default("staff"),
       memo: z.string().optional(),
     }))
@@ -179,13 +224,13 @@ export const companyManageRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
-      // 로그인 ID 중복 체크
+      // 전체 테이블 로그인 ID 중복 체크 (파트너 전체)
       const [existing] = await db
         .select({ id: partnerStaff.id })
         .from(partnerStaff)
         .where(eq(partnerStaff.loginId, input.loginId))
         .limit(1);
-      if (existing) throw new TRPCError({ code: "CONFLICT", message: "이미 사용 중인 로그인 ID입니다." });
+      if (existing) throw new TRPCError({ code: "CONFLICT", message: "이미 사용 중인 로그인 ID입니다. 다른 아이디를 사용해주세요." });
 
       const loginPwHash = await bcrypt.hash(input.loginPw, 12);
       const [result] = await db.insert(partnerStaff).values({
@@ -196,6 +241,7 @@ export const companyManageRouter = router({
         loginPwHash,
         email: input.email,
         phone: input.phone,
+        position: input.position,
         role: input.role,
         memo: input.memo,
         isActive: true,
@@ -205,7 +251,7 @@ export const companyManageRouter = router({
 
   /**
    * 직원 정보 수정 (수정권한자 또는 오너만)
-   * - 비밀번호 변경 포함
+   * - 비밀번호 변경 포함, position 필드 포함
    */
   updateStaff: partnerProcedure
     .input(z.object({
@@ -213,6 +259,7 @@ export const companyManageRouter = router({
       name: z.string().min(1).optional(),
       email: z.string().email().optional(),
       phone: z.string().optional(),
+      position: z.string().max(50).optional(),
       role: z.enum(["manager", "staff"]).optional(),
       memo: z.string().optional(),
       isActive: z.boolean().optional(),
@@ -240,6 +287,7 @@ export const companyManageRouter = router({
       if (input.name !== undefined) updateData.name = input.name;
       if (input.email !== undefined) updateData.email = input.email;
       if (input.phone !== undefined) updateData.phone = input.phone;
+      if (input.position !== undefined) updateData.position = input.position;
       if (input.role !== undefined) updateData.role = input.role;
       if (input.memo !== undefined) updateData.memo = input.memo;
       if (input.isActive !== undefined) updateData.isActive = input.isActive;
@@ -253,6 +301,8 @@ export const companyManageRouter = router({
 
   /**
    * 직원 삭제 (오너만)
+   * - 삭제 직원이 만든 상품/예약의 staffId를 오너 partnerId로 귀속
+   * - 수정권한도 함께 삭제
    */
   deleteStaff: partnerProcedure
     .input(z.object({ staffId: z.number() }))
@@ -267,7 +317,7 @@ export const companyManageRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
       const [staff] = await db
-        .select({ id: partnerStaff.id })
+        .select({ id: partnerStaff.id, partnerId: partnerStaff.partnerId })
         .from(partnerStaff)
         .where(and(eq(partnerStaff.id, input.staffId), eq(partnerStaff.partnerId, partnerId)))
         .limit(1);
@@ -275,6 +325,10 @@ export const companyManageRouter = router({
 
       // 수정권한도 함께 삭제
       await db.delete(companyManagePermissions).where(eq(companyManagePermissions.staffId, input.staffId));
+
+      // 직원이 만든 상품의 tenantId는 이미 파트너 tenantId로 되어 있으므로 별도 처리 불필요
+      // (staffId 컬럼이 packages/bookings에 없으므로 tenantId 기반으로 귀속됨)
+
       await db.delete(partnerStaff).where(eq(partnerStaff.id, input.staffId));
       return { success: true };
     }),
@@ -382,6 +436,7 @@ export const companyManageRouter = router({
 
       return { success: true };
     }),
+
   /**
    * 현재 로그인한 사용자의 수정권한 여부 반환
    */

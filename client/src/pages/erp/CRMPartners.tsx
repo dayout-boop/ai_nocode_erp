@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import {
   Building2, Phone, Mail, User, Plus, Search, Eye, CalendarPlus,
   ChevronLeft, ChevronRight, Calendar, Clock, Pencil, Trash2,
-  Lock, CreditCard, FileText, X, RefreshCw, CheckCircle2, Ban, RotateCcw, AlertTriangle
+  Lock, CreditCard, FileText, X, RefreshCw, CheckCircle2, Ban, RotateCcw, AlertTriangle, Users
 } from "lucide-react";
 
 // ── 타입 ──────────────────────────────────────────────────────
@@ -740,12 +740,17 @@ function PartnerDetailModal({
     { id: partner?.id ?? 0 },
     { enabled: open && !!partner }
   );
+  const staffQuery = trpc.crm.getPartnerStaff.useQuery(
+    { partnerId: partner?.id ?? 0 },
+    { enabled: open && !!partner }
+  );
   const onboarding = detailQuery.data?.onboarding ?? null;
+  const staffList = staffQuery.data ?? [];
 
   if (!partner) return null;
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Building2 size={18} className="text-dogolf-green" />
@@ -756,7 +761,14 @@ function PartnerDetailModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 text-sm">
+        <Tabs defaultValue="info" className="mt-2">
+          <TabsList className="w-full grid grid-cols-2">
+            <TabsTrigger value="info" className="text-xs flex items-center gap-1"><Building2 size={12} /> 업체 정보</TabsTrigger>
+            <TabsTrigger value="staff" className="text-xs flex items-center gap-1"><Users size={12} /> 직원 목록 <Badge variant="secondary" className="text-[10px] px-1 ml-0.5">{staffList.length}</Badge></TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="info">
+        <div className="space-y-4 text-sm mt-3">
           {/* 사업자 정보 */}
           <div className="bg-gray-50 rounded-lg p-3 space-y-2">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
@@ -914,6 +926,56 @@ function PartnerDetailModal({
             </div>
           )}
         </div>
+          </TabsContent>
+
+          {/* 직원 목록 탭 */}
+          <TabsContent value="staff">
+            <div className="mt-3">
+              {staffQuery.isLoading ? (
+                <p className="text-sm text-gray-400 text-center py-6">불러오는 중...</p>
+              ) : staffList.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <Users size={28} className="mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">등록된 직원이 없습니다.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {staffList.map((s: any) => (
+                    <div key={s.id} className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                          s.isActive ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-400"
+                        }`}>
+                          {s.name?.charAt(0) ?? "?"}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-medium text-gray-900">{s.name}</span>
+                            {s.position && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-gray-300 text-gray-500">{s.position}</Badge>
+                            )}
+                            {s.role === "manager" && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-300 text-blue-600">매니저</Badge>
+                            )}
+                            {!s.isActive && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-red-300 text-red-500">비활성</Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            {s.loginId}{s.email ? ` · ${s.email}` : ""}{s.phone ? ` · ${s.phone}` : ""}
+                          </p>
+                          {s.lastLoginAt && (
+                            <p className="text-[10px] text-gray-400">최근 접속: {new Date(s.lastLoginAt).toLocaleString('ko-KR')}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
 
         <DialogFooter className="gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={onSchedule} className="flex items-center gap-1">

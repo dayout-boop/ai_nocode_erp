@@ -1982,6 +1982,8 @@ export const partnerStaff = mysqlTable("partner_staff", {
   email: varchar("email", { length: 320 }),
   /** 전화번호 */
   phone: varchar("phone", { length: 30 }),
+  /** 직책 (예: 팀장, 과장, 대리 등 자유 입력) */
+  position: varchar("position", { length: 50 }),
   /** 역할: manager(팀장) | staff(일반 담당자) */
   role: mysqlEnum("role", ["manager", "staff"]).default("staff").notNull(),
   /** 로그인 ID (이메일 또는 아이디) */
