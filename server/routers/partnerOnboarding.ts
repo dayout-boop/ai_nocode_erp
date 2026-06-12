@@ -58,6 +58,29 @@ export const partnerOnboardingRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB 연결 실패" });
 
+      // ─── 활성 사업자번호 재가입 차단 ───
+      // 차단 기준 = "활성화된 테넌트(tenants.isActive=true) 보유 여부".
+      // 테넌트 미활성(가입 진행 중) 단계에서는 동일 사업자번호 중복 입력을 허용한다.
+      const submitNormalizedBiz = normalizeBizNumber(input.businessNumber);
+      if (submitNormalizedBiz) {
+        const [activeTenant] = await db
+          .select({ id: tenants.id })
+          .from(tenants)
+          .where(
+            and(
+              eq(tenants.businessNumberNormalized, submitNormalizedBiz),
+              eq(tenants.isActive, true)
+            )
+          )
+          .limit(1);
+        if (activeTenant) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `이미 등록된 사업자등록번호입니다. (${input.businessNumber}) 동일 회사는 이미 가입되어 있으며, 해당 회사 담당자에게 직원 계정 생성을 요청하세요.`,
+          });
+        }
+      }
+
       // 기존 행 조회 (pending/reviewing 상태인 경우 업데이트, 승인/활성 상태는 신규 삽입 거부)
       const [existing] = await db
         .select({ id: partnerOnboarding.id, status: partnerOnboarding.status })
@@ -585,18 +608,20 @@ export const partnerOnboardingRouter = router({
       // 사업자번호 정규화값으로 기존에 이미 가입(approved/active)된 동일 사업자가 있는지 조회.
       // 동일 사업자번호 = 동일 회사(테넌트)이므로, 다른 사람이 같은 회사로 다시 신청하면
       // "이미 등록된 회사"임을 알려 중복 테넌트 생성을 막는다. (합류 절차는 별도)
+      // 차단 기준 = "활성화된 테넌트(tenants.isActive=true) 보유 여부".
+      // 테넌트 미활성(가입 진행 중) 단계에서는 동일 사업자번호 중복 입력을 허용한다.
       if (normalizedBizNumber) {
-        const [dupCheck] = await db
-          .select({ id: partnerOnboarding.id, contactEmail: partnerOnboarding.contactEmail, status: partnerOnboarding.status })
-          .from(partnerOnboarding)
+        const [activeTenant] = await db
+          .select({ id: tenants.id })
+          .from(tenants)
           .where(
             and(
-              eq(partnerOnboarding.businessNumberNormalized, normalizedBizNumber),
-              ne(partnerOnboarding.contactEmail, input.contactEmail)
+              eq(tenants.businessNumberNormalized, normalizedBizNumber),
+              eq(tenants.isActive, true)
             )
           )
           .limit(1);
-        if (dupCheck && (dupCheck.status === 'approved' || dupCheck.status === 'active')) {
+        if (activeTenant) {
           throw new TRPCError({
             code: "CONFLICT",
             message: `이미 등록된 사업자등록번호입니다. (${extractedBizNumber}) 동일 회사는 이미 가입되어 있으며, 해당 회사 담당자에게 직원 계정 생성을 요청하세요.`,

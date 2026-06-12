@@ -26,6 +26,15 @@ export type PartnerStaffCtx = {
   tenantId: number | null;
 };
 
+/**
+ * 파트너 오너 컨텍스트.
+ *
+ * 오너(role: "partner_owner")의 의미 정의:
+ * - 오너 = 사업자등록번호(회사=테넌트) 자체의 "대표 접근 권한"을 가진 주체(partners 행)를 의미한다.
+ * - "첫 가입자"에게 특권이 영구 고정되는 개념이 아니다. partners 행으로 로그인한 주체면 누구든 대표 권한을 가진다.
+ * - 직원(partnerStaff)은 오너가 생성·권한 부여한 구성원이며, 회사별로 자유롭게 추가/설정할 수 있다.
+ * - 따라서 role 문자열 "partner_owner"는 "회사 대표 접근 권한(초기 등록자 포함)"을 뜻한다.
+ */
 export type PartnerOwnerCtx = {
   partnerId: number;
   tenantId: number | null;
