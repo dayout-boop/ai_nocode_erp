@@ -8,7 +8,21 @@ import App from "./App";
 import { getLoginUrl } from "./const";
 import "./index.css";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // 컴포넌트 마운트 시 항상 최신 데이터를 재요청한다.
+      // (첫 진입 시 인증 레이스/테넌트 전환으로 빈 결과가 캐시에 굳는 문제 방지)
+      refetchOnMount: "always",
+      // 인증 쿠키 준비 전 일시적 실패 시 자동 재시도
+      retry: 2,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
+      // 항상 stale 처리하여 재진입 시 신선한 데이터 보장
+      staleTime: 0,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
