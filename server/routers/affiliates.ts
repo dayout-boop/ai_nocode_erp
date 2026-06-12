@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../_core/trpc";
+import { router, protectedProcedure, partnerProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { affiliates } from "../../drizzle/schema";
 import { eq, like, desc, and, or, count } from "drizzle-orm";
@@ -10,7 +10,8 @@ const affiliateStatusEnum = z.enum(["active", "inactive", "pending"]);
 
 export const affiliatesRouter = router({
   // ─── 제휴사 목록 (페이지네이션 + 검색 + 타입 필터) ──────────────
-  list: protectedProcedure
+  // 제휴사 통합코드는 공용 검색 자원(테넌트 격리 없음) → 파트너 읽기 허용
+  list: partnerProcedure
     .input(z.object({
       page: z.number().default(1),
       pageSize: z.number().default(20),
@@ -49,7 +50,7 @@ export const affiliatesRouter = router({
     }),
 
   // ─── 제휴사 단건 조회 ─────────────────────────────────────────
-  getById: protectedProcedure
+  getById: partnerProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
       const db = await getDb();
@@ -167,7 +168,7 @@ export const affiliatesRouter = router({
     }),
 
   // ─── 타입별 통계 ─────────────────────────────────────────────
-  typeCounts: protectedProcedure
+  typeCounts: partnerProcedure
     .query(async () => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });

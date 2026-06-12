@@ -100,19 +100,22 @@ export async function getUserByOpenId(openId: string) {
 // PARTNER HELPERS - 파트너(거래처) 관리
 // ============================================================
 
-export async function getPartners(search?: string) {
+export async function getPartners(search?: string, tenantId?: number | null) {
   const db = await getDb();
   if (!db) return [];
+  // [테넌트 격리] 파트너 모드(tenantId 지정)에서는 자사 테넌트 파트너만 조회
+  const tenantCond = tenantId != null ? eq(partners.tenantId, tenantId) : undefined;
   if (search) {
+    const searchCond = or(
+      like(partners.companyName, `%${search}%`),
+      like(partners.contactName, `%${search}%`),
+      like(partners.contactPhone, `%${search}%`)
+    );
     return await db.select().from(partners).where(
-      or(
-        like(partners.companyName, `%${search}%`),
-        like(partners.contactName, `%${search}%`),
-        like(partners.contactPhone, `%${search}%`)
-      )
+      tenantCond ? and(searchCond, tenantCond) : searchCond
     ).orderBy(desc(partners.createdAt));
   }
-  return await db.select().from(partners).orderBy(desc(partners.createdAt));
+  return await db.select().from(partners).where(tenantCond).orderBy(desc(partners.createdAt));
 }
 
 export async function getPartnerById(id: number) {

@@ -1391,19 +1391,24 @@ const cmsRouter = router({
 
 const crmRouter = router({
   // ── 파트너(거래처) 관리 ─────────────────────────────────────
-  getPartners: protectedProcedure
+  getPartners: partnerProcedure
     .input(z.object({ search: z.string().optional() }).optional())
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const { getPartners } = await import('./db.js');
-      return await getPartners(input?.search);
+      // [테넌트 격리] 파트너 모드에서는 자사 테넌트 거래처만 조회 (ctx.tenantId가 null이면 마스터 전체)
+      return await getPartners(input?.search, ctx.tenantId);
     }),
 
-  getPartnerById: protectedProcedure
+  getPartnerById: partnerProcedure
     .input(z.object({ id: z.number().int().positive() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const { getPartnerById } = await import('./db.js');
       const partner = await getPartnerById(input.id);
       if (!partner) throw new TRPCError({ code: 'NOT_FOUND', message: '파트너를 찾을 수 없습니다' });
+      // [테넌트 격리] 파트너는 타 테넌트 파트너 조회 불가
+      if (ctx.tenantId != null && partner.tenantId !== ctx.tenantId) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: '접근 권한이 없습니다' });
+      }
       const { loginPwHash: _, ...safe } = partner;
       return safe;
     }),
@@ -1519,18 +1524,20 @@ const crmRouter = router({
       return { success: true };
     }),
 
-  getSchedules: protectedProcedure
+  getSchedules: partnerProcedure
     .input(z.object({
       partnerId: z.number().int().positive().optional(),
       year: z.number().int().optional(),
       month: z.number().int().min(1).max(12).optional(),
     }).optional())
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      // [테넌트 격리] 파트너 일정은 마스터 분양관리 전용 기능 — 파트너 모드에서는 노출 안 함
+      if (ctx.tenantId != null) return [];
       const { getPartnerSchedules } = await import('./db.js');
       return await getPartnerSchedules(input);
     }),
 
-  createSchedule: protectedProcedure
+  createSchedule: partnerProcedure
     .input(z.object({
       partnerId: z.number().int().positive(),
       title: z.string().min(1),
@@ -1543,7 +1550,9 @@ const crmRouter = router({
       recurrenceInterval: z.number().int().min(1).default(1),
       recurrenceEndDate: z.date().optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      // [테넌트 격리] 파트너 일정은 마스터 전용
+      if (ctx.tenantId != null) throw new TRPCError({ code: 'FORBIDDEN', message: '접근 권한이 없습니다' });
       const { createPartnerSchedule } = await import('./db.js');
       // 원본 일정 저장
       await createPartnerSchedule(input);
@@ -1589,13 +1598,14 @@ const crmRouter = router({
       return { success: true };
     }),
 
-  getWeeklySchedules: protectedProcedure
-    .query(async () => {
+  getWeeklySchedules: partnerProcedure
+    .query(async ({ ctx }) => {
+      if (ctx.tenantId != null) return [];
       const { getWeeklyPartnerSchedules } = await import('./db.js');
       return await getWeeklyPartnerSchedules();
     }),
 
-  updateSchedule: protectedProcedure
+  updateSchedule: partnerProcedure
     .input(z.object({
       id: z.number().int().positive(),
       data: z.object({
@@ -1610,15 +1620,17 @@ const crmRouter = router({
         recurrenceEndDate: z.date().optional().nullable(),
       }),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      if (ctx.tenantId != null) throw new TRPCError({ code: 'FORBIDDEN', message: '접근 권한이 없습니다' });
       const { updatePartnerSchedule } = await import('./db.js');
       await updatePartnerSchedule(input.id, input.data as any);
       return { success: true };
     }),
 
-  deleteSchedule: protectedProcedure
+  deleteSchedule: partnerProcedure
     .input(z.object({ id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      if (ctx.tenantId != null) throw new TRPCError({ code: 'FORBIDDEN', message: '접근 권한이 없습니다' });
       const { deletePartnerSchedule } = await import('./db.js');
       await deletePartnerSchedule(input.id);
       return { success: true };

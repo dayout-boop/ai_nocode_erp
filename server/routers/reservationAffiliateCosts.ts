@@ -1,9 +1,17 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../_core/trpc";
+import { router, partnerProcedure } from "../_core/trpc";
 import { getDb } from "../db";
-import { reservationAffiliateCosts, affiliates } from "../../drizzle/schema";
+import { reservationAffiliateCosts, affiliates, reservations } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
+
+// [테넌트 격리] 해당 예약이 파트너 자사 소유인지 검증 (tenantId가 null이면 마스터 — 전체 허용)
+async function assertReservationOwnership(db: any, reservationId: number, tenantId: number | null) {
+  if (tenantId == null) return; // 마스터는 전체 접근 허용
+  const [resv] = await db.select({ tenantId: reservations.tenantId }).from(reservations).where(eq(reservations.id, reservationId));
+  if (!resv) throw new TRPCError({ code: "NOT_FOUND", message: "예약을 찾을 수 없습니다." });
+  if (resv.tenantId !== tenantId) throw new TRPCError({ code: "FORBIDDEN", message: "접근 권한이 없습니다." });
+}
 
 // 비용 행 입력 스키마
 const costRowSchema = z.object({
@@ -21,11 +29,12 @@ const costRowSchema = z.object({
 
 export const reservationAffiliateCostsRouter = router({
   // ─── 예약별 제휴사 비용 조회 ──────────────────────────────────
-  list: protectedProcedure
+  list: partnerProcedure
     .input(z.object({ reservationId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await assertReservationOwnership(db, input.reservationId, ctx.tenantId);
 
       const rows = await db
         .select()
@@ -56,11 +65,12 @@ export const reservationAffiliateCostsRouter = router({
     }),
 
   // ─── 예약별 제휴사 비용 합계 조회 ────────────────────────────
-  summary: protectedProcedure
+  summary: partnerProcedure
     .input(z.object({ reservationId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await assertReservationOwnership(db, input.reservationId, ctx.tenantId);
 
       const rows = await db
         .select()
@@ -80,16 +90,17 @@ export const reservationAffiliateCostsRouter = router({
     }),
 
   // ─── 예약별 제휴사 비용 일괄 저장 (upsert) ───────────────────
-  upsert: protectedProcedure
+  upsert: partnerProcedure
     .input(
       z.object({
         reservationId: z.number(),
         rows: z.array(costRowSchema),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await assertReservationOwnership(db, input.reservationId, ctx.tenantId);
 
       // 기존 비용 삭제 후 재삽입 (전체 교체 방식)
       await db
@@ -119,11 +130,12 @@ export const reservationAffiliateCostsRouter = router({
     }),
 
   // ─── 예약별 제휴사 비용 전체 삭제 ────────────────────────────
-  deleteAll: protectedProcedure
+  deleteAll: partnerProcedure
     .input(z.object({ reservationId: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      await assertReservationOwnership(db, input.reservationId, ctx.tenantId);
 
       await db
         .delete(reservationAffiliateCosts)
