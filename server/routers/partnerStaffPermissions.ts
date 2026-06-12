@@ -31,6 +31,19 @@ const partnerOwnerOnlyProcedure = partnerProcedure.use(({ ctx, next }) => {
 });
 
 /**
+ * 현재 세션의 partnerId 추출 헬퍼.
+ * - partnerStaff.partnerId 는 partners 테이블의 파트너 ID 이므로,
+ *   담당자 소속 검증(테넌트 가드)은 tenantId 가 아니라 이 partnerId 로 비교해야 한다.
+ * - 마스터(admin) 세션은 partnerId 가 없으므로 null → 가드 생략(전체 접근).
+ */
+function getSessionPartnerId(ctx: {
+  partnerOwner?: { partnerId: number } | null;
+  partnerStaff?: { partnerId: number } | null;
+}): number | null {
+  return ctx.partnerOwner?.partnerId ?? ctx.partnerStaff?.partnerId ?? null;
+}
+
+/**
  * 하위 호환용 별칭. 기존 코드가 FEATURE_LIST 를 import 하던 것을 카탈로그로 연결.
  * 신규 코드는 shared/featureCatalog 의 FEATURE_CATALOG 를 직접 사용할 것.
  */
@@ -62,14 +75,14 @@ export const partnerStaffPermissionsRouter = router({
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return { permissions: [] };
-      const tenantId: number | null = ctx.tenantId ?? null;
+      const sessionPartnerId = getSessionPartnerId(ctx);
 
-      // 담당자가 본인 테넌트 소속인지 확인 (테넌트 가드)
-      if (tenantId !== null) {
+      // 담당자가 본인 파트너 소속인지 확인 (소속 가드: partnerId 기준)
+      if (sessionPartnerId !== null) {
         const [staff] = await db
           .select({ id: partnerStaff.id })
           .from(partnerStaff)
-          .where(and(eq(partnerStaff.id, input.staffId), eq(partnerStaff.partnerId, tenantId)))
+          .where(and(eq(partnerStaff.id, input.staffId), eq(partnerStaff.partnerId, sessionPartnerId)))
           .limit(1);
         if (!staff) throw new TRPCError({ code: "NOT_FOUND", message: "담당자를 찾을 수 없습니다." });
       }
@@ -106,14 +119,15 @@ export const partnerStaffPermissionsRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const tenantId: number | null = ctx.tenantId ?? null;
+      const sessionPartnerId = getSessionPartnerId(ctx);
       const updatedBy: number = ctx.user?.id ?? ctx.partnerOwner?.partnerId ?? 0;
 
-      // 테넌트 가드: 담당자가 본인 테넌트 소속인지 확인
-      if (tenantId !== null) {
+      // 소속 가드: 담당자가 본인 파트너 소속인지 확인 (partnerId 기준)
+      if (sessionPartnerId !== null) {
         const [staff] = await db
           .select({ id: partnerStaff.id })
           .from(partnerStaff)
-          .where(and(eq(partnerStaff.id, input.staffId), eq(partnerStaff.partnerId, tenantId)))
+          .where(and(eq(partnerStaff.id, input.staffId), eq(partnerStaff.partnerId, sessionPartnerId)))
           .limit(1);
         if (!staff) throw new TRPCError({ code: "NOT_FOUND", message: "담당자를 찾을 수 없습니다." });
       }
@@ -168,14 +182,15 @@ export const partnerStaffPermissionsRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       const tenantId: number | null = ctx.tenantId ?? null;
+      const sessionPartnerId = getSessionPartnerId(ctx);
       const updatedBy: number = ctx.user?.id ?? ctx.partnerOwner?.partnerId ?? 0;
 
-      // 테넌트 가드
-      if (tenantId !== null) {
+      // 소속 가드 (partnerId 기준)
+      if (sessionPartnerId !== null) {
         const [staff] = await db
           .select({ id: partnerStaff.id })
           .from(partnerStaff)
-          .where(and(eq(partnerStaff.id, input.staffId), eq(partnerStaff.partnerId, tenantId)))
+          .where(and(eq(partnerStaff.id, input.staffId), eq(partnerStaff.partnerId, sessionPartnerId)))
           .limit(1);
         if (!staff) throw new TRPCError({ code: "NOT_FOUND", message: "담당자를 찾을 수 없습니다." });
       }

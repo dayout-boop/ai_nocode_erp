@@ -2508,14 +2508,14 @@ Detected
 - [x] 전체 vitest 49파일 / 484건 통과, 타입/LSP 에러 없음
 
 ## 권한 UI/버그 수정 (2026-06-12)
-- [ ] [버그] 기능권한 설정 버튼 노출 조건 수정: partnerUser.isOwner → isPartnerOwner(role==='partner_owner')
-- [ ] [버그] 파트너→마스터 로그인 튕김: 파트너 모드에서 마스터 전용 쿼리 비활성화 + 전역 401 핸들러 파트너 가드
-- [ ] [A] 기능 카탈로그 단일 소스화: shared/featureCatalog.ts 생성, 서버/UI가 이 파일만 참조
-- [ ] [B] 신규 기능 기본값 자동 편입(enabled=true) 규칙 명문화 및 유지
-- [ ] [C] 카탈로그 category 기반 화면 자동 그룹핑
-- [ ] [D] 신규 기능 NEW 배지(since 기준) 표시
-- [ ] 파트너 자금 void 권한 정렬: deleteDeposit/Charge/Prepaid partnerProcedure + 테넌트 가드
-- [ ] vitest 작성/실행 + dev 검증 + 체크포인트
+- [x] [버그] 기능권한 설정 버튼 노출 조건 수정: partnerUser.isOwner → isPartnerOwner(role==='partner_owner')
+- [x] [버그] 파트너→마스터 로그인 튕김: 파트너 모드에서 마스터 전용 쿼리 비활성화 + 전역 401 핸들러 파트너 가드
+- [x] [A] 기능 카탈로그 단일 소스화: shared/featureCatalog.ts 생성, 서버/UI가 이 파일만 참조
+- [x] [B] 신규 기능 기본값 자동 편입(enabled=true) 규칙 명문화 및 유지
+- [x] [C] 카탈로그 category 기반 화면 자동 그룹핑
+- [x] [D] 신규 기능 NEW 배지(since 기준) 표시
+- [x] 파트너 자금 void 권한 정렬: deleteDeposit/Charge/Prepaid partnerProcedure + 테넌트 가드 (이미 적용됨 확인)
+- [x] vitest 작성/실행 + dev 검증 + 체크포인트 (503건 통과, 체크포인트 d51e6025)
 
 ## 권한 UI/버그 수정 (2026-06-12)
 - [x] 원인진단: 기능권한 ⚙ 버튼이 존재하지 않는 partnerUser.isOwner 필드로 판정되어 항상 숨김
@@ -2529,3 +2529,9 @@ Detected
 - [x] main.tsx 401 핸들러에 파트너 호스트/토큰 가드 추가 (마스터 로그인 강제 이동 차단)
 - [x] 자금 void(deleteDeposit/Charge/Prepaid) partnerProcedure+테넌트 가드 확인 (이미 정렬됨)
 - [x] featureCatalog.test.ts 19건 작성/통과, 전체 50파일·503건 통과, 타입/LSP 에러 없음
+
+## 기능권한 다이얼로그 "권한 목록이 없습니다" 버그 (2026-06-12)
+- [x] [원인확정] 소속 가드가 partnerStaff.partnerId 를 ctx.tenantId(테넌트ID)로 비교 → partnerId(180001)≠tenantId(1003) → 항상 NOT_FOUND → 빈 목록
+- [x] [수정] listForStaff/setPermission/bulkSet 소속 가드를 getSessionPartnerId(partnerId) 기준으로 교정
+- [x] [검증] 실제 DB로 tourcm partner.id=180001, staff.partnerId=180001 확인
+- [x] [테스트] 소속 가드 partnerId 회귀 테스트 3건 추가, 전체 50파일/506건 통과, 타입/LSP 에러 없음

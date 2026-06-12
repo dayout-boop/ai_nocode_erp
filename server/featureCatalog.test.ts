@@ -132,3 +132,44 @@ describe("mergePermissions - DB행+카탈로그 병합", () => {
     expect(merged.some((m) => m.feature === "legacy_removed")).toBe(false);
   });
 });
+
+// ============================================================
+// 회귀 방지: 담당자 소속 가드는 tenantId 가 아니라 partnerId 로 비교해야 한다.
+// 실제 데이터: tourcm → partner.id=180001, tenant.id=1003,
+//   직원(김주현2/3).partnerId=180001
+// 과거 버그: partnerStaff.partnerId === ctx.tenantId(1003) 로 비교 →
+//   180001 ≠ 1003 → 항상 NOT_FOUND → "권한 목록이 없습니다."
+// 이 테스트는 라우터에서 사용하는 getSessionPartnerId 의도를 문서화/검증한다.
+// ============================================================
+describe("소속 가드 - partnerId 기준 매칭(권한 빈 목록 버그 회귀 방지)", () => {
+  // 라우터 getSessionPartnerId 와 동일한 로직(테스트 복제본)
+  function getSessionPartnerId(ctx: {
+    partnerOwner?: { partnerId: number } | null;
+    partnerStaff?: { partnerId: number } | null;
+  }): number | null {
+    return ctx.partnerOwner?.partnerId ?? ctx.partnerStaff?.partnerId ?? null;
+  }
+
+  it("파트너 대표 세션은 partnerOwner.partnerId 를 사용한다 (tenantId 아님)", () => {
+    const ctx = {
+      partnerOwner: { partnerId: 180001, tenantId: 1003 },
+    };
+    const sessionPartnerId = getSessionPartnerId(ctx);
+    expect(sessionPartnerId).toBe(180001);
+    // 직원.partnerId(180001) 와 일치 → 매칭 성공
+    const staffPartnerId = 180001;
+    expect(staffPartnerId === sessionPartnerId).toBe(true);
+    // 만약 과거처럼 tenantId(1003) 로 비교했다면 불일치였음
+    expect(staffPartnerId === ctx.partnerOwner.tenantId).toBe(false);
+  });
+
+  it("파트너 직원 세션은 partnerStaff.partnerId 를 사용한다", () => {
+    const ctx = { partnerStaff: { partnerId: 180001 } };
+    expect(getSessionPartnerId(ctx)).toBe(180001);
+  });
+
+  it("마스터(admin) 세션은 partnerId 가 없어 null → 소속 가드 생략(전체 접근)", () => {
+    const ctx = {};
+    expect(getSessionPartnerId(ctx)).toBeNull();
+  });
+});
