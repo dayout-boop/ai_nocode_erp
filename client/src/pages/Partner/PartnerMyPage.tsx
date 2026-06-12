@@ -118,7 +118,12 @@ function StaffPermissionsDialog({
                 <div className="space-y-2">
                   {(featuresData?.features ?? []).filter((f) => f.category === category).map((f) => (
                     <div key={f.key} className="flex items-center justify-between p-2.5 rounded-lg border bg-white">
-                      <span className="text-sm">{f.label}</span>
+                      <span className="text-sm flex items-center gap-1.5">
+                        {f.label}
+                        {(f as any).isNew && (
+                          <span className="text-[9px] px-1 py-0 rounded bg-rose-500 text-white">NEW</span>
+                        )}
+                      </span>
                       <Switch
                         checked={localPerms[f.key] ?? true}
                         onCheckedChange={(v) => setLocalPerms((prev) => ({ ...prev, [f.key]: v }))}

@@ -10,7 +10,8 @@
 
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
-import { usePartnerAuth } from "@/_core/hooks/usePartnerAuth";
+import { usePartnerAuth, isPartnerOwner } from "@/_core/hooks/usePartnerAuth";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -306,7 +307,7 @@ function StaffFeaturePermDialog({
     });
   };
 
-  // 카테고리별 그룹핑
+  // 카테고리별 그룹핑 (서버가 카탈로그 순서대로 내려주므로 삽입 순서 유지)
   const grouped = perms.reduce<Record<string, typeof perms>>((acc, p) => {
     const cat = (p as any).category ?? "기타";
     if (!acc[cat]) acc[cat] = [];
@@ -336,7 +337,12 @@ function StaffFeaturePermDialog({
                   <div className="space-y-1.5">
                     {items.map(p => (
                       <div key={p.feature} className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-100 bg-gray-50">
-                        <span className="text-sm text-gray-700">{(p as any).label ?? p.feature}</span>
+                        <span className="text-sm text-gray-700 flex items-center gap-1.5">
+                          {(p as any).label ?? p.feature}
+                          {(p as any).isNew && (
+                            <Badge className="text-[9px] px-1 py-0 bg-rose-500 text-white border-0">NEW</Badge>
+                          )}
+                        </span>
                         <Switch
                           checked={p.enabled}
                           onCheckedChange={() => toggleFeature(p.feature, p.enabled)}
@@ -450,6 +456,7 @@ function PermissionDialog({
 // ─── 메인 페이지 ──────────────────────────────────────────────────────────────
 export default function CompanyManagePage() {
   const { user: partnerUser } = usePartnerAuth();
+  const { user: masterUser } = useAuth();
   const [staffDialogOpen, setStaffDialogOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<StaffItem | null>(null);
   const [permDialogOpen, setPermDialogOpen] = useState(false);
@@ -512,7 +519,9 @@ export default function CompanyManagePage() {
   const company = companyQuery.data;
 
   // 현재 로그인한 사람이 오너인지
-  const isOwner = !!(partnerUser as any)?.isOwner;
+  // - 파트너 대표(role === 'partner_owner') 또는
+  // - 마스터(admin)가 특정 테넌트를 선택해 들어온 경우
+  const isOwner = isPartnerOwner(partnerUser) || masterUser?.role === "admin";
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">

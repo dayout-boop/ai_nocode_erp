@@ -2506,3 +2506,26 @@ Detected
 - [x] dev 브라우저 검증: void 전환 → 숨김/노출 토글 → 복원 → 변경이력 기록 확인
 - [x] 중복경고 공유 헬퍼(duplicateWarning) 단위 테스트 7건 통과
 - [x] 전체 vitest 49파일 / 484건 통과, 타입/LSP 에러 없음
+
+## 권한 UI/버그 수정 (2026-06-12)
+- [ ] [버그] 기능권한 설정 버튼 노출 조건 수정: partnerUser.isOwner → isPartnerOwner(role==='partner_owner')
+- [ ] [버그] 파트너→마스터 로그인 튕김: 파트너 모드에서 마스터 전용 쿼리 비활성화 + 전역 401 핸들러 파트너 가드
+- [ ] [A] 기능 카탈로그 단일 소스화: shared/featureCatalog.ts 생성, 서버/UI가 이 파일만 참조
+- [ ] [B] 신규 기능 기본값 자동 편입(enabled=true) 규칙 명문화 및 유지
+- [ ] [C] 카탈로그 category 기반 화면 자동 그룹핑
+- [ ] [D] 신규 기능 NEW 배지(since 기준) 표시
+- [ ] 파트너 자금 void 권한 정렬: deleteDeposit/Charge/Prepaid partnerProcedure + 테넌트 가드
+- [ ] vitest 작성/실행 + dev 검증 + 체크포인트
+
+## 권한 UI/버그 수정 (2026-06-12)
+- [x] 원인진단: 기능권한 ⚙ 버튼이 존재하지 않는 partnerUser.isOwner 필드로 판정되어 항상 숨김
+- [x] 원인진단: 파트너→마스터 로그인 튕김 = main.tsx 전역 401 핸들러가 파트너 컨텍스트 무시하고 /erp/login 강제 이동
+- [x] (A) shared/featureCatalog.ts 단일 소스 신설 (key/label/category/since/defaultEnabled)
+- [x] (B) 기본 enabled=true 자동 편입 — 신규 기능은 행 없으면 자동 허용
+- [x] (C) CATEGORY_ORDER 기반 카테고리 자동 그룹/정렬
+- [x] (D) since 기준 NEW 배지(30일) 판정 + UI 배지 표시 (CompanyManagePage / PartnerMyPage)
+- [x] partnerStaffPermissions 라우터를 카탈로그 단일 소스 기반으로 개편
+- [x] CompanyManagePage isOwner 판정을 isPartnerOwner(role==='partner_owner') + 마스터 보강으로 교체
+- [x] main.tsx 401 핸들러에 파트너 호스트/토큰 가드 추가 (마스터 로그인 강제 이동 차단)
+- [x] 자금 void(deleteDeposit/Charge/Prepaid) partnerProcedure+테넌트 가드 확인 (이미 정렬됨)
+- [x] featureCatalog.test.ts 19건 작성/통과, 전체 50파일·503건 통과, 타입/LSP 에러 없음

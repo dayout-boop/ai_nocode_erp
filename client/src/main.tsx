@@ -32,6 +32,21 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
 
   if (!isUnauthorized) return;
 
+  // 파트너 컨텍스트 판정: 파트너 서브도메인(partner.*) 또는 파트너 세션 표식이 있으면
+  // 마스터 로그인으로 절대 리다이렉트하지 않는다.
+  // (파트너가 /erp 레이아웃을 직접 쓰는 흐름에서 마스터 전용 쿼리의 401이
+  //  파트너 화면을 마스터 로그인으로 튕기게 하던 문제 방지)
+  const host = window.location.hostname;
+  const isPartnerHost = host.startsWith('partner.');
+  const hasPartnerStaffToken = !!localStorage.getItem('partner_staff_token');
+  const isPartnerContext = isPartnerHost || hasPartnerStaffToken;
+
+  if (isPartnerContext) {
+    // 파트너 컨텍스트에서는 전역 강제 리다이렉트를 하지 않는다.
+    // 인증 만료/누락은 ERPPartnerLayout / 파트너 로그인 가드가 자체 처리한다.
+    return;
+  }
+
   // /erp 경로에서는 마스터 로그인 페이지로 리다이렉트 (Manus OAuth 아님)
   const currentPath = window.location.pathname;
   if (currentPath.startsWith('/erp')) {
