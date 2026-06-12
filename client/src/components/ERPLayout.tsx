@@ -34,6 +34,8 @@ import {
   PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
   // 채팅
   Send, RotateCcw,
+  // 고객센터
+  LifeBuoy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -91,6 +93,7 @@ import ImageArchive from "@/pages/erp/ImageArchive";
 import CreditManagement from "@/pages/erp/CreditManagement";
 import PartnerIntegrations from "@/pages/erp/PartnerIntegrations";
 import CompanyManagePage from "@/pages/erp/CompanyManagePage";
+import PartnerSupportCenter from "@/pages/Partner/PartnerSupportCenter";
 import AIChannelManagement from "@/pages/erp/AIChannelManagement";
 import AIUnifiedLogs from "@/pages/erp/AIUnifiedLogs";
 import AICreditManagement from "@/pages/erp/AICreditManagement";
@@ -701,6 +704,7 @@ function ERPContent() {
           <Route path="/ai-channel-management" component={AIChannelManagement} />
           <Route path="/ai-unified-logs" component={AIUnifiedLogs} />
           <Route path="/ai-credit-management" component={AICreditManagement} />
+          <Route path="/partner/staff/support" component={PartnerSupportCenter} />
           <Route component={ERPDashboard} />
         </Switch>
       </Suspense>
@@ -879,12 +883,24 @@ export default function ERPLayout() {
 
         {/* Bottom */}
         <div className="border-t border-slate-700/50 px-3 py-3 space-y-2">
-          <Link href="/dev-dashboard" onClick={() => setMobileOpen(false)}>
-            <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-indigo-300 hover:bg-slate-700 cursor-pointer transition-colors">
-              <ExternalLink size={16} className="shrink-0" />
-              {sidebarMode !== "icon" && <span className="text-xs">개발대시보드</span>}
-            </div>
-          </Link>
+          {/* 파트너 모드: 고객센터 메뉴 */}
+          {isPartnerMode && (
+            <Link href="/partner/staff/support" onClick={() => setMobileOpen(false)}>
+              <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-emerald-300 hover:bg-slate-700 cursor-pointer transition-colors">
+                <LifeBuoy size={16} className="shrink-0" />
+                {sidebarMode !== "icon" && <span className="text-xs">고객센터</span>}
+              </div>
+            </Link>
+          )}
+          {/* 마스터 모드: 개발대시보드 */}
+          {!isPartnerMode && (
+            <Link href="/dev-dashboard" onClick={() => setMobileOpen(false)}>
+              <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-indigo-300 hover:bg-slate-700 cursor-pointer transition-colors">
+                <ExternalLink size={16} className="shrink-0" />
+                {sidebarMode !== "icon" && <span className="text-xs">개발대시보드</span>}
+              </div>
+            </Link>
+          )}
           <a href={window.location.origin} target="_blank" rel="noopener noreferrer">
             <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 cursor-pointer transition-colors">
               <ExternalLink size={16} className="shrink-0" />
@@ -935,6 +951,20 @@ export default function ERPLayout() {
           </button>
 
           <div className="flex-1" />
+
+          {/* 데스크탑: AI 패널 토글 (TenantSelector 좌측) */}
+          {showAIPanel && (
+            <button
+              onClick={cycleAIPanel}
+              title={isPartnerMode
+                ? `AI파트너매니저: ${aiPanelMode === "wide" ? "좁게" : aiPanelMode === "narrow" ? "아이콘만" : "넓게"}`
+                : `마스터AI 패널: ${aiPanelMode === "wide" ? "좁게" : aiPanelMode === "narrow" ? "아이콘만" : "넓게"}`
+              }
+              className="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-100 transition-colors text-indigo-500"
+            >
+              {aiPanelMode === "icon" ? <PanelRightOpen size={16} /> : <PanelRightClose size={16} />}
+            </button>
+          )}
 
           {/* 마스터 전용 테넌트 셀렉터 */}
           {!isPartnerMode && <TenantSelector />}
@@ -1018,19 +1048,7 @@ export default function ERPLayout() {
             </div>
           )}
 
-          {/* 데스크탑: AI 패널 토글 */}
-          {showAIPanel && (
-            <button
-              onClick={cycleAIPanel}
-              title={isPartnerMode
-                ? `AI파트너매니저: ${aiPanelMode === "wide" ? "좊게" : aiPanelMode === "narrow" ? "아이콘만" : "넓게"}`
-                : `마스터AI 패널: ${aiPanelMode === "wide" ? "좊게" : aiPanelMode === "narrow" ? "아이콘만" : "넓게"}`
-              }
-              className="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-100 transition-colors text-indigo-500"
-            >
-              {aiPanelMode === "icon" ? <PanelRightOpen size={16} /> : <PanelRightClose size={16} />}
-            </button>
-          )}
+          {/* 데스크탑: AI 패널 토글은 TenantSelector 좌측으로 이동됨 */}
           {/* 모바일: AI 아이콘 */}
           {showAIPanel && (
             <button

@@ -427,6 +427,24 @@ export default function TenantAiConsole() {
 
         {/* ─── 개발 요청 탭 ─── */}
         <TabsContent value="devRequests" className="space-y-4 mt-4">
+          <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
+            <p className="text-sm text-gray-500">파트너사에서 접수한 개발요청 목록입니다. 고객센터AI를 통해 자동 접수된 요청도 포함됩니다.</p>
+            <div className="flex items-center gap-2">
+              <select
+                className="text-xs border border-gray-200 rounded-md px-2 py-1.5 bg-white"
+                value={selectedTenantId ?? ""}
+                onChange={(e) => setSelectedTenantId(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">전체 파트너사</option>
+                {allTenantsCredit?.map((t) => (
+                  <option key={t.id} value={t.id}>{t.companyName}</option>
+                ))}
+              </select>
+              <Button variant="outline" size="sm" onClick={() => refetchDevRequests()}>
+                <RefreshCw className="w-3 h-3 mr-1" /> 새로고침
+              </Button>
+            </div>
+          </div>
           {!devRequests || devRequests.length === 0 ? (
             <div className="text-center py-12 text-gray-400">
               <Activity className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -459,7 +477,7 @@ export default function TenantAiConsole() {
                             <p className="text-xs text-gray-400 mt-1">메모: {req.approvalMemo}</p>
                           )}
                           <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
-                            <span>업체 #{req.tenantId}</span>
+                            <span className="font-medium text-gray-600">{req.companyName ?? `업체 #${req.tenantId}`}</span>
                             <span>{new Date(req.createdAt).toLocaleDateString("ko-KR")}</span>
                             {req.notifiedTenant && (
                               <span className="text-green-600 flex items-center gap-1">

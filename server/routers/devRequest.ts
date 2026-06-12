@@ -735,23 +735,98 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
       const partner = (ctx as unknown as { partner?: { id: number; companyName?: string } }).partner;
+      if (!partner?.id) throw new TRPCError({ code: "UNAUTHORIZED" });
       const tenantName = input.tenantName ?? partner?.companyName ?? "파트너";
-
       const categoryLabel = { feature: "신규기능", bug: "버그수정", improvement: "개선", question: "문의" }[input.category];
 
+      // 파트너 개발요청은 tenantApiDevRequests로 단일 통합
+      const requestContent = `[카테고리: ${categoryLabel}]\n\n${input.description}`;
+
       const [inserted] = await db
-        .insert(devRequests)
+        .insert(tenantApiDevRequests)
         .values({
-          title: `[파트너요청:${tenantName}] ${input.title}`,
-          description: `**요청 업체:** ${tenantName}\n**카테고리:** ${categoryLabel}\n\n${input.description}`,
-          priority: "medium",
-          status: "pending",
-          source: "manual",
-          createdBy: 0,
+          tenantId: partner.id,
+          title: input.title,
+          requestContent,
+          approvalStatus: "pending",
+          feasibility: "possible",
+          isGlobalImprovement: false,
+          notifiedTenant: false,
         })
         .$returningId();
 
-      publish("dev_request_created", { id: inserted.id, title: input.title, priority: "medium", status: "pending" });
+      // 비동기 AI 자동분석 (백그라운드 실행)
+      setImmediate(async () => {
+        try {
+          const analysisResult = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content: `당신은 골프투어 ERP 개발팀의 요청 분석 AI입니다.
+파트너 업체의 개발요청을 분석하여 JSON으로 응답하세요.
+{
+  "feasibility": "possible" | "conditional" | "impossible" | "global",
+  "isGlobal": boolean,
+  "summary": "요청 핵심 내용 1줄 요약 (50자 이내)",
+  "devNote": "개발팀을 위한 기술 요약 (100자 이내)"
+}
+
+feasibility 기준:
+- possible: 구현 가능
+- conditional: 조건부 가능 (추가 정보 필요)
+- impossible: 구현 불가 (이유 명시)
+- global: 전체 업체 공통 개선으로 적합`,
+              },
+              {
+                role: "user",
+                content: `업체: ${tenantName}\n제목: ${input.title}\n\n요청 내용:\n${requestContent}`,
+              },
+            ],
+            response_format: {
+              type: "json_schema",
+              json_schema: {
+                name: "dev_request_analysis",
+                strict: true,
+                schema: {
+                  type: "object",
+                  properties: {
+                    feasibility: { type: "string", enum: ["possible", "conditional", "impossible", "global"] },
+                    isGlobal: { type: "boolean" },
+                    summary: { type: "string" },
+                    devNote: { type: "string" },
+                  },
+                  required: ["feasibility", "isGlobal", "summary", "devNote"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          });
+
+          const rawContent = analysisResult?.choices?.[0]?.message?.content;
+          const raw = typeof rawContent === 'string' ? rawContent : '';
+          if (raw) {
+            const parsed = JSON.parse(raw) as {
+              feasibility: "possible" | "conditional" | "impossible" | "global";
+              isGlobal: boolean;
+              summary: string;
+              devNote: string;
+            };
+            const dbForUpdate = await getDb();
+            if (dbForUpdate) {
+              await dbForUpdate
+                .update(tenantApiDevRequests)
+                .set({
+                  feasibility: parsed.feasibility,
+                  isGlobalImprovement: parsed.isGlobal,
+                  aiAnalysis: `[요청 요약] ${parsed.summary}\n\n[개발 노트] ${parsed.devNote}`,
+                })
+                .where(eq(tenantApiDevRequests.id, inserted.id));
+            }
+          }
+        } catch (e) {
+          console.error("[submitByPartner] AI 자동분석 실패:", e);
+        }
+      });
 
       // Slack 알림
       try {
@@ -761,7 +836,7 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              text: `🏢 *파트너 개발요청 접수*\n업체: ${tenantName}\n제목: ${input.title}\n카테고리: ${categoryLabel}`,
+              text: `[파트너 개발요청 접수]\n업체: ${tenantName}\n제목: ${input.title}\n카테고리: ${categoryLabel}\n\nERP에서 확인: /erp/tenant-ai-console`,
             }),
           });
         }
@@ -769,7 +844,7 @@ ${input.chatContext ? `\n채팅 컨텍스트:\n${input.chatContext}` : ""}
         console.error("[submitByPartner] Slack 알림 실패:", e);
       }
 
-      return { success: true, id: inserted.id, message: "개발 요청이 접수되었습니다. 검토 후 안내드리겠습니다." };
+      return { success: true, id: inserted.id, message: "개발 요청이 접수되었습니다. 담당 매니저가 검토 후 안내드리겠습니다." };
     }),
 
   /**

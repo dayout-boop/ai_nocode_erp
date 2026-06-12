@@ -275,8 +275,24 @@ export const tenantAiRouter = router({
       if (input.approvalStatus) conditions.push(eq(tenantApiDevRequests.approvalStatus, input.approvalStatus));
 
       const rows = await db
-        .select()
+        .select({
+          id: tenantApiDevRequests.id,
+          tenantId: tenantApiDevRequests.tenantId,
+          title: tenantApiDevRequests.title,
+          requestContent: tenantApiDevRequests.requestContent,
+          approvalStatus: tenantApiDevRequests.approvalStatus,
+          feasibility: tenantApiDevRequests.feasibility,
+          isGlobalImprovement: tenantApiDevRequests.isGlobalImprovement,
+          aiAnalysis: tenantApiDevRequests.aiAnalysis,
+          approvalMemo: tenantApiDevRequests.approvalMemo,
+          notifiedTenant: tenantApiDevRequests.notifiedTenant,
+          completedAt: tenantApiDevRequests.completedAt,
+          createdAt: tenantApiDevRequests.createdAt,
+          updatedAt: tenantApiDevRequests.updatedAt,
+          companyName: tenants.companyName,
+        })
         .from(tenantApiDevRequests)
+        .leftJoin(tenants, eq(tenantApiDevRequests.tenantId, tenants.id))
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(desc(tenantApiDevRequests.createdAt))
         .limit(input.limit)

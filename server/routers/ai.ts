@@ -10,7 +10,7 @@ import { TRPCError } from "@trpc/server";
 import { eq, desc, and, gte, sql, count, sum, inArray } from "drizzle-orm";
 import { publicProcedure, protectedProcedure, partnerProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
-import { aiLogs, packages, packageSlots, bookings, devRequests, chatSessions } from "../../drizzle/schema";
+import { aiLogs, packages, packageSlots, bookings, devRequests, chatSessions, tenantApiDevRequests } from "../../drizzle/schema";
 import { classifyIntent, fetchPackageContext, fetchReservationContext, compressHistory, fetchManagerContext } from "../services/rag";
 import { orchestratorChat } from "../services/openrouter";
 import { buildDogolfDevContext } from "../services/devContext";
@@ -539,6 +539,7 @@ export const aiRouter = router({
           {
             sessionId: input.sessionId,
             userId: tenantUserId,
+            tenantId: tenantId ?? undefined,
             assistant: "manager",
             role: "user",
             content: input.message,
@@ -551,6 +552,7 @@ export const aiRouter = router({
           {
             sessionId: input.sessionId,
             userId: tenantUserId,
+            tenantId: tenantId ?? undefined,
             assistant: "manager",
             role: "assistant",
             content: responseText,
@@ -698,7 +700,100 @@ export const aiRouter = router({
         }
       }
 
-      return { response: cleanResponse, model: modelUsed, tokensIn, tokensOut, costUsd, durationMs: Date.now() - startTime, uiCard };
+      // [DEV_REQUEST_SUBMIT:제목|내용] 마커 처리 - 고객센터AI 개발요청 자동 접수
+      let devRequestSubmitted: { id: number; title: string } | null = null;
+      const devSubmitMatch = responseText.match(/\[DEV_REQUEST_SUBMIT:([^|\]]+)\|([^\]]+)\]/);
+      if (devSubmitMatch) {
+        cleanResponse = cleanResponse.replace(/\[DEV_REQUEST_SUBMIT:[^\]]+\]/, "").trim();
+        const devTitle = devSubmitMatch[1].trim();
+        const devContent = devSubmitMatch[2].trim();
+        // 파트너 세션에서만 자동 접수 (tenantId 필수)
+        if (tenantId) {
+          try {
+            const [devInserted] = await db
+              .insert(tenantApiDevRequests)
+              .values({
+                tenantId,
+                title: devTitle,
+                requestContent: devContent,
+                approvalStatus: "pending",
+                feasibility: "possible",
+                isGlobalImprovement: false,
+                notifiedTenant: false,
+              })
+              .$returningId();
+            devRequestSubmitted = { id: devInserted.id, title: devTitle };
+
+            // 비동기 AI 자동분석
+            setImmediate(async () => {
+              try {
+                const { invokeLLM } = await import("../_core/llm");
+                const analysisResult = await invokeLLM({
+                  messages: [
+                    { role: "system", content: `골프투어 ERP 개발요청을 분석하여 JSON으로 응답하세요.
+{"feasibility":"possible"|"conditional"|"impossible"|"global","isGlobal":boolean,"summary":"50자 이내 요약","devNote":"100자 이내 기술 노트"}` },
+                    { role: "user", content: `제목: ${devTitle}
+
+내용:
+${devContent}` },
+                  ],
+                  response_format: {
+                    type: "json_schema",
+                    json_schema: {
+                      name: "dev_analysis",
+                      strict: true,
+                      schema: {
+                        type: "object",
+                        properties: {
+                          feasibility: { type: "string", enum: ["possible","conditional","impossible","global"] },
+                          isGlobal: { type: "boolean" },
+                          summary: { type: "string" },
+                          devNote: { type: "string" },
+                        },
+                        required: ["feasibility","isGlobal","summary","devNote"],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                });
+                const rawContent = analysisResult?.choices?.[0]?.message?.content;
+                const raw = typeof rawContent === 'string' ? rawContent : '';
+                if (raw) {
+                  const parsed = JSON.parse(raw) as { feasibility: "possible"|"conditional"|"impossible"|"global"; isGlobal: boolean; summary: string; devNote: string };
+                  const dbUpdate = await getDb();
+                  if (dbUpdate) {
+                    await dbUpdate.update(tenantApiDevRequests)
+                      .set({ feasibility: parsed.feasibility, isGlobalImprovement: parsed.isGlobal, aiAnalysis: `[요청 요약] ${parsed.summary}
+
+[개발 노트] ${parsed.devNote}` })
+                      .where(eq(tenantApiDevRequests.id, devInserted.id));
+                  }
+                }
+              } catch (e) { console.error("[managerChat] DEV_REQUEST AI분석 실패:", e); }
+            });
+
+            // Slack 알림
+            const slackUrl = process.env.SLACK_WEBHOOK_URL;
+            if (slackUrl) {
+              fetch(slackUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: `[파트너 개발요청 접수 - 고객센터AI]
+제목: ${devTitle}
+
+ERP 확인: /erp/tenant-ai-console` }),
+              }).catch(() => {});
+            }
+          } catch (e) {
+            console.error("[managerChat] DEV_REQUEST 접수 실패:", e);
+          }
+        }
+      }
+
+      // [DEV_REQUEST_INTENT] 마커 제거 (파트너에게 노출 방지)
+      cleanResponse = cleanResponse.replace(/\[DEV_REQUEST_INTENT\]/g, "").trim();
+
+      return { response: cleanResponse, model: modelUsed, tokensIn, tokensOut, costUsd, durationMs: Date.now() - startTime, uiCard, devRequestSubmitted };
     }),
 
   /**

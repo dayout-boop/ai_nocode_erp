@@ -184,14 +184,26 @@ function AIPanelContent({ compact }: { compact?: boolean }) {
     try {
       const history = messages.filter(m => m.id !== "welcome").slice(-8).map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
       const result = await chatMutation.mutateAsync({ sessionId, message: text.trim(), history });
+      const resultTyped = result as { response: string; uiCard?: ManagerUiCard | null; devRequestSubmitted?: { id: number; title: string } | null };
       const assistantMsg: ChatMessage = {
         id: `a-${Date.now()}`,
         role: "assistant",
         content: result.response,
         timestamp: new Date(),
-        uiCard: (result as { response: string; uiCard?: ManagerUiCard | null }).uiCard ?? null,
+        uiCard: resultTyped.uiCard ?? null,
       };
       setMessages(prev => [...prev, assistantMsg]);
+      // 개발요청 자동 접수 완료 알림
+      if (resultTyped.devRequestSubmitted) {
+        const { id, title } = resultTyped.devRequestSubmitted;
+        const noticeMsg: ChatMessage = {
+          id: `dev-${Date.now()}`,
+          role: "assistant",
+          content: `✅ **개발요청이 접수되었습니다** (접수번호: #${id})\n\n**${title}**\n\n처리 현황은 고객센터 → 개발요청 탭에서 확인하실 수 있습니다.`,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, noticeMsg]);
+      }
     } catch {
       setMessages(prev => [...prev, { id: `e-${Date.now()}`, role: "assistant", content: "일시적인 오류가 발생했습니다.\n📞 1668-1739", timestamp: new Date() }]);
     } finally {

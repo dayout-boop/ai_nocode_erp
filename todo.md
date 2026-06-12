@@ -2444,3 +2444,18 @@ Detected
 - [x] 서버: rag.ts fetchManagerContext에 파트너별 개발요청 현황 컨텍스트 주입
 - [x] 서버: devRequest.ts에 listByPartner 프로시저 추가 (파트너가 자신의 개발요청 현황 조회)
 - [x] 클라이언트: PartnerSupportPage.tsx 3탭 구조로 개편 (FAQ / 개발요청 접수 / 요청 현황)
+
+## 2026-06-12 세션 - 개발요청 단일 흐름 통합 및 고객센터AI 고도화
+
+- [x] server/ai.ts: managerChat 로그 저장에 tenantId 추가 (파트너 ERP AI 대화 로그 누락 수정)
+- [x] client/ERPLayout.tsx: 파트너 ERP 좌측 하단 고객센터 메뉴 추가 (/partner/staff/support)
+- [x] client/ERPLayout.tsx: 개발대시보드 파트너 노출 차단 (isPartnerMode 시 숨김)
+- [x] client/ERPLayout.tsx: AI 패널 토글 버튼 TenantSelector 좌측으로 이동
+- [x] server/devRequest.ts: submitByPartner를 tenantApiDevRequests 테이블로 이전 + AI 자동분석 추가
+- [x] server/manager.ts: 시스템 프롬프트에 개발요청 의도 감지 마커 및 처리 지침 추가
+- [x] server/ai.ts: managerChat에 [DEV_REQUEST_SUBMIT:...] 마커 파싱 + 자동 접수 로직 추가
+- [x] client/ERPPartnerLayout.tsx: AIPanelContent에 devRequestSubmitted 응답 처리 추가
+- [x] server/tenantAi.ts: listApiDevRequests에 tenants 조인으로 companyName 반환 추가
+- [x] client/TenantAiConsole.tsx: 개발요청 탭에 파트너사명 필터 드롭다운 + 파트너사명 표시 추가
+- [x] TypeScript 에러 수정: ai.ts(761) + devRequest.ts(807) message.content 타입 가드 적용
+- [x] TypeScript 에러 수정: TenantAiConsole.tsx tenants 미정의 변수 → allTenantsCredit 사용으로 수정
