@@ -2459,3 +2459,11 @@ Detected
 - [x] client/TenantAiConsole.tsx: 개발요청 탭에 파트너사명 필터 드롭다운 + 파트너사명 표시 추가
 - [x] TypeScript 에러 수정: ai.ts(761) + devRequest.ts(807) message.content 타입 가드 적용
 - [x] TypeScript 에러 수정: TenantAiConsole.tsx tenants 미정의 변수 → allTenantsCredit 사용으로 수정
+
+## 2026-06-12 세션 - 대시보드 개발요청 알림 + AI 플로우 통합
+
+- [x] 마스터 ERP 대시보드 미처리 개발요청 알림 배너 추가 (파트너사 접수 건수, /tenant-ai 링크)
+- [x] 마스터 ERP 대시보드 KPI 카드에 미처리 개발요청 카드 추가 (마스터 전용, 파트너 노출 차단)
+- [x] PartnerSupportCenter.tsx AI 채팅 devRequestSubmitted 처리 추가 (접수번호 확인 메시지 + toast)
+- [x] PartnerSupportPage.tsx AI 채팅 devRequestSubmitted 처리 확인 (이미 적용 완료)
+- [x] 고객센터AI 개발요청 접수 플로우 전체 검증 (서버 마커 파싱 → DB 저장 → 클라이언트 알림)

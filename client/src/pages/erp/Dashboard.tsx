@@ -8,7 +8,7 @@ import {
 import {
   Calendar, Package, MessageSquare, Users, TrendingUp, Clock, CheckCircle, XCircle,
   AlertCircle, ArrowRight, Building2, DollarSign, PackageSearch, Plus, RefreshCw,
-  Activity, Zap, Star
+  Activity, Zap, Star, Code2
 } from "lucide-react";
 import { Link } from "wouter";
 import { usePartnerAuth } from "@/_core/hooks/usePartnerAuth";
@@ -76,6 +76,13 @@ export default function Dashboard() {
   const { data: monthlyRevenue } = trpc.dashboard.monthlyRevenue.useQuery();
   const { isAuthenticated: isPartnerMode } = usePartnerAuth();
 
+  // 미처리 개발요청 (마스터 전용)
+  const { data: pendingDevRequests } = trpc.tenantAi.listApiDevRequests.useQuery(
+    { approvalStatus: "pending", limit: 100 },
+    { enabled: !isPartnerMode }
+  );
+  const pendingDevCount = pendingDevRequests?.length ?? 0;
+
   const chartData = monthlyRevenue?.map((d) => ({
     month: d.month,
     매출: Number(d.revenue) / 10000,
@@ -117,23 +124,41 @@ export default function Dashboard() {
       </div>
 
       {/* 알림 배너 */}
-      {!isLoading && ((stats?.newInquiries ?? 0) > 0 || (stats?.pendingBookings ?? 0) > 0) && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
-          <AlertCircle size={18} className="text-amber-600 shrink-0" />
-          <div className="flex-1 text-sm text-amber-800">
-            <span className="font-semibold">처리 필요 항목: </span>
-            {(stats?.newInquiries ?? 0) > 0 && (
-              <span>신규 문의 <strong>{stats?.newInquiries}건</strong>{(stats?.pendingBookings ?? 0) > 0 ? " · " : ""}</span>
-            )}
-            {(stats?.pendingBookings ?? 0) > 0 && (
-              <span>대기 예약 <strong>{stats?.pendingBookings}건</strong></span>
-            )}
-          </div>
-          <Link href="/inquiries">
-            <Button variant="outline" size="sm" className="text-amber-700 border-amber-300 bg-white hover:bg-amber-50 gap-1">
-              확인하기 <ArrowRight size={12} />
-            </Button>
-          </Link>
+      {!isLoading && ((stats?.newInquiries ?? 0) > 0 || (stats?.pendingBookings ?? 0) > 0 || pendingDevCount > 0) && (
+        <div className="space-y-2">
+          {((stats?.newInquiries ?? 0) > 0 || (stats?.pendingBookings ?? 0) > 0) && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+              <AlertCircle size={18} className="text-amber-600 shrink-0" />
+              <div className="flex-1 text-sm text-amber-800">
+                <span className="font-semibold">처리 필요 항목: </span>
+                {(stats?.newInquiries ?? 0) > 0 && (
+                  <span>신규 문의 <strong>{stats?.newInquiries}건</strong>{(stats?.pendingBookings ?? 0) > 0 ? " · " : ""}</span>
+                )}
+                {(stats?.pendingBookings ?? 0) > 0 && (
+                  <span>대기 예약 <strong>{stats?.pendingBookings}건</strong></span>
+                )}
+              </div>
+              <Link href="/inquiries">
+                <Button variant="outline" size="sm" className="text-amber-700 border-amber-300 bg-white hover:bg-amber-50 gap-1">
+                  확인하기 <ArrowRight size={12} />
+                </Button>
+              </Link>
+            </div>
+          )}
+          {!isPartnerMode && pendingDevCount > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-3">
+              <Code2 size={18} className="text-blue-600 shrink-0" />
+              <div className="flex-1 text-sm text-blue-800">
+                <span className="font-semibold">미처리 개발요청: </span>
+                <span>파트너사에서 접수한 개발요청 <strong>{pendingDevCount}건</strong>이 검토 대기 중입니다.</span>
+              </div>
+              <Link href="/tenant-ai">
+                <Button variant="outline" size="sm" className="text-blue-700 border-blue-300 bg-white hover:bg-blue-50 gap-1">
+                  검토하기 <ArrowRight size={12} />
+                </Button>
+              </Link>
+            </div>
+          )}
         </div>
       )}
 
@@ -240,6 +265,20 @@ export default function Dashboard() {
               icon={<Star size={18} className="text-rose-600" />}
               color="bg-rose-50"
               sub="결제 완료 누계"
+            />
+          </div>
+        )}
+        {/* 마스터 전용: 미처리 개발요청 KPI 카드 */}
+        {!isLoading && !isPartnerMode && (
+          <div className="mt-4">
+            <KPICard
+              title="미처리 개발요청"
+              value={pendingDevCount}
+              icon={<Code2 size={18} className="text-blue-600" />}
+              color="bg-blue-50"
+              sub="파트너사 접수 · 검토 대기 중"
+              badge={pendingDevCount > 0 ? { label: `${pendingDevCount}건 대기`, variant: "destructive" as const } : { label: "없음", variant: "secondary" as const }}
+              href="/tenant-ai"
             />
           </div>
         )}
