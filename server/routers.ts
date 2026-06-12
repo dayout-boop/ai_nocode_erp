@@ -1434,14 +1434,12 @@ const crmRouter = router({
     }))
     .mutation(async ({ input }) => {
       const { createPartner } = await import('./db.js');
+      const bcrypt = await import('bcryptjs');
       const { loginPw, createTenant, subscriptionPlan, ...rest } = input;
       let loginPwHash: string | undefined;
       if (loginPw) {
-        const encoder = new TextEncoder();
-        const data = encoder.encode(loginPw + 'dogolf_salt_2024');
-        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        loginPwHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+        // bcrypt 해시 (로그인 검증과 동일한 방식)
+        loginPwHash = await bcrypt.hash(loginPw, 12);
       }
       const { insertId: partnerId } = await createPartner({ ...rest, loginPwHash });
 
@@ -1503,17 +1501,33 @@ const crmRouter = router({
     }))
     .mutation(async ({ input }) => {
       const { updatePartner } = await import('./db.js');
+      const bcrypt = await import('bcryptjs');
       const { loginPw, ...rest } = input.data;
       const updateData: Record<string, unknown> = { ...rest };
       if (loginPw) {
-        const encoder = new TextEncoder();
-        const data = encoder.encode(loginPw + 'dogolf_salt_2024');
-        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        updateData.loginPwHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+        // bcrypt 해시 (로그인 검증과 동일한 방식)
+        updateData.loginPwHash = await bcrypt.hash(loginPw, 12);
       }
       await updatePartner(input.id, updateData as any);
       return { success: true };
+    }),
+
+  // 마스터 전용: 파트너 비밀번호 강제 초기화
+  resetPartnerPassword: adminProcedure
+    .input(z.object({
+      partnerId: z.number().int().positive(),
+      newPw: z.string().min(6, '비밀번호는 6자 이상이어야 합니다.'),
+    }))
+    .mutation(async ({ input }) => {
+      const bcrypt = await import('bcryptjs');
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR' });
+      const [existing] = await db.select({ id: partners.id, companyName: partners.companyName })
+        .from(partners).where(eq(partners.id, input.partnerId)).limit(1);
+      if (!existing) throw new TRPCError({ code: 'NOT_FOUND', message: '파트너를 찾을 수 없습니다.' });
+      const newHash = await bcrypt.hash(input.newPw, 12);
+      await db.update(partners).set({ loginPwHash: newHash }).where(eq(partners.id, input.partnerId));
+      return { success: true, companyName: existing.companyName };
     }),
 
   deletePartner: protectedProcedure

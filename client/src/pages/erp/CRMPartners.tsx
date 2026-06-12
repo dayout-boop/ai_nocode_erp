@@ -1177,6 +1177,11 @@ export default function CRMPartners() {
   const [showSuspendDialog, setShowSuspendDialog] = useState(false);
   const [suspendReason, setSuspendReason] = useState("");
 
+  // 비밀번호 초기화 다이얼로그 상태
+  const [showResetPwDialog, setShowResetPwDialog] = useState(false);
+  const [resetPwTarget, setResetPwTarget] = useState<Partner | null>(null);
+  const [resetPwValue, setResetPwValue] = useState("");
+
   // 데이터 조회
   const { data: partners = [], refetch: refetchPartners } = trpc.crm.getPartners.useQuery(
     { search: search || undefined },
@@ -1214,6 +1219,17 @@ export default function CRMPartners() {
       toast.success("파트너 복구 완료");
       setShowDetail(false);
       refetchPartners();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  // 비밀번호 강제 초기화
+  const resetPwMut = trpc.crm.resetPartnerPassword.useMutation({
+    onSuccess: (data) => {
+      toast.success(`${data.companyName} 비밀번호가 초기화되었습니다.`);
+      setShowResetPwDialog(false);
+      setResetPwTarget(null);
+      setResetPwValue("");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -1515,6 +1531,15 @@ export default function CRMPartners() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          className="h-7 w-7 text-gray-400 hover:text-orange-500"
+                          title="비밀번호 초기화"
+                          onClick={() => { setResetPwTarget(p as Partner); setResetPwValue(""); setShowResetPwDialog(true); }}
+                        >
+                          <RefreshCw size={14} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-7 w-7 text-gray-400 hover:text-red-500"
                           title="삭제"
                           onClick={() => {
@@ -1597,6 +1622,50 @@ export default function CRMPartners() {
               }}
             >
               {suspendMut.isPending ? "정지 중..." : "정지 확인"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 비밀번호 강제 초기화 다이얼로그 */}
+      <Dialog open={showResetPwDialog} onOpenChange={(o) => { if (!o) { setShowResetPwDialog(false); setResetPwTarget(null); setResetPwValue(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-orange-600">
+              <RefreshCw size={18} /> 비밀번호 강제 초기화
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">
+              <span className="font-semibold">{resetPwTarget?.companyName}</span> 파트너의 로그인 비밀번호를 새로 설정합니다.
+            </p>
+            <div>
+              <Label className="text-sm font-medium">새 비밀번호 <span className="text-red-500">*</span></Label>
+              <Input
+                type="password"
+                value={resetPwValue}
+                onChange={(e) => setResetPwValue(e.target.value)}
+                placeholder="6자 이상 입력"
+                className="mt-1"
+              />
+              <p className="text-xs text-gray-400 mt-1">이 비밀번호를 파트너에게 안내해 주세요.</p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => { setShowResetPwDialog(false); setResetPwTarget(null); setResetPwValue(""); }}>
+              취소
+            </Button>
+            <Button
+              size="sm"
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+              disabled={resetPwValue.trim().length < 6 || resetPwMut.isPending}
+              onClick={() => {
+                if (resetPwTarget) {
+                  resetPwMut.mutate({ partnerId: resetPwTarget.id, newPw: resetPwValue.trim() });
+                }
+              }}
+            >
+              {resetPwMut.isPending ? "설정 중..." : "비밀번호 설정"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -2535,3 +2535,10 @@ Detected
 - [x] [수정] listForStaff/setPermission/bulkSet 소속 가드를 getSessionPartnerId(partnerId) 기준으로 교정
 - [x] [검증] 실제 DB로 tourcm partner.id=180001, staff.partnerId=180001 확인
 - [x] [테스트] 소속 가드 partnerId 회귀 테스트 3건 추가, 전체 50파일/506건 통과, 타입/LSP 에러 없음
+
+## 파트너 로그인 버그 수정 (2026-06-12)
+- [x] crm.createPartner / crm.updatePartner 비밀번호 해시 SHA-256→bcrypt 교체 (server/routers.ts)
+- [x] 마스터 전용 파트너 비밀번호 강제 초기화 프로시저 추가 (crm.resetPartnerPassword)
+- [x] CRMPartners 파트너 목록 행에 비밀번호 초기화 버튼(🔄) 추가
+- [x] 비밀번호 강제 초기화 다이얼로그 UI 추가
+- [x] 파트너 비밀번호 해시 일관성 회귀 테스트 추가 (server/partnerPasswordHash.test.ts, 8건)
