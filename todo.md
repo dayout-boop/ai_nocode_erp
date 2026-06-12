@@ -2467,3 +2467,8 @@ Detected
 - [x] PartnerSupportCenter.tsx AI 채팅 devRequestSubmitted 처리 추가 (접수번호 확인 메시지 + toast)
 - [x] PartnerSupportPage.tsx AI 채팅 devRequestSubmitted 처리 확인 (이미 적용 완료)
 - [x] 고객센터AI 개발요청 접수 플로우 전체 검증 (서버 마커 파싱 → DB 저장 → 클라이언트 알림)
+
+
+## 파트너 권한 결함 수정 (2026-06-12)
+- [x] P0: 파트너 세션에서 수기 예약관리 진입 시 마스터 로그인 강제 이탈 → partner 도메인 복구로 해소 검증 완료
+- [x] P1: reservations.delete 가 adminProcedure 라 파트너가 자기 예약 삭제 불가 → partnerProcedure + 테넌트 가드로 수정

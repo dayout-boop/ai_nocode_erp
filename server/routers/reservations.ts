@@ -69,6 +69,21 @@ async function assertReservationOwnership(
   }
 }
 
+/**
+ * [테넌트 격리] 행 소유 테넌트와 컨텍스트 테넌트를 비교해 접근 가부를 판정한다.
+ * - ctxTenantId == null  → 마스터 세션(전체보기): 항상 허용
+ * - ctxTenantId == number → 파트너 세션: 동일 테넌트 행만 허용
+ * 반환값: 'ok' | 'not_found' | 'forbidden'
+ */
+export function evaluateTenantAccess(
+  rowTenantId: number | null | undefined,
+  ctxTenantId: number | null
+): "ok" | "not_found" | "forbidden" {
+  if (ctxTenantId == null) return "ok"; // 마스터: 전체 접근
+  if (rowTenantId == null || rowTenantId === undefined) return "not_found";
+  return rowTenantId === ctxTenantId ? "ok" : "forbidden";
+}
+
 export const reservationsRouter = router({
   // ─── 예약 목록 조회 ───────────────────────────────────────────
   // [테넌트 격리] partnerProcedure: admin 전체보기(tenantId=null)=기존과 동일 전체조회,
@@ -363,12 +378,28 @@ export const reservationsRouter = router({
     }),
 
   // ─── 예약 삭제 ────────────────────────────────────────────────
-  // RBAC: admin만 삭제 가능 (삭제는 더 엄격하게 관리)
-  delete: adminProcedure
+  // RBAC: 파트너/마스터 모두 가능. 파트너 세션은 자사 테넌트 예약만 삭제 허용.
+  delete: partnerProcedure
     .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // 파트너 세션이면 자사 테넌트 예약만 삭제 가능
+      if (ctx.tenantId != null) {
+        const [existing] = await db
+          .select({ tenantId: reservations.tenantId })
+          .from(reservations)
+          .where(eq(reservations.id, input.id));
+        const verdict = evaluateTenantAccess(existing?.tenantId, ctx.tenantId);
+        if (verdict === "not_found") {
+          throw new TRPCError({ code: 'NOT_FOUND', message: '예약을 찾을 수 없습니다.' });
+        }
+        if (verdict === "forbidden") {
+          throw new TRPCError({ code: 'FORBIDDEN', message: '다른 업체의 예약은 삭제할 수 없습니다.' });
+        }
+      }
+
       await db.delete(reservations).where(eq(reservations.id, input.id));
       return { success: true };
     }),
