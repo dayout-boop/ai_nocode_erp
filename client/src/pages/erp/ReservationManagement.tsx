@@ -31,6 +31,7 @@ import ReservationAffiliateCostTab from "./ReservationAffiliateCostTab";
 import VariablePickerButton from "@/components/VariablePickerButton";
 import EstimatePreviewPanel from "@/components/EstimatePreviewPanel";
 import AuditHistoryDialog from "@/components/AuditHistoryDialog";
+import { parseDuplicateMessage } from "@shared/duplicateWarning";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -152,26 +153,33 @@ function QuickCreateForm({ onSuccess, onCancel, currentUser }: QuickCreateFormPr
     { enabled: partnerSearch.length >= 1 }
   );
 
+  // 중복 경고 다이얼로그: 서버가 CONFLICT(DUPLICATE_RESERVATION:번호들)을 반환하면 표시
+  const [dupWarning, setDupWarning] = useState<{ nos: string[] } | null>(null);
+
   const createMut = trpc.reservations.create.useMutation({
     onSuccess: (data) => {
       toast.success(`예약 등록 완료: ${data.reservationNo}`);
+      setDupWarning(null);
       onSuccess();
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => {
+      const msg = e.message || "";
+      const dupNos = parseDuplicateMessage(msg);
+      if (dupNos !== null) {
+        setDupWarning({ nos: dupNos });
+        return;
+      }
+      toast.error(msg);
+    },
   });
 
-  function handleSubmit() {
-    if (!form.golfCourseName || !form.departureDate) {
-      toast.error("골프장명과 출발일은 필수입니다.");
-      return;
-    }
+  function buildPayload(confirmDuplicate: boolean) {
     const customerName = form.userType === "customer"
       ? (form.customerName || "미정")
       : form.userType === "partner"
         ? (form.partnerContactName || form.partnerCompanyName || "미정")
         : (form.managerName || "담당자");
-
-    createMut.mutate({
+    return {
       productName: form.golfCourseName,
       golfCourseName: form.golfCourseName,
       affiliateId: form.affiliateId,
@@ -179,12 +187,22 @@ function QuickCreateForm({ onSuccess, onCancel, currentUser }: QuickCreateFormPr
       teams: form.teams,
       headcount: form.headcount,
       customerName,
+      customerPhone: form.customerPhone || undefined,
       userType: form.userType,
       partnerId: form.partnerId,
       partnerCompanyName: form.partnerCompanyName,
       partnerContactName: form.partnerContactName,
       managerName: form.managerName,
-    });
+      confirmDuplicate,
+    };
+  }
+
+  function handleSubmit() {
+    if (!form.golfCourseName || !form.departureDate) {
+      toast.error("골프장명과 출발일은 필수입니다.");
+      return;
+    }
+    createMut.mutate(buildPayload(false));
   }
 
   return (
@@ -345,6 +363,35 @@ function QuickCreateForm({ onSuccess, onCancel, currentUser }: QuickCreateFormPr
           예약 등록
         </Button>
       </div>
+
+      {/* 중복 예약 경고 */}
+      <AlertDialog open={!!dupWarning} onOpenChange={(open) => { if (!open) setDupWarning(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>중복 예약 가능성 알림</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>동일 조건(고객명·출발일·골프장)의 예약이 이미 존재합니다.</p>
+                {dupWarning?.nos?.length ? (
+                  <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-amber-800">
+                    기존 예약번호: <span className="font-semibold">{dupWarning.nos.join(", ")}</span>
+                  </div>
+                ) : null}
+                <p className="text-gray-500">중복 등록이 맞다면 ‘그래도 등록’을 눌러 진행하세요.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-green-700 hover:bg-green-800"
+              onClick={() => { setDupWarning(null); createMut.mutate(buildPayload(true)); }}
+            >
+              그래도 등록
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

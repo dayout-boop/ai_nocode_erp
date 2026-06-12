@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, ArrowDownCircle, ArrowUpCircle, CreditCard, Wallet, Clipboard, CheckCircle, Trash2, Edit2, Link2, AlertCircle, TrendingUp, TrendingDown, PiggyBank, History } from "lucide-react";
+import { Plus, ArrowDownCircle, ArrowUpCircle, CreditCard, Wallet, Clipboard, CheckCircle, Trash2, Edit2, Link2, AlertCircle, TrendingUp, TrendingDown, PiggyBank, History, Eye, EyeOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -144,13 +144,15 @@ export default function FinanceManagement() {
   const [chargeMatchFilter, setChargeMatchFilter] = useState<"all" | "unmatched" | "matched">("all");
   const [matchChargeId, setMatchChargeId] = useState<number | null>(null);
   const [matchReservationNo, setMatchReservationNo] = useState("");
+  // 삭제(void) 내역 포함 표시 토글 (기본: 숨김)
+  const [showVoided, setShowVoided] = useState(false);
 
   // 데이터 조회
-  const { data: incomes, refetch: refetchIncome } = trpc.reservations.listIncome.useQuery({ page: 1, pageSize: 50 });
-  const { data: remittances, refetch: refetchRemit } = trpc.reservations.listRemittance.useQuery({ page: 1, pageSize: 50 });
-  const { data: deposits, refetch: refetchDeposit } = trpc.reservations.listDeposit.useQuery({ type: "all" });
-  const { data: charges, refetch: refetchCharge } = trpc.reservations.listCharge.useQuery({ page: 1, pageSize: 50 });
-  const { data: prepaids, refetch: refetchPrepaid } = trpc.reservations.listPrepaid.useQuery();
+  const { data: incomes, refetch: refetchIncome } = trpc.reservations.listIncome.useQuery({ page: 1, pageSize: 50, includeVoided: showVoided });
+  const { data: remittances, refetch: refetchRemit } = trpc.reservations.listRemittance.useQuery({ page: 1, pageSize: 50, includeVoided: showVoided });
+  const { data: deposits, refetch: refetchDeposit } = trpc.reservations.listDeposit.useQuery({ type: "all", includeVoided: showVoided });
+  const { data: charges, refetch: refetchCharge } = trpc.reservations.listCharge.useQuery({ page: 1, pageSize: 50, includeVoided: showVoided });
+  const { data: prepaids, refetch: refetchPrepaid } = trpc.reservations.listPrepaid.useQuery({ includeVoided: showVoided });
 
   const addIncomeMut = trpc.reservations.addIncome.useMutation({
     onSuccess: () => { toast.success("입금 내역이 등록되었습니다."); setShowIncomeForm(false); setShowIncomeParse(false); refetchIncome(); },
@@ -282,6 +284,18 @@ export default function FinanceManagement() {
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold text-gray-800">자금 관리</h1>
             <div className="flex gap-2">
+              {/* 삭제(void) 내역 포함/숨김 토글 */}
+              <Button
+                variant="outline"
+                onClick={() => setShowVoided((v) => !v)}
+                className={showVoided
+                  ? "border-amber-500 text-amber-700 bg-amber-50 hover:bg-amber-100"
+                  : "border-gray-300 text-gray-600 hover:bg-gray-50"}
+                title="삭제 처리된 내역은 삭제되지 않고 보존됩니다. 표시 여부만 전환합니다."
+              >
+                {showVoided ? <Eye className="w-4 h-4 mr-1" /> : <EyeOff className="w-4 h-4 mr-1" />}
+                {showVoided ? "삭제포함" : "삭제숨김"}
+              </Button>
               {/* 문자 파싱 버튼 (입금/송금 탭에서만 표시) */}
               {(activeTab === "income" || activeTab === "remittance") && (
                 <Button

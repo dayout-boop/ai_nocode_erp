@@ -2497,10 +2497,12 @@ Detected
 - [x] 예약 행에 변경이력 버튼, voided 행은 복원 버튼 표시
 - [x] 삭제 버튼 → shadcn AlertDialog(예약번호·고객명 노출, 기록 보존 안내)로 교체
 - [x] 자금 5종 목록에 식별번호(recordNo) 열 + 변경이력 버튼, 삭제 AlertDialog 교체
-- [ ] (후속) 자금 목록 '삭제포함' 토글 UI 추가 (서버 includeVoided는 구현됨)
-- [ ] (후속) 예약 등록 시 중복 경고 다이얼로그 UI (서버 중복감지는 구현됨)
+- [x] (후속) 자금 목록 '삭제포함/삭제숨김' 토글 UI 추가 (showVoided → 5종 쿼리 includeVoided 연동)
+- [x] (후속) 예약 등록 시 중복 경고 다이얼로그 UI (parseDuplicateMessage 공유 헬퍼로 통일)
 
 ### 테스트
 - [x] 감사로그 유틸 단위 테스트(식별번호 생성/diff/actor) 13건 통과
 - [x] 테넌트 접근 판정 헬퍼 단위 테스트 5건 통과
 - [x] dev 브라우저 검증: void 전환 → 숨김/노출 토글 → 복원 → 변경이력 기록 확인
+- [x] 중복경고 공유 헬퍼(duplicateWarning) 단위 테스트 7건 통과
+- [x] 전체 vitest 49파일 / 484건 통과, 타입/LSP 에러 없음

@@ -22,6 +22,7 @@ import {
   listEntityAuditLogs,
   type AuditEntityType,
 } from "../services/auditLog";
+import { buildDuplicateMessage } from "../../shared/duplicateWarning";
 
 /**
  * [테넌트 동기화] 자금 레코드(5종)가 부모 reservation의 tenantId를 상속하도록 조회.
@@ -312,7 +313,7 @@ export const reservationsRouter = router({
         if (activeDups.length > 0) {
           throw new TRPCError({
             code: "CONFLICT",
-            message: `DUPLICATE_RESERVATION:${activeDups.map((d) => d.reservationNo).join(",")}`,
+            message: buildDuplicateMessage(activeDups.map((d) => d.reservationNo).filter((n): n is string => !!n)),
           });
         }
       }
