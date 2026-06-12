@@ -2472,3 +2472,35 @@ Detected
 ## 파트너 권한 결함 수정 (2026-06-12)
 - [x] P0: 파트너 세션에서 수기 예약관리 진입 시 마스터 로그인 강제 이탈 → partner 도메인 복구로 해소 검증 완료
 - [x] P1: reservations.delete 가 adminProcedure 라 파트너가 자기 예약 삭제 불가 → partnerProcedure + 테넌트 가드로 수정
+
+
+## 예약/자금 불변(삭제금지) + 감사로그 + 식별번호/중복경고 (2026-06-12)
+정책: 한번 등록한 예약/자금 건은 물리·논리 삭제 불가. "삭제"는 상태값(void/삭제됨) 전환만. 마스터도 물리삭제 불가. 상태 필터로 보이고/안보이고만 제어.
+
+### DB 스키마
+- [x] 감사 로그 테이블(audit_logs) 추가: entityType, entityId, entityNo, action, actorType, actorName, tenantId, fieldChanges(JSON), summary, createdAt
+- [x] 예약/자금 5종 상태 표현 정비: 예약 status에 'voided' + voidedAt/voidedBy/voidReason 추가, 자금 5종에 recordStatus(active/void) + recordNo + voidedAt/voidedBy/voidReason
+- [x] pnpm db:push 마이그레이션
+
+### 서버
+- [x] reservations.delete → 물리삭제 제거, '삭제됨' 상태 전환(void) + 자금 합계 롤백 + 감사로그
+- [x] reservations.restore 추가 (voided → pending 복원)
+- [x] 자금 5종 delete → 상태 전환(void)으로 변경, 물리삭제 차단 (입금/송금 voidIncome/voidRemittance 신설, 예치금/충전/데파짓 void 전환), 합계 롤백
+- [x] 변경 이력 자동 기록: 예약 생성/수정/상태변경/담당자변경/금액변경/삭제 audit_logs 기록
+- [x] 자금 등록/매칭(matchCharge/updatePrepaid) 변경 시 이력 기록
+- [x] 등록 시 중복 경고: 동일 예약(골프장+출발일+고객+연락처) 중복 감지 후 경고 반환
+- [x] 건별 변경이력 조회 API (audit.auditByEntity)
+
+### 프론트
+- [x] 예약 목록 상태 필터에 '삭제됨' 옵션 + 삭제포함/삭제숨김 토글 추가
+- [x] 재사용 변경이력 다이얼로그(AuditHistoryDialog) 작성 (행위자/일시/액션/이전값→이후값)
+- [x] 예약 행에 변경이력 버튼, voided 행은 복원 버튼 표시
+- [x] 삭제 버튼 → shadcn AlertDialog(예약번호·고객명 노출, 기록 보존 안내)로 교체
+- [x] 자금 5종 목록에 식별번호(recordNo) 열 + 변경이력 버튼, 삭제 AlertDialog 교체
+- [ ] (후속) 자금 목록 '삭제포함' 토글 UI 추가 (서버 includeVoided는 구현됨)
+- [ ] (후속) 예약 등록 시 중복 경고 다이얼로그 UI (서버 중복감지는 구현됨)
+
+### 테스트
+- [x] 감사로그 유틸 단위 테스트(식별번호 생성/diff/actor) 13건 통과
+- [x] 테넌트 접근 판정 헬퍼 단위 테스트 5건 통과
+- [x] dev 브라우저 검증: void 전환 → 숨김/노출 토글 → 복원 → 변경이력 기록 확인

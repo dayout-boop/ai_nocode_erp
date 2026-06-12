@@ -8,7 +8,7 @@
 import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 
-export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed" | "all";
+export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed" | "voided" | "all";
 export type PaymentStatus = "unpaid" | "partial" | "paid" | "all";
 export type SortBy = "departureDate" | "createdAt" | "headcount";
 export type SortOrder = "asc" | "desc";
@@ -22,6 +22,8 @@ export interface BookingsFilter {
   sortBy?: SortBy;
   sortOrder?: SortOrder;
   warningOnly?: boolean;
+  /** 삭제(voided) 건 포함 여부 */
+  includeVoided?: boolean;
 }
 
 export interface BookingsPagination {
@@ -54,6 +56,7 @@ export function useBookingsQuery(
       sortBy: filter.sortBy ?? "departureDate",
       sortOrder: filter.sortOrder ?? "desc",
       warningOnly: filter.warningOnly ?? false,
+      includeVoided: filter.includeVoided ?? false,
     }),
     [filter, pagination]
   );

@@ -22,7 +22,7 @@ import {
   XCircle, Award, User, Users, Briefcase, MessageSquare, Zap, MessageCircle,
   PlusCircle, Loader2, Copy, ChevronDown, ChevronUp,
   ArrowUp, ArrowDown, ArrowUpDown, TriangleAlert, Settings,
-  ExternalLink, Send,
+  ExternalLink, Send, History,
 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -30,6 +30,11 @@ import ReservationItineraryTab from "./ReservationItineraryTab";
 import ReservationAffiliateCostTab from "./ReservationAffiliateCostTab";
 import VariablePickerButton from "@/components/VariablePickerButton";
 import EstimatePreviewPanel from "@/components/EstimatePreviewPanel";
+import AuditHistoryDialog from "@/components/AuditHistoryDialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type StatusType = "pending" | "confirmed" | "cancelled" | "completed";
 type PaymentStatusType = "unpaid" | "partial" | "paid";
@@ -50,6 +55,9 @@ const STATUS_ICONS: Record<StatusType, React.ReactNode> = {
   cancelled: <XCircle className="w-3.5 h-3.5" />,
   completed: <Award className="w-3.5 h-3.5" />,
 };
+// 삭제(상태전환) 표시용 — 물리 삭제가 아닌 '삭제됨' 상태
+const VOIDED_LABEL = "삭제됨";
+const VOIDED_COLOR = "bg-gray-200 text-gray-600 border-gray-300";
 const PAYMENT_LABELS: Record<PaymentStatusType, string> = {
   unpaid: "미결제", partial: "부분입금", paid: "완납",
 };
@@ -1414,7 +1422,7 @@ export default function ReservationManagement() {
   // 훅 내부 상태를 로컈 변수로 노출 (UI 호환성 유지)
   const page = pagination.page;
   const search = filter.search ?? "";
-  const statusFilter = (filter.status ?? "all") as "all" | StatusType;
+  const statusFilter = (filter.status ?? "all") as "all" | StatusType | "voided";
   const paymentFilter = (filter.paymentStatus ?? "all") as "all" | PaymentStatusType;
   const sortBy = (filter.sortBy ?? "departureDate") as SortByType;
   const sortOrder = (filter.sortOrder ?? "desc") as SortOrderType;
@@ -1486,10 +1494,15 @@ export default function ReservationManagement() {
     }
   }
 
+  // 삭제 = 상태(void) 전환 (물리 삭제 아님). 서버에서 voided 상태로 변경 + 감사로그 기록
   const deleteMut = trpc.reservations.delete.useMutation({
-    onSuccess: () => { toast.success("예약이 삭제되었습니다."); refetch(); },
+    onSuccess: () => { toast.success("예약을 삭제 처리했습니다. (기록은 보존)"); refetch(); },
     onError: (e) => toast.error(e.message),
   });
+  // 삭제 확인 대상
+  const [voidTarget, setVoidTarget] = useState<any | null>(null);
+  // 변경 이력 대상
+  const [historyTarget, setHistoryTarget] = useState<{ id: number; no?: string } | null>(null);
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
@@ -1599,7 +1612,10 @@ export default function ReservationManagement() {
                 <Search className="w-4 h-4" />
               </Button>
             </div>
-            <Select value={statusFilter} onValueChange={(v) => { updateFilter({ status: v as any }); }}>
+            <Select value={statusFilter} onValueChange={(v) => {
+              // '삭제됨' 조회 시 includeVoided도 함께 켜줌
+              updateFilter({ status: v as any, includeVoided: v === "voided" ? true : (filter.includeVoided ?? false) });
+            }}>
               <SelectTrigger className="w-28 h-9">
                 <SelectValue placeholder="상태" />
               </SelectTrigger>
@@ -1609,8 +1625,20 @@ export default function ReservationManagement() {
                 <SelectItem value="confirmed">확정</SelectItem>
                 <SelectItem value="cancelled">취소</SelectItem>
                 <SelectItem value="completed">완료</SelectItem>
+                <SelectItem value="voided">삭제됨</SelectItem>
               </SelectContent>
             </Select>
+            {/* 삭제된 건도 함께 보기 토글 */}
+            <Button
+              type="button"
+              variant={filter.includeVoided ? "default" : "outline"}
+              size="sm"
+              onClick={() => updateFilter({ includeVoided: !(filter.includeVoided ?? false) })}
+              className={`h-9 ${filter.includeVoided ? "bg-gray-600 hover:bg-gray-700 text-white" : ""}`}
+              title="삭제된 건 포함 조회"
+            >
+              <Trash2 className="w-3.5 h-3.5 mr-1" /> {filter.includeVoided ? "삭제포함" : "삭제숨김"}
+            </Button>
             <Select value={paymentFilter} onValueChange={(v) => { updateFilter({ paymentStatus: v as any }); }}>
               <SelectTrigger className="w-32 h-9">
                 <SelectValue placeholder="입금상태" />
@@ -1766,9 +1794,15 @@ export default function ReservationManagement() {
                                 {managerStr}
                               </td>
                               <td className="px-3 py-2.5">
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ps.color}`}>
-                                  {ps.label}
-                                </span>
+                                {item.status === "voided" ? (
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${VOIDED_COLOR}`}>
+                                    {VOIDED_LABEL}
+                                  </span>
+                                ) : (
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ps.color}`}>
+                                    {ps.label}
+                                  </span>
+                                )}
                               </td>
                               {/* 진행 드롭박스 */}
                               <td className="px-3 py-2.5">
@@ -1779,7 +1813,12 @@ export default function ReservationManagement() {
                                 />
                               </td>
                               <td className="px-3 py-2.5">
-                                {/* 상태 아이콘 버튼 */}
+                                {/* 상태 아이콘 버튼 (삭제된 건은 '삭제됨' 배지만 표시) */}
+                                {item.status === "voided" ? (
+                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border ${VOIDED_COLOR}`}>
+                                    <Trash2 className="w-3 h-3" /> {VOIDED_LABEL}
+                                  </span>
+                                ) : (
                                 <div className="flex gap-0.5">
                                   {(["pending", "confirmed", "cancelled", "completed"] as StatusType[]).map((s) => (
                                     <button
@@ -1800,6 +1839,7 @@ export default function ReservationManagement() {
                                     </button>
                                   ))}
                                 </div>
+                                )}
                               </td>
                               <td className="px-3 py-2.5">
                                 <div className="flex gap-1">
@@ -1819,11 +1859,26 @@ export default function ReservationManagement() {
                                     className="p-1 hover:bg-yellow-50 rounded text-yellow-600" title="수정">
                                     <Edit2 className="w-3.5 h-3.5" />
                                   </button>
+                                  {/* 변경 이력 보기 */}
                                   <button
-                                    onClick={() => { if (confirm("삭제하시겠습니까?")) deleteMut.mutate({ id: item.id }); }}
-                                    className="p-1 hover:bg-red-50 rounded text-red-500" title="삭제">
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    onClick={() => setHistoryTarget({ id: item.id, no: item.reservationNo ?? undefined })}
+                                    className="p-1 hover:bg-slate-100 rounded text-slate-500" title="변경 이력">
+                                    <History className="w-3.5 h-3.5" />
                                   </button>
+                                  {/* 삭제 = 상태전환(기록 보존). voided는 복원 표시 */}
+                                  {item.status === "voided" ? (
+                                    <button
+                                      onClick={() => setEditItem({ ...item, status: "pending" })}
+                                      className="p-1 hover:bg-green-50 rounded text-green-600" title="복원(대기로)">
+                                      <CheckCircle className="w-3.5 h-3.5" />
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => setVoidTarget(item)}
+                                      className="p-1 hover:bg-red-50 rounded text-red-500" title="삭제(상태전환)">
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -1905,5 +1960,50 @@ export default function ReservationManagement() {
             </div>
           </div>
         )}
+
+        {/* 삭제(상태전환) 확인 다이얼로그 — 예약번호·고객명 노출 */}
+        <AlertDialog open={voidTarget !== null} onOpenChange={(o) => { if (!o) setVoidTarget(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Trash2 className="w-4 h-4 text-red-500" /> 예약 삭제 처리
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2">
+                  <div className="text-sm">
+                    아래 예약을 <b className="text-red-600">삭제됨</b> 상태로 전환합니다.
+                    데이터는 <b>삭제되지 않고 보존</b>되며, 목록에서는 숨겨지고 변경 이력에 기록됩니다.
+                  </div>
+                  {voidTarget && (
+                    <div className="rounded-md bg-gray-50 border p-3 text-sm text-gray-700 space-y-1">
+                      <div><span className="text-gray-400">예약번호</span> <span className="font-mono text-blue-600 font-semibold">{voidTarget.reservationNo}</span></div>
+                      <div><span className="text-gray-400">고객명</span> {voidTarget.customerName ?? "-"}</div>
+                      <div><span className="text-gray-400">골프장</span> {voidTarget.golfCourseName ?? voidTarget.productName ?? "-"}</div>
+                      <div><span className="text-gray-400">출발일</span> {formatDate(voidTarget.departureDate)}</div>
+                    </div>
+                  )}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>취소</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-600 hover:bg-red-700"
+                onClick={() => { if (voidTarget) { deleteMut.mutate({ id: voidTarget.id }); setVoidTarget(null); } }}
+              >
+                삭제 처리
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* 변경 이력 다이얼로그 */}
+        <AuditHistoryDialog
+          open={historyTarget !== null}
+          onOpenChange={(o) => { if (!o) setHistoryTarget(null); }}
+          entityType="reservation"
+          entityId={historyTarget?.id ?? null}
+          entityNo={historyTarget?.no}
+        />
     </>);
 }

@@ -1072,8 +1072,12 @@ export const reservations = mysqlTable("reservations", {
   extraFee: int("extraFee").default(0),
   /** 수익 */
   profit: int("profit").default(0),
-  /** 상태: pending | confirmed | cancelled | completed */
-  status: mysqlEnum("status", ["pending", "confirmed", "cancelled", "completed"]).default("pending").notNull(),
+  /** 상태: pending | confirmed | cancelled | completed | voided(삭제됨) */
+  status: mysqlEnum("status", ["pending", "confirmed", "cancelled", "completed", "voided"]).default("pending").notNull(),
+  /** 삭제(void) 메타: 삭제시각/삭제자/사유. 설정되면 목록 기본 필터에서 숨김(필터로만 노출) */
+  voidedAt: timestamp("voidedAt"),
+  voidedBy: varchar("voidedBy", { length: 100 }),
+  voidReason: varchar("voidReason", { length: 500 }),
   /** 입금 상태: unpaid | partial | paid */
   paymentStatus: mysqlEnum("paymentStatus", ["unpaid", "partial", "paid"]).default("unpaid").notNull(),
   /** 실제 입금 합계 */
@@ -1109,6 +1113,13 @@ export type InsertReservation = typeof reservations.$inferInsert;
 // ============================================================
 export const incomeRecords = mysqlTable("income_records", {
   id: int("id").autoincrement().primaryKey(),
+  /** 식별번호 (자동생성: IN-YYYYMM-XXXX) */
+  recordNo: varchar("recordNo", { length: 40 }),
+  /** 레코드 상태: active | void(삭제됨). 삭제는 상태 전환만 허용(물리삭제 불가) */
+  recordStatus: mysqlEnum("recordStatus", ["active", "void"]).default("active").notNull(),
+  voidedAt: timestamp("voidedAt"),
+  voidedBy: varchar("voidedBy", { length: 100 }),
+  voidReason: varchar("voidReason", { length: 500 }),
   /** 입금일시 */
   transactionDate: timestamp("transactionDate").notNull(),
   /** 은행명 */
@@ -1138,6 +1149,13 @@ export type InsertIncomeRecord = typeof incomeRecords.$inferInsert;
 // ============================================================
 export const remittanceRecords = mysqlTable("remittance_records", {
   id: int("id").autoincrement().primaryKey(),
+  /** 식별번호 (자동생성: OUT-YYYYMM-XXXX) */
+  recordNo: varchar("recordNo", { length: 40 }),
+  /** 레코드 상태: active | void(삭제됨) */
+  recordStatus: mysqlEnum("recordStatus", ["active", "void"]).default("active").notNull(),
+  voidedAt: timestamp("voidedAt"),
+  voidedBy: varchar("voidedBy", { length: 100 }),
+  voidReason: varchar("voidReason", { length: 500 }),
   /** 송금일시 */
   transactionDate: timestamp("transactionDate").notNull(),
   /** 은행명 */
@@ -1171,6 +1189,13 @@ export type InsertRemittanceRecord = typeof remittanceRecords.$inferInsert;
 // ============================================================
 export const depositRecords = mysqlTable("deposit_records", {
   id: int("id").autoincrement().primaryKey(),
+  /** 식별번호 (자동생성: DP-YYYYMM-XXXX) */
+  recordNo: varchar("recordNo", { length: 40 }),
+  /** 레코드 상태: active | void(삭제됨) */
+  recordStatus: mysqlEnum("recordStatus", ["active", "void"]).default("active").notNull(),
+  voidedAt: timestamp("voidedAt"),
+  voidedBy: varchar("voidedBy", { length: 100 }),
+  voidReason: varchar("voidReason", { length: 500 }),
   /** 예약 ID */
   reservationId: int("reservationId"),
   /** 예약번호 */
@@ -1191,6 +1216,13 @@ export type InsertDepositRecord = typeof depositRecords.$inferInsert;
 // ============================================================
 export const chargeRecords = mysqlTable("charge_records", {
   id: int("id").autoincrement().primaryKey(),
+  /** 식별번호 (자동생성: CG-YYYYMM-XXXX) */
+  recordNo: varchar("recordNo", { length: 40 }),
+  /** 레코드 상태: active | void(삭제됨) */
+  recordStatus: mysqlEnum("recordStatus", ["active", "void"]).default("active").notNull(),
+  voidedAt: timestamp("voidedAt"),
+  voidedBy: varchar("voidedBy", { length: 100 }),
+  voidReason: varchar("voidReason", { length: 500 }),
   /** 카드사 */
   cardCompany: varchar("cardCompany", { length: 50 }),
   /** 골프장명 (카드 내역에서 추측) */
@@ -1217,6 +1249,13 @@ export type InsertChargeRecord = typeof chargeRecords.$inferInsert;
 // ============================================================
 export const prepaidRecords = mysqlTable("prepaid_records", {
   id: int("id").autoincrement().primaryKey(),
+  /** 식별번호 (자동생성: PP-YYYYMM-XXXX) */
+  recordNo: varchar("recordNo", { length: 40 }),
+  /** 레코드 상태: active | void(삭제됨) */
+  recordStatus: mysqlEnum("recordStatus", ["active", "void"]).default("active").notNull(),
+  voidedAt: timestamp("voidedAt"),
+  voidedBy: varchar("voidedBy", { length: 100 }),
+  voidReason: varchar("voidReason", { length: 500 }),
   /** 제휴사 ID */
   affiliateId: int("affiliateId"),
   golfCourseName: varchar("golfCourseName", { length: 200 }).notNull(),
@@ -2618,3 +2657,55 @@ export const companyManagePermissions = mysqlTable("company_manage_permissions",
 });
 export type CompanyManagePermission = typeof companyManagePermissions.$inferSelect;
 export type InsertCompanyManagePermission = typeof companyManagePermissions.$inferInsert;
+
+// ============================================================
+// AUDIT_LOGS - 예약/자금 변경 이력 (감사 로그)
+// ============================================================
+/**
+ * audit_logs
+ * - 예약 및 자금 5종(입금/송금/예치금/충전/데파짓)의 모든 변경 이력을 기록
+ * - 정책: 한번 등록한 건은 물리/논리 삭제 불가. "삭제"는 상태(void) 전환만 허용.
+ *   담당자의 허위 자금/예약 변경(매칭 대체, 수기 조작 등)을 추적·차단하기 위한 불변 로그.
+ * - 조회: 각 예약/자금 건 상세에서 entityType+entityId 로 조회 (건별 이력)
+ */
+export const auditLogs = mysqlTable("audit_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  /** 대상 종류: reservation | income | remittance | deposit | charge | prepaid */
+  entityType: mysqlEnum("entityType", [
+    "reservation",
+    "income",
+    "remittance",
+    "deposit",
+    "charge",
+    "prepaid",
+  ]).notNull(),
+  /** 대상 레코드 ID */
+  entityId: int("entityId").notNull(),
+  /** 대상 식별번호 (예약번호/자금 일련번호 등, 빠른 조회·표시용) */
+  entityNo: varchar("entityNo", { length: 40 }),
+  /** 액션: create | update | status_change | manager_change | amount_change | match_change | void */
+  action: mysqlEnum("action", [
+    "create",
+    "update",
+    "status_change",
+    "manager_change",
+    "amount_change",
+    "match_change",
+    "void",
+  ]).notNull(),
+  /** 행위자 종류: master | partner_owner | partner_staff | system */
+  actorType: mysqlEnum("actorType", ["master", "partner_owner", "partner_staff", "system"]).notNull(),
+  /** 행위자 ID (users.id 또는 partner_staff.id 등, 참고용) */
+  actorId: int("actorId"),
+  /** 행위자 이름 (표시용) */
+  actorName: varchar("actorName", { length: 100 }),
+  /** 변경 요약 (한 줄 설명) */
+  summary: varchar("summary", { length: 500 }),
+  /** 필드별 변경 상세 (JSON 배열: [{ field, label, before, after }]) */
+  fieldChanges: json("fieldChanges"),
+  /** 테넌트 격리: 대상 레코드의 tenantId 상속 (null=두골프 본사, 1~N=파트너사) */
+  tenantId: int("tenantId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = typeof auditLogs.$inferInsert;

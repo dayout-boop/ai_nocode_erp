@@ -11,8 +11,13 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, ArrowDownCircle, ArrowUpCircle, CreditCard, Wallet, Clipboard, CheckCircle, Trash2, Edit2, Link2, AlertCircle, TrendingUp, TrendingDown, PiggyBank } from "lucide-react";
+import { Plus, ArrowDownCircle, ArrowUpCircle, CreditCard, Wallet, Clipboard, CheckCircle, Trash2, Edit2, Link2, AlertCircle, TrendingUp, TrendingDown, PiggyBank, History } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import AuditHistoryDialog, { type AuditEntityType } from "@/components/AuditHistoryDialog";
 import { toast } from "sonner";
 
 type TabType = "income" | "remittance" | "deposit" | "charge" | "prepaid";
@@ -172,11 +177,11 @@ export default function FinanceManagement() {
     onError: (e) => toast.error(e.message),
   });
   const deletePrepaidMut = trpc.reservations.deletePrepaid.useMutation({
-    onSuccess: () => { toast.success("삭제되었습니다."); refetchPrepaid(); },
+    onSuccess: () => { toast.success("삭제 처리되었습니다. (기록은 보존됩니다)"); refetchPrepaid(); },
     onError: (e) => toast.error(e.message),
   });
   const deleteDepositMut = trpc.reservations.deleteDeposit.useMutation({
-    onSuccess: () => { toast.success("삭제되었습니다."); refetchDeposit(); },
+    onSuccess: () => { toast.success("삭제 처리되었습니다. (기록은 보존됩니다)"); refetchDeposit(); },
     onError: (e) => toast.error(e.message),
   });
   const matchChargeMut = trpc.reservations.matchCharge.useMutation({
@@ -184,9 +189,31 @@ export default function FinanceManagement() {
     onError: (e) => toast.error(e.message),
   });
   const deleteChargeMut = trpc.reservations.deleteCharge.useMutation({
-    onSuccess: () => { toast.success("삭제되었습니다."); refetchCharge(); },
+    onSuccess: () => { toast.success("삭제 처리되었습니다. (기록은 보존됩니다)"); refetchCharge(); },
     onError: (e) => toast.error(e.message),
   });
+
+  // 삭제(상태전환) 확인 대상 + 변경이력 조회 대상
+  const [voidTarget, setVoidTarget] = useState<{
+    kind: "deposit" | "charge" | "prepaid";
+    id: number;
+    recordNo?: string | null;
+    title?: string | null;
+    amount?: number | null;
+  } | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<{
+    type: AuditEntityType;
+    id: number;
+    no?: string | null;
+  } | null>(null);
+
+  function runVoid() {
+    if (!voidTarget) return;
+    if (voidTarget.kind === "deposit") deleteDepositMut.mutate({ id: voidTarget.id });
+    else if (voidTarget.kind === "charge") deleteChargeMut.mutate({ id: voidTarget.id });
+    else deletePrepaidMut.mutate({ id: voidTarget.id });
+    setVoidTarget(null);
+  }
 
   // 집계 계산
   const totalIncome = (incomes ?? []).reduce((s, r) => s + r.amount, 0);
@@ -374,7 +401,7 @@ export default function FinanceManagement() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b">
                     <tr>
-                      {["입금일", "은행", "금액", "입금자", "예약번호", "상세내역", "매칭상태"].map(h => (
+                      {["번호", "입금일", "은행", "금액", "입금자", "예약번호", "상세내역", "매칭상태", "이력"].map(h => (
                         <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-600">{h}</th>
                       ))}
                     </tr>
@@ -382,6 +409,7 @@ export default function FinanceManagement() {
                   <tbody>
                     {(incomes ?? []).map(row => (
                       <tr key={row.id} className="border-b hover:bg-gray-50">
+                        <td className="px-3 py-2 font-mono text-xs text-gray-500 whitespace-nowrap">{(row as any).recordNo ?? "-"}</td>
                         <td className="px-3 py-2 whitespace-nowrap">{formatDate(row.transactionDate)}</td>
                         <td className="px-3 py-2">{row.bankName ?? "-"}</td>
                         <td className="px-3 py-2 text-right font-bold text-green-700">{formatKRW(row.amount)}원</td>
@@ -393,10 +421,16 @@ export default function FinanceManagement() {
                             {MATCH_LABELS[row.matchStatus]}
                           </span>
                         </td>
+                        <td className="px-3 py-2">
+                          <button onClick={() => setHistoryTarget({ type: "income", id: row.id, no: (row as any).recordNo })}
+                            className="text-gray-400 hover:text-gray-700" title="변경 이력">
+                            <History size={14} />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                     {!incomes?.length && (
-                      <tr><td colSpan={7} className="text-center py-8 text-gray-400">입금 내역이 없습니다.</td></tr>
+                      <tr><td colSpan={9} className="text-center py-8 text-gray-400">입금 내역이 없습니다.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -418,7 +452,7 @@ export default function FinanceManagement() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b">
                     <tr>
-                      {["송금일", "은행", "금액", "수취인", "예약번호", "상세내역", "매칭상태"].map(h => (
+                      {["번호", "송금일", "은행", "금액", "수취인", "예약번호", "상세내역", "매칭상태", "이력"].map(h => (
                         <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-600">{h}</th>
                       ))}
                     </tr>
@@ -426,6 +460,7 @@ export default function FinanceManagement() {
                   <tbody>
                     {(remittances ?? []).map(row => (
                       <tr key={row.id} className="border-b hover:bg-gray-50">
+                        <td className="px-3 py-2 font-mono text-xs text-gray-500 whitespace-nowrap">{(row as any).recordNo ?? "-"}</td>
                         <td className="px-3 py-2 whitespace-nowrap">{formatDate(row.transactionDate)}</td>
                         <td className="px-3 py-2">{row.bankName ?? "-"}</td>
                         <td className="px-3 py-2 text-right font-bold text-blue-700">{formatKRW(row.amount)}원</td>
@@ -437,10 +472,16 @@ export default function FinanceManagement() {
                             {MATCH_LABELS[row.matchStatus]}
                           </span>
                         </td>
+                        <td className="px-3 py-2">
+                          <button onClick={() => setHistoryTarget({ type: "remittance", id: row.id, no: (row as any).recordNo })}
+                            className="text-gray-400 hover:text-gray-700" title="변경 이력">
+                            <History size={14} />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                     {!remittances?.length && (
-                      <tr><td colSpan={7} className="text-center py-8 text-gray-400">송금 내역이 없습니다.</td></tr>
+                      <tr><td colSpan={9} className="text-center py-8 text-gray-400">송금 내역이 없습니다.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -485,7 +526,7 @@ export default function FinanceManagement() {
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b">
                       <tr>
-                        {["유형", "예약번호", "금액", "메모", "등록일", "삭제"].map(h => (
+                        {["번호", "유형", "예약번호", "금액", "메모", "등록일", "관리"].map(h => (
                           <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-600">{h}</th>
                         ))}
                       </tr>
@@ -493,6 +534,7 @@ export default function FinanceManagement() {
                     <tbody>
                       {filteredDeposits.map(row => (
                         <tr key={row.id} className="border-b hover:bg-gray-50">
+                          <td className="px-3 py-2 font-mono text-xs text-gray-500 whitespace-nowrap">{(row as any).recordNo ?? "-"}</td>
                           <td className="px-3 py-2">
                             <span className={`px-2 py-0.5 rounded-full text-xs ${DEPOSIT_TYPE_COLORS[row.type] ?? "bg-gray-100 text-gray-700"}`}>
                               {DEPOSIT_TYPE_LABELS[row.type] ?? row.type}
@@ -503,14 +545,21 @@ export default function FinanceManagement() {
                           <td className="px-3 py-2 text-xs text-gray-500">{row.memo ?? "-"}</td>
                           <td className="px-3 py-2 text-xs">{formatDate(row.createdAt)}</td>
                           <td className="px-3 py-2">
-                            <button onClick={() => { if (confirm("삭제하시겠습니까?")) deleteDepositMut.mutate({ id: row.id }); }} className="text-red-400 hover:text-red-600">
-                              <Trash2 size={14} />
-                            </button>
+                            <div className="flex gap-1">
+                              <button onClick={() => setHistoryTarget({ type: "deposit", id: row.id, no: (row as any).recordNo })}
+                                className="text-gray-400 hover:text-gray-700" title="변경 이력">
+                                <History size={14} />
+                              </button>
+                              <button onClick={() => setVoidTarget({ kind: "deposit", id: row.id, recordNo: (row as any).recordNo, title: row.reservationNo ?? (DEPOSIT_TYPE_LABELS[row.type] ?? row.type), amount: row.amount })}
+                                className="text-red-400 hover:text-red-600" title="삭제(상태전환)">
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
                       {!filteredDeposits.length && (
-                        <tr><td colSpan={6} className="text-center py-8 text-gray-400">예치금 내역이 없습니다.</td></tr>
+                        <tr><td colSpan={7} className="text-center py-8 text-gray-400">예치금 내역이 없습니다.</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -543,7 +592,7 @@ export default function FinanceManagement() {
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b">
                       <tr>
-                        {["결제일", "카드사", "골프장명", "금액", "예약번호", "매칭상태", "관리"].map(h => (
+                        {["번호", "결제일", "카드사", "골프장명", "금액", "예약번호", "매칭상태", "관리"].map(h => (
                           <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-600">{h}</th>
                         ))}
                       </tr>
@@ -551,6 +600,7 @@ export default function FinanceManagement() {
                     <tbody>
                       {filteredCharges.map(row => (
                         <tr key={row.id} className="border-b hover:bg-gray-50">
+                          <td className="px-3 py-2 font-mono text-xs text-gray-500 whitespace-nowrap">{(row as any).recordNo ?? "-"}</td>
                           <td className="px-3 py-2 whitespace-nowrap">{formatDate(row.transactionDate)}</td>
                           <td className="px-3 py-2">{row.cardCompany ?? "-"}</td>
                           <td className="px-3 py-2">{row.golfCourseName ?? "-"}</td>
@@ -569,8 +619,12 @@ export default function FinanceManagement() {
                                   <Link2 size={14} />
                                 </button>
                               )}
-                              <button onClick={() => { if (confirm("삭제하시겠습니까?")) deleteChargeMut.mutate({ id: row.id }); }}
-                                className="text-red-400 hover:text-red-600">
+                              <button onClick={() => setHistoryTarget({ type: "charge", id: row.id, no: (row as any).recordNo })}
+                                className="text-gray-400 hover:text-gray-700" title="변경 이력">
+                                <History size={14} />
+                              </button>
+                              <button onClick={() => setVoidTarget({ kind: "charge", id: row.id, recordNo: (row as any).recordNo, title: row.golfCourseName ?? row.reservationNo, amount: row.amount })}
+                                className="text-red-400 hover:text-red-600" title="삭제(상태전환)">
                                 <Trash2 size={14} />
                               </button>
                             </div>
@@ -578,7 +632,7 @@ export default function FinanceManagement() {
                         </tr>
                       ))}
                       {!filteredCharges.length && (
-                        <tr><td colSpan={7} className="text-center py-8 text-gray-400">충전 내역이 없습니다.</td></tr>
+                        <tr><td colSpan={8} className="text-center py-8 text-gray-400">충전 내역이 없습니다.</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -620,7 +674,7 @@ export default function FinanceManagement() {
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b">
                       <tr>
-                        {["골프장명", "선입금", "사용금액", "잔액", "메모", "관리"].map(h => (
+                        {["번호", "골프장명", "선입금", "사용금액", "잔액", "메모", "관리"].map(h => (
                           <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-600">{h}</th>
                         ))}
                       </tr>
@@ -628,6 +682,7 @@ export default function FinanceManagement() {
                     <tbody>
                       {(prepaids ?? []).map(row => (
                         <tr key={row.id} className="border-b hover:bg-gray-50">
+                          <td className="px-3 py-2 font-mono text-xs text-gray-500 whitespace-nowrap">{(row as any).recordNo ?? "-"}</td>
                           <td className="px-3 py-2 font-semibold">{row.golfCourseName}</td>
                           <td className="px-3 py-2 text-right">{formatKRW(row.prepaidAmount)}원</td>
                           <td className="px-3 py-2 text-right text-red-600">{formatKRW(row.usedAmount)}원</td>
@@ -639,8 +694,12 @@ export default function FinanceManagement() {
                                 className="text-blue-400 hover:text-blue-600">
                                 <Edit2 size={14} />
                               </button>
-                              <button onClick={() => { if (confirm("삭제하시겠습니까?")) deletePrepaidMut.mutate({ id: row.id }); }}
-                                className="text-red-400 hover:text-red-600">
+                              <button onClick={() => setHistoryTarget({ type: "prepaid", id: row.id, no: (row as any).recordNo })}
+                                className="text-gray-400 hover:text-gray-700" title="변경 이력">
+                                <History size={14} />
+                              </button>
+                              <button onClick={() => setVoidTarget({ kind: "prepaid", id: row.id, recordNo: (row as any).recordNo, title: row.golfCourseName, amount: row.prepaidAmount })}
+                                className="text-red-400 hover:text-red-600" title="삭제(상태전환)">
                                 <Trash2 size={14} />
                               </button>
                             </div>
@@ -648,7 +707,7 @@ export default function FinanceManagement() {
                         </tr>
                       ))}
                       {!prepaids?.length && (
-                        <tr><td colSpan={6} className="text-center py-8 text-gray-400">데파짃 내역이 없습니다.</td></tr>
+                        <tr><td colSpan={7} className="text-center py-8 text-gray-400">데파짃 내역이 없습니다.</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -916,5 +975,40 @@ export default function FinanceManagement() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* 삭제(상태전환) 확인 다이얼로그 */}
+        <AlertDialog open={voidTarget != null} onOpenChange={(o) => { if (!o) setVoidTarget(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>삭제 처리하시겠습니까?</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2">
+                  <div className="text-sm">
+                    {voidTarget?.recordNo && <span className="font-mono text-blue-600">{voidTarget.recordNo}</span>}
+                    {voidTarget?.title && <span className="ml-2 font-semibold">{voidTarget.title}</span>}
+                    {voidTarget?.amount != null && <span className="ml-2">{formatKRW(voidTarget.amount)}원</span>}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    두골프 ERP는 데이터를 실제로 삭제하지 않고 <strong>삭제 상태로 전환</strong>합니다.
+                    기록은 변경 이력에 영구 보존되며, 매칭된 금액은 자동으로 정산에서 제외됩니다.
+                  </div>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>취소</AlertDialogCancel>
+              <AlertDialogAction onClick={runVoid} className="bg-red-600 hover:bg-red-700 text-white">삭제 처리</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* 변경 이력 다이얼로그 */}
+        <AuditHistoryDialog
+          open={historyTarget != null}
+          onOpenChange={(o) => { if (!o) setHistoryTarget(null); }}
+          entityType={historyTarget?.type ?? "income"}
+          entityId={historyTarget?.id ?? null}
+          entityNo={historyTarget?.no}
+        />
     </>);
 }
