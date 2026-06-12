@@ -33,6 +33,7 @@ import {
   tenants,
 } from "../drizzle/schema";
 import { SUBSCRIPTION_PLANS } from "./products";
+import { normalizeBizNumber } from "../shared/businessNumber";
 // AI 엔진 테이블은 별도 import로 처리됨 (아래 참조)
 import { eq, desc, and, gte, lte, like, sql, count, asc, isNotNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
@@ -1441,32 +1442,43 @@ const crmRouter = router({
         // bcrypt 해시 (로그인 검증과 동일한 방식)
         loginPwHash = await bcrypt.hash(loginPw, 12);
       }
-      const { insertId: partnerId } = await createPartner({ ...rest, loginPwHash });
+      // 사업자번호 정규화값 함께 저장 (테넌트 식별 기준)
+      const normalizedBizNumber = normalizeBizNumber(input.businessNumber);
+      const { insertId: partnerId } = await createPartner({ ...rest, loginPwHash, businessNumberNormalized: normalizedBizNumber || undefined } as any);
 
-      // 전용 테넌트 자동 생성 + 양방향 연결 (옵션)
+      // 전용 테넌트 자동 생성 + 양방향 연결 (옵션) — 사업자번호 기준 1:1
       let tenantId: number | undefined;
       if (createTenant && partnerId > 0) {
         try {
           const db = await getDb();
           if (db) {
-            const plan = SUBSCRIPTION_PLANS.find((p) => p.id === (subscriptionPlan ?? 'starter'));
-            const aiCredits = plan?.aiCreditsPerMonth ?? 100;
-            const slugBase = input.companyName.replace(/[^a-zA-Z0-9가-힣]/g, '').toLowerCase().slice(0, 20) || 'partner';
-            const slug = `${slugBase}-${partnerId}`;
-            const trialExpires = new Date();
-            trialExpires.setDate(trialExpires.getDate() + 30);
-            const [tRes] = await db.insert(tenants).values({
-              partnerId,
-              slug,
-              companyName: input.companyName,
-              subscriptionPlan: (subscriptionPlan ?? 'starter') as 'starter' | 'standard' | 'premium',
-              subscriptionStatus: 'trial',
-              subscriptionExpiresAt: trialExpires,
-              isActive: true,
-              aiCreditsBalance: aiCredits,
-              aiCreditsMonthlyLimit: aiCredits,
-            });
-            tenantId = Number((tRes as unknown as { insertId?: number }).insertId ?? 0) || undefined;
+            // 사업자번호 기준 기존 테넌트가 있으면 재사용 (중복 테넌트 방지)
+            if (normalizedBizNumber) {
+              const [bizTenant] = await db.select({ id: tenants.id }).from(tenants)
+                .where(eq(tenants.businessNumberNormalized, normalizedBizNumber)).limit(1);
+              if (bizTenant) tenantId = bizTenant.id;
+            }
+            if (!tenantId) {
+              const plan = SUBSCRIPTION_PLANS.find((p) => p.id === (subscriptionPlan ?? 'starter'));
+              const aiCredits = plan?.aiCreditsPerMonth ?? 100;
+              const slugBase = input.companyName.replace(/[^a-zA-Z0-9가-힣]/g, '').toLowerCase().slice(0, 20) || 'partner';
+              const slug = `${slugBase}-${partnerId}`;
+              const trialExpires = new Date();
+              trialExpires.setDate(trialExpires.getDate() + 30);
+              const [tRes] = await db.insert(tenants).values({
+                partnerId,
+                slug,
+                companyName: input.companyName,
+                businessNumberNormalized: normalizedBizNumber || undefined,
+                subscriptionPlan: (subscriptionPlan ?? 'starter') as 'starter' | 'standard' | 'premium',
+                subscriptionStatus: 'trial',
+                subscriptionExpiresAt: trialExpires,
+                isActive: true,
+                aiCreditsBalance: aiCredits,
+                aiCreditsMonthlyLimit: aiCredits,
+              });
+              tenantId = Number((tRes as unknown as { insertId?: number }).insertId ?? 0) || undefined;
+            }
             if (tenantId) {
               await db.update(partners).set({ tenantId }).where(eq(partners.id, partnerId));
             }
@@ -1479,12 +1491,12 @@ const crmRouter = router({
       return { success: true, partnerId: partnerId || undefined, tenantId };
     }),
 
-  updatePartner: protectedProcedure
+  updatePartner: adminProcedure
     .input(z.object({
       id: z.number().int().positive(),
       data: z.object({
         companyName: z.string().optional(),
-        businessNumber: z.string().optional(),
+        businessNumber: z.string().optional(), // 사업자번호는 마스터만 수정 가능
         tourismLicenseNo: z.string().optional(),
         onlineSalesNo: z.string().optional(),
         bankName: z.string().optional(),
@@ -1507,6 +1519,27 @@ const crmRouter = router({
       if (loginPw) {
         // bcrypt 해시 (로그인 검증과 동일한 방식)
         updateData.loginPwHash = await bcrypt.hash(loginPw, 12);
+      }
+      // ⚠️ 사업자번호는 마스터만 수정 가능(이 프로시저는 adminProcedure). 수정 시 정규화값도 함께 갱신하고,
+      // 연결된 테넌트가 있으면 테넌트의 식별 기준도 함께 갱신한다. (개인→법인, 합병, 오기재 등 예외 처리)
+      if (input.data.businessNumber !== undefined) {
+        const normalized = normalizeBizNumber(input.data.businessNumber);
+        updateData.businessNumberNormalized = normalized || null;
+        if (normalized) {
+          const db = await getDb();
+          if (db) {
+            // 다른 테넌트가 이미 이 사업자번호를 쓰고 있으면 충돌 방지
+            const [partnerRow] = await db.select({ tenantId: partners.tenantId }).from(partners).where(eq(partners.id, input.id)).limit(1);
+            const [conflict] = await db.select({ id: tenants.id }).from(tenants)
+              .where(eq(tenants.businessNumberNormalized, normalized)).limit(1);
+            if (conflict && conflict.id !== partnerRow?.tenantId) {
+              throw new TRPCError({ code: 'CONFLICT', message: `해당 사업자등록번호는 이미 다른 테넌트(#${conflict.id})에 사용 중입니다.` });
+            }
+            if (partnerRow?.tenantId) {
+              await db.update(tenants).set({ businessNumberNormalized: normalized }).where(eq(tenants.id, partnerRow.tenantId));
+            }
+          }
+        }
       }
       await updatePartner(input.id, updateData as any);
       return { success: true };

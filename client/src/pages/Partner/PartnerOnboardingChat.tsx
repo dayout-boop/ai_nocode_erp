@@ -931,13 +931,16 @@ export default function PartnerOnboardingChat() {
       ]);
       return;
     }
-    if (hasBiz && hasTour) {
+    // ✅ 사업자등록증만 확인되면 즉시 자동승인(관광사업자등록증은 선택). 사업자등록번호=테넌트 기준.
+    if (hasBiz) {
       setChatMessages((prev) => [
         ...prev,
         {
           id: `step2-auto-${Date.now()}`,
           role: "assistant" as const,
-          content: "두 등록증이 모두 업로드되었습니다! 🎉 자동 승인을 진행하겠습니다...",
+          content: hasTour
+            ? "두 등록증이 모두 업로드되었습니다! 🎉 자동 승인을 진행하겠습니다..."
+            : "사업자등록증이 확인되었습니다! 🎉 자동 승인을 진행하겠습니다... (관광사업자등록증은 추후 등록 가능)",
           timestamp: new Date(),
         },
       ]);

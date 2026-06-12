@@ -511,7 +511,8 @@ export default function CompanyManagePage() {
   };
 
   const saveCompany = () => {
-    updateCompanyMut.mutate({ companyName, contactName, contactPhone, businessNumber });
+    // ⚠️ 사업자등록번호는 테넌트 식별 기준이므로 파트너가 수정할 수 없다(마스터만 가능). 전송에서 제외.
+    updateCompanyMut.mutate({ companyName, contactName, contactPhone });
   };
 
   const staffList: StaffItem[] = (staffQuery.data ?? []) as StaffItem[];
@@ -623,7 +624,8 @@ export default function CompanyManagePage() {
                     </div>
                     <div>
                       <Label className="text-xs">사업자번호</Label>
-                      <Input value={businessNumber} onChange={e => setBusinessNumber(e.target.value)} className="mt-1" />
+                      <Input value={businessNumber} readOnly disabled className="mt-1 bg-gray-100 text-gray-500 cursor-not-allowed" />
+                      <p className="text-[11px] text-gray-400 mt-1">사업자등록번호는 업체 식별 기준으로, 변경이 필요하면 본사(마스터)에 문의하세요.</p>
                     </div>
                   </div>
                   <div className="flex gap-2 pt-1">

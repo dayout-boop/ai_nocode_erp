@@ -826,8 +826,10 @@ export const partners = mysqlTable("partners", {
   id: int("id").autoincrement().primaryKey(),
   /** 업체명 */
   companyName: varchar("companyName", { length: 200 }).notNull(),
-  /** 사업자등록번호 */
+  /** 사업자등록번호 (표시용 원본, 하이픈 포함 가능) */
   businessNumber: varchar("businessNumber", { length: 20 }),
+  /** 사업자등록번호 정규화 (숫자 10자리, 테넌트 식별 기준) */
+  businessNumberNormalized: varchar("businessNumberNormalized", { length: 10 }),
   /** 관광사업자 등록번호 */
   tourismLicenseNo: varchar("tourismLicenseNo", { length: 50 }),
   /** 통신판매업 신고번호 */
@@ -1717,8 +1719,10 @@ export const partnerOnboarding = mysqlTable("partner_onboarding", {
   status: mysqlEnum("status", ["pending", "reviewing", "approved", "rejected", "active"]).default("pending").notNull(),
   /** 업체명 */
   companyName: varchar("companyName", { length: 200 }).notNull(),
-  /** 사업자등록번호 */
+  /** 사업자등록번호 (표시용 원본) */
   businessNumber: varchar("businessNumber", { length: 20 }),
+  /** 사업자등록번호 정규화 (숫자 10자리, 테넌트 식별 기준) */
+  businessNumberNormalized: varchar("businessNumberNormalized", { length: 10 }),
   /** 대표자명 */
   ceoName: varchar("ceoName", { length: 100 }),
   /** 업태 */
@@ -1807,6 +1811,8 @@ export const tenants = mysqlTable("tenants", {
   slug: varchar("slug", { length: 100 }).notNull().unique(),
   /** 업체명 */
   companyName: varchar("companyName", { length: 200 }).notNull(),
+  /** 사업자등록번호 정규화 (숫자 10자리) — 테넌트 식별 유일 기준. 사업자번호 1개 = 테넌트 1개 */
+  businessNumberNormalized: varchar("businessNumberNormalized", { length: 10 }).unique(),
   /** 구독 플랜 */
   subscriptionPlan: mysqlEnum("subscriptionPlan", ["starter", "standard", "premium"]).default("starter").notNull(),
   /** 구독 결제 주기 */

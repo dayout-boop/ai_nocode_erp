@@ -19,6 +19,7 @@ import { storagePut } from "../storage";
 import { onPartnerApproved } from "../services/sampleDataSeeder";
 import { SUBSCRIPTION_PLANS } from "../products";
 import { buildApprovedEmail, buildRejectedEmail, buildWelcomeEmail, sendPartnerEmail } from "../partnerMail";
+import { normalizeBizNumber } from "../../shared/businessNumber";
 // 관리자 전용 프로시저
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "admin") {
@@ -222,9 +223,23 @@ export const partnerOnboardingRouter = router({
       if (input.status === "approved" || input.status === "active") {
         const wasNotApproved = current?.status !== "approved" && current?.status !== "active";
         if (wasNotApproved && current) {
-          // 1) tenants 테이블에 자동 생성 (없는 경우만)
+          // 1) tenants 테이블에 자동 생성 — 사업자번호 기준 1:1 (동일 사업자번호면 기존 테넌트 재사용)
           let tenantId: number | undefined;
-          try {
+          const normalizedBizNumber = normalizeBizNumber(current.businessNumberNormalized ?? current.businessNumber);
+          // 1-0) 사업자번호 기준 기존 테넌트 재사용
+          if (normalizedBizNumber) {
+            const [bizTenant] = await db
+              .select({ id: tenants.id })
+              .from(tenants)
+              .where(eq(tenants.businessNumberNormalized, normalizedBizNumber))
+              .limit(1);
+            if (bizTenant) {
+              tenantId = bizTenant.id;
+              console.log(`[Onboarding] 사업자번호 기준 기존 테넌트 재사용: tenant_id=${tenantId}`);
+            }
+          }
+          // 1-1) 기존 테넌트가 없으면 신규 생성
+          if (!tenantId) try {
             const plan = SUBSCRIPTION_PLANS.find(p => p.id === (current.subscriptionPlan ?? "starter"));
             const aiCreditsDefault = plan?.aiCreditsPerMonth ?? 100;
             // slug: 업체명 영문 변환 + onboardingId 조합
@@ -240,6 +255,7 @@ export const partnerOnboardingRouter = router({
               onboardingId: input.id,
               slug,
               companyName: current.companyName,
+              businessNumberNormalized: normalizedBizNumber || undefined,
               subscriptionPlan: (current.subscriptionPlan ?? "starter") as "starter" | "standard" | "premium",
               billingCycle: (current.billingCycle ?? "monthly") as "monthly" | "yearly",
               subscriptionStatus: "trial",
@@ -253,8 +269,24 @@ export const partnerOnboardingRouter = router({
             tenantId = Number((insertResult as any).insertId);
             console.log(`[Onboarding] 테넌트 자동 생성 완료: tenant_id=${tenantId}, slug=${slug}`);
           } catch (tenantErr: any) {
-            // slug 중복 등으로 이미 생성된 경우 무시
+            // slug 또는 사업자번호 unique 충돌 등으로 이미 생성된 경우 기존 테넌트 조회
             console.warn(`[Onboarding] 테넌트 생성 스킵 (이미 존재할 수 있음):`, tenantErr?.message);
+            if (normalizedBizNumber) {
+              const [bizTenant] = await db
+                .select({ id: tenants.id })
+                .from(tenants)
+                .where(eq(tenants.businessNumberNormalized, normalizedBizNumber))
+                .limit(1);
+              if (bizTenant) tenantId = bizTenant.id;
+            }
+            if (!tenantId) {
+              const [existingTenant] = await db
+                .select({ id: tenants.id })
+                .from(tenants)
+                .where(eq(tenants.onboardingId, input.id))
+                .limit(1);
+              if (existingTenant) tenantId = existingTenant.id;
+            }
           }
 
           const category = (current.sampleCategory ?? "golf_tour_mixed") as
@@ -547,15 +579,19 @@ export const partnerOnboardingRouter = router({
       try { if (input.ocrResult) bizOcr = JSON.parse(input.ocrResult); } catch {}
       try { if (input.tourismOcrResult) tourOcr = JSON.parse(input.tourismOcrResult); } catch {}
 
-      // ─── 사업자번호 중복 차단 ───
+      // ─── 사업자번호 정규화 (테넌트 식별 기준) ───
       const extractedBizNumber = bizOcr.businessNumber as string | undefined;
-      if (extractedBizNumber) {
+      const normalizedBizNumber = normalizeBizNumber(extractedBizNumber);
+      // 사업자번호 정규화값으로 기존에 이미 가입(approved/active)된 동일 사업자가 있는지 조회.
+      // 동일 사업자번호 = 동일 회사(테넌트)이므로, 다른 사람이 같은 회사로 다시 신청하면
+      // "이미 등록된 회사"임을 알려 중복 테넌트 생성을 막는다. (합류 절차는 별도)
+      if (normalizedBizNumber) {
         const [dupCheck] = await db
           .select({ id: partnerOnboarding.id, contactEmail: partnerOnboarding.contactEmail, status: partnerOnboarding.status })
           .from(partnerOnboarding)
           .where(
             and(
-              eq(partnerOnboarding.businessNumber, extractedBizNumber),
+              eq(partnerOnboarding.businessNumberNormalized, normalizedBizNumber),
               ne(partnerOnboarding.contactEmail, input.contactEmail)
             )
           )
@@ -563,7 +599,7 @@ export const partnerOnboardingRouter = router({
         if (dupCheck && (dupCheck.status === 'approved' || dupCheck.status === 'active')) {
           throw new TRPCError({
             code: "CONFLICT",
-            message: `이미 등록된 사업자등록번호입니다. (${extractedBizNumber}) 동일 사업자번호로 중복 가입은 불가합니다.`,
+            message: `이미 등록된 사업자등록번호입니다. (${extractedBizNumber}) 동일 회사는 이미 가입되어 있으며, 해당 회사 담당자에게 직원 계정 생성을 요청하세요.`,
           });
         }
       }
@@ -583,23 +619,27 @@ export const partnerOnboardingRouter = router({
         ? '⚠️ 업종 불일치 자동 플래그: 여행/관광 관련 키워드 미확인 - 관리자 검토 필요'
         : null;
 
-      // 두 등록증이 모두 업로드된 경우 자동 승인 처리
-      // 단, 업종 불일치 플래그가 있으면 reviewing 상태로 전환
-      const hasBothLicenses = !!(input.businessLicenseUrl && input.tourismLicenseUrl);
-      const hasAnyLicense = !!(input.businessLicenseUrl || input.tourismLicenseUrl);
+      // ─── 자동승인 정책 ───
+      // 원칙: 사업자등록증만 확인되면 자동가입. 관광사업자등록증은 선택(필수 아님).
+      // - 사업자등록증 + 사업자번호 정규화 성공 + 업종 정상 → 자동 승인
+      // - 사업자등록증은 있지만 업종 불일치/번호 미인식 → 관리자 검토(reviewing)
+      // - 사업자등록증 없음 → 대기(pending)
+      const hasBusinessLicense = !!input.businessLicenseUrl;
+      const hasValidBizNumber = normalizedBizNumber.length === 10;
       let finalStatus: 'approved' | 'pending' | 'reviewing';
-      if (hasBothLicenses && !industryFlagNote) {
-        finalStatus = 'approved'; // 두 등록증 + 업종 정상 → 자동 승인
-      } else if (hasAnyLicense && industryFlagNote) {
-        finalStatus = 'reviewing'; // 등록증 있지만 업종 불일치 → 관리자 검토
+      if (hasBusinessLicense && hasValidBizNumber && !industryFlagNote) {
+        finalStatus = 'approved'; // 사업자등록증 확인 → 자동 승인 (관광증 불필요)
+      } else if (hasBusinessLicense) {
+        finalStatus = 'reviewing'; // 사업자등록증은 있으나 업종 불일치/번호 미인식 → 관리자 검토
       } else {
-        finalStatus = 'pending'; // 등록증 없음 → 대기
+        finalStatus = 'pending'; // 사업자등록증 없음 → 대기
       }
       const autoApproved = finalStatus === 'approved';
 
       const upsertValues = {
         companyName: (bizOcr.companyName ?? tourOcr.companyName ?? input.contactName) as string,
         businessNumber: bizOcr.businessNumber as string | undefined,
+        businessNumberNormalized: normalizedBizNumber || undefined,
         ceoName: bizOcr.ceoName as string | undefined,
         businessType: bizOcr.businessType as string | undefined,
         businessItem: bizOcr.businessItem as string | undefined,
@@ -629,7 +669,7 @@ export const partnerOnboardingRouter = router({
         reviewedBy: autoApproved ? "OCR_AUTO_APPROVE" : undefined,
         reviewedAt: autoApproved ? new Date() : undefined,
         adminNote: autoApproved
-          ? '사업자등록증 + 관광사업자등록증 OCR 인식 완료 - 자동 승인'
+          ? '사업자등록증 OCR 인식 완료 - 자동 승인 (관광증 선택)'
           : industryFlagNote
             ? industryFlagNote
             : undefined,
@@ -674,9 +714,22 @@ export const partnerOnboardingRouter = router({
           | "golf_tour_overseas"
           | "golf_tour_mixed";
 
-        // 1) tenants 테이블에 자동 생성 (없는 경우만)
+        // 1) tenants 테이블에 자동 생성 — 사업자번호 기준 1:1 (동일 사업자번호면 기존 테넌트 재사용)
         let tenantId: number | undefined;
-        try {
+        // 1-0) 사업자번호(정규화) 기준 기존 테넌트가 있으면 재사용
+        if (normalizedBizNumber) {
+          const [bizTenant] = await db
+            .select({ id: tenants.id })
+            .from(tenants)
+            .where(eq(tenants.businessNumberNormalized, normalizedBizNumber))
+            .limit(1);
+          if (bizTenant) {
+            tenantId = bizTenant.id;
+            console.log(`[AutoApprove] 사업자번호 기준 기존 테넌트 재사용: tenant_id=${tenantId}, biz=${normalizedBizNumber}`);
+          }
+        }
+        // 1-1) 기존 테넌트가 없으면 신규 생성
+        if (!tenantId) try {
           const plan = SUBSCRIPTION_PLANS.find(p => p.id === (input.subscriptionPlan ?? "starter"));
           const aiCreditsDefault = plan?.aiCreditsPerMonth ?? 100;
           const companyName = (upsertValues.companyName ?? input.contactName) as string;
@@ -692,6 +745,7 @@ export const partnerOnboardingRouter = router({
             onboardingId: newId,
             slug,
             companyName,
+            businessNumberNormalized: normalizedBizNumber || undefined,
             subscriptionPlan: (input.subscriptionPlan ?? "starter") as "starter" | "standard" | "premium",
             billingCycle: (input.billingCycle ?? "monthly") as "monthly" | "yearly",
             subscriptionStatus: "trial",
@@ -705,14 +759,24 @@ export const partnerOnboardingRouter = router({
           tenantId = Number((insertResult as any).insertId);
           console.log(`[AutoApprove] 테넌트 자동 생성 완료: tenant_id=${tenantId}, slug=${slug}`);
         } catch (tenantErr: any) {
-          // slug 중복 등으로 이미 생성된 경우 기존 테넌트 조회
+          // slug 또는 사업자번호 unique 충돌 등으로 이미 생성된 경우 기존 테넌트 조회
           console.warn(`[AutoApprove] 테넌트 생성 스킵 (이미 존재할 수 있음):`, tenantErr?.message);
-          const [existingTenant] = await db
-            .select({ id: tenants.id })
-            .from(tenants)
-            .where(eq(tenants.onboardingId, newId))
-            .limit(1);
-          if (existingTenant) tenantId = existingTenant.id;
+          if (normalizedBizNumber) {
+            const [bizTenant] = await db
+              .select({ id: tenants.id })
+              .from(tenants)
+              .where(eq(tenants.businessNumberNormalized, normalizedBizNumber))
+              .limit(1);
+            if (bizTenant) tenantId = bizTenant.id;
+          }
+          if (!tenantId) {
+            const [existingTenant] = await db
+              .select({ id: tenants.id })
+              .from(tenants)
+              .where(eq(tenants.onboardingId, newId))
+              .limit(1);
+            if (existingTenant) tenantId = existingTenant.id;
+          }
         }
 
         // 2) partners 테이블에서 이메일로 파트너 조회 후 isActive=true + tenantId 업데이트

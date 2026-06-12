@@ -87,7 +87,8 @@ export const companyManageRouter = router({
   updateCompanyInfo: partnerProcedure
     .input(z.object({
       companyName: z.string().min(1).optional(),
-      businessNumber: z.string().optional(),
+      // ⚠️ 사업자등록번호(businessNumber)는 테넌트 식별 기준이므로 파트너가 직접 수정할 수 없다.
+      // 개인→법인 전환, 합병, 오기재 등 예외는 마스터(adminProcedure)만 수정 가능. (crm.updatePartnerBizNumber)
       tourismLicenseNo: z.string().optional(),
       onlineSalesNo: z.string().optional(),
       bankName: z.string().optional(),
@@ -108,6 +109,7 @@ export const companyManageRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
 
+      // businessNumber는 input 스키마에서 제외되어 있으므로 여기서는 결코 변경되지 않는다.
       await db.update(partners).set(input).where(eq(partners.id, partnerId));
       return { success: true };
     }),
