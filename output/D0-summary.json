@@ -1,33 +1,26 @@
 {
   "docId": "D0",
-  "committedAt": "2026-06-23T12:17:03.113Z",
+  "committedAt": "2026-06-23T12:22:15.334Z",
   "summary": {
-    "totalUnits": 3,
-    "successUnits": 3,
+    "totalUnits": 2,
+    "successUnits": 2,
     "failedUnits": 0,
-    "totalTokensUsed": 8191,
-    "executionLevels": 3
+    "totalTokensUsed": 7824,
+    "executionLevels": 2
   },
   "unitResults": [
     {
       "id": "D0-UNIT1",
       "success": true,
       "modelUsed": "deepseek-v4-flash",
-      "tokensUsed": 2947,
+      "tokensUsed": 2835,
       "validationPassed": true
     },
     {
       "id": "D0-UNIT2",
       "success": true,
       "modelUsed": "deepseek-v4-flash",
-      "tokensUsed": 2835,
-      "validationPassed": true
-    },
-    {
-      "id": "D0-UNIT3",
-      "success": true,
-      "modelUsed": "deepseek-v4-flash",
-      "tokensUsed": 2409,
+      "tokensUsed": 4989,
       "validationPassed": true
     }
   ]
