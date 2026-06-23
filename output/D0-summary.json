@@ -1,0 +1,48 @@
+{
+  "docId": "D0",
+  "committedAt": "2026-06-23T11:59:12.220Z",
+  "summary": {
+    "totalUnits": 5,
+    "successUnits": 5,
+    "failedUnits": 0,
+    "totalTokensUsed": 11780,
+    "executionLevels": 5
+  },
+  "unitResults": [
+    {
+      "id": "D0-UNIT1",
+      "success": true,
+      "modelUsed": "deepseek-v4-flash",
+      "tokensUsed": 2481,
+      "validationPassed": true
+    },
+    {
+      "id": "D0-UNIT2",
+      "success": true,
+      "modelUsed": "deepseek-v4-flash",
+      "tokensUsed": 2182,
+      "validationPassed": true
+    },
+    {
+      "id": "D0-UNIT3",
+      "success": true,
+      "modelUsed": "deepseek-v4-flash",
+      "tokensUsed": 2109,
+      "validationPassed": true
+    },
+    {
+      "id": "D0-UNIT4",
+      "success": true,
+      "modelUsed": "deepseek-v4-flash",
+      "tokensUsed": 2536,
+      "validationPassed": true
+    },
+    {
+      "id": "D0-UNIT5",
+      "success": true,
+      "modelUsed": "deepseek-v4-flash",
+      "tokensUsed": 2472,
+      "validationPassed": true
+    }
+  ]
+}
