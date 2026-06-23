@@ -1,0 +1,12 @@
+{
+  "docId": "test-provenance-1782213140324",
+  "committedAt": "2026-06-23T11:12:25.187Z",
+  "summary": {
+    "totalUnits": 0,
+    "successUnits": 0,
+    "failedUnits": 0,
+    "totalTokensUsed": 0,
+    "executionLevels": 0
+  },
+  "unitResults": []
+}
