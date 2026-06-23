@@ -1,6 +1,3 @@
-// [DRY RUN] bulk_codegen — ## 작업 단위: D1-SESSION — 세션·봇 인증 관리
+// [DRY RUN] core_qa — ## 작업 단위: D1-DAL — DAL (Data Access Layer)
 
-세션·봇 인증 관리 구현 — sessions, 봇 인증, call_count 포함
-
-## 설계서 내용 (관련 절)
-#
+DAL (Data Access Layer) 구현 — DAL, tenantScoped, 단일 출입구 포
