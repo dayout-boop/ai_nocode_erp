@@ -1,5 +1,3 @@
-// [DRY RUN] bulk_codegen — ## 작업 단위: D0-UNIT-B — PatternL2OracleProvider 검증
+// [DRY RUN] core_qa — ## 작업 단위: D1-DAL — DAL (Data Access Layer)
 
-단위 B: PatternL2OracleProvider 검증
-
-## 설계서 내용 (관련 절)
+DAL (Data Access Layer) 구현 — DAL, tenantScoped, 단일 출입구 포
