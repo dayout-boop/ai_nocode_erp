@@ -1,3 +1,10 @@
-// [DRY RUN] core_qa — ## 작업 단위: D1-DAL — DAL (Data Access Layer)
+// [DRY RUN] bulk_codegen — ## 작업 단위: D0-UNIT1 — 전체 내용
 
-DAL (Data Access Layer) 구현 — DAL, tenantScoped, 단일 출입구 포
+# D-EMPTY-001 빈 설계서
+
+내용 없음.
+
+## 설계서 내용 (관련 절)
+# D-EMPTY-001 빈 설계서
+
+내용 없음
