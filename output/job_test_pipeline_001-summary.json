@@ -1,0 +1,12 @@
+{
+  "docId": "job_test_pipeline_001",
+  "committedAt": "2026-06-27T09:42:28.540Z",
+  "summary": {
+    "totalUnits": 0,
+    "successUnits": 0,
+    "failedUnits": 0,
+    "totalTokensUsed": 0,
+    "executionLevels": 0
+  },
+  "unitResults": []
+}
