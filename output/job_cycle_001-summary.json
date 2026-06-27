@@ -1,0 +1,12 @@
+{
+  "docId": "job_cycle_001",
+  "committedAt": "2026-06-27T09:43:29.817Z",
+  "summary": {
+    "totalUnits": 0,
+    "successUnits": 0,
+    "failedUnits": 0,
+    "totalTokensUsed": 0,
+    "executionLevels": 0
+  },
+  "unitResults": []
+}
